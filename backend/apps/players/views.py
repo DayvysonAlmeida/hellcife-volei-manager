@@ -3,11 +3,14 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Count
 
 from .models import Player
 from .serializers import PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer
 from .filters import PlayerFilter
 from apps.core.permissions import IsAdminOrModerator
+from apps.matches.models import MatchPlayer
+from apps.attendance.models import Attendance, GameDay
 
 
 class PlayerViewSet(viewsets.ModelViewSet):
@@ -59,8 +62,6 @@ class PlayerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='stats')
     def stats(self, request, pk=None):
         player = self.get_object()
-        from apps.matches.models import MatchPlayer
-        from django.db.models import Count
 
         match_players = MatchPlayer.objects.filter(player=player)
         total_matches = match_players.count()
@@ -69,23 +70,19 @@ class PlayerViewSet(viewsets.ModelViewSet):
         # Vitórias e derrotas calculadas via resultados de partidas
         wins = 0
         losses = 0
-        for mp in match_players.select_related('team', 'match'):
+        for mp in match_players.select_related('match_team', 'match'):
             match = mp.match
-            team_score = match.match_teams.filter(team=mp.team).first()
-            if team_score:
-                opponent_scores = match.match_teams.exclude(team=mp.team)
+            if mp.match_team:
+                opponent_scores = match.match_teams.exclude(id=mp.match_team.id)
                 max_opponent = max((t.score for t in opponent_scores), default=0)
-                if team_score.score > max_opponent:
+                if mp.match_team.score > max_opponent:
                     wins += 1
-                elif team_score.score < max_opponent:
+                elif mp.match_team.score < max_opponent:
                     losses += 1
 
         win_rate = round(wins / total_matches * 100, 1) if total_matches > 0 else 0
 
         # Presença
-        from apps.attendance.models import Attendance
-        total_gamedays = 0
-        from apps.attendance.models import GameDay
         total_gamedays = GameDay.objects.count()
         attended = Attendance.objects.filter(player=player, present=True).count()
         attendance_rate = round(attended / total_gamedays * 100, 1) if total_gamedays > 0 else 0

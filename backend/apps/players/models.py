@@ -37,7 +37,7 @@ class Player(models.Model):
     dominant_hand = models.CharField(max_length=10, choices=HAND_CHOICES, default='right', verbose_name='Mão dominante')
     phone = models.CharField(max_length=20, blank=True, null=True, verbose_name='Telefone')
     instagram = models.CharField(max_length=100, blank=True, null=True, verbose_name='Instagram')
-    avatar_url = models.URLField(blank=True, null=True, verbose_name='URL da foto')
+    avatar = models.FileField(upload_to='avatars/', blank=True, null=True, verbose_name='Foto do Jogador')
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Status')
     user = models.OneToOneField(
@@ -62,6 +62,12 @@ class Player(models.Model):
     def latest_overall(self):
         eval_ = self.evaluations.order_by('-date').first()
         return eval_.overall if eval_ else None
+
+    @property
+    def avatar_url(self):
+        if self.avatar:
+            return self.avatar.url
+        return None
 
     @property
     def display_name(self):

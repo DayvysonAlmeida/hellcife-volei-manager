@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Star, Search, Edit, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge, SkillBar } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -207,7 +208,13 @@ function EvaluationForm({ playerId, onSuccess, onCancel }: {
       notes,
       ...values,
     } as unknown as Partial<Evaluation>),
-    onSuccess,
+    onSuccess: () => {
+      toast.success('Avaliação salva com sucesso!');
+      onSuccess();
+    },
+    onError: () => {
+      toast.error('Erro ao salvar a avaliação.');
+    }
   });
 
   return (

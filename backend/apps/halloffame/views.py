@@ -11,6 +11,7 @@ class HallOfFameViewSet(viewsets.ModelViewSet):
     queryset = HallOfFameEntry.objects.all().select_related('player', 'awarded_by')
     serializer_class = HallOfFameSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['category', 'year']
     ordering_fields = ['year', 'category']

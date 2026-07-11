@@ -49,7 +49,7 @@ class EvaluationViewSet(viewsets.ModelViewSet):
         """Retorna dados para gráfico radar do último overall de um jogador."""
         eval_ = Evaluation.objects.filter(player_id=player_id).order_by('-date').first()
         if not eval_:
-            return Response({'detail': 'Nenhuma avaliação encontrada.'}, status=404)
+            return Response({'detail': 'Nenhuma avaliação encontrada.', 'skills': {}}, status=200)
         return Response({
             'player_id': player_id,
             'date': eval_.date,
@@ -76,6 +76,7 @@ class EvaluationConfigViewSet(viewsets.ModelViewSet):
     queryset = EvaluationConfig.objects.all()
     serializer_class = EvaluationConfigSerializer
     permission_classes = [IsAdminOrModerator]
+    pagination_class = None
 
     @action(detail=True, methods=['post'], url_path='set-active')
     def set_active(self, request, pk=None):

@@ -14,6 +14,13 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
     serializer_class = TeamGenerationSerializer
     permission_classes = [IsAdminOrModerator]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        gameday_id = self.request.query_params.get('gameday_id')
+        if gameday_id:
+            qs = qs.filter(gameday_id=gameday_id)
+        return qs
+
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]

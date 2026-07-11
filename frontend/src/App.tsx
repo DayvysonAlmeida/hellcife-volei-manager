@@ -4,6 +4,7 @@ import { AuthProvider } from '@/store/AuthContext';
 import { queryClient } from '@/lib/queryClient';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute, PublicRoute } from '@/routes/guards';
+import { Toaster } from 'react-hot-toast';
 
 // Pages
 import { LoginPage } from '@/pages/LoginPage';
@@ -61,6 +62,23 @@ function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
+        <Toaster
+          position="bottom-center"
+          toastOptions={{
+            style: {
+              background: '#18181B',
+              color: '#F4F4F5',
+              border: '1px solid #27272A',
+              fontSize: '14px',
+            },
+            success: {
+              iconTheme: { primary: '#16A34A', secondary: '#F4F4F5' },
+            },
+            error: {
+              iconTheme: { primary: '#D90429', secondary: '#F4F4F5' },
+            },
+          }}
+        />
       </AuthProvider>
     </QueryClientProvider>
   );

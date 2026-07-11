@@ -1,5 +1,8 @@
 from django.utils import timezone
 from datetime import date
+from django.db.models import Avg, Count
+from django.db.models.functions import TruncMonth
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -7,7 +10,6 @@ from rest_framework.permissions import IsAuthenticated
 from apps.players.models import Player
 from apps.evaluations.models import Evaluation
 from apps.attendance.models import GameDay, Attendance
-
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -26,7 +28,6 @@ class DashboardView(APIView):
             ).count()
 
         # Overall médio
-        from django.db.models import Avg
         avg_overall = Evaluation.objects.filter(
             player__status='active'
         ).values('player').annotate(
@@ -34,10 +35,7 @@ class DashboardView(APIView):
         ).aggregate(avg=Avg('last_overall'))['avg'] or 0
 
         # Top jogadores
-        top_players = []
-        from apps.evaluations.models import Evaluation
-        from apps.players.models import Player as PlayerModel
-        players_with_eval = PlayerModel.objects.filter(status='active').prefetch_related('evaluations')
+        players_with_eval = Player.objects.filter(status='active').prefetch_related('evaluations')
         player_overalls = []
         for p in players_with_eval:
             last_eval = p.evaluations.order_by('-date').first()
@@ -54,8 +52,6 @@ class DashboardView(APIView):
         top_players = sorted(player_overalls, key=lambda x: x['overall'], reverse=True)[:10]
 
         # Evolução mensal (últimos 6 meses)
-        from django.db.models.functions import TruncMonth
-        from django.db.models import Count
         monthly = (
             Evaluation.objects
             .filter(date__gte=timezone.now().date().replace(day=1))

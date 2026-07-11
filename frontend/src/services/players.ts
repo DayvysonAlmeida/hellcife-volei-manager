@@ -8,10 +8,10 @@ export const playersService = {
   get: (id: number) =>
     api.get<Player>(`/players/${id}/`).then(r => r.data),
 
-  create: (data: Partial<Player>) =>
+  create: (data: Partial<Player> | FormData) =>
     api.post<Player>('/players/', data).then(r => r.data),
 
-  update: (id: number, data: Partial<Player>) =>
+  update: (id: number, data: Partial<Player> | FormData) =>
     api.patch<Player>(`/players/${id}/`, data).then(r => r.data),
 
   delete: (id: number) =>

@@ -7,6 +7,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
     display_name = serializers.ReadOnlyField()
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    avatar_url = serializers.ReadOnlyField()
 
     class Meta:
         model = Player
@@ -25,6 +26,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
     secondary_position_display = serializers.CharField(source='get_secondary_position_display', read_only=True)
     dominant_hand_display = serializers.CharField(source='get_dominant_hand_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    avatar_url = serializers.ReadOnlyField()
 
     class Meta:
         model = Player
@@ -45,7 +47,8 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Player
         fields = [
-            'name', 'nickname', 'shirt_number', 'age', 'height', 'weight',
+            'id', 'name', 'nickname', 'shirt_number', 'age', 'height', 'weight',
             'main_position', 'secondary_position', 'dominant_hand',
-            'phone', 'instagram', 'avatar_url', 'notes', 'status', 'user',
+            'phone', 'instagram', 'avatar', 'notes', 'status', 'user',
         ]
+        read_only_fields = ['id']

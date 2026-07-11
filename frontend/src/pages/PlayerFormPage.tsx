@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { playersService } from '@/services/players';
 import { PageLoading } from '@/components/ui/Loading';
 import { cn } from '@/lib/utils';
@@ -24,7 +25,7 @@ const schema = z.object({
   dominant_hand: z.enum(['right', 'left', 'both']),
   phone: z.string().optional(),
   instagram: z.string().optional(),
-  avatar_url: z.string().url('URL inválida').optional().or(z.literal('')),
+  avatar: z.any().optional(),
   notes: z.string().optional(),
   status: z.enum(['active', 'inactive', 'injured', 'suspended']),
 });
@@ -58,7 +59,7 @@ export function PlayerFormPage() {
   const { data: player, isLoading } = useQuery({
     queryKey: ['player', Number(id)],
     queryFn: () => playersService.get(Number(id)),
-    enabled: isEdit,
+    enabled: isEdit && !isNaN(Number(id)),
   });
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
@@ -75,7 +76,6 @@ export function PlayerFormPage() {
       dominant_hand: player.dominant_hand || 'right',
       phone: player.phone || '',
       instagram: player.instagram || '',
-      avatar_url: player.avatar_url || '',
       notes: player.notes || '',
       status: player.status || 'active',
     } : {
@@ -87,13 +87,17 @@ export function PlayerFormPage() {
   });
 
   const mutation = useMutation({
-    mutationFn: (data: Partial<Player>) =>
+    mutationFn: (data: FormData) =>
       isEdit ? playersService.update(Number(id), data) : playersService.create(data),
     onSuccess: (savedPlayer) => {
       qc.invalidateQueries({ queryKey: ['players'] });
+      toast.success(isEdit ? 'Atleta atualizado com sucesso!' : 'Atleta cadastrado com sucesso!');
       navigate(`/players/${savedPlayer.id}`);
     },
-    onError: () => setServerError('Erro ao salvar jogador. Verifique os dados e tente novamente.'),
+    onError: () => {
+      setServerError('Erro ao salvar jogador. Verifique os dados e tente novamente.');
+      toast.error('Erro ao salvar atleta!');
+    },
   });
 
   if (isLoading) return <PageLoading />;
@@ -115,11 +119,19 @@ export function PlayerFormPage() {
       )}
 
       <form onSubmit={handleSubmit((d) => {
-        const payload: Partial<Player> = {
-          ...d,
-          secondary_position: d.secondary_position === '' ? undefined : (d.secondary_position as any),
-        };
-        mutation.mutate(payload);
+        const formData = new FormData();
+        Object.entries(d).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            if (key === 'avatar') {
+              if (value && value.length > 0) {
+                formData.append(key, value[0]);
+              }
+            } else {
+              formData.append(key, value as string);
+            }
+          }
+        });
+        mutation.mutate(formData);
       })} className="space-y-4">
         {/* Informações pessoais */}
         <FieldGroup title="Informações pessoais">
@@ -186,8 +198,8 @@ export function PlayerFormPage() {
             <input {...register('instagram')} className="input w-full" placeholder="@usuario" />
           </Field>
           <div className="sm:col-span-2">
-            <Field label="URL da foto">
-              <input {...register('avatar_url')} className="input w-full" placeholder="https://..." />
+            <Field label="Foto do Jogador (Avatar)" error={errors.avatar?.message as string}>
+              <input type="file" accept="image/*" {...register('avatar')} className="input w-full p-2" />
             </Field>
           </div>
           <div className="sm:col-span-2">

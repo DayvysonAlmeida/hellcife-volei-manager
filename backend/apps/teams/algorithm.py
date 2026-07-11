@@ -62,22 +62,16 @@ def snake_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
         n_teams = 2
 
     teams = [[] for _ in range(n_teams)]
-    going_right = True
-    team_idx = 0
-
-    for player in players:
-        teams[team_idx].append(player)
-        if going_right:
-            if team_idx == n_teams - 1:
-                going_right = False
-            else:
-                team_idx += 1
+    for i, player in enumerate(players):
+        round_idx = i // n_teams
+        pos_in_round = i % n_teams
+        
+        if round_idx % 2 == 0:
+            team_idx = pos_in_round
         else:
-            if team_idx == 0:
-                going_right = True
-                team_idx += 1
-            else:
-                team_idx -= 1
+            team_idx = (n_teams - 1) - pos_in_round
+            
+        teams[team_idx].append(player)
 
     return teams
 

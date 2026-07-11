@@ -21,24 +21,25 @@ export function PlayerDetailPage() {
   const { data: player, isLoading, error } = useQuery({
     queryKey: ['player', playerId],
     queryFn: () => playersService.get(playerId),
+    enabled: !isNaN(playerId),
   });
 
   const { data: radarData } = useQuery({
     queryKey: ['player-radar', playerId],
     queryFn: () => evaluationsService.radar(playerId),
-    enabled: !!playerId,
+    enabled: !isNaN(playerId),
   });
 
   const { data: stats } = useQuery({
     queryKey: ['player-stats', playerId],
     queryFn: () => playersService.stats(playerId),
-    enabled: !!playerId,
+    enabled: !isNaN(playerId),
   });
 
   const { data: evaluations } = useQuery({
     queryKey: ['player-evaluations', playerId],
     queryFn: () => evaluationsService.byPlayer(playerId),
-    enabled: !!playerId,
+    enabled: !isNaN(playerId),
   });
 
   if (isLoading) return <PageLoading />;

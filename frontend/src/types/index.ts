@@ -202,6 +202,41 @@ export interface GenerateTeamsResult {
   generation_id?: number;
 }
 
+export interface TeamGenerationData {
+  id: number;
+  gameday: number;
+  modality: number;
+  modality_display: string;
+  created_by?: number;
+  created_by_name?: string;
+  notes?: string;
+  balance_score: number;
+  teams: DBTeam[];
+  created_at: string;
+}
+
+export interface DBTeam {
+  id: number;
+  generation: number;
+  name: string;
+  color: string;
+  color_hex: string;
+  avg_overall: number;
+  order: number;
+  team_players: DBTeamPlayer[];
+}
+
+export interface DBTeamPlayer {
+  id: number;
+  player: number;
+  player_name: string;
+  player_position: Position;
+  player_overall: number;
+  player_avatar?: string;
+  player_shirt?: number;
+  order_in_team: number;
+}
+
 // ==================== Matches ====================
 export interface Match {
   id: number;

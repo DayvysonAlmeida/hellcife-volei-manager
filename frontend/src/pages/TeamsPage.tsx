@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shuffle, Zap, Save, RefreshCw, Users } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Shuffle, Zap, Save, RefreshCw, Users, Send } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -39,16 +40,41 @@ export function TeamsPage() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: () => teamsService.generate({
-      modality,
-      gameday_id: selectedGameDayId || undefined,
-      save: true,
-    }),
+    mutationFn: () => {
+      if (!selectedGameDayId) {
+        toast.error('Selecione um Dia de Jogo para poder salvar os times!');
+        return Promise.reject(new Error('No gameday selected'));
+      }
+      return teamsService.generate({
+        modality,
+        gameday_id: selectedGameDayId,
+        save: true,
+      });
+    },
     onSuccess: () => {
       setSaving(false);
-      alert('Times salvos com sucesso!');
+      toast.success('Times salvos com sucesso!');
     },
   });
+
+  const handleShareWhatsApp = () => {
+    if (!result) return;
+    
+    let text = `🏆 *TIMES GERADOS - HELLCIFE VÔLEI* 🏆\n\n`;
+    text += `Modalidade: ${modality}v${modality}\n`;
+    text += `Balanceamento: ${(10 - result.balance_score * 10).toFixed(1)}%\n\n`;
+
+    result.teams.forEach((team) => {
+      text += `*${team.name.toUpperCase()}* (Overall: ${team.avg_overall.toFixed(1)})\n`;
+      team.players.forEach((p, idx) => {
+        const posStr = p.main_position.charAt(0).toUpperCase() + p.main_position.slice(1);
+        text += `${idx + 1}. ${p.display_name} (${posStr})\n`;
+      });
+      text += '\n';
+    });
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
 
   if (!canEdit) {
     return (
@@ -106,7 +132,7 @@ export function TeamsPage() {
               <option value="">Todos os atletas ativos</option>
               {gameDays.map((gd) => (
                 <option key={gd.id} value={gd.id}>
-                  {gd.date} — {gd.total_present} presentes
+                  {gd.date} {gd.location ? `— ${gd.location}` : ''} — {gd.total_present} presentes
                 </option>
               ))}
             </select>
@@ -127,14 +153,23 @@ export function TeamsPage() {
             {result ? 'Regerar times' : 'Gerar times'}
           </button>
           {result && (
-            <button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="btn-secondary flex items-center gap-2"
-            >
-              <Save size={16} />
-              Salvar times
-            </button>
+            <>
+              <button
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <Save size={16} />
+                Salvar times
+              </button>
+              <button
+                onClick={handleShareWhatsApp}
+                className="btn-ghost flex items-center gap-2"
+              >
+                <Send size={16} className="text-green-500" />
+                Compartilhar no WhatsApp
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -142,7 +177,7 @@ export function TeamsPage() {
       {/* Error */}
       {generateMutation.isError && (
         <div className="card p-4 border-red/20 text-red text-sm">
-          Erro ao gerar times. Verifique se há atletas suficientes para a modalidade escolhida.
+          {(generateMutation.error as any)?.response?.data?.detail || 'Erro ao gerar times. Verifique se há atletas suficientes para a modalidade escolhida.'}
         </div>
       )}
 
