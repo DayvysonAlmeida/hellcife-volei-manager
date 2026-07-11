@@ -1,0 +1,51 @@
+from rest_framework import serializers
+from .models import Player
+
+
+class PlayerListSerializer(serializers.ModelSerializer):
+    latest_overall = serializers.ReadOnlyField()
+    display_name = serializers.ReadOnlyField()
+    main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = Player
+        fields = [
+            'id', 'name', 'nickname', 'display_name', 'shirt_number',
+            'main_position', 'main_position_display', 'secondary_position',
+            'avatar_url', 'status', 'status_display', 'latest_overall',
+            'created_at',
+        ]
+
+
+class PlayerDetailSerializer(serializers.ModelSerializer):
+    latest_overall = serializers.ReadOnlyField()
+    display_name = serializers.ReadOnlyField()
+    main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
+    secondary_position_display = serializers.CharField(source='get_secondary_position_display', read_only=True)
+    dominant_hand_display = serializers.CharField(source='get_dominant_hand_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = Player
+        fields = [
+            'id', 'name', 'nickname', 'display_name', 'shirt_number',
+            'age', 'height', 'weight',
+            'main_position', 'main_position_display',
+            'secondary_position', 'secondary_position_display',
+            'dominant_hand', 'dominant_hand_display',
+            'phone', 'instagram', 'avatar_url', 'notes',
+            'status', 'status_display',
+            'user', 'latest_overall',
+            'created_at', 'updated_at',
+        ]
+
+
+class PlayerWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Player
+        fields = [
+            'name', 'nickname', 'shirt_number', 'age', 'height', 'weight',
+            'main_position', 'secondary_position', 'dominant_hand',
+            'phone', 'instagram', 'avatar_url', 'notes', 'status', 'user',
+        ]

@@ -1,0 +1,271 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import { Plus, Star, Search, Edit, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Avatar } from '@/components/ui/Avatar';
+import { OverallBadge, SkillBar } from '@/components/ui/OverallBadge';
+import { PositionBadge } from '@/components/ui/Badges';
+import { PageLoading, EmptyState } from '@/components/ui/Loading';
+import { evaluationsService } from '@/services';
+import { playersService } from '@/services/players';
+import { SKILL_LABELS } from '@/types';
+import type { Evaluation, Player } from '@/types';
+import { formatDate } from '@/lib/utils';
+import { useAuth } from '@/store/AuthContext';
+
+export function EvaluationsPage() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [searchPlayer, setSearchPlayer] = useState('');
+
+  const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
+
+  const { data: playersData, isLoading: loadingPlayers } = useQuery({
+    queryKey: ['players', searchPlayer],
+    queryFn: () => playersService.list({ search: searchPlayer || undefined, status: 'active' }),
+  });
+
+  const { data: evaluations, isLoading: loadingEvals } = useQuery({
+    queryKey: ['player-evaluations', selectedPlayer?.id],
+    queryFn: () => evaluationsService.byPlayer(selectedPlayer!.id),
+    enabled: !!selectedPlayer,
+  });
+
+  const { data: radarData } = useQuery({
+    queryKey: ['player-radar', selectedPlayer?.id],
+    queryFn: () => evaluationsService.radar(selectedPlayer!.id),
+    enabled: !!selectedPlayer,
+  });
+
+  const players = playersData?.results || [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="page-title">Avaliações</h1>
+        <p className="page-subtitle">Avaliação técnica e acompanhamento de desempenho dos atletas.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Player list */}
+        <div className="lg:col-span-1 card p-4 space-y-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              placeholder="Buscar atleta..."
+              value={searchPlayer}
+              onChange={(e) => setSearchPlayer(e.target.value)}
+              className="input w-full pl-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1 max-h-[600px] overflow-y-auto">
+            {loadingPlayers ? (
+              <p className="text-text-muted text-sm text-center py-4">Carregando...</p>
+            ) : players.length === 0 ? (
+              <EmptyState message="Nenhum atleta ativo." icon="🏐" />
+            ) : (
+              players.map((player) => (
+                <button
+                  key={player.id}
+                  onClick={() => { setSelectedPlayer(player); setShowForm(false); }}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left
+                    ${selectedPlayer?.id === player.id
+                      ? 'bg-red/10 border border-red/30'
+                      : 'hover:bg-surface'
+                    }`}
+                >
+                  <Avatar name={player.display_name} src={player.avatar_url} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-text-primary text-sm font-medium truncate">{player.display_name}</p>
+                    <PositionBadge position={player.main_position} />
+                  </div>
+                  <OverallBadge overall={player.latest_overall} size="sm" />
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Evaluation detail / form */}
+        <div className="lg:col-span-2 space-y-4">
+          {!selectedPlayer ? (
+            <div className="card flex items-center justify-center py-24">
+              <div className="text-center">
+                <Star size={40} className="text-red mx-auto mb-4 opacity-50" />
+                <p className="text-text-muted">Selecione um atleta para ver ou adicionar avaliações</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Player header + new evaluation button */}
+              <div className="card p-5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Avatar name={selectedPlayer.display_name} src={selectedPlayer.avatar_url} size="md" />
+                  <div>
+                    <h2 className="font-display text-xl text-text-primary tracking-wider">
+                      {selectedPlayer.display_name.toUpperCase()}
+                    </h2>
+                    <PositionBadge position={selectedPlayer.main_position} />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <OverallBadge overall={selectedPlayer.latest_overall} size="md" showLabel />
+                  {canEdit && (
+                    <button
+                      onClick={() => setShowForm(!showForm)}
+                      className="btn-primary text-sm flex items-center gap-1"
+                    >
+                      <Plus size={14} />
+                      Nova avaliação
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Evaluation form */}
+              {showForm && canEdit && (
+                <EvaluationForm
+                  playerId={selectedPlayer.id}
+                  onSuccess={() => {
+                    setShowForm(false);
+                    qc.invalidateQueries({ queryKey: ['player-evaluations', selectedPlayer.id] });
+                    qc.invalidateQueries({ queryKey: ['player-radar', selectedPlayer.id] });
+                    qc.invalidateQueries({ queryKey: ['players'] });
+                  }}
+                  onCancel={() => setShowForm(false)}
+                />
+              )}
+
+              {/* Evaluation history */}
+              {loadingEvals ? (
+                <PageLoading />
+              ) : !evaluations || evaluations.length === 0 ? (
+                <EmptyState message="Nenhuma avaliação registrada para este atleta." icon="📊" />
+              ) : (
+                <div className="space-y-3">
+                  {evaluations.map((eval_: Evaluation, idx: number) => (
+                    <motion.div
+                      key={eval_.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="card p-5"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-text-primary font-medium text-sm">{formatDate(eval_.date)}</p>
+                          {eval_.evaluator_name && (
+                            <p className="text-text-muted text-xs">por {eval_.evaluator_name}</p>
+                          )}
+                        </div>
+                        <OverallBadge overall={eval_.overall} size="md" showLabel />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                        {(Object.keys(SKILL_LABELS) as (keyof typeof SKILL_LABELS)[]).map((skill) => (
+                          <div key={skill}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-text-muted">{SKILL_LABELS[skill]}</span>
+                              <span className="text-text-primary font-medium">{(eval_ as unknown as Record<string, number>)[skill]?.toFixed(1)}</span>
+                            </div>
+                            <SkillBar value={(eval_ as unknown as Record<string, number>)[skill] || 0} />
+                          </div>
+                        ))}
+                      </div>
+                      {eval_.notes && (
+                        <p className="text-text-muted text-xs mt-3 border-t border-border pt-3">{eval_.notes}</p>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EvaluationForm({ playerId, onSuccess, onCancel }: {
+  playerId: number;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const [values, setValues] = useState<Record<string, number>>(
+    Object.fromEntries(Object.keys(SKILL_LABELS).map(k => [k, 5]))
+  );
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [notes, setNotes] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: () => evaluationsService.create({
+      player: playerId as unknown as number,
+      date,
+      notes,
+      ...values,
+    } as unknown as Partial<Evaluation>),
+    onSuccess,
+  });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="card p-6 border-red/20"
+    >
+      <h3 className="font-display text-base tracking-wider text-text-primary mb-4 flex items-center gap-2">
+        <Star size={14} className="text-red" />
+        NOVA AVALIAÇÃO
+      </h3>
+      <div className="mb-4">
+        <label className="text-text-muted text-xs uppercase tracking-wider">Data</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="input w-full mt-1"
+        />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        {(Object.entries(SKILL_LABELS) as [string, string][]).map(([skill, label]) => (
+          <div key={skill}>
+            <div className="flex justify-between text-xs mb-1">
+              <label className="text-text-muted">{label}</label>
+              <span className="text-text-primary font-bold">{values[skill].toFixed(1)}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={10}
+              step={0.5}
+              value={values[skill]}
+              onChange={(e) => setValues(v => ({ ...v, [skill]: parseFloat(e.target.value) }))}
+              className="w-full accent-red h-1.5"
+            />
+          </div>
+        ))}
+      </div>
+      <textarea
+        placeholder="Observações (opcional)..."
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        rows={2}
+        className="input w-full resize-none mb-4 text-sm"
+      />
+      <div className="flex gap-2 justify-end">
+        <button onClick={onCancel} className="btn-secondary text-sm">Cancelar</button>
+        <button
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending}
+          className="btn-primary text-sm flex items-center gap-1"
+        >
+          {mutation.isPending && <Star size={12} className="animate-spin" />}
+          Salvar avaliação
+        </button>
+      </div>
+    </motion.div>
+  );
+}

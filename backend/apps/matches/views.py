@@ -1,0 +1,63 @@
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+
+from .models import Match, MatchTeam, MatchPlayer
+from .serializers import MatchSerializer, MatchListSerializer, MatchWriteSerializer, MatchTeamSerializer
+from apps.core.permissions import IsAdminOrModerator
+
+
+class MatchViewSet(viewsets.ModelViewSet):
+    queryset = Match.objects.all().prefetch_related('match_teams__match_players__player')
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['modality', 'gameday']
+    search_fields = ['location', 'notes']
+    ordering_fields = ['date', 'created_at']
+    ordering = ['-date']
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return MatchListSerializer
+        if self.action in ['create', 'update', 'partial_update']:
+            return MatchWriteSerializer
+        return MatchSerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'add_result']:
+            return [IsAdminOrModerator()]
+        return [IsAuthenticated()]
+
+    @action(detail=True, methods=['post'], url_path='result')
+    def add_result(self, request, pk=None):
+        """Registra resultado de uma partida com times e placares."""
+        match = self.get_object()
+        teams_data = request.data.get('teams', [])
+
+        # Limpa resultado anterior
+        MatchTeam.objects.filter(match=match).delete()
+
+        max_score = max((t.get('score', 0) for t in teams_data), default=0)
+        for team_data in teams_data:
+            mt = MatchTeam.objects.create(
+                match=match,
+                team_name=team_data.get('team_name', ''),
+                color_hex=team_data.get('color_hex', ''),
+                score=team_data.get('score', 0),
+                winner=team_data.get('score', 0) == max_score,
+                team_id=team_data.get('team_id'),
+            )
+            # Adiciona jogadores ao time nesta partida
+            for player_id in team_data.get('player_ids', []):
+                MatchPlayer.objects.get_or_create(
+                    match=match,
+                    player_id=player_id,
+                    defaults={'match_team': mt}
+                )
+                # Marca MVP
+                if player_id in team_data.get('mvp_ids', []):
+                    MatchPlayer.objects.filter(match=match, player_id=player_id).update(mvp=True)
+
+        return Response({'detail': 'Resultado registrado com sucesso.'})
