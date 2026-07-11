@@ -50,7 +50,8 @@ class MatchListSerializer(serializers.ModelSerializer):
 class MatchWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Match
-        fields = ['date', 'location', 'modality', 'gameday', 'team_generation', 'notes']
+        fields = ['id', 'date', 'location', 'modality', 'gameday', 'team_generation', 'notes']
+        read_only_fields = ['id']
 
     def create(self, validated_data):
         validated_data['created_by'] = self.context['request'].user

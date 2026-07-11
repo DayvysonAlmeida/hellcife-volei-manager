@@ -102,6 +102,20 @@ export function PlayerDetailPage() {
                 <PositionBadge position={player.main_position} />
                 <StatusBadge status={player.status} />
               </div>
+              
+              {/* Stars */}
+              <div className="flex items-center gap-2 mt-3">
+                {Array.from({ length: player.big_stars }).map((_, i) => (
+                  <div key={`big-${i}`} className="w-6 h-6 bg-yellow-500 rounded-sm flex items-center justify-center border-b-2 border-yellow-600 shadow-[0_0_10px_rgba(234,179,8,0.3)]">
+                    <span className="text-yellow-900 font-display text-xs font-bold">🌟</span>
+                  </div>
+                ))}
+                {Array.from({ length: player.mini_stars }).map((_, i) => (
+                  <div key={`mini-${i}`} className="w-4 h-4 bg-yellow-500/20 rounded-sm flex items-center justify-center border border-yellow-500/50">
+                    <span className="text-yellow-500 text-[10px]">⭐</span>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="text-center">

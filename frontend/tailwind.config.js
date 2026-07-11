@@ -10,28 +10,35 @@ export default {
         // Paleta HellLife Vôlei
         background: '#09090B',
         surface: '#18181B',
-        card: '#1C1C1F',
+        'surface-highlight': '#27272A',
+        primary: '#D90429',
+        'primary-hover': '#EF233C',
+        secondary: '#2563EB',
+        'secondary-hover': '#3B82F6',
+        accent: '#FACC15',
         border: '#27272A',
         'border-subtle': '#3F3F46',
-
-        // Cores primárias
+        'text-primary': '#F4F4F5',
+        'text-secondary': '#A1A1AA',
+        'text-muted': '#71717A',
+        
+        // Cores base usadas no CSS
         red: {
           DEFAULT: '#D90429',
           dark: '#A80020',
-          light: '#FF1744',
-          neon: '#FF0035',
         },
         blue: {
           DEFAULT: '#2563EB',
           dark: '#1D4ED8',
-          light: '#3B82F6',
-          neon: '#00B4FF',
         },
-
-        // Texto
-        'text-primary': '#FAFAFA',
-        'text-secondary': '#A1A1AA',
-        'text-muted': '#71717A',
+        yellow: {
+          DEFAULT: '#FACC15',
+          dark: '#CA8A04',
+        },
+        green: {
+          DEFAULT: '#16A34A',
+          dark: '#15803D',
+        },
 
         // Status
         success: '#16A34A',
@@ -51,13 +58,15 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Bebas Neue', 'Impact', 'sans-serif'],
+        display: ['Orbitron', 'sans-serif'],
       },
       boxShadow: {
         'neon-red': '0 0 20px rgba(217, 4, 41, 0.4), 0 0 40px rgba(217, 4, 41, 0.2)',
         'neon-blue': '0 0 20px rgba(37, 99, 235, 0.4), 0 0 40px rgba(37, 99, 235, 0.2)',
+        'neon-yellow': '0 0 20px rgba(250, 204, 21, 0.4), 0 0 40px rgba(250, 204, 21, 0.2)',
         'neon-red-sm': '0 0 10px rgba(217, 4, 41, 0.3)',
         'neon-blue-sm': '0 0 10px rgba(37, 99, 235, 0.3)',
+        'neon-yellow-sm': '0 0 10px rgba(250, 204, 21, 0.3)',
         'card': '0 4px 24px rgba(0, 0, 0, 0.4)',
         'card-hover': '0 8px 32px rgba(0, 0, 0, 0.6)',
       },

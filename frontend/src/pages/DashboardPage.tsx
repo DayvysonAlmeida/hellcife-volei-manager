@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell
+  LineChart, Line, PieChart, Pie, Cell,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 import { StatCard } from '@/components/ui/StatCard';
 import { Avatar } from '@/components/ui/Avatar';
@@ -111,36 +112,32 @@ export function DashboardPage() {
           </ResponsiveContainer>
         </motion.div>
 
-        {/* Top jogadores — gráfico horizontal */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="card p-6"
-        >
-          <h2 className="font-display text-lg text-text-primary tracking-wider mb-4 flex items-center gap-2">
-            <Award size={18} className="text-red" />
-            EVOLUÇÃO — TOP 10
-          </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart
-              data={data.top_players}
-              layout="vertical"
-              margin={{ top: 0, right: 20, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
-              <XAxis type="number" domain={[0, 10]} tick={{ fill: '#71717A', fontSize: 10 }} />
-              <YAxis
-                dataKey="name"
-                type="category"
-                width={80}
-                tick={{ fill: '#A1A1AA', fontSize: 10 }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="overall" fill="#D90429" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
+        {/* Clube Radar */}
+        {data.club_radar && Object.keys(data.club_radar).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="card p-6 border-neon-blue"
+          >
+            <h2 className="font-display text-lg text-text-primary tracking-wider mb-4 flex items-center gap-2">
+              <Star size={18} className="text-blue-500" />
+              MÉDIA DO CLUBE
+            </h2>
+            <ResponsiveContainer width="100%" height={220}>
+              <RadarChart data={Object.entries(data.club_radar).map(([key, value]) => ({
+                skill: key.toUpperCase().slice(0, 3), // Simplificar nome no radar pequeno
+                value
+              }))}>
+                <PolarGrid stroke="#27272A" />
+                <PolarAngleAxis dataKey="skill" tick={{ fill: '#71717A', fontSize: 10 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
+                <Radar name="Média" dataKey="value" stroke="#3B82F6" fill="#2563EB" fillOpacity={0.4} strokeWidth={2} />
+                <Tooltip contentStyle={{ background: '#18181B', border: '1px solid #27272A', borderRadius: 8 }} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </motion.div>
+        )}
       </div>
 
       {/* Ranking dos melhores atletas */}

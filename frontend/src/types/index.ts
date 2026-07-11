@@ -70,8 +70,29 @@ export interface Player {
   status_display: string;
   user?: number;
   latest_overall?: number;
+  mini_stars: number;
+  big_stars: number;
   created_at: string;
   updated_at?: string;
+}
+
+export interface PlayerFormData {
+  name: string;
+  nickname?: string;
+  shirt_number?: number;
+  age?: number;
+  height?: number;
+  weight?: number;
+  main_position: Position;
+  secondary_position?: Position | '';
+  dominant_hand: DominantHand;
+  phone?: string;
+  instagram?: string;
+  avatar?: File;
+  notes?: string;
+  status: PlayerStatus;
+  mini_stars: number;
+  big_stars: number;
 }
 
 // ==================== Evaluation ====================
@@ -90,6 +111,7 @@ export interface EvaluationSkills {
   conditioning: number;
   consistency: number;
 }
+
 
 export interface Evaluation extends EvaluationSkills {
   id: number;
@@ -205,6 +227,8 @@ export interface GenerateTeamsResult {
 export interface TeamGenerationData {
   id: number;
   gameday: number;
+  gameday_date?: string;
+  gameday_location?: string;
   modality: number;
   modality_display: string;
   created_by?: number;
@@ -317,6 +341,7 @@ export interface DashboardData {
   avg_overall: number;
   top_players: TopPlayer[];
   position_distribution: PositionDist[];
+  club_radar?: Record<string, number>;
   last_updated: string;
 }
 

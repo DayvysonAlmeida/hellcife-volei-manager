@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Shuffle, Zap, Save, RefreshCw, Users, Send } from 'lucide-react';
+import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -11,6 +11,7 @@ import { teamsService, attendanceService } from '@/services';
 import { MODALITY_LABELS } from '@/types';
 import type { GenerateTeamsResult, GeneratedTeam, Modality } from '@/types';
 import { useAuth } from '@/store/AuthContext';
+import { formatDate } from '@/lib/utils';
 
 const MODALITIES: Modality[] = [2, 3, 4, 5, 6];
 
@@ -18,10 +19,29 @@ export function TeamsPage() {
   const { user } = useAuth();
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
 
+  const qc = useQueryClient();
+
   const [modality, setModality] = useState<Modality>(6);
   const [selectedGameDayId, setSelectedGameDayId] = useState<number | null>(null);
   const [result, setResult] = useState<GenerateTeamsResult | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const deleteGenMutation = useMutation({
+    mutationFn: (id: number) => teamsService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      toast.success('Geração excluída!');
+    },
+  });
+
+  const movePlayerMutation = useMutation({
+    mutationFn: ({ genId, playerId, targetTeamId }: { genId: number, playerId: number, targetTeamId: number }) => 
+       teamsService.movePlayer(genId, playerId, targetTeamId),
+    onSuccess: () => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       toast.success('Jogador transferido com sucesso!');
+    }
+  });
 
   const { data: gameDaysData } = useQuery({
     queryKey: ['gamedays'],
@@ -87,6 +107,12 @@ export function TeamsPage() {
       </div>
     );
   }
+
+  const { data: historyData } = useQuery({
+    queryKey: ['team-generations-history'],
+    queryFn: () => teamsService.list(),
+  });
+  const history = historyData?.results || [];
 
   return (
     <div className="space-y-6">
@@ -216,6 +242,97 @@ export function TeamsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* History */}
+      {history.length > 0 && (
+        <div className="mt-12 space-y-6 pt-8 border-t border-border">
+          <h2 className="font-display text-2xl tracking-wider text-text-primary uppercase flex items-center gap-2">
+            <Shuffle className="text-red" />
+            Histórico de Gerações
+          </h2>
+          <div className="space-y-6">
+            {history.map(gen => (
+              <div key={gen.id} className="card p-5 border-l-2 border-red">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <p className="font-medium text-text-primary text-lg">
+                      {gen.modality_display} — {gen.gameday ? `${formatDate(gen.gameday_date || '')} ${gen.gameday_location ? `(${gen.gameday_location})` : ''}` : 'Avulso'}
+                    </p>
+                    <p className="text-sm text-text-muted mt-0.5">
+                      Gerado em {formatDate(gen.created_at)} por {gen.created_by_name}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-xs text-text-muted uppercase tracking-wider block">Balanceamento</span>
+                      <span className="text-green-400 font-bold text-lg">{(10 - (gen.balance_score || 0) * 10).toFixed(1)}%</span>
+                    </div>
+                    {canEdit && (
+                      <button
+                        onClick={() => {
+                          if (confirm('Tem certeza que deseja excluir esta geração de times?')) {
+                            deleteGenMutation.mutate(gen.id);
+                          }
+                        }}
+                        disabled={deleteGenMutation.isPending}
+                        className="btn-ghost p-2 hover:bg-red/10 hover:text-red rounded-lg transition-colors text-text-muted"
+                        title="Excluir Geração"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Generated Teams Mini-grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                  {gen.teams.map(team => (
+                    <div key={team.id} className="bg-surface rounded-lg p-3 border border-border">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-display text-sm" style={{ color: team.color_hex }}>{team.name.toUpperCase()}</span>
+                        <span className="font-bold text-xs" style={{ color: team.color_hex }}>{team.avg_overall.toFixed(1)}</span>
+                      </div>
+                      <div className="space-y-1">
+                        {team.team_players.map(p => (
+                          <div key={p.id} className="flex justify-between items-center text-xs group">
+                            <span className="text-text-secondary truncate pr-2">{p.player_name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-text-muted">{p.player_overall}</span>
+                              {canEdit && (
+                                <div className="relative">
+                                  <select 
+                                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity bg-surface border border-border rounded text-[10px] text-text-primary h-5 pr-4 pl-1 outline-none cursor-pointer appearance-none"
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        movePlayerMutation.mutate({ genId: gen.id, playerId: p.player, targetTeamId: Number(e.target.value) });
+                                        e.target.value = '';
+                                      }
+                                    }}
+                                    disabled={movePlayerMutation.isPending}
+                                    title="Mover para outro time"
+                                  >
+                                    <option value="">⇄ Mover</option>
+                                    {gen.teams.filter(t => t.id !== team.id).map(t => (
+                                      <option key={t.id} value={t.id}>{t.name}</option>
+                                    ))}
+                                  </select>
+                                  <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center bg-surface border border-border-subtle rounded group-hover:bg-blue/10 group-hover:border-blue/30 group-hover:text-blue">
+                                    <ArrowRightLeft size={10} />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

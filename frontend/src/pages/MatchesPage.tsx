@@ -28,10 +28,10 @@ export function MatchesPage() {
           <p className="page-subtitle">Histórico de partidas e resultados.</p>
         </div>
         {canEdit && (
-          <button className="btn-primary flex items-center gap-2">
+          <Link to="/matches/new" className="btn-primary flex items-center gap-2">
             <Plus size={16} />
             Nova partida
-          </button>
+          </Link>
         )}
       </div>
 

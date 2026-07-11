@@ -28,6 +28,8 @@ const schema = z.object({
   avatar: z.any().optional(),
   notes: z.string().optional(),
   status: z.enum(['active', 'inactive', 'injured', 'suspended']),
+  mini_stars: z.coerce.number().min(0).max(10),
+  big_stars: z.coerce.number().min(0).max(10),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -78,11 +80,15 @@ export function PlayerFormPage() {
       instagram: player.instagram || '',
       notes: player.notes || '',
       status: player.status || 'active',
+      mini_stars: player.mini_stars ?? 1,
+      big_stars: player.big_stars ?? 0,
     } : {
       main_position: 'outside',
       secondary_position: '',
       dominant_hand: 'right',
       status: 'active',
+      mini_stars: 1,
+      big_stars: 0,
     } as any,
   });
 
@@ -186,6 +192,16 @@ export function PlayerFormPage() {
               <option value="injured">Lesionado</option>
               <option value="suspended">Suspenso</option>
             </select>
+          </Field>
+        </FieldGroup>
+
+        {/* Sistema de Estrelas */}
+        <FieldGroup title="Sistema de Estrelas">
+          <Field label="Mini Estrelas" error={errors.mini_stars?.message}>
+            <input {...register('mini_stars')} type="number" min="0" max="10" className="input w-full" />
+          </Field>
+          <Field label="Estrelas Grandes" error={errors.big_stars?.message}>
+            <input {...register('big_stars')} type="number" min="0" max="10" className="input w-full" />
           </Field>
         </FieldGroup>
 

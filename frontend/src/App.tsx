@@ -16,8 +16,11 @@ import { EvaluationsPage } from '@/pages/EvaluationsPage';
 import { AttendancePage } from '@/pages/AttendancePage';
 import { TeamsPage } from '@/pages/TeamsPage';
 import { MatchesPage } from '@/pages/MatchesPage';
-import { HallOfFamePage } from '@/pages/HallOfFamePage';
+import { MatchFormPage } from '@/pages/MatchFormPage';
+import { StarsSystemPage } from '@/pages/StarsSystemPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { LeaderboardPage } from '@/pages/LeaderboardPage';
+import { RegulationPage } from '@/pages/RegulationPage';
 
 function App() {
   return (
@@ -46,6 +49,7 @@ function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="players" element={<PlayersPage />} />
               <Route path="players/new" element={<PlayerFormPage />} />
               <Route path="players/:id" element={<PlayerDetailPage />} />
@@ -54,8 +58,10 @@ function App() {
               <Route path="attendance" element={<AttendancePage />} />
               <Route path="teams" element={<TeamsPage />} />
               <Route path="matches" element={<MatchesPage />} />
-              <Route path="hall-of-fame" element={<HallOfFamePage />} />
+              <Route path="matches/new" element={<MatchFormPage />} />
+              <Route path="stars-system" element={<StarsSystemPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="regulation" element={<RegulationPage />} />
             </Route>
 
             {/* 404 fallback */}

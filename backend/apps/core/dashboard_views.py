@@ -68,6 +68,25 @@ class DashboardView(APIView):
             if count > 0:
                 position_dist.append({'position': pos_name, 'count': count})
 
+        # Club Radar (média das últimas avaliações de todos os jogadores ativos)
+        club_radar = {}
+        if players_with_eval:
+            skills_keys = [
+                'serve', 'reception', 'passing', 'setting', 'attack', 'block',
+                'defense', 'recovery', 'positioning', 'communication',
+                'tactical_iq', 'conditioning', 'consistency'
+            ]
+            sums = {k: 0.0 for k in skills_keys}
+            count = 0
+            for p in players_with_eval:
+                last_eval = p.evaluations.order_by('-date').first()
+                if last_eval:
+                    for k in skills_keys:
+                        sums[k] += getattr(last_eval, k, 0)
+                    count += 1
+            if count > 0:
+                club_radar = {k: round(v / count, 1) for k, v in sums.items()}
+
         return Response({
             'total_players': total_players,
             'active_players': active_players,
@@ -75,5 +94,6 @@ class DashboardView(APIView):
             'avg_overall': round(float(avg_overall), 2),
             'top_players': top_players,
             'position_distribution': position_dist,
+            'club_radar': club_radar,
             'last_updated': timezone.now().isoformat(),
         })

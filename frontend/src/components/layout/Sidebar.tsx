@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Users, Star, CalendarCheck, Shuffle,
-  Swords, Trophy, Settings, LogOut, ChevronLeft, ChevronRight, Menu
+  Swords, Trophy, Settings, LogOut, ChevronLeft, ChevronRight, Menu, ScrollText, TrendingUp
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/store/AuthContext';
@@ -10,12 +10,14 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { to: '/players', icon: Users, label: 'Atletas' },
-  { to: '/evaluations', icon: Star, label: 'Avaliações' },
+  { to: '/evaluations', icon: TrendingUp, label: 'Avaliações' },
   { to: '/attendance', icon: CalendarCheck, label: 'Presença' },
   { to: '/teams', icon: Shuffle, label: 'Gerador de Times' },
   { to: '/matches', icon: Swords, label: 'Partidas' },
-  { to: '/hall-of-fame', icon: Trophy, label: 'Hall da Fama' },
+  { to: '/stars-system', icon: Star, label: 'Sistema de Estrelas' },
+  { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
 ];
 
 const adminItems = [

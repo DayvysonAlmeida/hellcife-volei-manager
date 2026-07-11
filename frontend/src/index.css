@@ -45,11 +45,21 @@
 @layer components {
   /* Cards */
   .card {
-    @apply bg-card border border-border rounded-xl shadow-card;
+    @apply bg-surface/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-card
+           relative overflow-hidden;
+  }
+  
+  .card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 transition-opacity duration-300 pointer-events-none;
   }
 
   .card-hover {
-    @apply card transition-all duration-300 hover:border-border-subtle hover:shadow-card-hover hover:-translate-y-1;
+    @apply card transition-all duration-300 hover:border-border hover:shadow-card-hover hover:-translate-y-1;
+  }
+  
+  .card-hover:hover::before {
+    @apply opacity-100;
   }
 
   /* Botões */
@@ -64,7 +74,7 @@
   .btn-secondary {
     @apply bg-surface border border-border text-text-primary font-semibold px-6 py-2.5 rounded-lg
            transition-all duration-200
-           hover:border-border-subtle hover:bg-card
+           hover:border-border-subtle hover:bg-surface-highlight
            active:scale-95
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
