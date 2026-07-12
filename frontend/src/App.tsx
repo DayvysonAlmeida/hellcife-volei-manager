@@ -21,6 +21,7 @@ import { StarsSystemPage } from '@/pages/StarsSystemPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { RegulationPage } from '@/pages/RegulationPage';
+import { CheckinPage } from '@/pages/CheckinPage';
 
 function App() {
   return (
@@ -37,6 +38,8 @@ function App() {
                 </PublicRoute>
               }
             />
+            
+            <Route path="/checkin/:id" element={<CheckinPage />} />
 
             {/* Protected routes */}
             <Route

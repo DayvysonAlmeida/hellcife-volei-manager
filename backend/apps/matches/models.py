@@ -74,6 +74,9 @@ class MatchPlayer(models.Model):
     )
     # Para cálculo de stats via MatchTeam.winner
     mvp = models.BooleanField(default=False, verbose_name='MVP da partida')
+    best_attacker = models.BooleanField(default=False, verbose_name='Melhor Ataque')
+    best_server = models.BooleanField(default=False, verbose_name='Melhor Saque')
+    best_defender = models.BooleanField(default=False, verbose_name='Melhor Defesa')
 
     class Meta:
         verbose_name = 'Jogador na partida'

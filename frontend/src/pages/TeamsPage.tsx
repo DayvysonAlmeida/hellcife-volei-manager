@@ -65,15 +65,18 @@ export function TeamsPage() {
         toast.error('Selecione um Dia de Jogo para poder salvar os times!');
         return Promise.reject(new Error('No gameday selected'));
       }
-      return teamsService.generate({
+      if (!result) {
+        return Promise.reject(new Error('No result to save'));
+      }
+      return teamsService.saveGenerated({
         modality,
         gameday_id: selectedGameDayId,
-        save: true,
+        result: result,
       });
     },
     onSuccess: () => {
-      setSaving(false);
-      toast.success('Times salvos com sucesso!');
+      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      toast.success('Times salvos com sucesso no histórico!');
     },
   });
 
@@ -151,14 +154,14 @@ export function TeamsPage() {
               Dia de jogo (filtra presentes)
             </label>
             <select
-              value={selectedGameDayId || ''}
-              onChange={(e) => setSelectedGameDayId(e.target.value ? Number(e.target.value) : null)}
               className="input w-full"
+              value={selectedGameDayId || ''}
+              onChange={(e) => setSelectedGameDayId(Number(e.target.value) || null)}
             >
-              <option value="">Todos os atletas ativos</option>
-              {gameDays.map((gd) => (
+              <option value="">Selecione uma pelada</option>
+              {gameDays.map(gd => (
                 <option key={gd.id} value={gd.id}>
-                  {gd.date} {gd.location ? `— ${gd.location}` : ''} — {gd.total_present} presentes
+                  {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_present} confirmados) {gd.location ? `- ${gd.location}` : ''}
                 </option>
               ))}
             </select>

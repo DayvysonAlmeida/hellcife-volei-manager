@@ -45,6 +45,12 @@ export function getOverallLabel(overall: number): string {
 }
 
 export function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  // Se for apenas a data (YYYY-MM-DD), não aplica conversão de timezone que subtrai 1 dia no Brasil
+  if (dateStr.length === 10 && dateStr.includes('-')) {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  }
   const date = new Date(dateStr);
   return date.toLocaleDateString('pt-BR', {
     day: '2-digit',

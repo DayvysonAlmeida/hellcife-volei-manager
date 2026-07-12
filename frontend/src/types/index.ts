@@ -74,6 +74,8 @@ export interface Player {
   big_stars: number;
   created_at: string;
   updated_at?: string;
+  is_guest?: boolean;
+  invited_by?: string;
 }
 
 export interface PlayerFormData {
@@ -93,6 +95,8 @@ export interface PlayerFormData {
   status: PlayerStatus;
   mini_stars: number;
   big_stars: number;
+  is_guest?: boolean;
+  invited_by?: string;
 }
 
 // ==================== Evaluation ====================
@@ -164,8 +168,10 @@ export const SKILL_LABELS: Record<keyof EvaluationSkills, string> = {
 export interface GameDay {
   id: number;
   date: string;
+  time?: string;
   description?: string;
   location?: string;
+  max_players?: number;
   created_by?: number;
   total_present: number;
   total_players: number;
@@ -181,7 +187,9 @@ export interface Attendance {
   player_avatar?: string;
   player_position: Position;
   player_shirt?: number;
+  player_status?: string;
   present: boolean;
+  has_paid: boolean;
   checked_at: string;
 }
 
@@ -228,6 +236,7 @@ export interface TeamGenerationData {
   id: number;
   gameday: number;
   gameday_date?: string;
+  gameday_time?: string;
   gameday_location?: string;
   modality: number;
   modality_display: string;
@@ -296,6 +305,9 @@ export interface MatchPlayer {
   player_shirt?: number;
   match_team?: number;
   mvp: boolean;
+  best_attacker: boolean;
+  best_server: boolean;
+  best_defender: boolean;
 }
 
 // ==================== Hall of Fame ====================
@@ -338,10 +350,12 @@ export interface DashboardData {
   total_players: number;
   active_players: number;
   present_today: number;
+  paid_today: number;
   avg_overall: number;
   top_players: TopPlayer[];
   position_distribution: PositionDist[];
   club_radar?: Record<string, number>;
+  highlights: Record<string, { id: number; name: string; avatar_url: string; count: number } | null>;
   last_updated: string;
 }
 

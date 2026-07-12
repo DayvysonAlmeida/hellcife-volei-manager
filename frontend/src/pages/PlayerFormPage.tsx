@@ -94,7 +94,7 @@ export function PlayerFormPage() {
 
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
-      isEdit ? playersService.update(Number(id), data) : playersService.create(data),
+      isEdit ? playersService.update(Number(id), data as any) : playersService.create(data as any),
     onSuccess: (savedPlayer) => {
       qc.invalidateQueries({ queryKey: ['players'] });
       toast.success(isEdit ? 'Atleta atualizado com sucesso!' : 'Atleta cadastrado com sucesso!');
@@ -137,7 +137,7 @@ export function PlayerFormPage() {
             }
           }
         });
-        mutation.mutate(formData);
+        mutation.mutate(formData as any);
       })} className="space-y-4">
         {/* Informações pessoais */}
         <FieldGroup title="Informações pessoais">

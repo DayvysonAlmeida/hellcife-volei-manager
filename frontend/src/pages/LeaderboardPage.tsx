@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Trophy, Medal, Star } from 'lucide-react';
+import { Trophy, Medal, Star, Swords, Zap, Shield, Activity, TrendingUp } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -18,6 +18,20 @@ const POSITIONS: { value: Position | ''; label: string }[] = [
   { value: 'libero', label: 'Líberos' },
   { value: 'universal', label: 'Universais' },
 ];
+
+const PlayerStats = ({ stats }: { stats: any }) => {
+  if (!stats) return null;
+  return (
+    <div className="flex flex-wrap gap-2 justify-center mt-3 text-xs font-medium text-text-muted">
+      {stats.matches > 0 && <span title="Partidas Jogadas" className="flex items-center gap-1 bg-surface px-1.5 py-0.5 rounded border border-border"><Activity size={12}/> {stats.matches}</span>}
+      {stats.win_rate > 0 && <span title="Taxa de Vitória" className="flex items-center gap-1 bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded border border-green-500/20"><TrendingUp size={12}/> {stats.win_rate}%</span>}
+      {stats.mvp > 0 && <span title="MVP" className="flex items-center gap-1 bg-yellow-500/10 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-500/20"><Star size={12}/> {stats.mvp}</span>}
+      {stats.best_attacker > 0 && <span title="Melhor Ataque" className="flex items-center gap-1 bg-red/10 text-red px-1.5 py-0.5 rounded border border-red/20"><Swords size={12}/> {stats.best_attacker}</span>}
+      {stats.best_server > 0 && <span title="Melhor Saque" className="flex items-center gap-1 bg-blue/10 text-blue px-1.5 py-0.5 rounded border border-blue/20"><Zap size={12}/> {stats.best_server}</span>}
+      {stats.best_defender > 0 && <span title="Melhor Defesa" className="flex items-center gap-1 bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded border border-green-500/20"><Shield size={12}/> {stats.best_defender}</span>}
+    </div>
+  );
+};
 
 export function LeaderboardPage() {
   const [positionFilter, setPositionFilter] = useState<Position | ''>('');
@@ -71,12 +85,12 @@ export function LeaderboardPage() {
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="card p-6 text-center border-zinc-400/50 shadow-[0_0_20px_rgba(161,161,170,0.1)] relative mt-8 md:mt-0"
+              className="card !overflow-visible p-6 pt-8 text-center border-zinc-400/50 shadow-[0_0_20px_rgba(161,161,170,0.1)] relative mt-8 md:mt-0 flex flex-col h-full"
             >
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-zinc-400 rounded-full flex items-center justify-center border-4 border-background shadow-lg z-10">
                 <span className="text-background font-display font-bold text-xl">2</span>
               </div>
-              <Avatar name={top3[1].name} src={top3[1].avatar_url} size="xl" className="mx-auto mt-4 mb-4 ring-2 ring-zinc-400/50" />
+              <Avatar name={top3[1].name} src={top3[1].avatar_url} size="xl" className="mx-auto mb-4 ring-2 ring-zinc-400/50" />
               <h3 className="text-text-primary font-bold text-lg">{top3[1].nickname || top3[1].name}</h3>
               <div className="flex justify-center my-2">
                 <PositionBadge position={top3[1].main_position} />
@@ -84,6 +98,9 @@ export function LeaderboardPage() {
               <div className="inline-flex items-center gap-2 mt-2">
                 <Star className="text-zinc-400" size={16} fill="currentColor" />
                 <span className="font-display text-2xl font-bold text-zinc-300">{top3[1].overall.toFixed(1)}</span>
+              </div>
+              <div className="mt-auto pt-4">
+                <PlayerStats stats={top3[1].stats} />
               </div>
             </motion.div>
           )}
@@ -93,12 +110,12 @@ export function LeaderboardPage() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="card p-6 text-center border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.2)] relative z-10 md:-translate-y-8"
+            className="card !overflow-visible p-6 pt-10 text-center border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.2)] relative z-10 md:-translate-y-8 flex flex-col h-full"
           >
             <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center border-4 border-background shadow-lg z-10">
               <Trophy className="text-background" size={24} fill="currentColor" />
             </div>
-            <Avatar name={top3[0].name} src={top3[0].avatar_url} size="xl" className="mx-auto mt-6 mb-4 ring-4 ring-yellow-500/50" />
+            <Avatar name={top3[0].name} src={top3[0].avatar_url} size="xl" className="mx-auto mb-4 ring-4 ring-yellow-500/50" />
             <h3 className="text-text-primary font-bold text-xl">{top3[0].nickname || top3[0].name}</h3>
             <div className="flex justify-center my-2">
               <PositionBadge position={top3[0].main_position} />
@@ -106,6 +123,9 @@ export function LeaderboardPage() {
             <div className="inline-flex items-center gap-2 mt-2">
               <Star className="text-yellow-500" size={20} fill="currentColor" />
               <span className="font-display text-3xl font-bold text-yellow-400">{top3[0].overall.toFixed(1)}</span>
+            </div>
+            <div className="mt-auto pt-4">
+              <PlayerStats stats={top3[0].stats} />
             </div>
           </motion.div>
 
@@ -115,12 +135,12 @@ export function LeaderboardPage() {
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="card p-6 text-center border-orange-700/50 shadow-[0_0_20px_rgba(194,65,12,0.1)] relative mt-8 md:mt-0"
+              className="card !overflow-visible p-6 pt-8 text-center border-orange-700/50 shadow-[0_0_20px_rgba(194,65,12,0.1)] relative mt-8 md:mt-0 flex flex-col h-full"
             >
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-orange-700 rounded-full flex items-center justify-center border-4 border-background shadow-lg z-10">
                 <span className="text-background font-display font-bold text-xl">3</span>
               </div>
-              <Avatar name={top3[2].name} src={top3[2].avatar_url} size="xl" className="mx-auto mt-4 mb-4 ring-2 ring-orange-700/50" />
+              <Avatar name={top3[2].name} src={top3[2].avatar_url} size="xl" className="mx-auto mb-4 ring-2 ring-orange-700/50" />
               <h3 className="text-text-primary font-bold text-lg">{top3[2].nickname || top3[2].name}</h3>
               <div className="flex justify-center my-2">
                 <PositionBadge position={top3[2].main_position} />
@@ -128,6 +148,9 @@ export function LeaderboardPage() {
               <div className="inline-flex items-center gap-2 mt-2">
                 <Star className="text-orange-600" size={16} fill="currentColor" />
                 <span className="font-display text-2xl font-bold text-orange-500">{top3[2].overall.toFixed(1)}</span>
+              </div>
+              <div className="mt-auto pt-4">
+                <PlayerStats stats={top3[2].stats} />
               </div>
             </motion.div>
           )}
@@ -137,7 +160,7 @@ export function LeaderboardPage() {
       {/* Restante da Lista */}
       {rest.length > 0 && (
         <div className="card p-4 space-y-2">
-          {rest.map((player, idx) => (
+          {rest.map((player: any, idx: number) => (
             <motion.div
               key={player.id}
               initial={{ opacity: 0, x: -20 }}
@@ -154,9 +177,15 @@ export function LeaderboardPage() {
                   {player.nickname || player.name}
                 </span>
                 <PositionBadge position={player.main_position} />
+                <div className="hidden sm:block ml-auto mr-4">
+                  <PlayerStats stats={player.stats} />
+                </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col items-end gap-1">
                 <OverallBadge overall={player.overall} size="sm" showLabel />
+                <div className="sm:hidden">
+                  <PlayerStats stats={player.stats} />
+                </div>
               </div>
             </motion.div>
           ))}

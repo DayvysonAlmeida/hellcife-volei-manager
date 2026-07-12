@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Count
+from django.db.models import Count, Q
 
 from .models import Player
 from .serializers import PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer
@@ -14,13 +14,23 @@ from apps.attendance.models import Attendance, GameDay
 
 
 class PlayerViewSet(viewsets.ModelViewSet):
-    queryset = Player.objects.all().prefetch_related('evaluations')
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = PlayerFilter
     search_fields = ['name', 'nickname', 'shirt_number']
     ordering_fields = ['name', 'shirt_number', 'created_at']
     ordering = ['name']
+
+    def get_queryset(self):
+        qs = Player.objects.all().prefetch_related('evaluations')
+        
+        if 'include_guests' in self.request.query_params:
+            return qs
+
+        # Se is_guest não for passado explicitamente, filtra apenas jogadores normais
+        if 'is_guest' not in self.request.query_params:
+            qs = qs.filter(is_guest=False)
+        return qs
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -37,14 +47,34 @@ class PlayerViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='ranking')
     def ranking(self, request):
         position = request.query_params.get('position')
-        players = Player.objects.filter(status='active').prefetch_related('evaluations')
+        players = Player.objects.filter(status='active').prefetch_related(
+            'evaluations'
+        ).annotate(
+            total_matches=Count('match_appearances'),
+            mvps=Count('match_appearances', filter=Q(match_appearances__mvp=True)),
+            best_attackers=Count('match_appearances', filter=Q(match_appearances__best_attacker=True)),
+            best_servers=Count('match_appearances', filter=Q(match_appearances__best_server=True)),
+            best_defenders=Count('match_appearances', filter=Q(match_appearances__best_defender=True)),
+            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True))
+        )
+        
         if position:
             players = players.filter(main_position=position)
 
         player_data = []
         for p in players:
-            last_eval = p.evaluations.order_by('-date').first()
+            # Pegamos a última avaliação (se houver). 
+            # O ideal seria annotar o overall, mas como evaluations é uma relação reversa, 
+            # e a gente quer a *última*, prefetch + loop em python já ajuda sem complicar o SQL.
+            # Convertemos para list para evitar query extra se prefetch foi feito bem
+            evals = list(p.evaluations.all())
+            evals.sort(key=lambda x: x.date, reverse=True)
+            last_eval = evals[0] if evals else None
+            
             if last_eval:
+                total_matches = p.total_matches
+                win_rate = (p.wins / total_matches * 100) if total_matches > 0 else 0
+                
                 player_data.append({
                     'id': p.id,
                     'name': p.name,
@@ -54,6 +84,14 @@ class PlayerViewSet(viewsets.ModelViewSet):
                     'avatar_url': p.avatar_url,
                     'shirt_number': p.shirt_number,
                     'overall': last_eval.overall,
+                    'stats': {
+                        'matches': total_matches,
+                        'win_rate': round(win_rate, 1),
+                        'mvp': p.mvps,
+                        'best_attacker': p.best_attackers,
+                        'best_server': p.best_servers,
+                        'best_defender': p.best_defenders,
+                    }
                 })
 
         player_data.sort(key=lambda x: x['overall'], reverse=True)

@@ -110,7 +110,14 @@ def generate_teams(
             'error': f'Número insuficiente de jogadores. Mínimo necessário: {modality * 2}, disponíveis: {len(players)}'
         }
 
-    teams_players = snake_draft(players, modality)
+    # Separar levantadores para distribuí-los primeiro no snake draft
+    setters = [p for p in players if p['main_position'] == 'setter' or p['secondary_position'] == 'setter']
+    others = [p for p in players if p not in setters]
+    
+    # A lista final vai ser: Levantadores (ordenados) + Outros (ordenados)
+    ordered_players = setters + others
+
+    teams_players = snake_draft(ordered_players, modality)
     balance_score = calculate_balance_score(teams_players)
 
     teams_result = []

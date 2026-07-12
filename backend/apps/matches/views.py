@@ -56,8 +56,18 @@ class MatchViewSet(viewsets.ModelViewSet):
                     player_id=player_id,
                     defaults={'match_team': mt}
                 )
-                # Marca MVP
+                # Marca MVP e Destaques
+                update_fields = {}
                 if player_id in team_data.get('mvp_ids', []):
-                    MatchPlayer.objects.filter(match=match, player_id=player_id).update(mvp=True)
+                    update_fields['mvp'] = True
+                if player_id in team_data.get('best_attacker_ids', []):
+                    update_fields['best_attacker'] = True
+                if player_id in team_data.get('best_server_ids', []):
+                    update_fields['best_server'] = True
+                if player_id in team_data.get('best_defender_ids', []):
+                    update_fields['best_defender'] = True
+                
+                if update_fields:
+                    MatchPlayer.objects.filter(match=match, player_id=player_id).update(**update_fields)
 
         return Response({'detail': 'Resultado registrado com sucesso.'})

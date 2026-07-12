@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award } from 'lucide-react';
+import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Zap, Shield, Trophy } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell,
@@ -71,6 +71,7 @@ export function DashboardPage() {
         <StatCard
           title="Presentes Hoje"
           value={data.present_today}
+          subtitle={`${data.paid_today} pagaram`}
           icon={<CalendarCheck size={22} />}
           color="red"
           delay={0.2}
@@ -139,6 +140,90 @@ export function DashboardPage() {
           </motion.div>
         )}
       </div>
+
+      {/* Destaques (Hall of Fame) */}
+      {data.highlights && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="card p-6"
+        >
+          <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-2">
+            <Trophy size={20} className="text-yellow-500" />
+            DESTAQUES DA TEMPORADA
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* MVP */}
+            <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center mb-3">
+                <Star size={20} className="fill-yellow-500" />
+              </div>
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Mais vezes MVP</h3>
+              {data.highlights.mvp ? (
+                <>
+                  <Avatar name={data.highlights.mvp.name} src={data.highlights.mvp.avatar_url} size="md" className="mb-2" />
+                  <p className="font-medium text-text-primary">{data.highlights.mvp.name}</p>
+                  <p className="text-xs text-yellow-500 font-bold mt-1">{data.highlights.mvp.count} vezes</p>
+                </>
+              ) : (
+                <p className="text-text-muted text-sm my-auto">Sem dados</p>
+              )}
+            </div>
+
+            {/* Melhor Ataque */}
+            <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
+              <div className="w-10 h-10 rounded-full bg-red/20 text-red flex items-center justify-center mb-3">
+                <Swords size={20} />
+              </div>
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Ataque</h3>
+              {data.highlights.best_attacker ? (
+                <>
+                  <Avatar name={data.highlights.best_attacker.name} src={data.highlights.best_attacker.avatar_url} size="md" className="mb-2" />
+                  <p className="font-medium text-text-primary">{data.highlights.best_attacker.name}</p>
+                  <p className="text-xs text-red font-bold mt-1">{data.highlights.best_attacker.count} vezes</p>
+                </>
+              ) : (
+                <p className="text-text-muted text-sm my-auto">Sem dados</p>
+              )}
+            </div>
+
+            {/* Melhor Saque */}
+            <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
+              <div className="w-10 h-10 rounded-full bg-blue/20 text-blue flex items-center justify-center mb-3">
+                <Zap size={20} />
+              </div>
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Saque</h3>
+              {data.highlights.best_server ? (
+                <>
+                  <Avatar name={data.highlights.best_server.name} src={data.highlights.best_server.avatar_url} size="md" className="mb-2" />
+                  <p className="font-medium text-text-primary">{data.highlights.best_server.name}</p>
+                  <p className="text-xs text-blue font-bold mt-1">{data.highlights.best_server.count} vezes</p>
+                </>
+              ) : (
+                <p className="text-text-muted text-sm my-auto">Sem dados</p>
+              )}
+            </div>
+
+            {/* Melhor Defesa */}
+            <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
+              <div className="w-10 h-10 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center mb-3">
+                <Shield size={20} />
+              </div>
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Defesa</h3>
+              {data.highlights.best_defender ? (
+                <>
+                  <Avatar name={data.highlights.best_defender.name} src={data.highlights.best_defender.avatar_url} size="md" className="mb-2" />
+                  <p className="font-medium text-text-primary">{data.highlights.best_defender.name}</p>
+                  <p className="text-xs text-green-500 font-bold mt-1">{data.highlights.best_defender.count} vezes</p>
+                </>
+              ) : (
+                <p className="text-text-muted text-sm my-auto">Sem dados</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Ranking dos melhores atletas */}
       <motion.div

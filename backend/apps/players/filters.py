@@ -10,7 +10,7 @@ class PlayerFilter(django_filters.FilterSet):
 
     class Meta:
         model = Player
-        fields = ['main_position', 'status', 'dominant_hand']
+        fields = ['main_position', 'status', 'dominant_hand', 'is_guest']
 
     def filter_min_overall(self, queryset, name, value):
         ids = []

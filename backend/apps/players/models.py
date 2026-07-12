@@ -28,6 +28,9 @@ class Player(models.Model):
     nickname = models.CharField(max_length=80, blank=True, null=True, verbose_name='Apelido')
     shirt_number = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Número da camisa')
     age = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Idade')
+    
+    is_guest = models.BooleanField(default=False, verbose_name='É Convidado?')
+    invited_by = models.CharField(max_length=150, blank=True, null=True, verbose_name='Convidado por')
     height = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True, verbose_name='Altura (m)')
     weight = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name='Peso (kg)')
     main_position = models.CharField(max_length=20, choices=POSITION_CHOICES, verbose_name='Posição principal')

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Trophy, Users, Star } from 'lucide-react';
+import { ArrowLeft, Loader2, Trophy, Users, Star, Trash2, Plus, Swords, Shield, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { matchesService, attendanceService, teamsService } from '@/services';
@@ -26,6 +26,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 type TeamState = {
+  id?: string;
   name: string;
   color_hex: string;
   score: number;
@@ -38,13 +39,17 @@ export function MatchFormPage() {
 
   const [teamA, setTeamA] = useState<TeamState>({ name: 'Time Vermelho', color_hex: '#D90429', score: 0, playerIds: [] });
   const [teamB, setTeamB] = useState<TeamState>({ name: 'Time Azul', color_hex: '#2563EB', score: 0, playerIds: [] });
+  const [selectedGenerationId, setSelectedGenerationId] = useState<number | null>(null);
   const [mvpId, setMvpId] = useState<number | null>(null);
+  const [bestAttackerId, setBestAttackerId] = useState<number | null>(null);
+  const [bestServerId, setBestServerId] = useState<number | null>(null);
+  const [bestDefenderId, setBestDefenderId] = useState<number | null>(null);
   const [playerSearch, setPlayerSearch] = useState('');
 
   // Queries
   const { data: playersData, isLoading: loadingPlayers } = useQuery({
-    queryKey: ['players-active'],
-    queryFn: () => playersService.list({ status: 'active', page_size: 200 }),
+    queryKey: ['players', { all: true, include_guests: true }],
+    queryFn: () => playersService.list({ page_size: 500, include_guests: true }),
   });
 
   const { data: gamedaysData } = useQuery({
@@ -57,11 +62,56 @@ export function MatchFormPage() {
     queryFn: () => teamsService.list(),
   });
 
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema) as any,
+    defaultValues: {
+      date: new Date().toISOString().split('T')[0],
+      modality: 6,
+    },
+  });
+
+  const handleImportGeneration = (genIdStr: string) => {
+    if (!genIdStr) {
+      setSelectedGenerationId(null);
+      return;
+    }
+    const genId = Number(genIdStr);
+    const generations = generationsData?.results || [];
+    const generation = generations.find(g => g.id === genId);
+    if (!generation) return;
+    
+    if (generation.gameday) setValue('gameday', generation.gameday);
+    if (generation.modality) setValue('modality', generation.modality);
+    
+    setSelectedGenerationId(genId);
+
+    // Auto-preencher Time A e Time B com os dois primeiros times da geração (UX)
+    if (generation.teams.length >= 1) {
+      const dbTeamA = generation.teams[0];
+      setTeamA({
+        name: dbTeamA.name,
+        color_hex: dbTeamA.color_hex,
+        score: 0,
+        playerIds: dbTeamA.team_players.map(tp => tp.player)
+      });
+    }
+    if (generation.teams.length >= 2) {
+      const dbTeamB = generation.teams[1];
+      setTeamB({
+        name: dbTeamB.name,
+        color_hex: dbTeamB.color_hex,
+        score: 0,
+        playerIds: dbTeamB.team_players.map(tp => tp.player)
+      });
+    }
+  };
+
   const handleImportTeam = (teamIdStr: string, side: 'A' | 'B') => {
     if (!teamIdStr) return;
     const teamId = Number(teamIdStr);
+    
     const generations = generationsData?.results || [];
-    const generation = generations.find(g => g.teams.some(t => t.id === teamId));
+    const generation = generations.find(g => g.id === selectedGenerationId);
     if (!generation) return;
     
     const dbTeam = generation.teams.find(t => t.id === teamId);
@@ -76,14 +126,6 @@ export function MatchFormPage() {
     }
   };
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema) as any,
-    defaultValues: {
-      date: new Date().toISOString().split('T')[0],
-      modality: 6,
-    },
-  });
-
   const modality = watch('modality');
 
   const createMutation = useMutation({
@@ -96,7 +138,7 @@ export function MatchFormPage() {
       const match = await matchesService.create({
         date: data.date,
         location: data.location || undefined,
-        modality: data.modality,
+        modality: data.modality as any,
         gameday: data.gameday || undefined,
         notes: data.notes || undefined,
       });
@@ -109,6 +151,9 @@ export function MatchFormPage() {
           score: teamA.score,
           player_ids: teamA.playerIds,
           mvp_ids: mvpId && teamA.playerIds.includes(mvpId) ? [mvpId] : [],
+          best_attacker_ids: bestAttackerId && teamA.playerIds.includes(bestAttackerId) ? [bestAttackerId] : [],
+          best_server_ids: bestServerId && teamA.playerIds.includes(bestServerId) ? [bestServerId] : [],
+          best_defender_ids: bestDefenderId && teamA.playerIds.includes(bestDefenderId) ? [bestDefenderId] : [],
         },
         {
           team_name: teamB.name,
@@ -116,6 +161,9 @@ export function MatchFormPage() {
           score: teamB.score,
           player_ids: teamB.playerIds,
           mvp_ids: mvpId && teamB.playerIds.includes(mvpId) ? [mvpId] : [],
+          best_attacker_ids: bestAttackerId && teamB.playerIds.includes(bestAttackerId) ? [bestAttackerId] : [],
+          best_server_ids: bestServerId && teamB.playerIds.includes(bestServerId) ? [bestServerId] : [],
+          best_defender_ids: bestDefenderId && teamB.playerIds.includes(bestDefenderId) ? [bestDefenderId] : [],
         }
       ]);
 
@@ -149,19 +197,20 @@ export function MatchFormPage() {
   const toggleMvp = (id: number) => {
     setMvpId(prev => prev === id ? null : id);
   };
+  const toggleBestAttacker = (id: number) => {
+    setBestAttackerId(prev => prev === id ? null : id);
+  };
+  const toggleBestServer = (id: number) => {
+    setBestServerId(prev => prev === id ? null : id);
+  };
+  const toggleBestDefender = (id: number) => {
+    setBestDefenderId(prev => prev === id ? null : id);
+  };
 
   const moveToTeam = (playerId: number, team: 'A' | 'B') => {
     if (team === 'A') {
-      if (teamA.playerIds.length >= modality) {
-        toast.error(`O time já atingiu o limite de ${modality} jogadores!`);
-        return;
-      }
       setTeamA(prev => ({ ...prev, playerIds: [...prev.playerIds, playerId] }));
     } else {
-      if (teamB.playerIds.length >= modality) {
-        toast.error(`O time já atingiu o limite de ${modality} jogadores!`);
-        return;
-      }
       setTeamB(prev => ({ ...prev, playerIds: [...prev.playerIds, playerId] }));
     }
   };
@@ -182,6 +231,16 @@ export function MatchFormPage() {
         <div className="min-w-0">
           <p className="text-text-primary text-sm font-medium truncate flex items-center gap-2">
             {player.display_name}
+            {player.status !== 'active' && !player.is_guest && (
+              <span className="text-[10px] bg-red/10 text-red px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                Inativo
+              </span>
+            )}
+            {player.is_guest && (
+              <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                Conv
+              </span>
+            )}
             {mvpId === player.id && <Star size={12} className="text-yellow-500 fill-yellow-500" />}
           </p>
           <PositionBadge position={player.main_position} />
@@ -191,6 +250,32 @@ export function MatchFormPage() {
       <div className="flex items-center gap-1 flex-shrink-0">
         {team ? (
           <>
+            <div className="flex bg-surface border border-border/50 rounded-md p-0.5 mr-2">
+              <button
+                type="button"
+                onClick={() => toggleBestAttacker(player.id)}
+                className={cn("p-1 rounded transition-colors", bestAttackerId === player.id ? "bg-red/20 text-red" : "text-text-muted hover:text-red")}
+                title="Melhor Ataque"
+              >
+                <Swords size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleBestServer(player.id)}
+                className={cn("p-1 rounded transition-colors", bestServerId === player.id ? "bg-blue/20 text-blue" : "text-text-muted hover:text-blue")}
+                title="Melhor Saque"
+              >
+                <Zap size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleBestDefender(player.id)}
+                className={cn("p-1 rounded transition-colors", bestDefenderId === player.id ? "bg-green-500/20 text-green-500" : "text-text-muted hover:text-green-500")}
+                title="Melhor Defesa"
+              >
+                <Shield size={12} />
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => toggleMvp(player.id)}
@@ -272,7 +357,7 @@ export function MatchFormPage() {
               <select {...register('gameday')} className="input w-full">
                 <option value="">Nenhum</option>
                 {gamedays.map(gd => (
-                  <option key={gd.id} value={gd.id}>{gd.date} {gd.location ? `- ${gd.location}` : ''}</option>
+                  <option key={gd.id} value={gd.id}>{formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} {gd.location ? `- ${gd.location}` : ''}</option>
                 ))}
               </select>
             </div>
@@ -280,6 +365,26 @@ export function MatchFormPage() {
           <div className="mt-4">
             <label className="block text-text-secondary text-sm font-medium mb-1.5">Observações (Opcional)</label>
             <input type="text" {...register('notes')} placeholder="Ex: Final do campeonato, partida amistosa..." className="input w-full" />
+          </div>
+          
+          <div className="bg-surface p-4 rounded-lg border border-border-subtle flex flex-col gap-2 mt-2">
+            <label className="text-text-primary text-sm font-medium flex items-center gap-2">
+               Importar Pelada do Dia (Automático)
+               <span className="bg-red/10 text-red text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Novo</span>
+            </label>
+            <p className="text-xs text-text-muted mb-2">Selecione uma geração salva. Isso irá preencher todos os times, jogadores, modalidade e data automaticamente!</p>
+            <select 
+               onChange={(e) => handleImportGeneration(e.target.value)}
+               className="input w-full"
+            >
+              <option value="">-- Não importar (Criar partida manualmente) --</option>
+              {generations.map(g => (
+                  <option key={g.id} value={g.id}>
+                    {g.gameday ? `Dia ${formatDate(g.gameday_date || '')} ${g.gameday_time ? g.gameday_time.slice(0, 5) : ''} ${g.gameday_location ? '('+g.gameday_location+')' : ''}` : `Avulso (${formatDate(g.created_at)})`}
+                    {' '} - {g.modality_display} - {g.teams.length} times gerados
+                  </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -292,24 +397,18 @@ export function MatchFormPage() {
               <h2 className="font-display text-base text-text-primary tracking-wider uppercase">
                 Time A
               </h2>
-              <select 
-                onChange={(e) => handleImportTeam(e.target.value, 'A')}
-                className="input py-1 px-2 text-xs bg-surface border-border-subtle"
-              >
-                <option value="">Importar Gerador...</option>
-                {generations.map(g => (
-                  <optgroup 
-                    key={g.id} 
-                    label={g.gameday 
-                      ? `${formatDate(g.gameday_date || '')} ${g.gameday_location ? `(${g.gameday_location})` : ''}` 
-                      : `Avulso (${formatDate(g.created_at)})`}
-                  >
-                    {g.teams.map(t => (
+              {selectedGenerationId && (
+                <select 
+                  onChange={(e) => handleImportTeam(e.target.value, 'A')}
+                  className="input py-1 px-2 text-xs bg-surface border-border-subtle"
+                >
+                  <option value="">Escolher equipe...</option>
+                  {generations
+                    .find(g => g.id === selectedGenerationId)?.teams.map(t => (
                       <option key={t.id} value={t.id}>{t.name} ({t.avg_overall.toFixed(1)})</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+                  ))}
+                </select>
+              )}
             </div>
             <div className="flex gap-4 mb-6">
               <div className="flex-1">
@@ -354,24 +453,18 @@ export function MatchFormPage() {
               <h2 className="font-display text-base text-text-primary tracking-wider uppercase">
                 Time B
               </h2>
-              <select 
-                onChange={(e) => handleImportTeam(e.target.value, 'B')}
-                className="input py-1 px-2 text-xs bg-surface border-border-subtle"
-              >
-                <option value="">Importar Gerador...</option>
-                {generations.map(g => (
-                  <optgroup 
-                    key={g.id} 
-                    label={g.gameday 
-                      ? `${formatDate(g.gameday_date || '')} ${g.gameday_location ? `(${g.gameday_location})` : ''}` 
-                      : `Avulso (${formatDate(g.created_at)})`}
-                  >
-                    {g.teams.map(t => (
+              {selectedGenerationId && (
+                <select 
+                  onChange={(e) => handleImportTeam(e.target.value, 'B')}
+                  className="input py-1 px-2 text-xs bg-surface border-border-subtle"
+                >
+                  <option value="">Escolher equipe...</option>
+                  {generations
+                    .find(g => g.id === selectedGenerationId)?.teams.map(t => (
                       <option key={t.id} value={t.id}>{t.name} ({t.avg_overall.toFixed(1)})</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+                  ))}
+                </select>
+              )}
             </div>
             <div className="flex gap-4 mb-6">
               <div className="flex-1">

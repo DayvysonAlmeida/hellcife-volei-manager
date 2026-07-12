@@ -48,6 +48,15 @@ export const attendanceService = {
   createGameDay: (data: Partial<GameDay>) =>
     api.post<GameDay>('/attendance/gamedays/', data).then(r => r.data),
 
+  deleteGameDay: (id: number) =>
+    api.delete(`/attendance/gamedays/${id}/`),
+
+  refreshList: (id: number) =>
+    api.post(`/attendance/gamedays/${id}/refresh-list/`).then(r => r.data),
+
+  addGuest: (gamedayId: number, data: { name: string; main_position: string; invited_by?: string }) =>
+    api.post(`/attendance/gamedays/${gamedayId}/add-guest/`, data).then(r => r.data),
+
   bulkAttendance: (gamedayId: number, presentPlayerIds: number[]) =>
     api.post(`/attendance/gamedays/${gamedayId}/bulk-attendance/`, {
       present_player_ids: presentPlayerIds,
@@ -55,6 +64,9 @@ export const attendanceService = {
 
   toggleAttendance: (gamedayId: number, playerId: number) =>
     api.patch(`/attendance/gamedays/${gamedayId}/toggle/${playerId}/`).then(r => r.data),
+
+  togglePayment: (gamedayId: number, playerId: number) =>
+    api.patch(`/attendance/gamedays/${gamedayId}/toggle-payment/${playerId}/`).then(r => r.data),
 };
 
 export const teamsService = {
@@ -65,6 +77,13 @@ export const teamsService = {
     save?: boolean;
     notes?: string;
   }) => api.post<GenerateTeamsResult>('/teams/generate/', data).then(r => r.data),
+
+  saveGenerated: (data: {
+    modality: number;
+    gameday_id?: number | null;
+    notes?: string;
+    result: GenerateTeamsResult;
+  }) => api.post<{ detail: string, generation_id: number }>('/teams/save-generated/', data).then(r => r.data),
 
   list: (params?: Record<string, unknown>) =>
     api.get<PaginatedResponse<TeamGenerationData>>('/teams/', { params }).then(r => r.data),

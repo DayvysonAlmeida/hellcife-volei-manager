@@ -15,7 +15,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'id', 'name', 'nickname', 'display_name', 'shirt_number',
             'main_position', 'main_position_display', 'secondary_position',
             'avatar_url', 'status', 'status_display', 'latest_overall',
-            'mini_stars', 'big_stars', 'created_at',
+            'mini_stars', 'big_stars', 'created_at', 'is_guest', 'invited_by'
         ]
 
 
@@ -36,11 +36,12 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             'main_position', 'main_position_display',
             'secondary_position', 'secondary_position_display',
             'dominant_hand', 'dominant_hand_display',
-            'phone', 'instagram', 'avatar_url', 'notes',
+            'phone', 'instagram', 'avatar', 'avatar_url', 'notes',
             'status', 'status_display',
             'user', 'latest_overall',
             'mini_stars', 'big_stars',
             'created_at', 'updated_at',
+            'is_guest', 'invited_by'
         ]
 
 

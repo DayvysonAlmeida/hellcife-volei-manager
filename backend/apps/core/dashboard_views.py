@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.players.models import Player
 from apps.evaluations.models import Evaluation
 from apps.attendance.models import GameDay, Attendance
+from apps.matches.models import MatchPlayer
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -22,9 +23,13 @@ class DashboardView(APIView):
         today = date.today()
         today_gameday = GameDay.objects.filter(date=today).first()
         present_today = 0
+        paid_today = 0
         if today_gameday:
             present_today = Attendance.objects.filter(
                 gameday=today_gameday, present=True
+            ).count()
+            paid_today = Attendance.objects.filter(
+                gameday=today_gameday, present=True, has_paid=True
             ).count()
 
         # Overall médio
@@ -87,13 +92,38 @@ class DashboardView(APIView):
             if count > 0:
                 club_radar = {k: round(v / count, 1) for k, v in sums.items()}
 
+        # Destaques (Scouts)
+        def get_top(field):
+            top_agg = MatchPlayer.objects.filter(**{field: True}).values(
+                'player'
+            ).annotate(count=Count('id')).order_by('-count').first()
+            
+            if top_agg:
+                player = Player.objects.get(id=top_agg['player'])
+                return {
+                    'id': player.id,
+                    'name': player.display_name,
+                    'avatar_url': player.avatar_url,
+                    'count': top_agg['count']
+                }
+            return None
+
+        highlights = {
+            'mvp': get_top('mvp'),
+            'best_attacker': get_top('best_attacker'),
+            'best_server': get_top('best_server'),
+            'best_defender': get_top('best_defender'),
+        }
+
         return Response({
             'total_players': total_players,
             'active_players': active_players,
             'present_today': present_today,
+            'paid_today': paid_today,
             'avg_overall': round(float(avg_overall), 2),
             'top_players': top_players,
             'position_distribution': position_dist,
             'club_radar': club_radar,
+            'highlights': highlights,
             'last_updated': timezone.now().isoformat(),
         })

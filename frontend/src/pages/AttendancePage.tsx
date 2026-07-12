@@ -1,28 +1,37 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, CalendarCheck, ChevronRight, Check, Users, Shuffle, RefreshCw } from 'lucide-react';
+import { Plus, CalendarCheck, ChevronRight, Check, Users, Shuffle, RefreshCw, Trash2, DollarSign, Share2 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { attendanceService, teamsService } from '@/services';
 import { formatDate } from '@/lib/utils';
-import type { GameDay } from '@/types';
+import type { GameDay, Position } from '@/types';
 import { useAuth } from '@/store/AuthContext';
+import toast from 'react-hot-toast';
 
 export function AttendancePage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
 
   const [selectedGameDay, setSelectedGameDay] = useState<GameDay | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newTime, setNewTime] = useState('19:30');
   const [newLocation, setNewLocation] = useState('');
+  const [newMaxPlayers, setNewMaxPlayers] = useState<number | ''>('');
 
-  const [activeTab, setActiveTab] = useState<'attendance' | 'teams'>('attendance');
-  const [selectedModality, setSelectedModality] = useState<number>(6);
+
+  // Guest modal state
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestPosition, setGuestPosition] = useState<Position>('outside');
+  const [guestInvitedBy, setGuestInvitedBy] = useState(user?.name || '');
 
   const { data: gameDaysData, isLoading } = useQuery({
     queryKey: ['gamedays'],
@@ -35,19 +44,27 @@ export function AttendancePage() {
     enabled: !!selectedGameDay,
   });
 
-  // Buscar gerações de times do gameday
-  const { data: generationsData, isLoading: loadingGenerations } = useQuery({
-    queryKey: ['team-generations', selectedGameDay?.id],
-    queryFn: () => teamsService.list({ gameday_id: selectedGameDay!.id }),
-    enabled: !!selectedGameDay && activeTab === 'teams',
-  });
+
 
   const createMutation = useMutation({
-    mutationFn: () => attendanceService.createGameDay({ date: newDate, location: newLocation }),
+    mutationFn: () => attendanceService.createGameDay({ 
+      date: newDate, 
+      time: newTime,
+      location: newLocation,
+      max_players: newMaxPlayers === '' ? undefined : newMaxPlayers
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gamedays'] });
       setShowNewForm(false);
+      toast.success('Lista de pelada criada com sucesso!');
     },
+    onError: (err: any) => {
+      if (err.response?.data?.date) {
+        toast.error('Já existe uma pelada cadastrada com esta data!');
+      } else {
+        toast.error('Erro ao criar a lista de pelada.');
+      }
+    }
   });
 
   const toggleMutation = useMutation({
@@ -56,23 +73,51 @@ export function AttendancePage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
   });
 
-  const generateTeamsMutation = useMutation({
-    mutationFn: () => teamsService.generate({ modality: selectedModality, gameday_id: selectedGameDay!.id, save: true }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['team-generations', selectedGameDay?.id] });
-    },
+  const togglePaymentMutation = useMutation({
+    mutationFn: ({ gamedayId, playerId }: { gamedayId: number; playerId: number }) =>
+      attendanceService.togglePayment(gamedayId, playerId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
   });
 
-  const movePlayerMutation = useMutation({
-    mutationFn: ({ generationId, playerId, targetTeamId }: { generationId: number, playerId: number, targetTeamId: number }) =>
-      teamsService.movePlayer(generationId, playerId, targetTeamId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['team-generations', selectedGameDay?.id] });
+  const refreshMutation = useMutation({
+    mutationFn: () => attendanceService.refreshList(selectedGameDay!.id),
+    onSuccess: (data: any) => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      toast.success(data.detail || 'Lista atualizada com novos jogadores!');
     },
+    onError: () => {
+      toast.error('Erro ao atualizar a lista de presença.');
+    }
   });
+
+  const addGuestMutation = useMutation({
+    mutationFn: (data: { name: string; main_position: Position; invited_by: string }) => 
+      attendanceService.addGuest(selectedGameDay!.id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      setShowGuestModal(false);
+      setGuestName('');
+      toast.success('Convidado adicionado à pelada!');
+    },
+    onError: () => {
+      toast.error('Erro ao adicionar convidado.');
+    }
+  });
+
+  const deleteGameDayMutation = useMutation({
+    mutationFn: (id: number) => attendanceService.deleteGameDay(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+      setSelectedGameDay(null);
+      toast.success('Dia de jogo cancelado com sucesso!');
+    },
+    onError: () => {
+      toast.error('Erro ao cancelar o dia de jogo.');
+    }
+  });
+
 
   const gameDays = gameDaysData?.results || [];
-  const latestGeneration = generationsData?.results?.[0];
 
   return (
     <div className="space-y-6">
@@ -97,12 +142,20 @@ export function AttendancePage() {
           className="card p-5 border-red/20"
         >
           <h3 className="font-display text-base tracking-wider text-text-primary mb-4">NOVO DIA DE JOGO</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+            <div className="sm:col-span-1">
               <label className="text-text-muted text-xs uppercase tracking-wider">Data *</label>
               <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="input w-full mt-1" />
             </div>
-            <div>
+            <div className="sm:col-span-1">
+              <label className="text-text-muted text-xs uppercase tracking-wider">Hora</label>
+              <input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} className="input w-full mt-1" />
+            </div>
+            <div className="sm:col-span-1">
+              <label className="text-text-muted text-xs uppercase tracking-wider">Limite (Jogadores)</label>
+              <input type="number" placeholder="Ilimitado" value={newMaxPlayers} onChange={(e) => setNewMaxPlayers(e.target.value === '' ? '' : Number(e.target.value))} min={0} className="input w-full mt-1" />
+            </div>
+            <div className="sm:col-span-1">
               <label className="text-text-muted text-xs uppercase tracking-wider">Local</label>
               <input placeholder="Ex: Quadra HellCife" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="input w-full mt-1" />
             </div>
@@ -130,22 +183,45 @@ export function AttendancePage() {
           ) : (
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
               {gameDays.map((gd) => (
-                <button
-                  key={gd.id}
-                  onClick={() => setSelectedGameDay(gd)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg transition-all text-left
-                    ${selectedGameDay?.id === gd.id ? 'bg-red/10 border border-red/30' : 'hover:bg-surface border border-transparent'}`}
-                >
-                  <div>
-                    <p className="text-text-primary text-sm font-medium">{formatDate(gd.date)}</p>
-                    {gd.location && <p className="text-text-muted text-xs">{gd.location}</p>}
-                    <div className="flex items-center gap-1 mt-1">
-                      <Users size={11} className="text-text-muted" />
-                      <span className="text-text-muted text-xs">{gd.total_present}/{gd.total_players}</span>
+                <div key={gd.id} className="relative">
+                  <button
+                    onClick={() => setSelectedGameDay(gd)}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all text-left
+                      ${selectedGameDay?.id === gd.id ? 'bg-red/10 border border-red/30' : 'hover:bg-surface border border-transparent'}`}
+                  >
+                    <div>
+                      <p className="text-text-primary text-sm font-medium">
+                        {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''}
+                      </p>
+                      {gd.location && <p className="text-text-muted text-xs">{gd.location}</p>}
+                      <div className="flex items-center gap-1 mt-1">
+                        <Users size={11} className="text-text-muted" />
+                        <span className={`text-xs ${gd.max_players && gd.total_present >= gd.max_players ? 'text-red font-bold' : 'text-text-muted'}`}>
+                          {gd.total_present}/{gd.max_players ? gd.max_players : gd.total_players}
+                          {gd.max_players && gd.total_present >= gd.max_players ? ' (LOTADO)' : ''}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <ChevronRight size={14} className="text-text-muted" />
-                </button>
+                    <div className="flex items-center gap-2">
+                      {canEdit && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Tem certeza que deseja excluir esta pelada? Todos os dados de presença serão perdidos.')) {
+                              deleteGameDayMutation.mutate(gd.id);
+                            }
+                          }}
+                          disabled={deleteGameDayMutation.isPending}
+                          className="p-1.5 text-text-muted hover:text-red hover:bg-red/10 rounded-md transition-colors"
+                          title="Excluir Dia de Jogo"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                      <ChevronRight size={16} className={selectedGameDay?.id === gd.id ? 'text-red' : 'text-border'} />
+                    </div>
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -172,6 +248,17 @@ export function AttendancePage() {
                   {gameDayDetail.location && (
                     <p className="text-text-muted text-sm">{gameDayDetail.location}</p>
                   )}
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/checkin/${gameDayDetail.id}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success('Link de check-in copiado!');
+                    }}
+                    className="mt-2 text-xs text-red flex items-center gap-1 hover:underline font-medium"
+                  >
+                    <Share2 size={12} />
+                    Copiar link público de check-in
+                  </button>
                 </div>
                 <div className="text-center">
                   <p className="font-display text-3xl text-red">{gameDayDetail.total_present}</p>
@@ -181,144 +268,193 @@ export function AttendancePage() {
 
               <div className="divider" />
 
-              <div className="flex gap-4 border-b border-border mb-4">
-                <button
-                  onClick={() => setActiveTab('attendance')}
-                  className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'attendance' ? 'border-b-2 border-red text-red' : 'text-text-muted hover:text-text-primary'}`}
-                >
-                  Lista de Presença
-                </button>
-                <button
-                  onClick={() => setActiveTab('teams')}
-                  className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'teams' ? 'border-b-2 border-red text-red' : 'text-text-muted hover:text-text-primary'}`}
-                >
-                  Times Gerados
-                </button>
+              <div className="flex items-center justify-between border-b border-border mb-4">
+                <div className="flex gap-4">
+                  <span className="pb-2 text-sm font-medium border-b-2 border-red text-red">
+                    Lista de Presença
+                  </span>
+                </div>
+                {canEdit && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowGuestModal(true)}
+                      className="pb-2 text-xs text-text-muted hover:text-red flex items-center gap-1 transition-colors"
+                      title="Adicionar um convidado para jogar hoje"
+                    >
+                      <Plus size={12} />
+                      <span className="hidden sm:inline">Convidado</span>
+                    </button>
+                    <button
+                      onClick={() => refreshMutation.mutate()}
+                      disabled={refreshMutation.isPending}
+                      className="pb-2 text-xs text-text-muted hover:text-red flex items-center gap-1 transition-colors"
+                      title="Puxar novos jogadores ativos para esta lista"
+                    >
+                      <RefreshCw size={12} className={refreshMutation.isPending ? "animate-spin" : ""} />
+                      <span className="hidden sm:inline">Atualizar Lista</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {activeTab === 'attendance' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {gameDayDetail.attendances.map((att) => (
-                    <motion.button
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {gameDayDetail.attendances.map((att) => (
+                    <div
                       key={att.id}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => {
-                        if (canEdit) {
-                          toggleMutation.mutate({ gamedayId: gameDayDetail.id, playerId: att.player });
-                        }
-                      }}
                       className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left
-                        ${att.present
-                          ? 'bg-green-950/30 border-green-800/50'
-                          : 'bg-surface border-border hover:border-border-subtle'
-                        } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
+                        ${att.player_status !== 'active'
+                          ? 'bg-surface/50 border-border/30 opacity-70'
+                          : att.present
+                            ? 'bg-green-950/30 border-green-800/50'
+                            : 'bg-surface border-border hover:border-border-subtle'
+                        }`}
                     >
                       <Avatar name={att.player_name} src={att.player_avatar} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-text-primary text-sm font-medium truncate">{att.player_name}</p>
-                        <PositionBadge position={att.player_position} />
-                      </div>
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
-                        ${att.present ? 'bg-green-500' : 'bg-border'}`}>
-                        {att.present && <Check size={12} className="text-white" />}
-                      </div>
-                    </motion.button>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-text-primary text-sm font-medium truncate flex items-center gap-2">
+                            {att.player_name}
+                            {att.player_status !== 'active' && (
+                              <span className="text-[10px] bg-red/10 text-red px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                                Inativo
+                              </span>
+                            )}
+                          </p>
+                          <PositionBadge position={att.player_position} />
+                        </div>
+                      
+                      {canEdit ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => togglePaymentMutation.mutate({ gamedayId: gameDayDetail.id, playerId: att.player })}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                              att.has_paid 
+                                ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' 
+                                : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-green-500 hover:text-green-500'
+                            }`}
+                            title="Alternar Pagamento"
+                          >
+                            <DollarSign size={20} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (!att.present && gameDayDetail.max_players && gameDayDetail.total_present >= gameDayDetail.max_players) {
+                                toast.error(`Limite de ${gameDayDetail.max_players} jogadores já atingido!`);
+                                return;
+                              }
+                              toggleMutation.mutate({ gamedayId: gameDayDetail.id, playerId: att.player });
+                            }}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                              att.present 
+                                ? 'bg-red text-white shadow-lg shadow-red/20 scale-110' 
+                                : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-red hover:text-red'
+                            }`}
+                            title="Alternar Presença"
+                          >
+                            {att.present && <Check size={20} />}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
+                            ${att.has_paid ? 'bg-green-500' : 'bg-border'}`}>
+                            {att.has_paid && <DollarSign size={12} className="text-white" />}
+                          </div>
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
+                            ${att.present ? 'bg-red' : 'bg-border'}`}>
+                            {att.present && <Check size={12} className="text-white" />}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap gap-4 justify-between items-end">
-                    <div>
-                      <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Gerar novos times</label>
-                      <div className="flex gap-2">
-                        <select
-                          value={selectedModality}
-                          onChange={(e) => setSelectedModality(Number(e.target.value))}
-                          className="input text-sm py-1.5"
-                        >
-                          <option value="2">2v2</option>
-                          <option value="3">3v3</option>
-                          <option value="4">4v4</option>
-                          <option value="5">5v5</option>
-                          <option value="6">6v6</option>
-                        </select>
-                        <button
-                          onClick={() => generateTeamsMutation.mutate()}
-                          disabled={generateTeamsMutation.isPending || !canEdit}
-                          className="btn-primary py-1.5 px-3 flex items-center gap-2 text-sm"
-                        >
-                          {generateTeamsMutation.isPending ? <RefreshCw size={14} className="animate-spin" /> : <Shuffle size={14} />}
-                          Gerar
-                        </button>
-                      </div>
-                    </div>
+                
+                {canEdit && (
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      onClick={() => {
+                        toast.success('Lista de presença salva com sucesso!');
+                        navigate('/teams');
+                      }}
+                      className="btn-primary flex items-center gap-2 px-6 py-2.5"
+                    >
+                      <Check size={18} />
+                      Salvar e Ir para Sorteio
+                    </button>
                   </div>
-
-                  {loadingGenerations ? (
-                    <PageLoading />
-                  ) : !latestGeneration ? (
-                    <EmptyState message="Nenhum time gerado para este dia ainda." icon="🏐" />
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-text-muted">Modalidade: {latestGeneration.modality_display}</span>
-                        <span className="text-green-400">Bal: {(10 - latestGeneration.balance_score * 10).toFixed(1)}%</span>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {latestGeneration.teams.map((team: any) => (
-                          <div key={team.id} className="card overflow-hidden">
-                            <div className="h-1.5" style={{ backgroundColor: team.color_hex }} />
-                            <div className="p-3">
-                              <div className="flex justify-between items-center mb-2">
-                                <h3 className="font-bold text-sm" style={{ color: team.color_hex }}>{team.name}</h3>
-                                <span className="font-display font-bold text-lg" style={{ color: team.color_hex }}>{team.avg_overall.toFixed(1)}</span>
-                              </div>
-                              <div className="space-y-1">
-                                {team.team_players.map((tp: any) => (
-                                  <div key={tp.id} className="flex items-center gap-2 p-1.5 rounded bg-surface group relative">
-                                    <Avatar name={tp.player_name} src={tp.player_avatar} size="sm" className="w-6 h-6" />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-text-primary text-xs font-medium truncate">{tp.player_name}</p>
-                                    </div>
-                                    <OverallBadge overall={tp.player_overall} size="sm" className="scale-75 origin-right" />
-                                    
-                                    {canEdit && (
-                                      <div className="absolute inset-y-0 right-0 hidden group-hover:flex items-center bg-surface px-1">
-                                        <select
-                                          className="text-[10px] bg-background border border-border rounded px-1 py-0.5 text-text-primary"
-                                          onChange={(e) => {
-                                            if (e.target.value) {
-                                              movePlayerMutation.mutate({
-                                                generationId: latestGeneration.id,
-                                                playerId: tp.player,
-                                                targetTeamId: Number(e.target.value)
-                                              });
-                                            }
-                                          }}
-                                          value=""
-                                        >
-                                          <option value="">Mover...</option>
-                                          {latestGeneration.teams.filter((t: any) => t.id !== team.id).map((t: any) => (
-                                            <option key={t.id} value={t.id}>{t.name}</option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
           ) : null}
         </div>
       </div>
+
+      {showGuestModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="card max-w-md w-full p-6 shadow-xl"
+          >
+            <h2 className="text-xl font-display text-text-primary mb-4 flex items-center gap-2">
+              <Plus className="text-red" />
+              Adicionar Convidado
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Nome do Convidado *</label>
+                <input 
+                  type="text" 
+                  value={guestName} 
+                  onChange={e => setGuestName(e.target.value)} 
+                  className="input w-full"
+                  placeholder="Ex: João Silva"
+                />
+              </div>
+
+              <div>
+                <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Posição Principal *</label>
+                <select 
+                  value={guestPosition} 
+                  onChange={e => setGuestPosition(e.target.value as Position)} 
+                  className="input w-full"
+                >
+                  <option value="outside">Ponteiro</option>
+                  <option value="setter">Levantador</option>
+                  <option value="middle">Central</option>
+                  <option value="opposite">Oposto</option>
+                  <option value="libero">Líbero</option>
+                  <option value="universal">Universal</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Convidado por</label>
+                <input 
+                  type="text" 
+                  value={guestInvitedBy} 
+                  onChange={e => setGuestInvitedBy(e.target.value)} 
+                  className="input w-full"
+                  placeholder="Seu nome"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowGuestModal(false)} className="btn-secondary">
+                Cancelar
+              </button>
+              <button 
+                onClick={() => addGuestMutation.mutate({ name: guestName, main_position: guestPosition, invited_by: guestInvitedBy })}
+                disabled={!guestName || addGuestMutation.isPending}
+                className="btn-primary"
+              >
+                {addGuestMutation.isPending ? 'Adicionando...' : 'Adicionar e Marcar Presença'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

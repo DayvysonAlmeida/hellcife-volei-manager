@@ -42,33 +42,62 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         if 'error' in result:
             return Response({'detail': result['error']}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Se solicitado, persiste no banco
+        # Se solicitado, persiste no banco (apenas por compatibilidade)
         if data.get('save'):
-            generation = TeamGeneration.objects.create(
-                gameday_id=data.get('gameday_id'),
-                modality=data['modality'],
-                created_by=request.user,
-                notes=data.get('notes', ''),
-                balance_score=result['balance_score'],
+            generation = self._save_generation(
+                request.user, 
+                data['modality'], 
+                data.get('gameday_id'), 
+                data.get('notes', ''), 
+                result
             )
-            for team_data in result['teams']:
-                team = Team.objects.create(
-                    generation=generation,
-                    name=team_data['name'],
-                    color=team_data['color'],
-                    color_hex=team_data['color_hex'],
-                    avg_overall=team_data['avg_overall'],
-                    order=team_data['order'],
-                )
-                for i, player_data in enumerate(team_data['players']):
-                    TeamPlayer.objects.create(
-                        team=team,
-                        player_id=player_data['id'],
-                        order_in_team=i,
-                    )
             result['generation_id'] = generation.id
 
         return Response(result)
+
+    def _save_generation(self, user, modality, gameday_id, notes, result_data):
+        generation = TeamGeneration.objects.create(
+            gameday_id=gameday_id,
+            modality=modality,
+            created_by=user,
+            notes=notes,
+            balance_score=result_data['balance_score'],
+        )
+        for team_data in result_data['teams']:
+            team = Team.objects.create(
+                generation=generation,
+                name=team_data['name'],
+                color=team_data['color'],
+                color_hex=team_data['color_hex'],
+                avg_overall=team_data['avg_overall'],
+                order=team_data['order'],
+            )
+            for i, player_data in enumerate(team_data['players']):
+                TeamPlayer.objects.create(
+                    team=team,
+                    player_id=player_data['id'],
+                    order_in_team=i,
+                )
+        return generation
+
+    @action(detail=False, methods=['post'], url_path='save-generated')
+    def save_generated(self, request):
+        """Salva exatamente os times que foram enviados (após visualização pelo usuário)."""
+        data = request.data
+        modality = data.get('modality')
+        gameday_id = data.get('gameday_id')
+        notes = data.get('notes', '')
+        result = data.get('result')
+
+        if not result or not modality:
+            return Response({'detail': 'Dados inválidos.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        generation = self._save_generation(request.user, modality, gameday_id, notes, result)
+        
+        return Response({
+            'detail': 'Times salvos com sucesso!',
+            'generation_id': generation.id
+        })
 
     @action(detail=True, methods=['patch'], url_path='move-player')
     def move_player(self, request, pk=None):
