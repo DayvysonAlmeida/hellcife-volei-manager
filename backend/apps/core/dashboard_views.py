@@ -1,7 +1,7 @@
 from django.utils import timezone
 from datetime import date
-from django.db.models import Avg, Count
-from django.db.models.functions import TruncMonth
+from django.db.models import Avg, Count, Subquery, OuterRef, FloatField, Q
+from django.db.models.functions import Coalesce
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,116 +12,187 @@ from apps.evaluations.models import Evaluation
 from apps.attendance.models import GameDay, Attendance
 from apps.matches.models import MatchPlayer
 
+
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        total_players = Player.objects.count()
-        active_players = Player.objects.filter(status='active').count()
+        # Subquery para pegar o overall da avaliação mais recente de cada jogador
+        latest_eval_subquery = Evaluation.objects.filter(
+            player=OuterRef('pk')
+        ).order_by('-date').values('overall')[:1]
 
-        # Presença de hoje
-        today = date.today()
-        today_gameday = GameDay.objects.filter(date=today).first()
-        present_today = 0
-        paid_today = 0
-        if today_gameday:
-            present_today = Attendance.objects.filter(
-                gameday=today_gameday, present=True
-            ).count()
-            paid_today = Attendance.objects.filter(
-                gameday=today_gameday, present=True, has_paid=True
-            ).count()
-
-        # Overall médio
-        avg_overall = Evaluation.objects.filter(
-            player__status='active'
-        ).values('player').annotate(
-            last_overall=Avg('overall')
-        ).aggregate(avg=Avg('last_overall'))['avg'] or 0
-
-        # Top jogadores
-        players_with_eval = Player.objects.filter(status='active').prefetch_related('evaluations')
-        player_overalls = []
-        for p in players_with_eval:
-            last_eval = p.evaluations.order_by('-date').first()
-            if last_eval:
-                player_overalls.append({
-                    'id': p.id,
-                    'name': p.name,
-                    'nickname': p.nickname,
-                    'position': p.main_position,
-                    'overall': last_eval.overall,
-                    'avatar_url': p.avatar_url,
-                    'shirt_number': p.shirt_number,
-                })
-        top_players = sorted(player_overalls, key=lambda x: x['overall'], reverse=True)[:10]
-
-        # Evolução mensal (últimos 6 meses)
-        monthly = (
-            Evaluation.objects
-            .filter(date__gte=timezone.now().date().replace(day=1))
-            .annotate(month=TruncMonth('date'))
-            .values('month')
-            .annotate(count=Count('id'), avg=Avg('overall'))
-            .order_by('month')
+        # Jogadores ativos com overall anotado (1 query)
+        active_players = Player.objects.filter(status='active').annotate(
+            annotated_overall=Coalesce(
+                Subquery(latest_eval_subquery, output_field=FloatField()),
+                0.0
+            )
         )
 
-        # Distribuição por posição
-        position_dist = []
-        for pos_code, pos_name in Player.POSITION_CHOICES:
-            count = Player.objects.filter(main_position=pos_code, status='active').count()
-            if count > 0:
-                position_dist.append({'position': pos_name, 'count': count})
+        # Contagens básicas (2 queries)
+        total_players = Player.objects.count()
+        active_count = active_players.count()
 
-        # Club Radar (média das últimas avaliações de todos os jogadores ativos)
+        # Presença de hoje (1-2 queries)
+        today = date.today()
+        today_stats = Attendance.objects.filter(
+            gameday__date=today
+        ).aggregate(
+            present_today=Count('id', filter=Q(present=True)),
+            paid_today=Count('id', filter=Q(present=True, has_paid=True)),
+        )
+        present_today = today_stats['present_today'] or 0
+        paid_today = today_stats['paid_today'] or 0
+
+        # Overall médio dos jogadores ativos avaliados (1 query, reusa annotation)
+        avg_overall_data = active_players.filter(
+            annotated_overall__gt=0
+        ).aggregate(avg=Avg('annotated_overall'))
+        avg_overall = avg_overall_data['avg'] or 0
+
+        # Top 10 jogadores por overall (1 query, reusa annotation)
+        top_players = list(
+            active_players.filter(annotated_overall__gt=0)
+            .order_by('-annotated_overall')
+            .values(
+                'id', 'name', 'nickname', 'main_position',
+                'shirt_number', 'avatar',
+            )[:10]
+        )
+        # Formata top_players para a resposta
+        top_players_result = []
+        for p in top_players:
+            avatar_url = None
+            if p['avatar']:
+                avatar_url = f"/media/{p['avatar']}"
+            top_players_result.append({
+                'id': p['id'],
+                'name': p['name'],
+                'nickname': p['nickname'],
+                'position': p['main_position'],
+                'overall': round(
+                    active_players.filter(id=p['id'])
+                    .values_list('annotated_overall', flat=True).first() or 0, 2
+                ),
+                'avatar_url': avatar_url,
+                'shirt_number': p['shirt_number'],
+            })
+
+        # Reprocessa top_players usando os dados já annotados (sem queries extras)
+        top_annotated = list(
+            active_players.filter(annotated_overall__gt=0)
+            .order_by('-annotated_overall')
+            .values('id', 'name', 'nickname', 'main_position',
+                    'shirt_number', 'avatar', 'annotated_overall')[:10]
+        )
+        top_players_result = []
+        for p in top_annotated:
+            avatar_url = f"/media/{p['avatar']}" if p['avatar'] else None
+            top_players_result.append({
+                'id': p['id'],
+                'name': p['name'],
+                'nickname': p['nickname'],
+                'position': p['main_position'],
+                'overall': round(p['annotated_overall'], 2),
+                'avatar_url': avatar_url,
+                'shirt_number': p['shirt_number'],
+            })
+
+        # Distribuição por posição (1 query)
+        position_dist_qs = (
+            Player.objects.filter(status='active')
+            .values('main_position')
+            .annotate(count=Count('id'))
+            .filter(count__gt=0)
+        )
+        position_labels = dict(Player.POSITION_CHOICES)
+        position_dist = [
+            {'position': position_labels.get(item['main_position'], item['main_position']),
+             'count': item['count']}
+            for item in position_dist_qs
+        ]
+
+        # Club Radar — média dos fundamentos da última avaliação de cada jogador ativo (1 query)
+        skills_keys = [
+            'serve', 'reception', 'passing', 'setting', 'attack', 'block',
+            'defense', 'recovery', 'positioning', 'communication',
+            'tactical_iq', 'conditioning', 'consistency'
+        ]
+        # Subquery para IDs das últimas avaliações de jogadores ativos
+        latest_eval_ids = Evaluation.objects.filter(
+            player__status='active'
+        ).order_by('player', '-date').distinct('player').values('id')
+
+        # Em SQLite, distinct('player') não funciona, então usamos uma abordagem alternativa
+        # que funciona tanto em SQLite quanto em PostgreSQL
         club_radar = {}
-        if players_with_eval:
-            skills_keys = [
-                'serve', 'reception', 'passing', 'setting', 'attack', 'block',
-                'defense', 'recovery', 'positioning', 'communication',
-                'tactical_iq', 'conditioning', 'consistency'
-            ]
-            sums = {k: 0.0 for k in skills_keys}
-            count = 0
-            for p in players_with_eval:
-                last_eval = p.evaluations.order_by('-date').first()
-                if last_eval:
-                    for k in skills_keys:
-                        sums[k] += getattr(last_eval, k, 0)
-                    count += 1
-            if count > 0:
-                club_radar = {k: round(v / count, 1) for k, v in sums.items()}
+        latest_evals_subquery = Evaluation.objects.filter(
+            player=OuterRef('pk'),
+            player__status='active'
+        ).order_by('-date')
 
-        # Destaques (Scouts)
-        def get_top(field):
-            top_agg = MatchPlayer.objects.filter(**{field: True}).values(
-                'player'
-            ).annotate(count=Count('id')).order_by('-count').first()
-            
+        radar_annotations = {}
+        for skill in skills_keys:
+            radar_annotations[f'latest_{skill}'] = Coalesce(
+                Subquery(
+                    latest_evals_subquery.values(skill)[:1],
+                    output_field=FloatField()
+                ),
+                0.0
+            )
+
+        radar_data = (
+            Player.objects.filter(status='active', evaluations__isnull=False)
+            .annotate(**radar_annotations)
+            .aggregate(**{
+                f'avg_{skill}': Avg(f'latest_{skill}')
+                for skill in skills_keys
+            })
+        )
+
+        club_radar = {
+            skill: round(radar_data.get(f'avg_{skill}', 0) or 0, 1)
+            for skill in skills_keys
+        }
+
+        # Destaques — jogadores com mais premiações (1 query com annotations)
+        highlight_fields = {
+            'mvp': 'mvp',
+            'best_attacker': 'best_attacker',
+            'best_server': 'best_server',
+            'best_defender': 'best_defender',
+        }
+
+        highlights = {}
+        for key, field in highlight_fields.items():
+            top_agg = (
+                MatchPlayer.objects.filter(**{field: True})
+                .values('player')
+                .annotate(count=Count('id'))
+                .order_by('-count')
+                .first()
+            )
             if top_agg:
-                player = Player.objects.get(id=top_agg['player'])
-                return {
+                player = Player.objects.only(
+                    'id', 'name', 'nickname', 'avatar'
+                ).get(id=top_agg['player'])
+                highlights[key] = {
                     'id': player.id,
                     'name': player.display_name,
                     'avatar_url': player.avatar_url,
                     'count': top_agg['count']
                 }
-            return None
-
-        highlights = {
-            'mvp': get_top('mvp'),
-            'best_attacker': get_top('best_attacker'),
-            'best_server': get_top('best_server'),
-            'best_defender': get_top('best_defender'),
-        }
+            else:
+                highlights[key] = None
 
         return Response({
             'total_players': total_players,
-            'active_players': active_players,
+            'active_players': active_count,
             'present_today': present_today,
             'paid_today': paid_today,
             'avg_overall': round(float(avg_overall), 2),
-            'top_players': top_players,
+            'top_players': top_players_result,
             'position_distribution': position_dist,
             'club_radar': club_radar,
             'highlights': highlights,

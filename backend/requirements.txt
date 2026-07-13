@@ -5,3 +5,9 @@ drf-spectacular==0.27.2
 django-cors-headers==4.6.0
 django-filter==24.3
 python-decouple==3.8
+
+# Produção
+gunicorn==23.0.0
+dj-database-url==2.3.0
+psycopg2-binary==2.9.10
+whitenoise==6.8.2

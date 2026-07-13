@@ -2,20 +2,33 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Subquery, OuterRef, FloatField, Avg, Prefetch
+from django.db.models.functions import Coalesce
 
 from .models import TeamGeneration, Team, TeamPlayer
 from .serializers import TeamGenerationSerializer, TeamSerializer, GenerateTeamsInputSerializer
 from .algorithm import generate_teams
 from apps.core.permissions import IsAdminOrModerator
+from apps.evaluations.models import Evaluation
+from apps.players.models import Player
 
 
 class TeamGenerationViewSet(viewsets.ModelViewSet):
-    queryset = TeamGeneration.objects.all().prefetch_related('teams__team_players__player')
     serializer_class = TeamGenerationSerializer
     permission_classes = [IsAdminOrModerator]
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        # Prefetch otimizado: traz player + evaluations em poucos JOINs
+        qs = (
+            TeamGeneration.objects.all()
+            .select_related('created_by', 'gameday')
+            .prefetch_related(
+                Prefetch(
+                    'teams__team_players__player',
+                    queryset=Player.objects.prefetch_related('evaluations')
+                )
+            )
+        )
         gameday_id = self.request.query_params.get('gameday_id')
         if gameday_id:
             qs = qs.filter(gameday_id=gameday_id)
@@ -110,13 +123,26 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             tp = TeamPlayer.objects.get(team__generation=generation, player_id=player_id)
             tp.team_id = target_team_id
             tp.save()
-            # Recalcula overalls
+
+            # Recalcula overalls com Subquery (sem loop N+1)
+            latest_eval_subquery = Subquery(
+                Evaluation.objects.filter(
+                    player=OuterRef('player')
+                ).order_by('-date').values('overall')[:1],
+                output_field=FloatField()
+            )
+
             for team in generation.teams.all():
-                players = [tp.player for tp in team.team_players.all()]
-                if players:
-                    overalls = [p.latest_overall or 5.0 for p in players]
-                    team.avg_overall = round(sum(overalls) / len(overalls), 2)
-                    team.save()
+                avg = (
+                    TeamPlayer.objects.filter(team=team)
+                    .annotate(
+                        player_overall=Coalesce(latest_eval_subquery, 5.0)
+                    )
+                    .aggregate(avg_overall=Avg('player_overall'))
+                )
+                team.avg_overall = round(avg['avg_overall'] or 0, 2)
+                team.save(update_fields=['avg_overall'])
+
             return Response({'detail': 'Jogador movido com sucesso.'})
         except TeamPlayer.DoesNotExist:
             return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=404)

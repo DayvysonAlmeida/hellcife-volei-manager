@@ -34,17 +34,20 @@ class MatchSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_by', 'created_at']
 
 
+class MatchListTeamSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MatchTeam
+        fields = ['id', 'team_name', 'color_hex', 'score', 'winner']
+
+
 class MatchListSerializer(serializers.ModelSerializer):
     modality_display = serializers.CharField(source='get_modality_display', read_only=True)
-    teams_count = serializers.SerializerMethodField()
+    match_teams = MatchListTeamSerializer(many=True, read_only=True)
 
     class Meta:
         model = Match
         fields = ['id', 'date', 'location', 'modality', 'modality_display',
-                  'gameday', 'notes', 'teams_count', 'created_at']
-
-    def get_teams_count(self, obj):
-        return obj.match_teams.count()
+                  'gameday', 'notes', 'match_teams', 'created_at']
 
 
 class MatchWriteSerializer(serializers.ModelSerializer):

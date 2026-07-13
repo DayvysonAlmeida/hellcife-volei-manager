@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Swords, Plus, Calendar, MapPin } from 'lucide-react';
+import { Swords, Plus, Calendar, MapPin, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { matchesService } from '@/services';
@@ -47,34 +47,52 @@ export function MatchesPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
-              className="card p-5 flex items-center gap-4 hover:border-border-subtle transition-all"
+              className="card p-5 flex flex-col gap-4 hover:border-border-subtle transition-all"
             >
-              <div className="w-12 h-12 rounded-xl bg-red/10 flex items-center justify-center flex-shrink-0">
-                <Swords size={20} className="text-red" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-display text-lg text-text-primary tracking-wider">
-                    {MODALITY_LABELS[match.modality as Modality]}
-                  </span>
-                  <span className="badge-active">{match.modality_display}</span>
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-red/10 flex items-center justify-center flex-shrink-0">
+                  <Swords size={20} className="text-red" />
                 </div>
-                <div className="flex items-center gap-4 mt-1">
-                  <div className="flex items-center gap-1 text-text-muted text-xs">
-                    <Calendar size={11} />
-                    {formatDate(match.date)}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-display text-lg text-text-primary tracking-wider">
+                      {MODALITY_LABELS[match.modality as Modality]}
+                    </span>
+                    <span className="badge-active">{match.modality_display}</span>
                   </div>
-                  {match.location && (
+                  <div className="flex items-center gap-4 mt-1">
                     <div className="flex items-center gap-1 text-text-muted text-xs">
-                      <MapPin size={11} />
-                      {match.location}
+                      <Calendar size={11} />
+                      {formatDate(match.date)}
                     </div>
-                  )}
+                    {match.location && (
+                      <div className="flex items-center gap-1 text-text-muted text-xs">
+                        <MapPin size={11} />
+                        {match.location}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="text-text-muted text-xs">
-                {(match as { teams_count?: number }).teams_count ?? 0} times
-              </div>
+
+              {/* Placares dos Times */}
+              {match.match_teams && match.match_teams.length > 0 && (
+                <div className="bg-surface-highlight/50 rounded-lg p-3 grid gap-2 mt-2">
+                  {match.match_teams.map((team: any) => (
+                    <div key={team.id} className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        {team.winner && <Trophy size={14} className="text-yellow-500" />}
+                        <span className={`font-medium text-sm ${team.winner ? 'text-yellow-500' : 'text-text-primary'}`}>
+                          {team.team_name}
+                        </span>
+                      </div>
+                      <span className={`font-display text-lg ${team.winner ? 'text-yellow-500 font-bold' : 'text-text-muted'}`}>
+                        {team.score}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           ))}
         </div>

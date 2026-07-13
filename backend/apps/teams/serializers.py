@@ -15,7 +15,15 @@ class TeamPlayerSerializer(serializers.ModelSerializer):
                   'player_overall', 'player_avatar', 'player_shirt', 'order_in_team']
 
     def get_player_overall(self, obj):
-        return obj.player.latest_overall
+        """Usa evaluations prefetchados quando disponível para evitar N+1."""
+        player = obj.player
+        if hasattr(player, '_prefetched_objects_cache') and 'evaluations' in player._prefetched_objects_cache:
+            evals = list(player.evaluations.all())
+            if evals:
+                evals.sort(key=lambda e: e.date, reverse=True)
+                return evals[0].overall
+            return None
+        return player.latest_overall
 
 
 class TeamSerializer(serializers.ModelSerializer):

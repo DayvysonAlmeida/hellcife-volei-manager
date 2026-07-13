@@ -3,14 +3,26 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Subquery, OuterRef, FloatField, Case, When, IntegerField
+from django.db.models.functions import Coalesce
 
 from .models import Player
 from .serializers import PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer
 from .filters import PlayerFilter
 from apps.core.permissions import IsAdminOrModerator
+from apps.evaluations.models import Evaluation
 from apps.matches.models import MatchPlayer
 from apps.attendance.models import Attendance, GameDay
+
+
+# Subquery reutilizável para pegar o overall mais recente
+def latest_overall_subquery():
+    return Subquery(
+        Evaluation.objects.filter(
+            player=OuterRef('pk')
+        ).order_by('-date').values('overall')[:1],
+        output_field=FloatField()
+    )
 
 
 class PlayerViewSet(viewsets.ModelViewSet):
@@ -47,85 +59,82 @@ class PlayerViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='ranking')
     def ranking(self, request):
         position = request.query_params.get('position')
-        players = Player.objects.filter(status='active').prefetch_related(
-            'evaluations'
-        ).annotate(
-            total_matches=Count('match_appearances'),
-            mvps=Count('match_appearances', filter=Q(match_appearances__mvp=True)),
-            best_attackers=Count('match_appearances', filter=Q(match_appearances__best_attacker=True)),
-            best_servers=Count('match_appearances', filter=Q(match_appearances__best_server=True)),
-            best_defenders=Count('match_appearances', filter=Q(match_appearances__best_defender=True)),
-            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True))
+
+        # Uma única query com annotations para overall, stats de partidas
+        players = (
+            Player.objects.filter(status='active')
+            .annotate(
+                annotated_overall=Coalesce(latest_overall_subquery(), 0.0),
+                total_matches=Count('match_appearances', distinct=True),
+                mvps=Count('match_appearances', filter=Q(match_appearances__mvp=True), distinct=True),
+                best_attackers=Count('match_appearances', filter=Q(match_appearances__best_attacker=True), distinct=True),
+                best_servers=Count('match_appearances', filter=Q(match_appearances__best_server=True), distinct=True),
+                best_defenders=Count('match_appearances', filter=Q(match_appearances__best_defender=True), distinct=True),
+                wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
+            )
+            .filter(annotated_overall__gt=0)  # Apenas jogadores com avaliação
         )
-        
+
         if position:
             players = players.filter(main_position=position)
 
+        # Ordena por overall e retorna tudo em 1 query
+        players = players.order_by('-annotated_overall')
+
         player_data = []
         for p in players:
-            # Pegamos a última avaliação (se houver). 
-            # O ideal seria annotar o overall, mas como evaluations é uma relação reversa, 
-            # e a gente quer a *última*, prefetch + loop em python já ajuda sem complicar o SQL.
-            # Convertemos para list para evitar query extra se prefetch foi feito bem
-            evals = list(p.evaluations.all())
-            evals.sort(key=lambda x: x.date, reverse=True)
-            last_eval = evals[0] if evals else None
-            
-            if last_eval:
-                total_matches = p.total_matches
-                win_rate = (p.wins / total_matches * 100) if total_matches > 0 else 0
-                
-                player_data.append({
-                    'id': p.id,
-                    'name': p.name,
-                    'nickname': p.nickname,
-                    'main_position': p.main_position,
-                    'main_position_display': p.get_main_position_display(),
-                    'avatar_url': p.avatar_url,
-                    'shirt_number': p.shirt_number,
-                    'overall': last_eval.overall,
-                    'stats': {
-                        'matches': total_matches,
-                        'win_rate': round(win_rate, 1),
-                        'mvp': p.mvps,
-                        'best_attacker': p.best_attackers,
-                        'best_server': p.best_servers,
-                        'best_defender': p.best_defenders,
-                    }
-                })
+            win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
+            avatar_url = f"/media/{p.avatar}" if p.avatar else None
 
-        player_data.sort(key=lambda x: x['overall'], reverse=True)
+            player_data.append({
+                'id': p.id,
+                'name': p.name,
+                'nickname': p.nickname,
+                'main_position': p.main_position,
+                'main_position_display': p.get_main_position_display(),
+                'avatar_url': avatar_url,
+                'shirt_number': p.shirt_number,
+                'overall': round(p.annotated_overall, 2),
+                'stats': {
+                    'matches': p.total_matches,
+                    'win_rate': round(win_rate, 1),
+                    'mvp': p.mvps,
+                    'best_attacker': p.best_attackers,
+                    'best_server': p.best_servers,
+                    'best_defender': p.best_defenders,
+                }
+            })
+
         return Response(player_data)
 
     @action(detail=True, methods=['get'], url_path='stats')
     def stats(self, request, pk=None):
         player = self.get_object()
 
-        match_players = MatchPlayer.objects.filter(player=player)
-        total_matches = match_players.count()
-        mvps = match_players.filter(mvp=True).count()
+        # Usa annotations ao invés de loop Python para calcular vitórias/derrotas
+        match_stats = MatchPlayer.objects.filter(player=player).aggregate(
+            total_matches=Count('id'),
+            mvps=Count('id', filter=Q(mvp=True)),
+            wins=Count('id', filter=Q(match_team__winner=True)),
+            losses=Count('id', filter=Q(
+                match_team__isnull=False,
+                match_team__winner=False,
+            )),
+        )
 
-        # Vitórias e derrotas calculadas via resultados de partidas
-        wins = 0
-        losses = 0
-        for mp in match_players.select_related('match_team', 'match'):
-            match = mp.match
-            if mp.match_team:
-                opponent_scores = match.match_teams.exclude(id=mp.match_team.id)
-                max_opponent = max((t.score for t in opponent_scores), default=0)
-                if mp.match_team.score > max_opponent:
-                    wins += 1
-                elif mp.match_team.score < max_opponent:
-                    losses += 1
-
+        total_matches = match_stats['total_matches']
+        wins = match_stats['wins']
+        losses = match_stats['losses']
+        mvps = match_stats['mvps']
+        draws = total_matches - wins - losses
         win_rate = round(wins / total_matches * 100, 1) if total_matches > 0 else 0
 
-        # Presença
+        # Presença (2 queries simples)
         total_gamedays = GameDay.objects.count()
         attended = Attendance.objects.filter(player=player, present=True).count()
         attendance_rate = round(attended / total_gamedays * 100, 1) if total_gamedays > 0 else 0
 
-        # Histórico de overall
+        # Histórico de overall (1 query)
         evaluations = player.evaluations.order_by('date').values('date', 'overall')
 
         return Response({
@@ -133,7 +142,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'total_matches': total_matches,
             'wins': wins,
             'losses': losses,
-            'draws': total_matches - wins - losses,
+            'draws': draws,
             'win_rate': win_rate,
             'mvps': mvps,
             'total_gamedays': total_gamedays,
