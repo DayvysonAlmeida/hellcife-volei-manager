@@ -79,7 +79,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         }
         transition={{ duration: 0.3, ease: 'easeInOut' }}
         className={cn(
-          "fixed left-0 top-0 h-full bg-sidebar-gradient border-r border-border z-50 flex flex-col overflow-hidden shadow-2xl md:shadow-none",
+          "fixed left-0 top-0 h-full bg-surface border-r border-border z-50 flex flex-col overflow-hidden shadow-2xl md:shadow-none",
           // Garante que inicie oculto no mobile antes da hidratação
           !mobileOpen && "-translate-x-full md:translate-x-0"
         )}

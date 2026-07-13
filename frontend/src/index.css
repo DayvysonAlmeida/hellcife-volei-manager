@@ -4,6 +4,38 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-bg: 9 9 11;
+  --color-surface: 24 24 27;
+  --color-surface-highlight: 39 39 42;
+  --color-primary: 217 4 41;
+  --color-primary-hover: 239 35 60;
+  --color-secondary: 37 99 235;
+  --color-secondary-hover: 59 130 246;
+  --color-accent: 250 204 21;
+  --color-border: 39 39 42;
+  --color-border-subtle: 63 63 70;
+  --color-text-primary: 244 244 245;
+  --color-text-secondary: 161 161 170;
+  --color-text-muted: 113 113 122;
+}
+
+.theme-light {
+  --color-bg: 244 244 245;
+  --color-surface: 255 255 255;
+  --color-surface-highlight: 228 228 231;
+  --color-primary: 217 4 41;
+  --color-primary-hover: 239 35 60;
+  --color-secondary: 37 99 235;
+  --color-secondary-hover: 59 130 246;
+  --color-accent: 202 138 4;
+  --color-border: 212 212 216;
+  --color-border-subtle: 161 161 170;
+  --color-text-primary: 24 24 27;
+  --color-text-secondary: 63 63 70;
+  --color-text-muted: 82 82 91;
+}
+
 @layer base {
   * {
     border-color: theme('colors.border');

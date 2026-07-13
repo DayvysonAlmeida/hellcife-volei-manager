@@ -8,19 +8,19 @@ export default {
     extend: {
       colors: {
         // Paleta HellLife Vôlei
-        background: '#09090B',
-        surface: '#18181B',
-        'surface-highlight': '#27272A',
-        primary: '#D90429',
-        'primary-hover': '#EF233C',
-        secondary: '#2563EB',
-        'secondary-hover': '#3B82F6',
-        accent: '#FACC15',
-        border: '#27272A',
-        'border-subtle': '#3F3F46',
-        'text-primary': '#F4F4F5',
-        'text-secondary': '#A1A1AA',
-        'text-muted': '#71717A',
+        background: 'rgb(var(--color-bg) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        'surface-highlight': 'rgb(var(--color-surface-highlight) / <alpha-value>)',
+        primary: 'rgb(var(--color-primary) / <alpha-value>)',
+        'primary-hover': 'rgb(var(--color-primary-hover) / <alpha-value>)',
+        secondary: 'rgb(var(--color-secondary) / <alpha-value>)',
+        'secondary-hover': 'rgb(var(--color-secondary-hover) / <alpha-value>)',
+        accent: 'rgb(var(--color-accent) / <alpha-value>)',
+        border: 'rgb(var(--color-border) / <alpha-value>)',
+        'border-subtle': 'rgb(var(--color-border-subtle) / <alpha-value>)',
+        'text-primary': 'rgb(var(--color-text-primary) / <alpha-value>)',
+        'text-secondary': 'rgb(var(--color-text-secondary) / <alpha-value>)',
+        'text-muted': 'rgb(var(--color-text-muted) / <alpha-value>)',
         
         // Cores base usadas no CSS
         red: {

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/store/AuthContext';
+import { ThemeProvider } from '@/store/ThemeContext';
 import { queryClient } from '@/lib/queryClient';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute, PublicRoute } from '@/routes/guards';
@@ -27,7 +28,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
+        <ThemeProvider>
+          <BrowserRouter>
           <Routes>
             {/* Public routes */}
             <Route
@@ -75,9 +77,9 @@ function App() {
           position="bottom-center"
           toastOptions={{
             style: {
-              background: '#18181B',
-              color: '#F4F4F5',
-              border: '1px solid #27272A',
+              background: 'var(--color-surface)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
               fontSize: '14px',
             },
             success: {
@@ -88,6 +90,7 @@ function App() {
             },
           }}
         />
+        </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

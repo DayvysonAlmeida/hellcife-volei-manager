@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
-import { Menu, Bell } from 'lucide-react';
+import { Menu, Bell, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
+import { useTheme } from '@/store/ThemeContext';
 
 const routeLabels: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -20,6 +21,7 @@ interface HeaderProps {
 export function Header({ onMenuToggle }: HeaderProps) {
   const location = useLocation();
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const routeLabel = Object.entries(routeLabels).find(([path]) =>
     location.pathname.startsWith(path)
@@ -46,6 +48,13 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
         {/* Right: notifications + user */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface transition-all"
+            title="Alternar Tema"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <button className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface transition-all relative">
             <Bell size={18} />
           </button>

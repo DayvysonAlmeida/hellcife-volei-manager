@@ -304,7 +304,7 @@ export function TeamsPage() {
                               {canEdit && (
                                 <div className="relative">
                                   <select 
-                                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity bg-surface border border-border rounded text-[10px] text-text-primary h-5 pr-4 pl-1 outline-none cursor-pointer appearance-none"
+                                    className="opacity-100 md:opacity-0 focus:opacity-100 md:group-hover:opacity-100 transition-opacity bg-surface border border-border rounded text-[10px] text-text-primary h-5 pr-4 pl-1 outline-none cursor-pointer appearance-none"
                                     onChange={(e) => {
                                       if (e.target.value) {
                                         movePlayerMutation.mutate({ genId: gen.id, playerId: p.player, targetTeamId: Number(e.target.value) });
@@ -319,7 +319,7 @@ export function TeamsPage() {
                                       <option key={t.id} value={t.id}>{t.name}</option>
                                     ))}
                                   </select>
-                                  <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center bg-surface border border-border-subtle rounded group-hover:bg-blue/10 group-hover:border-blue/30 group-hover:text-blue">
+                                  <div className="absolute inset-0 pointer-events-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center bg-surface border border-border-subtle rounded group-hover:bg-blue/10 group-hover:border-blue/30 group-hover:text-blue text-text-muted">
                                     <ArrowRightLeft size={10} />
                                   </div>
                                 </div>

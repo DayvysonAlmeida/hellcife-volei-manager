@@ -4,8 +4,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
+import { useTheme } from '@/store/ThemeContext';
 import { cn } from '@/lib/utils';
 
 const loginSchema = z.object({
@@ -17,6 +18,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const { login, isLoading } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -41,6 +43,15 @@ export function LoginPage() {
       <div className="absolute inset-0 bg-hero-gradient pointer-events-none" />
       <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-red/5 blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-blue/5 blur-3xl pointer-events-none" />
+
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-6 right-6 p-2 rounded-full bg-surface border border-border text-text-secondary hover:text-text-primary hover:scale-110 transition-all shadow-lg z-10"
+        title="Alternar Tema"
+      >
+        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
 
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
