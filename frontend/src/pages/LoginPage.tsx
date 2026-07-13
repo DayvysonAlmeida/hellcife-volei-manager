@@ -143,6 +143,9 @@ export function LoginPage() {
           <p className="text-center text-text-muted text-xs mt-6">
             HellCife Vôlei Manager © {new Date().getFullYear()}
           </p>
+          <p className="text-center text-text-muted/30 text-[10px] mt-2 uppercase tracking-widest font-medium select-none">
+            Desenvolvido por DayFer
+          </p>
         </div>
       </motion.div>
     </div>
