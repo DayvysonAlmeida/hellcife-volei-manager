@@ -25,10 +25,17 @@ export function AppLayout() {
         <Header onMenuToggle={() => setSidebarCollapsed((c) => !c)} />
 
         {/* Page content */}
-        <main className="flex-1 p-6">
-          <div className="max-w-[1600px] mx-auto animate-fade-in">
+        <main className="flex-1 p-6 flex flex-col">
+          <div className="max-w-[1600px] mx-auto w-full flex-1 animate-fade-in">
             <Outlet />
           </div>
+          
+          {/* Footer Discreto */}
+          <footer className="mt-8 text-center">
+            <p className="text-[10px] text-text-muted/30 uppercase tracking-widest font-medium select-none">
+              Desenvolvido por DayFer
+            </p>
+          </footer>
         </main>
       </motion.div>
     </div>
