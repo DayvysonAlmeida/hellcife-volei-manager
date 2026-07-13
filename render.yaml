@@ -1,6 +1,7 @@
 services:
   - type: web
     name: hellcife-volei-api
+    plan: free
     runtime: python
     region: oregon
     rootDir: backend
