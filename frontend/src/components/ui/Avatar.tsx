@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { cn, getAvatarColor, getInitials } from '@/lib/utils';
 
 interface AvatarProps {
@@ -15,14 +16,16 @@ const sizeClasses = {
 };
 
 export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
+  const [error, setError] = useState(false);
   const initials = getInitials(name);
   const gradientClass = getAvatarColor(name);
 
-  if (src) {
+  if (src && !error) {
     return (
       <img
         src={src}
         alt={name}
+        onError={() => setError(true)}
         className={cn('rounded-full object-cover', sizeClasses[size], className)}
       />
     );
