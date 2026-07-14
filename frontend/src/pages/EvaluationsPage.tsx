@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, Star, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Star, Search, Edit, Trash2, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
@@ -52,7 +52,7 @@ export function EvaluationsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Player list */}
-        <div className="lg:col-span-1 card p-4 space-y-3">
+        <div className={`lg:col-span-1 card p-4 space-y-3 ${selectedPlayer ? 'hidden lg:block' : 'block'}`}>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
@@ -91,7 +91,7 @@ export function EvaluationsPage() {
         </div>
 
         {/* Evaluation detail / form */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className={`lg:col-span-2 space-y-4 ${!selectedPlayer ? 'hidden lg:block' : 'block'}`}>
           {!selectedPlayer ? (
             <div className="card flex items-center justify-center py-24">
               <div className="text-center">
@@ -102,8 +102,14 @@ export function EvaluationsPage() {
           ) : (
             <>
               {/* Player header + new evaluation button */}
-              <div className="card p-5 flex items-center justify-between">
+              <div className="card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setSelectedPlayer(null)}
+                    className="lg:hidden p-2 -ml-2 rounded-lg text-text-muted hover:bg-surface hover:text-text-primary transition-colors"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
                   <Avatar name={selectedPlayer.display_name} src={selectedPlayer.avatar_url} size="md" />
                   <div>
                     <h2 className="font-display text-xl text-text-primary tracking-wider">
@@ -130,6 +136,7 @@ export function EvaluationsPage() {
               {showForm && canEdit && (
                 <EvaluationForm
                   playerId={selectedPlayer.id}
+                  initialValues={evaluations?.[0] as Record<string, number> | undefined}
                   onSuccess={() => {
                     setShowForm(false);
                     qc.invalidateQueries({ queryKey: ['player-evaluations', selectedPlayer.id] });
@@ -190,14 +197,18 @@ export function EvaluationsPage() {
   );
 }
 
-function EvaluationForm({ playerId, onSuccess, onCancel }: {
+function EvaluationForm({ playerId, initialValues, onSuccess, onCancel }: {
   playerId: number;
+  initialValues?: Record<string, number>;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
-  const [values, setValues] = useState<Record<string, number>>(
-    Object.fromEntries(Object.keys(SKILL_LABELS).map(k => [k, 5]))
-  );
+  const [values, setValues] = useState<Record<string, number>>(() => {
+    if (initialValues) {
+      return Object.fromEntries(Object.keys(SKILL_LABELS).map(k => [k, initialValues[k] || 5]));
+    }
+    return Object.fromEntries(Object.keys(SKILL_LABELS).map(k => [k, 5]));
+  });
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
 

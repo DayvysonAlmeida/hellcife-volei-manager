@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, CalendarCheck, ChevronRight, Check, Users, Shuffle, RefreshCw, Trash2, DollarSign, Share2 } from 'lucide-react';
+import { Plus, CalendarCheck, ChevronRight, Check, Users, Shuffle, RefreshCw, Trash2, DollarSign, Share2, ChevronLeft } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { OverallBadge } from '@/components/ui/OverallBadge';
@@ -171,7 +171,7 @@ export function AttendancePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Game days list */}
-        <div className="card p-4">
+        <div className={`card p-4 ${selectedGameDay ? 'hidden lg:block' : 'block'}`}>
           <h2 className="font-display text-base tracking-wider text-text-primary mb-3 flex items-center gap-2">
             <CalendarCheck size={16} className="text-red" />
             DIAS DE JOGO
@@ -184,9 +184,11 @@ export function AttendancePage() {
             <div className="space-y-2 max-h-[600px] overflow-y-auto">
               {gameDays.map((gd) => (
                 <div key={gd.id} className="relative">
-                  <button
+                  <div
                     onClick={() => setSelectedGameDay(gd)}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all text-left
+                    role="button"
+                    tabIndex={0}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all text-left cursor-pointer
                       ${selectedGameDay?.id === gd.id ? 'bg-red/10 border border-red/30' : 'hover:bg-surface border border-transparent'}`}
                   >
                     <div>
@@ -220,7 +222,7 @@ export function AttendancePage() {
                       )}
                       <ChevronRight size={16} className={selectedGameDay?.id === gd.id ? 'text-red' : 'text-border'} />
                     </div>
-                  </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -228,7 +230,7 @@ export function AttendancePage() {
         </div>
 
         {/* Attendance detail */}
-        <div className="lg:col-span-2">
+        <div className={`lg:col-span-2 ${!selectedGameDay ? 'hidden lg:block' : 'block'}`}>
           {!selectedGameDay ? (
             <div className="card flex items-center justify-center py-24">
               <div className="text-center">
@@ -240,27 +242,35 @@ export function AttendancePage() {
             <PageLoading />
           ) : gameDayDetail ? (
             <div className="card p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="font-display text-xl tracking-wider text-text-primary">
-                    {formatDate(gameDayDetail.date)}
-                  </h2>
-                  {gameDayDetail.location && (
-                    <p className="text-text-muted text-sm">{gameDayDetail.location}</p>
-                  )}
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
                   <button
-                    onClick={() => {
-                      const url = `${window.location.origin}/checkin/${gameDayDetail.id}`;
-                      navigator.clipboard.writeText(url);
-                      toast.success('Link de check-in copiado!');
-                    }}
-                    className="mt-2 text-xs text-red flex items-center gap-1 hover:underline font-medium"
+                    onClick={() => setSelectedGameDay(null)}
+                    className="lg:hidden mt-1 p-2 -ml-2 rounded-lg text-text-muted hover:bg-surface hover:text-text-primary transition-colors"
                   >
-                    <Share2 size={12} />
-                    Copiar link público de check-in
+                    <ChevronLeft size={24} />
                   </button>
+                  <div>
+                    <h2 className="font-display text-xl tracking-wider text-text-primary flex items-center gap-2">
+                      {formatDate(gameDayDetail.date)}
+                    </h2>
+                    {gameDayDetail.location && (
+                      <p className="text-text-muted text-sm">{gameDayDetail.location}</p>
+                    )}
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/checkin/${gameDayDetail.id}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success('Link de check-in copiado!');
+                      }}
+                      className="mt-2 text-xs text-red flex items-center gap-1 hover:underline font-medium"
+                    >
+                      <Share2 size={12} />
+                      Copiar link público de check-in
+                    </button>
+                  </div>
                 </div>
-                <div className="text-center">
+                <div className="text-center self-center sm:self-start">
                   <p className="font-display text-3xl text-red">{gameDayDetail.total_present}</p>
                   <p className="text-text-muted text-xs">de {gameDayDetail.total_players} presentes</p>
                 </div>
