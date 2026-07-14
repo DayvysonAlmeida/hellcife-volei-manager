@@ -303,6 +303,7 @@ export interface MatchPlayer {
   player_name: string;
   player_avatar?: string;
   player_shirt?: number;
+  player_position?: string;
   match_team?: number;
   mvp: boolean;
   best_attacker: boolean;

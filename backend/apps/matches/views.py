@@ -10,7 +10,9 @@ from apps.core.permissions import IsAdminOrModerator
 
 
 class MatchViewSet(viewsets.ModelViewSet):
-    queryset = Match.objects.all().prefetch_related('match_teams__match_players__player')
+    queryset = Match.objects.all().prefetch_related(
+        'match_teams__match_players__player'
+    )
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['modality', 'gameday']
