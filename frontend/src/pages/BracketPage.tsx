@@ -408,6 +408,8 @@ export function BracketPage() {
     );
   }
 
+  const allPlayersInCourt = [...(state.courtA?.team_players || []), ...(state.courtB?.team_players || [])];
+
   return (
     <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto w-full">
       {/* Header Placar */}
