@@ -1,0 +1,679 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History } from 'lucide-react';
+import { PageLoading, ErrorState } from '@/components/ui/Loading';
+import { Avatar } from '@/components/ui/Avatar';
+import { teamsService, matchesService } from '@/services';
+import type { DBTeam, QuickMatchData, Modality, Match } from '@/types';
+import toast from 'react-hot-toast';
+import { MatchCard } from '@/components/matches/MatchCard';
+import { useAuth } from '@/store/AuthContext';
+
+interface BracketState {
+  isStarted: boolean;
+  queue: DBTeam[];
+  courtA: DBTeam | null;
+  courtB: DBTeam | null;
+  scoreA: number;
+  scoreB: number;
+  consecutiveA: number;
+  consecutiveB: number;
+  matchNumber: number;
+  showSaveModal: boolean;
+  transitionMessage: string | null;
+  transitionColor: string | null;
+}
+
+export function BracketPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.profile === 'admin' || user?.profile === 'moderator';
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
+  const storageKey = `hellcife_bracket_${id}`;
+
+  const { data: generation, isLoading, error } = useQuery({
+    queryKey: ['team-generation', id],
+    queryFn: () => teamsService.get(Number(id)),
+    enabled: !!id,
+    refetchInterval: 10000, // Sincroniza a cada 10s caso alguém altere os times pelo backend
+  });
+
+  const { data: matchesData } = useQuery({
+    queryKey: ['matches', generation?.id],
+    queryFn: () => matchesService.list({ team_generation: generation?.id }),
+    enabled: !!generation?.id,
+  });
+  const matches = matchesData?.results || [];
+
+  const [state, setState] = useState<BracketState>(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing saved bracket state', e);
+      }
+    }
+    return {
+      isStarted: false,
+      queue: [],
+      courtA: null,
+      courtB: null,
+      scoreA: 0,
+      scoreB: 0,
+      consecutiveA: 0,
+      consecutiveB: 0,
+      matchNumber: 1,
+      showSaveModal: false,
+      transitionMessage: null,
+      transitionColor: null,
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  }, [state, storageKey]);
+
+  // Sincronização ao vivo de jogadores nos times
+  useEffect(() => {
+    if (generation && state.isStarted) {
+      setState(prev => {
+        let changed = false;
+        
+        const syncTeam = (t: DBTeam | null) => {
+          if (!t) return null;
+          const freshTeam = generation.teams.find((genT: any) => genT.id === t.id);
+          if (freshTeam && JSON.stringify(freshTeam.team_players) !== JSON.stringify(t.team_players)) {
+            changed = true;
+            return { ...t, team_players: freshTeam.team_players, avg_overall: freshTeam.avg_overall };
+          }
+          return t;
+        };
+
+        const newCourtA = syncTeam(prev.courtA);
+        const newCourtB = syncTeam(prev.courtB);
+        const newQueue = prev.queue.map(syncTeam) as DBTeam[];
+
+        if (changed) {
+          return { ...prev, courtA: newCourtA, courtB: newCourtB, queue: newQueue };
+        }
+        return prev;
+      });
+    }
+  }, [generation, state.isStarted]);
+
+  const [highlights, setHighlights] = useState<{
+    mvp: number | null;
+    attacker: number | null;
+    server: number | null;
+    defender: number | null;
+  }>({ mvp: null, attacker: null, server: null, defender: null });
+
+  useEffect(() => {
+    if (generation && !state.isStarted && state.queue.length === 0) {
+      setState(prev => ({ ...prev, queue: [...generation.teams] }));
+    }
+  }, [generation, state.isStarted, state.queue.length]);
+
+  const shuffleQueue = () => {
+    setState(prev => {
+      const newQueue = [...prev.queue].sort(() => Math.random() - 0.5);
+      return { ...prev, queue: newQueue };
+    });
+  };
+
+  const startPelada = () => {
+    if (state.queue.length < 2) {
+      toast.error('É preciso no mínimo 2 times para iniciar.');
+      return;
+    }
+    setState(prev => {
+      const q = [...prev.queue];
+      const courtA = q.shift()!;
+      const courtB = q.shift()!;
+      return {
+        ...prev,
+        isStarted: true,
+        courtA,
+        courtB,
+        scoreA: 0,
+        scoreB: 0,
+        queue: q,
+      };
+    });
+  };
+
+  const updateScore = (team: 'A' | 'B', delta: number) => {
+    setState(prev => ({
+      ...prev,
+      scoreA: team === 'A' ? Math.max(0, prev.scoreA + delta) : prev.scoreA,
+      scoreB: team === 'B' ? Math.max(0, prev.scoreB + delta) : prev.scoreB,
+    }));
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: (data: QuickMatchData) => matchesService.quickCreate(data),
+    onSuccess: () => {
+      toast.success('Resultado salvo com sucesso!');
+      advanceBracket();
+      qc.invalidateQueries({ queryKey: ['matches', generation?.id] });
+    },
+    onError: () => toast.error('Erro ao salvar o resultado.'),
+  });
+
+  const handleSaveResult = () => {
+    if (!state.courtA || !state.courtB) return;
+    if (state.scoreA === state.scoreB) {
+      toast.error('O jogo não pode terminar empatado no rodízio.');
+      return;
+    }
+
+    const data: QuickMatchData = {
+      match: {
+        date: new Date().toISOString().split('T')[0],
+        modality: generation!.modality as Modality,
+        team_generation: generation!.id,
+        gameday: generation!.gameday,
+      },
+      teams: [
+        {
+          team_id: state.courtA.id,
+          team_name: state.courtA.name,
+          color_hex: state.courtA.color_hex,
+          score: state.scoreA,
+          player_ids: state.courtA.team_players.map((p: any) => p.player),
+          mvp_ids: highlights.mvp && state.courtA.team_players.some((p: any) => p.player === highlights.mvp) ? [highlights.mvp] : [],
+          best_attacker_ids: highlights.attacker && state.courtA.team_players.some((p: any) => p.player === highlights.attacker) ? [highlights.attacker] : [],
+          best_server_ids: highlights.server && state.courtA.team_players.some((p: any) => p.player === highlights.server) ? [highlights.server] : [],
+          best_defender_ids: highlights.defender && state.courtA.team_players.some((p: any) => p.player === highlights.defender) ? [highlights.defender] : [],
+        },
+        {
+          team_id: state.courtB.id,
+          team_name: state.courtB.name,
+          color_hex: state.courtB.color_hex,
+          score: state.scoreB,
+          player_ids: state.courtB.team_players.map((p: any) => p.player),
+          mvp_ids: highlights.mvp && state.courtB.team_players.some((p: any) => p.player === highlights.mvp) ? [highlights.mvp] : [],
+          best_attacker_ids: highlights.attacker && state.courtB.team_players.some((p: any) => p.player === highlights.attacker) ? [highlights.attacker] : [],
+          best_server_ids: highlights.server && state.courtB.team_players.some((p: any) => p.player === highlights.server) ? [highlights.server] : [],
+          best_defender_ids: highlights.defender && state.courtB.team_players.some((p: any) => p.player === highlights.defender) ? [highlights.defender] : [],
+        }
+      ]
+    };
+
+    saveMutation.mutate(data);
+  };
+
+  const advanceBracket = () => {
+    setState(prev => {
+      const q = [...prev.queue];
+      const winnerIsA = prev.scoreA > prev.scoreB;
+      const winner = winnerIsA ? prev.courtA! : prev.courtB!;
+      const loser = winnerIsA ? prev.courtB! : prev.courtA!;
+      
+      const newConsecutiveA = winnerIsA ? prev.consecutiveA + 1 : 0;
+      const newConsecutiveB = !winnerIsA ? prev.consecutiveB + 1 : 0;
+      const winnerConsecutive = winnerIsA ? newConsecutiveA : newConsecutiveB;
+
+      const totalTeams = prev.queue.length + 2;
+      const winnerMustLeave = winnerConsecutive >= 2 && totalTeams > 2;
+
+      let nextA: DBTeam | null = null;
+      let nextB: DBTeam | null = null;
+      let nextConsecutiveA = 0;
+      let nextConsecutiveB = 0;
+
+      let message = '';
+      if (winnerMustLeave) {
+        message = `${winner.name.toUpperCase()} atingiu 2 vitórias seguidas e dá lugar na quadra!`;
+        q.push(winner);
+        q.push(loser);
+        nextA = q.shift() || null;
+        nextB = q.shift() || null;
+      } else {
+        message = `${winner.name.toUpperCase()} venceu e continua na quadra!`;
+        q.push(loser);
+        if (winnerIsA) {
+          nextA = winner;
+          nextB = q.shift() || null;
+          nextConsecutiveA = newConsecutiveA;
+        } else {
+          nextB = winner;
+          nextA = q.shift() || null;
+          nextConsecutiveB = newConsecutiveB;
+        }
+      }
+
+      setHighlights({ mvp: null, attacker: null, server: null, defender: null });
+
+      return {
+        ...prev,
+        courtA: nextA,
+        courtB: nextB,
+        scoreA: 0,
+        scoreB: 0,
+        consecutiveA: nextConsecutiveA,
+        consecutiveB: nextConsecutiveB,
+        queue: q,
+        matchNumber: prev.matchNumber + 1,
+        showSaveModal: false,
+        transitionMessage: message,
+        transitionColor: winner.color_hex,
+      };
+    });
+  };
+
+  const lockMutation = useMutation({
+    mutationFn: () => teamsService.lock(generation!.id),
+    onSuccess: () => {
+      localStorage.removeItem(storageKey);
+      toast.success('Pelada encerrada e times trancados no histórico.');
+      navigate('/teams');
+    },
+    onError: () => {
+      toast.error('Erro ao encerrar a pelada.');
+    }
+  });
+
+  const finishPelada = () => {
+    if (confirm('Tem certeza que deseja encerrar esta pelada? O histórico será salvo e os times trancados.')) {
+      if (!generation?.is_locked) {
+        lockMutation.mutate();
+      } else {
+        localStorage.removeItem(storageKey);
+        navigate('/teams');
+      }
+    }
+  };
+
+  if (isLoading) return <PageLoading />;
+  if (error || !generation) return <ErrorState message="Geração não encontrada." />;
+
+  // Se a pelada já foi encerrada, mostra a tela read-only
+  if (generation?.is_locked) {
+    return (
+      <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto w-full">
+        <div className="bg-red/10 border border-red/30 rounded-xl p-6 text-center space-y-2 mt-4">
+          <Lock size={32} className="text-red mx-auto mb-2" />
+          <h2 className="font-display text-2xl text-red uppercase tracking-widest">Pelada Encerrada</h2>
+          <p className="text-text-muted">As atividades desta pelada foram concluídas. Você pode conferir os jogos realizados abaixo.</p>
+        </div>
+
+        {matches.length > 0 ? (
+          <div className="mt-8 space-y-4">
+            <h3 className="font-display text-lg text-text-primary uppercase tracking-wider flex items-center gap-2">
+              <Swords size={20} className="text-red" />
+              Histórico desta Pelada
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {matches.map((match: Match, idx: number) => (
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  idx={idx}
+                  isAdmin={isAdmin}
+                  isDeleting={false}
+                  expanded={expandedMatchId === match.id}
+                  onToggle={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
+                  onDelete={() => {}}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="card p-8 text-center text-text-muted mt-4">
+            <History size={48} className="mx-auto mb-4 opacity-50" />
+            <p>Nenhuma partida foi registrada durante esta pelada.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Tela Inicial (Sorteio)
+  if (!state.isStarted) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div>
+          <h1 className="page-title flex items-center gap-2">
+            <Shuffle className="text-red" />
+            Sorteio Inicial
+          </h1>
+          <p className="page-subtitle">Defina a ordem dos times para começar o chaveamento.</p>
+        </div>
+
+        <div className="card p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="font-display text-lg tracking-wider">FILA DE ENTRADA</h2>
+            <button onClick={shuffleQueue} className="btn-ghost flex items-center gap-2">
+              <RotateCcw size={16} /> Embaralhar
+            </button>
+          </div>
+
+          <div className="space-y-3 mb-8">
+            <AnimatePresence>
+              {state.queue.map((team, idx) => (
+                <motion.div
+                  key={team.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex items-center justify-between p-4 rounded-xl border ${idx < 2 ? 'border-red/50 bg-red/10' : 'border-border bg-surface'}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="font-display text-xl w-6 text-text-muted">{idx + 1}°</span>
+                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: team.color_hex }} />
+                    <span className="font-bold text-lg" style={{ color: team.color_hex }}>{team.name.toUpperCase()}</span>
+                    {idx < 2 && (
+                      <span className="text-[10px] uppercase font-bold text-red bg-red/20 px-2 py-0.5 rounded-full ml-2 hidden sm:inline-block">
+                        Joga 1°
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-bold opacity-50">{team.avg_overall.toFixed(1)}</span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          <button onClick={startPelada} className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2">
+            <Trophy size={20} />
+            Iniciar Pelada
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Tela de Transição de Fim de Jogo
+  if (state.transitionMessage) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center text-center max-w-3xl mx-auto space-y-8 p-6 py-20">
+        <Trophy size={80} style={{ color: state.transitionColor || '#fff' }} className="mb-4 animate-bounce" />
+        <h1 className="font-display text-4xl md:text-5xl leading-tight" style={{ color: state.transitionColor || '#fff' }}>
+          {state.transitionMessage}
+        </h1>
+        <p className="text-text-muted text-lg md:text-xl">A quadra foi atualizada para a próxima partida.</p>
+        <button 
+          onClick={() => setState(s => ({ ...s, transitionMessage: null, transitionColor: null }))}
+          className="btn-primary py-5 px-10 text-2xl font-bold flex items-center gap-3 w-full md:w-auto justify-center shadow-lg"
+        >
+          <Play size={28} /> Próximo Jogo
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto w-full">
+      {/* Header Placar */}
+      <div className="flex items-center justify-between">
+        <div className="flex-1"></div>
+        <div className="text-center flex-1 min-w-[200px]">
+          <h1 className="font-display text-2xl md:text-4xl tracking-widest text-text-primary uppercase flex items-center justify-center gap-3">
+            <Swords className="text-red hidden md:block" />
+            JOGO {state.matchNumber}
+            <Swords className="text-red hidden md:block" />
+          </h1>
+          <p className="text-sm md:text-base text-text-muted hidden md:block mt-1">Pelada de Vôlei — {state.queue.length + 2} times</p>
+        </div>
+        <div className="flex-1 flex justify-end">
+          <button onClick={finishPelada} className="btn-ghost text-text-muted hover:text-red hover:bg-red/10 flex items-center gap-2 px-3 py-2 text-sm rounded-lg">
+            <Power size={18} />
+            <span className="hidden md:inline font-bold">Encerrar Pelada</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Arena — Placar Gigante */}
+      <div className="flex flex-col md:flex-row gap-4 md:gap-8 flex-1">
+        
+        {/* Court A */}
+        <div className="flex-1 card flex flex-col overflow-hidden relative" style={{ borderColor: `${state.courtA?.color_hex}40` }}>
+          <div className="absolute inset-0 opacity-10" style={{ backgroundColor: state.courtA?.color_hex }} />
+          
+          <div className="relative z-10 p-6 md:p-10 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-4 md:mb-8">
+              <h2 className="font-display text-4xl md:text-6xl font-bold truncate tracking-wider" style={{ color: state.courtA?.color_hex }}>
+                {state.courtA?.name.toUpperCase()}
+              </h2>
+              {state.consecutiveA > 0 && (
+                <div className="flex text-yellow-400" title={`${state.consecutiveA} vitórias seguidas. Na 2ª, também sai!`}>
+                  {Array.from({ length: state.consecutiveA }).map((_, i) => <Star key={i} size={32} className="fill-yellow-400" />)}
+                  {state.consecutiveA === 1 && <Star size={32} className="opacity-20" />}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 flex items-center justify-center py-8 md:py-16">
+              <span className="text-[10rem] md:text-[20rem] leading-none font-display font-bold tabular-nums tracking-tighter" style={{ color: state.courtA?.color_hex }}>
+                {state.scoreA}
+              </span>
+            </div>
+
+            <div className="flex gap-4 md:gap-8 mt-auto">
+              <button onClick={() => updateScore('A', -1)} className="flex-1 h-20 md:h-28 rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95">
+                -
+              </button>
+              <button onClick={() => updateScore('A', 1)} className="flex-1 h-20 md:h-28 rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border text-5xl md:text-8xl font-bold transition-colors active:scale-95 shadow-lg flex items-center justify-center" style={{ borderColor: `${state.courtA?.color_hex}80`, color: state.courtA?.color_hex }}>
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* VS Separator (Desktop) */}
+        <div className="hidden md:flex flex-col items-center justify-center px-4">
+          <span className="font-display text-2xl text-text-muted tracking-widest mb-4">VS</span>
+          <Swords size={56} className="text-border" />
+        </div>
+
+        {/* Court B */}
+        <div className="flex-1 card flex flex-col overflow-hidden relative" style={{ borderColor: `${state.courtB?.color_hex}40` }}>
+          <div className="absolute inset-0 opacity-10" style={{ backgroundColor: state.courtB?.color_hex }} />
+          
+          <div className="relative z-10 p-6 md:p-10 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-4 md:mb-8 flex-row-reverse">
+              <h2 className="font-display text-4xl md:text-6xl font-bold truncate text-right tracking-wider" style={{ color: state.courtB?.color_hex }}>
+                {state.courtB?.name.toUpperCase()}
+              </h2>
+              {state.consecutiveB > 0 && (
+                <div className="flex text-yellow-400 flex-row-reverse" title={`${state.consecutiveB} vitórias seguidas. Na 2ª, também sai!`}>
+                  {Array.from({ length: state.consecutiveB }).map((_, i) => <Star key={i} size={32} className="fill-yellow-400" />)}
+                  {state.consecutiveB === 1 && <Star size={32} className="opacity-20" />}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 flex items-center justify-center py-8 md:py-16">
+              <span className="text-[10rem] md:text-[20rem] leading-none font-display font-bold tabular-nums tracking-tighter" style={{ color: state.courtB?.color_hex }}>
+                {state.scoreB}
+              </span>
+            </div>
+
+            <div className="flex gap-4 md:gap-8 mt-auto">
+              <button onClick={() => updateScore('B', -1)} className="flex-1 h-20 md:h-28 rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95">
+                -
+              </button>
+              <button onClick={() => updateScore('B', 1)} className="flex-1 h-20 md:h-28 rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border text-5xl md:text-8xl font-bold transition-colors active:scale-95 shadow-lg flex items-center justify-center" style={{ borderColor: `${state.courtB?.color_hex}80`, color: state.courtB?.color_hex }}>
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div className="flex justify-center mt-6">
+        <button 
+          onClick={() => setState(s => ({ ...s, showSaveModal: true }))}
+          className="btn-primary w-full md:w-auto md:px-32 py-6 text-xl md:text-3xl font-bold flex items-center justify-center gap-4 shadow-neon-red shadow-red/20"
+        >
+          <Trophy size={32} />
+          Confirmar Resultado
+        </button>
+      </div>
+
+      {/* Fila */}
+      {state.queue.length > 0 && (
+        <div className="card p-5 mt-6">
+          <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-text-muted mb-4 flex items-center gap-2">
+            <ArrowRightLeft size={16} /> Na fila de espera
+          </h3>
+          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+            {state.queue.map((team, idx) => (
+              <div key={team.id} className="flex-shrink-0 flex items-center gap-2 md:gap-3 bg-surface border border-border rounded-xl px-4 md:px-6 py-3">
+                <span className="text-text-muted font-bold text-sm md:text-base">{idx + 1}°</span>
+                <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: team.color_hex }} />
+                <span className="text-sm md:text-lg font-bold" style={{ color: team.color_hex }}>{team.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Histórico da Pelada */}
+      {matches.length > 0 && (
+        <div className="mt-8 space-y-4">
+          <h3 className="font-display text-lg text-text-primary uppercase tracking-wider flex items-center gap-2">
+            <Swords size={20} className="text-red" />
+            Histórico desta Pelada
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {matches.map((match: Match, idx: number) => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                idx={idx}
+                isAdmin={isAdmin}
+                isDeleting={false}
+                expanded={expandedMatchId === match.id}
+                onToggle={() => setExpandedMatchId(expandedMatchId === match.id ? null : match.id)}
+                onDelete={() => {}}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Salvar Resultado */}
+      <AnimatePresence>
+        {state.showSaveModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-card w-full max-w-2xl rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-6 md:p-8 border-b border-border bg-surface/50">
+                <h2 className="font-display text-3xl mb-1 text-text-primary">Vencedor e Destaques</h2>
+                <p className="text-sm text-text-muted">Confirme o placar e selecione quem brilhou no jogo.</p>
+              </div>
+
+              <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
+                {/* Placar Final */}
+                <div className="flex justify-center items-center gap-8 mb-10 bg-surface p-6 rounded-2xl border border-border shadow-inner">
+                  <div className="text-center">
+                    <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider" style={{ color: state.courtA?.color_hex }}>{state.courtA?.name}</span>
+                    <span className={`text-6xl md:text-7xl font-display font-bold ${state.scoreA >= state.scoreB ? 'text-yellow-400' : 'text-text-muted'}`}>{state.scoreA}</span>
+                  </div>
+                  <span className="text-text-muted text-2xl font-display opacity-50">X</span>
+                  <div className="text-center">
+                    <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider" style={{ color: state.courtB?.color_hex }}>{state.courtB?.name}</span>
+                    <span className={`text-6xl md:text-7xl font-display font-bold ${state.scoreB >= state.scoreA ? 'text-yellow-400' : 'text-text-muted'}`}>{state.scoreB}</span>
+                  </div>
+                </div>
+
+                {/* Seleção Destaques */}
+                <div className="space-y-6">
+                  <HighlightSelect
+                    icon={Star} iconColor="text-yellow-500" title="MVP da Partida"
+                    players={allPlayersInCourt}
+                    value={highlights.mvp}
+                    onChange={(v: number | null) => setHighlights(h => ({ ...h, mvp: v }))}
+                  />
+                  <HighlightSelect
+                    icon={Swords} iconColor="text-red" title="Melhor Ataque"
+                    players={allPlayersInCourt}
+                    value={highlights.attacker}
+                    onChange={(v: number | null) => setHighlights(h => ({ ...h, attacker: v }))}
+                  />
+                  <HighlightSelect
+                    icon={Zap} iconColor="text-blue-400" title="Melhor Saque"
+                    players={allPlayersInCourt}
+                    value={highlights.server}
+                    onChange={(v: number | null) => setHighlights(h => ({ ...h, server: v }))}
+                  />
+                  <HighlightSelect
+                    icon={Shield} iconColor="text-green-400" title="Melhor Defesa"
+                    players={allPlayersInCourt}
+                    value={highlights.defender}
+                    onChange={(v: number | null) => setHighlights(h => ({ ...h, defender: v }))}
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 md:p-6 border-t border-border bg-surface/50 flex gap-4">
+                <button
+                  className="btn-secondary flex-1 py-4 text-lg font-bold"
+                  onClick={() => setState(s => ({ ...s, showSaveModal: false }))}
+                  disabled={saveMutation.isPending}
+                >
+                  Voltar
+                </button>
+                <button
+                  className="btn-primary flex-[2] flex items-center justify-center gap-2 py-4 text-lg font-bold"
+                  onClick={handleSaveResult}
+                  disabled={saveMutation.isPending}
+                >
+                  <Save size={20} />
+                  {saveMutation.isPending ? 'Salvando...' : 'Salvar & Avançar'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function HighlightSelect({ icon: Icon, iconColor, title, players, value, onChange }: any) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <Icon size={16} className={iconColor} />
+        <span className="text-sm font-bold uppercase tracking-widest text-text-secondary">{title}</span>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide -mx-1 px-1">
+        <button
+          onClick={() => onChange(null)}
+          className={`flex-shrink-0 px-4 py-2 rounded-xl border text-sm md:text-base font-bold transition-colors ${
+            value === null ? 'bg-surface border-border text-text-primary' : 'border-transparent text-text-muted hover:bg-surface/50'
+          }`}
+        >
+          Nenhum
+        </button>
+        {players.map((p: any) => (
+          <button
+            key={p.player}
+            onClick={() => onChange(p.player)}
+            className={`flex-shrink-0 flex items-center gap-3 px-4 py-2 rounded-xl border text-sm md:text-base font-bold transition-all ${
+              value === p.player 
+                ? 'bg-red/10 border-red/30 text-text-primary shadow-[0_0_15px_rgba(217,4,41,0.2)]' 
+                : 'border-border/50 bg-surface/30 text-text-muted hover:border-border'
+            }`}
+          >
+            <Avatar name={p.player_name} src={p.player_avatar} size="sm" />
+            {p.player_name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

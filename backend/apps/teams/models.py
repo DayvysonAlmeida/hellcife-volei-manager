@@ -21,6 +21,7 @@ class TeamGeneration(models.Model):
     )
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
     balance_score = models.FloatField(default=0, verbose_name='Score de balanceamento')
+    is_locked = models.BooleanField(default=False, verbose_name='Trancado (Finalizado)')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

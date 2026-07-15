@@ -244,6 +244,7 @@ export interface TeamGenerationData {
   created_by_name?: string;
   notes?: string;
   balance_score: number;
+  is_locked: boolean;
   teams: DBTeam[];
   created_at: string;
 }
@@ -284,6 +285,21 @@ export interface Match {
   created_by_name?: string;
   match_teams: MatchTeam[];
   created_at: string;
+}
+
+export interface QuickMatchData {
+  match: Partial<Match>;
+  teams: {
+    team_id?: number;
+    team_name: string;
+    color_hex: string;
+    score: number;
+    player_ids: number[];
+    mvp_ids?: number[];
+    best_attacker_ids?: number[];
+    best_server_ids?: number[];
+    best_defender_ids?: number[];
+  }[];
 }
 
 export interface MatchTeam {
@@ -352,12 +368,30 @@ export interface DashboardData {
   active_players: number;
   present_today: number;
   paid_today: number;
-  avg_overall: number;
-  top_players: TopPlayer[];
+  top_winners: TopWinner[];
   position_distribution: PositionDist[];
-  club_radar?: Record<string, number>;
-  highlights: Record<string, { id: number; name: string; avatar_url: string; count: number } | null>;
+  highlights: Record<string, HighlightPlayer[]>;
   last_updated: string;
+}
+
+export interface TopWinner {
+  id: number;
+  name: string;
+  nickname?: string;
+  position: Position;
+  wins: number;
+  avatar_url?: string;
+  mini_stars: number;
+  big_stars: number;
+}
+
+export interface HighlightPlayer {
+  id: number;
+  name: string;
+  avatar_url?: string;
+  count: number;
+  mini_stars: number;
+  big_stars: number;
 }
 
 export interface TopPlayer {

@@ -112,10 +112,22 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             'generation_id': generation.id
         })
 
+    @action(detail=True, methods=['post'], url_path='lock')
+    def lock(self, request, pk=None):
+        """Tranca a geração de times, impedindo alterações."""
+        generation = self.get_object()
+        generation.is_locked = True
+        generation.save(update_fields=['is_locked'])
+        return Response({'detail': 'Chaveamento encerrado e times trancados.'})
+
     @action(detail=True, methods=['patch'], url_path='move-player')
     def move_player(self, request, pk=None):
         """Move um jogador de um time para outro dentro da geração."""
         generation = self.get_object()
+        
+        if generation.is_locked:
+            return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
+
         player_id = request.data.get('player_id')
         target_team_id = request.data.get('target_team_id')
 
@@ -145,4 +157,4 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
 
             return Response({'detail': 'Jogador movido com sucesso.'})
         except TeamPlayer.DoesNotExist:
-            return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=404)
+            return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=status.HTTP_404_NOT_FOUND)

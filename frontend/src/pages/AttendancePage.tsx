@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, CalendarCheck, ChevronRight, Check, Users, Shuffle, RefreshCw, Trash2, DollarSign, Share2, ChevronLeft } from 'lucide-react';
+import { Plus, CalendarCheck, ChevronRight, Check, Users, Shuffle, RefreshCw, Trash2, DollarSign, Share2, ChevronLeft, Swords } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { OverallBadge } from '@/components/ui/OverallBadge';
@@ -270,9 +270,18 @@ export function AttendancePage() {
                     </button>
                   </div>
                 </div>
-                <div className="text-center self-center sm:self-start">
+                <div className="text-center self-center sm:self-start flex flex-col items-center">
                   <p className="font-display text-3xl text-red">{gameDayDetail.total_present}</p>
-                  <p className="text-text-muted text-xs">de {gameDayDetail.total_players} presentes</p>
+                  <p className="text-text-muted text-xs mb-3">de {gameDayDetail.total_players} presentes</p>
+                  {canEdit && (
+                    <Link
+                      to="/teams"
+                      className="btn-primary py-1.5 px-4 text-xs flex items-center gap-2 rounded-lg"
+                    >
+                      <Swords size={14} />
+                      Times / Pelada
+                    </Link>
+                  )}
                 </div>
               </div>
 

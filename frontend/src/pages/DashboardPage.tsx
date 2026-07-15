@@ -8,7 +8,6 @@ import {
 } from 'recharts';
 import { StatCard } from '@/components/ui/StatCard';
 import { Avatar } from '@/components/ui/Avatar';
-import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { dashboardService } from '@/services';
@@ -76,17 +75,10 @@ export function DashboardPage() {
           color="red"
           delay={0.2}
         />
-        <StatCard
-          title="Overall Médio"
-          value={data.avg_overall.toFixed(1)}
-          icon={<Star size={22} />}
-          color="yellow"
-          delay={0.3}
-        />
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Distribuição por posição */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -99,46 +91,19 @@ export function DashboardPage() {
             DISTRIBUIÇÃO POR POSIÇÃO
           </h2>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.position_distribution} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+            <BarChart data={data.position_distribution || []} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#27272A" />
               <XAxis dataKey="position" tick={{ fill: '#71717A', fontSize: 11 }} />
               <YAxis tick={{ fill: '#71717A', fontSize: 11 }} />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                {data.position_distribution.map((_, i) => (
+                {(data.position_distribution || []).map((_, i) => (
                   <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </motion.div>
-
-        {/* Clube Radar */}
-        {data.club_radar && Object.keys(data.club_radar).length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="card p-6 border-neon-blue"
-          >
-            <h2 className="font-display text-lg text-text-primary tracking-wider mb-4 flex items-center gap-2">
-              <Star size={18} className="text-blue-500" />
-              MÉDIA DO CLUBE
-            </h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <RadarChart data={Object.entries(data.club_radar).map(([key, value]) => ({
-                skill: key.toUpperCase().slice(0, 3), // Simplificar nome no radar pequeno
-                value
-              }))}>
-                <PolarGrid stroke="#27272A" />
-                <PolarAngleAxis dataKey="skill" tick={{ fill: '#71717A', fontSize: 10 }} />
-                <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
-                <Radar name="Média" dataKey="value" stroke="#3B82F6" fill="#2563EB" fillOpacity={0.4} strokeWidth={2} />
-                <Tooltip contentStyle={{ background: '#18181B', border: '1px solid #27272A', borderRadius: 8 }} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </motion.div>
-        )}
       </div>
 
       {/* Destaques (Hall of Fame) */}
@@ -160,12 +125,19 @@ export function DashboardPage() {
                 <Star size={20} className="fill-yellow-500" />
               </div>
               <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Mais vezes MVP</h3>
-              {data.highlights.mvp ? (
-                <>
-                  <Avatar name={data.highlights.mvp.name} src={data.highlights.mvp.avatar_url} size="md" className="mb-2" />
-                  <p className="font-medium text-text-primary">{data.highlights.mvp.name}</p>
-                  <p className="text-xs text-yellow-500 font-bold mt-1">{data.highlights.mvp.count} vezes</p>
-                </>
+              {data.highlights.mvp && data.highlights.mvp.length > 0 ? (
+                <div className="flex flex-col gap-2 w-full mt-2">
+                  {data.highlights.mvp.map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left">
+                      <span className="text-yellow-500 font-bold text-xs">{i + 1}º</span>
+                      <Avatar name={p.name} src={p.avatar_url} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
+                      </div>
+                      <span className="text-xs text-yellow-500 font-bold">{p.count}x</span>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p className="text-text-muted text-sm my-auto">Sem dados</p>
               )}
@@ -177,12 +149,19 @@ export function DashboardPage() {
                 <Swords size={20} />
               </div>
               <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Ataque</h3>
-              {data.highlights.best_attacker ? (
-                <>
-                  <Avatar name={data.highlights.best_attacker.name} src={data.highlights.best_attacker.avatar_url} size="md" className="mb-2" />
-                  <p className="font-medium text-text-primary">{data.highlights.best_attacker.name}</p>
-                  <p className="text-xs text-red font-bold mt-1">{data.highlights.best_attacker.count} vezes</p>
-                </>
+              {data.highlights.best_attacker && data.highlights.best_attacker.length > 0 ? (
+                <div className="flex flex-col gap-2 w-full mt-2">
+                  {data.highlights.best_attacker.map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left">
+                      <span className="text-red font-bold text-xs">{i + 1}º</span>
+                      <Avatar name={p.name} src={p.avatar_url} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
+                      </div>
+                      <span className="text-xs text-red font-bold">{p.count}x</span>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p className="text-text-muted text-sm my-auto">Sem dados</p>
               )}
@@ -194,12 +173,19 @@ export function DashboardPage() {
                 <Zap size={20} />
               </div>
               <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Saque</h3>
-              {data.highlights.best_server ? (
-                <>
-                  <Avatar name={data.highlights.best_server.name} src={data.highlights.best_server.avatar_url} size="md" className="mb-2" />
-                  <p className="font-medium text-text-primary">{data.highlights.best_server.name}</p>
-                  <p className="text-xs text-blue font-bold mt-1">{data.highlights.best_server.count} vezes</p>
-                </>
+              {data.highlights.best_server && data.highlights.best_server.length > 0 ? (
+                <div className="flex flex-col gap-2 w-full mt-2">
+                  {data.highlights.best_server.map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left">
+                      <span className="text-blue-400 font-bold text-xs">{i + 1}º</span>
+                      <Avatar name={p.name} src={p.avatar_url} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
+                      </div>
+                      <span className="text-xs text-blue-400 font-bold">{p.count}x</span>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p className="text-text-muted text-sm my-auto">Sem dados</p>
               )}
@@ -211,12 +197,19 @@ export function DashboardPage() {
                 <Shield size={20} />
               </div>
               <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Defesa</h3>
-              {data.highlights.best_defender ? (
-                <>
-                  <Avatar name={data.highlights.best_defender.name} src={data.highlights.best_defender.avatar_url} size="md" className="mb-2" />
-                  <p className="font-medium text-text-primary">{data.highlights.best_defender.name}</p>
-                  <p className="text-xs text-green-500 font-bold mt-1">{data.highlights.best_defender.count} vezes</p>
-                </>
+              {data.highlights.best_defender && data.highlights.best_defender.length > 0 ? (
+                <div className="flex flex-col gap-2 w-full mt-2">
+                  {data.highlights.best_defender.map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left">
+                      <span className="text-green-500 font-bold text-xs">{i + 1}º</span>
+                      <Avatar name={p.name} src={p.avatar_url} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
+                      </div>
+                      <span className="text-xs text-green-500 font-bold">{p.count}x</span>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p className="text-text-muted text-sm my-auto">Sem dados</p>
               )}
@@ -225,7 +218,7 @@ export function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Ranking dos melhores atletas */}
+      {/* Ranking dos maiores vencedores */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -234,10 +227,10 @@ export function DashboardPage() {
       >
         <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-2">
           <Award size={20} className="text-red" />
-          RANKING DOS MELHORES ATLETAS
+          MAIORES VENCEDORES (TIME GANHADOR)
         </h2>
         <div className="space-y-3">
-          {data.top_players.map((player, idx) => (
+          {data.top_winners.map((player, idx) => (
             <motion.div
               key={player.id}
               initial={{ opacity: 0, x: -20 }}
@@ -260,22 +253,41 @@ export function DashboardPage() {
               <Avatar name={player.name} src={player.avatar_url} size="sm" />
 
               {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-4">
+                <div className="flex items-center gap-2 flex-1">
                   <p className="text-text-primary font-medium text-sm truncate">
                     {player.nickname || player.name}
                   </p>
-                  {player.shirt_number && (
-                    <span className="text-text-muted text-xs">#{player.shirt_number}</span>
-                  )}
                 </div>
-                <PositionBadge position={player.position} />
+                <div className="flex items-center gap-2 mt-1 sm:mt-0">
+                  <PositionBadge position={player.position} />
+                  
+                  {/* Estrelas do Jogador */}
+                  <div className="flex items-center gap-0.5 min-w-[60px]">
+                    {player.big_stars > 0 && (
+                      <div className="flex items-center text-yellow-400">
+                        {[...Array(player.big_stars)].map((_, i) => <Star key={`big-${i}`} size={14} className="fill-yellow-400" />)}
+                      </div>
+                    )}
+                    {player.mini_stars > 0 && (
+                      <div className="flex items-center text-yellow-200">
+                        {[...Array(player.mini_stars)].map((_, i) => <Star key={`mini-${i}`} size={12} className="fill-yellow-200" />)}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Overall */}
-              <OverallBadge overall={player.overall} size="sm" showLabel />
+              {/* Vitórias */}
+              <div className="text-right flex flex-col items-end">
+                <span className="text-red font-bold text-lg leading-none">{player.wins}</span>
+                <span className="text-[10px] text-text-muted uppercase">Vitórias</span>
+              </div>
             </motion.div>
           ))}
+          {data.top_winners.length === 0 && (
+            <p className="text-text-muted text-center py-4">Nenhum dado de vitória registrado ainda.</p>
+          )}
         </div>
       </motion.div>
     </div>

@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { DashboardData, Evaluation, EvaluationConfig, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse } from '@/types';
+import type { DashboardData, Evaluation, EvaluationConfig, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData } from '@/types';
 
 export const dashboardService = {
   get: () => api.get<DashboardData>('/dashboard/').then(r => r.data),
@@ -94,6 +94,9 @@ export const teamsService = {
   movePlayer: (generationId: number, playerId: number, targetTeamId: number) =>
     api.patch(`/teams/${generationId}/move-player/`, { player_id: playerId, target_team_id: targetTeamId }).then(r => r.data),
 
+  lock: (id: number) =>
+    api.post(`/teams/${id}/lock/`).then(r => r.data),
+
   delete: (id: number) =>
     api.delete(`/teams/${id}/`),
 };
@@ -116,6 +119,9 @@ export const matchesService = {
 
   addResult: (id: number, teamsData: unknown) =>
     api.post(`/matches/${id}/result/`, { teams: teamsData }).then(r => r.data),
+
+  quickCreate: (data: QuickMatchData) =>
+    api.post<Match>('/matches/quick/', data).then(r => r.data),
 };
 
 export const hallOfFameService = {

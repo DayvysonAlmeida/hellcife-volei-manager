@@ -23,6 +23,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { RegulationPage } from '@/pages/RegulationPage';
 import { CheckinPage } from '@/pages/CheckinPage';
+import { BracketPage } from '@/pages/BracketPage';
 
 function App() {
   return (
@@ -62,6 +63,7 @@ function App() {
               <Route path="evaluations" element={<EvaluationsPage />} />
               <Route path="attendance" element={<AttendancePage />} />
               <Route path="teams" element={<TeamsPage />} />
+              <Route path="bracket/:id" element={<BracketPage />} />
               <Route path="matches" element={<MatchesPage />} />
               <Route path="matches/new" element={<MatchFormPage />} />
               <Route path="stars-system" element={<StarsSystemPage />} />

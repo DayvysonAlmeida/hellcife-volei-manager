@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft } from 'lucide-react';
+import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -120,8 +121,8 @@ export function TeamsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Gerador de Times</h1>
-        <p className="page-subtitle">Gere equipes balanceadas automaticamente com base no Overall dos atletas.</p>
+        <h1 className="page-title">Peladas</h1>
+        <p className="page-subtitle">Sorteio e histórico de times da sua pelada.</p>
       </div>
 
       {/* Config */}
@@ -258,8 +259,14 @@ export function TeamsPage() {
               <div key={gen.id} className="card p-5 border-l-2 border-red">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <p className="font-medium text-text-primary text-lg">
+                    <p className="font-medium text-text-primary text-lg flex items-center gap-2">
                       {gen.modality_display} — {gen.gameday ? `${formatDate(gen.gameday_date || '')} ${gen.gameday_location ? `(${gen.gameday_location})` : ''}` : 'Avulso'}
+                      {gen.is_locked && (
+                        <span title="Pelada Encerrada" className="text-red/70 flex items-center bg-red/10 px-2 py-0.5 rounded-full text-xs gap-1">
+                          <Lock size={12} />
+                          Encerrada
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-text-muted mt-0.5">
                       Gerado em {formatDate(gen.created_at)} por {gen.created_by_name}
@@ -271,18 +278,20 @@ export function TeamsPage() {
                       <span className="text-green-400 font-bold text-lg">{(10 - (gen.balance_score || 0) * 10).toFixed(1)}%</span>
                     </div>
                     {canEdit && (
-                      <button
-                        onClick={() => {
-                          if (confirm('Tem certeza que deseja excluir esta geração de times?')) {
-                            deleteGenMutation.mutate(gen.id);
-                          }
-                        }}
-                        disabled={deleteGenMutation.isPending}
-                        className="btn-ghost p-2 hover:bg-red/10 hover:text-red rounded-lg transition-colors text-text-muted"
-                        title="Excluir Geração"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-2 border-l border-border pl-3">
+                        <button
+                          onClick={() => {
+                            if (confirm('Tem certeza que deseja excluir esta geração de times?')) {
+                              deleteGenMutation.mutate(gen.id);
+                            }
+                          }}
+                          disabled={deleteGenMutation.isPending}
+                          className="btn-ghost p-1.5 hover:bg-red/10 hover:text-red rounded-lg transition-colors text-text-muted"
+                          title="Excluir Geração"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -301,7 +310,7 @@ export function TeamsPage() {
                             <span className="text-text-secondary truncate pr-2">{p.player_name}</span>
                             <div className="flex items-center gap-2">
                               <span className="text-text-muted">{p.player_overall}</span>
-                              {canEdit && (
+                              {canEdit && !gen.is_locked && (
                                 <div className="relative">
                                   <select 
                                     className="opacity-100 md:opacity-0 focus:opacity-100 md:group-hover:opacity-100 transition-opacity bg-surface border border-border rounded text-[10px] text-text-primary h-5 pr-4 pl-1 outline-none cursor-pointer appearance-none"
@@ -331,6 +340,18 @@ export function TeamsPage() {
                     </div>
                   ))}
                 </div>
+
+                {canEdit && (
+                  <div className="mt-6 pt-4 border-t border-border flex justify-end">
+                    <Link
+                      to={`/bracket/${gen.id}`}
+                      className={`px-6 py-3 flex items-center gap-2 w-full sm:w-auto justify-center ${gen.is_locked ? 'btn-secondary text-text-secondary border border-border bg-surface/50 hover:bg-surface' : 'btn-primary'}`}
+                    >
+                      {gen.is_locked ? <History size={18} /> : <Trophy size={18} />}
+                      {gen.is_locked ? 'Ver Histórico da Pelada' : 'Abrir Placar / Chaveamento'}
+                    </Link>
+                  </div>
+                )}
               </div>
             ))}
           </div>

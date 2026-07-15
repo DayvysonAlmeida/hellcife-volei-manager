@@ -46,7 +46,7 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeamGeneration
         fields = ['id', 'gameday', 'gameday_date', 'gameday_time', 'gameday_location', 'modality', 'modality_display',
-                  'created_by', 'created_by_name', 'notes', 'balance_score',
+                  'created_by', 'created_by_name', 'notes', 'balance_score', 'is_locked',
                   'teams', 'created_at']
         read_only_fields = ['created_by', 'balance_score', 'created_at']
 

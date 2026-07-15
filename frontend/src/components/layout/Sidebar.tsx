@@ -1,9 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  LayoutDashboard, Users, Star, CalendarCheck, Shuffle,
-  Swords, Trophy, Settings, LogOut, ChevronLeft, ChevronRight, TrendingUp, ScrollText
-} from 'lucide-react';
+import { LayoutDashboard, Users, Star, CalendarCheck, Shuffle, Swords, Trophy, Settings, LogOut, ChevronLeft, ChevronRight, TrendingUp, ScrollText } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
@@ -14,8 +11,8 @@ const navItems = [
   { to: '/players', icon: Users, label: 'Atletas' },
   { to: '/evaluations', icon: TrendingUp, label: 'Avaliações' },
   { to: '/attendance', icon: CalendarCheck, label: 'Presença' },
-  { to: '/teams', icon: Shuffle, label: 'Gerador de Times' },
-  { to: '/matches', icon: Swords, label: 'Partidas' },
+  { to: '/teams', icon: Shuffle, label: 'Peladas' },
+  { to: '/matches', icon: Swords, label: 'Jogos' },
   { to: '/stars-system', icon: Star, label: 'Sistema de Estrelas' },
   { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
 ];

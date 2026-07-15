@@ -15,7 +15,7 @@ class MatchViewSet(viewsets.ModelViewSet):
     )
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['modality', 'gameday']
+    filterset_fields = ['modality', 'gameday', 'team_generation']
     search_fields = ['location', 'notes']
     ordering_fields = ['date', 'created_at']
     ordering = ['-date']
@@ -73,3 +73,51 @@ class MatchViewSet(viewsets.ModelViewSet):
                     MatchPlayer.objects.filter(match=match, player_id=player_id).update(**update_fields)
 
         return Response({'detail': 'Resultado registrado com sucesso.'})
+
+    @action(detail=False, methods=['post'], url_path='quick')
+    def quick_create(self, request):
+        """Cria uma partida e registra o resultado em uma única chamada (usado no Chaveamento)"""
+        match_data = request.data.get('match')
+        teams_data = request.data.get('teams', [])
+
+        if not match_data or not teams_data:
+            return Response({'detail': 'Dados de partida e times são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Cria a partida
+        serializer = MatchWriteSerializer(data=match_data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        match = serializer.save()
+
+        # 2. Cria os times e resultados
+        max_score = max((t.get('score', 0) for t in teams_data), default=0)
+        for team_data in teams_data:
+            mt = MatchTeam.objects.create(
+                match=match,
+                team_name=team_data.get('team_name', ''),
+                color_hex=team_data.get('color_hex', ''),
+                score=team_data.get('score', 0),
+                winner=team_data.get('score', 0) == max_score,
+                team_id=team_data.get('team_id'),
+            )
+            # Adiciona jogadores ao time nesta partida
+            for player_id in team_data.get('player_ids', []):
+                MatchPlayer.objects.get_or_create(
+                    match=match,
+                    player_id=player_id,
+                    defaults={'match_team': mt}
+                )
+                # Marca MVP e Destaques
+                update_fields = {}
+                if player_id in team_data.get('mvp_ids', []):
+                    update_fields['mvp'] = True
+                if player_id in team_data.get('best_attacker_ids', []):
+                    update_fields['best_attacker'] = True
+                if player_id in team_data.get('best_server_ids', []):
+                    update_fields['best_server'] = True
+                if player_id in team_data.get('best_defender_ids', []):
+                    update_fields['best_defender'] = True
+                
+                if update_fields:
+                    MatchPlayer.objects.filter(match=match, player_id=player_id).update(**update_fields)
+
+        return Response(MatchSerializer(match).data, status=status.HTTP_201_CREATED)
