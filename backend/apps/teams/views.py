@@ -120,6 +120,25 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         generation.save(update_fields=['is_locked'])
         return Response({'detail': 'Chaveamento encerrado e times trancados.'})
 
+    def _recalculate_generation_overalls(self, generation):
+        latest_eval_subquery = Subquery(
+            Evaluation.objects.filter(
+                player=OuterRef('player')
+            ).order_by('-date').values('overall')[:1],
+            output_field=FloatField()
+        )
+
+        for team in generation.teams.all():
+            avg = (
+                TeamPlayer.objects.filter(team=team)
+                .annotate(
+                    player_overall=Coalesce(latest_eval_subquery, 5.0)
+                )
+                .aggregate(avg_overall=Avg('player_overall'))
+            )
+            team.avg_overall = round(avg['avg_overall'] or 0, 2)
+            team.save(update_fields=['avg_overall'])
+
     @action(detail=True, methods=['patch'], url_path='move-player')
     def move_player(self, request, pk=None):
         """Move um jogador de um time para outro dentro da geração."""
@@ -135,26 +154,61 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             tp = TeamPlayer.objects.get(team__generation=generation, player_id=player_id)
             tp.team_id = target_team_id
             tp.save()
-
-            # Recalcula overalls com Subquery (sem loop N+1)
-            latest_eval_subquery = Subquery(
-                Evaluation.objects.filter(
-                    player=OuterRef('player')
-                ).order_by('-date').values('overall')[:1],
-                output_field=FloatField()
-            )
-
-            for team in generation.teams.all():
-                avg = (
-                    TeamPlayer.objects.filter(team=team)
-                    .annotate(
-                        player_overall=Coalesce(latest_eval_subquery, 5.0)
-                    )
-                    .aggregate(avg_overall=Avg('player_overall'))
-                )
-                team.avg_overall = round(avg['avg_overall'] or 0, 2)
-                team.save(update_fields=['avg_overall'])
-
+            self._recalculate_generation_overalls(generation)
             return Response({'detail': 'Jogador movido com sucesso.'})
+        except TeamPlayer.DoesNotExist:
+            return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'], url_path='add-player')
+    def add_player(self, request, pk=None):
+        """Adiciona um jogador a um time de uma geração em andamento."""
+        generation = self.get_object()
+        
+        if generation.is_locked:
+            return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        player_id = request.data.get('player_id')
+        team_id = request.data.get('team_id')
+
+        if not player_id or not team_id:
+            return Response({'detail': 'ID do jogador e do time são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verifica se o jogador já não está na geração
+        if TeamPlayer.objects.filter(team__generation=generation, player_id=player_id).exists():
+            return Response({'detail': 'Jogador já está participando desta pelada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            team = generation.teams.get(id=team_id)
+            # Pega a maior ordem no time
+            max_order = TeamPlayer.objects.filter(team=team).count()
+            
+            TeamPlayer.objects.create(
+                team=team,
+                player_id=player_id,
+                order_in_team=max_order
+            )
+            self._recalculate_generation_overalls(generation)
+            return Response({'detail': 'Jogador adicionado com sucesso ao time.'})
+        except Team.DoesNotExist:
+            return Response({'detail': 'Time não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'], url_path='remove-player')
+    def remove_player(self, request, pk=None):
+        """Remove um jogador de uma geração em andamento."""
+        generation = self.get_object()
+        
+        if generation.is_locked:
+            return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        player_id = request.data.get('player_id')
+
+        if not player_id:
+            return Response({'detail': 'ID do jogador é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            tp = TeamPlayer.objects.get(team__generation=generation, player_id=player_id)
+            tp.delete()
+            self._recalculate_generation_overalls(generation)
+            return Response({'detail': 'Jogador removido da pelada com sucesso.'})
         except TeamPlayer.DoesNotExist:
             return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=status.HTTP_404_NOT_FOUND)

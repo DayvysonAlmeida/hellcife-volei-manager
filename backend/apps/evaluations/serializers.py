@@ -1,11 +1,5 @@
 from rest_framework import serializers
-from .models import Evaluation, EvaluationConfig, EvaluationHistory
-
-
-class EvaluationConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EvaluationConfig
-        fields = '__all__'
+from .models import Evaluation, EvaluationHistory
 
 
 class EvaluationSerializer(serializers.ModelSerializer):

@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Evaluation, EvaluationConfig, EvaluationHistory
-from .serializers import EvaluationSerializer, EvaluationConfigSerializer, EvaluationHistorySerializer
+from .models import Evaluation, EvaluationHistory
+from .serializers import EvaluationSerializer, EvaluationHistorySerializer
 from apps.core.permissions import IsAdminOrModerator
 
 
@@ -71,17 +71,3 @@ class EvaluationViewSet(viewsets.ModelViewSet):
             }
         })
 
-
-class EvaluationConfigViewSet(viewsets.ModelViewSet):
-    queryset = EvaluationConfig.objects.all()
-    serializer_class = EvaluationConfigSerializer
-    permission_classes = [IsAdminOrModerator]
-    pagination_class = None
-
-    @action(detail=True, methods=['post'], url_path='set-active')
-    def set_active(self, request, pk=None):
-        EvaluationConfig.objects.update(is_active=False)
-        config = self.get_object()
-        config.is_active = True
-        config.save()
-        return Response({'detail': f'Configuração "{config.name}" definida como ativa.'})

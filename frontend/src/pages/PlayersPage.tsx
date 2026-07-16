@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { playersService } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
 import { POSITION_LABELS, type Position, type PlayerStatus } from '@/types';
@@ -27,6 +28,7 @@ export function PlayersPage() {
   const [positionFilter, setPositionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
   const { data, isLoading } = useQuery({
     queryKey: ['players', search, positionFilter, statusFilter],
@@ -47,6 +49,14 @@ export function PlayersPage() {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
+        title={confirmDialog.title}
+        description={confirmDialog.desc}
+        onConfirm={confirmDialog.onConfirm}
+      />
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -142,9 +152,12 @@ export function PlayersPage() {
               idx={idx}
               canEdit={canEdit}
               onDelete={() => {
-                if (confirm(`Remover ${player.display_name}?`)) {
-                  deleteMutation.mutate(player.id);
-                }
+                setConfirmDialog({
+                  isOpen: true,
+                  title: 'Remover Jogador',
+                  desc: `Remover ${player.display_name}?`,
+                  onConfirm: () => deleteMutation.mutate(player.id)
+                });
               }}
             />
           ))}
@@ -196,7 +209,12 @@ export function PlayersPage() {
                           </Link>
                           <button
                             onClick={() => {
-                              if (confirm(`Remover ${player.display_name}?`)) deleteMutation.mutate(player.id);
+                              setConfirmDialog({
+                                isOpen: true,
+                                title: 'Remover Jogador',
+                                desc: `Remover ${player.display_name}?`,
+                                onConfirm: () => deleteMutation.mutate(player.id)
+                              });
                             }}
                             className="btn-ghost p-1.5 hover:text-red"
                           >

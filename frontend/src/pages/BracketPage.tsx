@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History } from 'lucide-react';
+import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History } from 'lucide-react';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { teamsService, matchesService } from '@/services';
 import type { DBTeam, QuickMatchData, Modality, Match } from '@/types';
 import toast from 'react-hot-toast';
@@ -33,6 +34,7 @@ export function BracketPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
   const storageKey = `hellcife_bracket_${id}`;
 
   const { data: generation, isLoading, error } = useQuery({
@@ -280,14 +282,19 @@ export function BracketPage() {
   });
 
   const finishPelada = () => {
-    if (confirm('Tem certeza que deseja encerrar esta pelada? O histórico será salvo e os times trancados.')) {
-      if (!generation?.is_locked) {
-        lockMutation.mutate();
-      } else {
-        localStorage.removeItem(storageKey);
-        navigate('/teams');
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Encerrar Pelada',
+      desc: 'Tem certeza que deseja encerrar esta pelada? O histórico será salvo e os times trancados.',
+      onConfirm: () => {
+        if (!generation?.is_locked) {
+          lockMutation.mutate();
+        } else {
+          localStorage.removeItem(storageKey);
+          navigate('/teams');
+        }
       }
-    }
+    });
   };
 
   if (isLoading) return <PageLoading />;
@@ -297,7 +304,14 @@ export function BracketPage() {
   if (generation?.is_locked) {
     return (
       <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto w-full">
-        <div className="bg-red/10 border border-red/30 rounded-xl p-6 text-center space-y-2 mt-4">
+        <div className="flex items-center gap-3 mt-4">
+          <button onClick={() => navigate('/teams')} className="btn-ghost p-2 rounded-full hover:bg-surface border border-border">
+            <ArrowLeft size={24} />
+          </button>
+          <h1 className="page-title mb-0">Histórico da Pelada</h1>
+        </div>
+
+        <div className="bg-red/10 border border-red/30 rounded-xl p-6 text-center space-y-2">
           <Lock size={32} className="text-red mx-auto mb-2" />
           <h2 className="font-display text-2xl text-red uppercase tracking-widest">Pelada Encerrada</h2>
           <p className="text-text-muted">As atividades desta pelada foram concluídas. Você pode conferir os jogos realizados abaixo.</p>
@@ -339,11 +353,16 @@ export function BracketPage() {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h1 className="page-title flex items-center gap-2">
-            <Shuffle className="text-red" />
-            Sorteio Inicial
-          </h1>
-          <p className="page-subtitle">Defina a ordem dos times para começar o chaveamento.</p>
+          <div className="flex items-center gap-3 mb-2">
+            <button onClick={() => navigate('/teams')} className="btn-ghost p-2 rounded-full hover:bg-surface border border-border">
+              <ArrowLeft size={24} />
+            </button>
+            <h1 className="page-title mb-0 flex items-center gap-2">
+              <Shuffle className="text-red" />
+              Sorteio Inicial
+            </h1>
+          </div>
+          <p className="page-subtitle ml-14">Defina a ordem dos times para começar o chaveamento.</p>
         </div>
 
         <div className="card p-6">
@@ -412,9 +431,21 @@ export function BracketPage() {
 
   return (
     <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto w-full">
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
+        title={confirmDialog.title}
+        description={confirmDialog.desc}
+        onConfirm={confirmDialog.onConfirm}
+      />
+
       {/* Header Placar */}
       <div className="flex items-center justify-between">
-        <div className="flex-1"></div>
+        <div className="flex-1">
+          <button onClick={() => navigate('/teams')} className="btn-ghost p-2 rounded-full hover:bg-surface border border-border" title="Voltar">
+            <ArrowLeft size={24} />
+          </button>
+        </div>
         <div className="text-center flex-1 min-w-[200px]">
           <h1 className="font-display text-2xl md:text-4xl tracking-widest text-text-primary uppercase flex items-center justify-center gap-3">
             <Swords className="text-red hidden md:block" />
@@ -431,6 +462,22 @@ export function BracketPage() {
         </div>
       </div>
 
+      {/* Banner de Arbitragem */}
+      {state.queue.length > 0 && (
+        <div 
+          className="card p-3 flex flex-wrap items-center justify-center gap-2 border-l-4 border-red shadow-lg bg-surface/80"
+          style={{ borderLeftColor: state.queue[0].color_hex }}
+        >
+          <Shield size={20} className="text-yellow-400" />
+          <span className="font-bold text-sm md:text-base text-text-primary uppercase tracking-widest text-center">
+            Arbitragem (Rede / Marcação):
+          </span>
+          <span className="font-bold text-sm md:text-base text-center" style={{ color: state.queue[0].color_hex }}>
+            {state.queue[0].name.toUpperCase()}
+          </span>
+        </div>
+      )}
+
       {/* Arena — Placar Gigante */}
       <div className="flex flex-col md:flex-row gap-4 md:gap-8 flex-1">
         
@@ -439,29 +486,38 @@ export function BracketPage() {
           <div className="absolute inset-0 opacity-10" style={{ backgroundColor: state.courtA?.color_hex }} />
           
           <div className="relative z-10 p-6 md:p-10 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-4 md:mb-8">
-              <h2 className="font-display text-4xl md:text-6xl font-bold truncate tracking-wider" style={{ color: state.courtA?.color_hex }}>
-                {state.courtA?.name.toUpperCase()}
-              </h2>
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex flex-col min-w-0 pr-2">
+                <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold truncate tracking-wider" style={{ color: state.courtA?.color_hex }}>
+                  {state.courtA?.name.toUpperCase()}
+                </h2>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {state.courtA?.team_players.map((p: any) => (
+                    <span key={p.player} className="text-[10px] md:text-xs text-text-muted bg-surface/50 px-2 py-0.5 rounded-full border border-border/50 truncate max-w-[100px] sm:max-w-[150px]">
+                      {p.player_name}
+                    </span>
+                  ))}
+                </div>
+              </div>
               {state.consecutiveA > 0 && (
-                <div className="flex text-yellow-400" title={`${state.consecutiveA} vitórias seguidas. Na 2ª, também sai!`}>
-                  {Array.from({ length: state.consecutiveA }).map((_, i) => <Star key={i} size={32} className="fill-yellow-400" />)}
-                  {state.consecutiveA === 1 && <Star size={32} className="opacity-20" />}
+                <div className="flex text-yellow-400 flex-shrink-0 mt-1" title={`${state.consecutiveA} vitórias seguidas. Na 2ª, também sai!`}>
+                  {Array.from({ length: state.consecutiveA }).map((_, i) => <Star key={i} size={24} className="fill-yellow-400 sm:w-8 sm:h-8" />)}
+                  {state.consecutiveA === 1 && <Star size={24} className="opacity-20 sm:w-8 sm:h-8" />}
                 </div>
               )}
             </div>
 
-            <div className="flex-1 flex items-center justify-center py-8 md:py-16">
-              <span className="text-[10rem] md:text-[20rem] leading-none font-display font-bold tabular-nums tracking-tighter" style={{ color: state.courtA?.color_hex }}>
+            <div className="flex-1 flex items-center justify-center py-4 md:py-8 lg:py-12">
+              <span className="text-[7rem] sm:text-[10rem] lg:text-[18rem] leading-none font-display font-bold tabular-nums tracking-tighter" style={{ color: state.courtA?.color_hex }}>
                 {state.scoreA}
               </span>
             </div>
 
-            <div className="flex gap-4 md:gap-8 mt-auto">
-              <button onClick={() => updateScore('A', -1)} className="flex-1 h-20 md:h-28 rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95">
+            <div className="flex gap-2 sm:gap-4 md:gap-8 mt-auto">
+              <button onClick={() => updateScore('A', -1)} className="flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-4xl sm:text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95">
                 -
               </button>
-              <button onClick={() => updateScore('A', 1)} className="flex-1 h-20 md:h-28 rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border text-5xl md:text-8xl font-bold transition-colors active:scale-95 shadow-lg flex items-center justify-center" style={{ borderColor: `${state.courtA?.color_hex}80`, color: state.courtA?.color_hex }}>
+              <button onClick={() => updateScore('A', 1)} className="flex-[1.5] sm:flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border text-4xl sm:text-5xl md:text-8xl font-bold transition-colors active:scale-95 shadow-lg flex items-center justify-center" style={{ borderColor: `${state.courtA?.color_hex}80`, color: state.courtA?.color_hex }}>
                 +
               </button>
             </div>
@@ -479,29 +535,38 @@ export function BracketPage() {
           <div className="absolute inset-0 opacity-10" style={{ backgroundColor: state.courtB?.color_hex }} />
           
           <div className="relative z-10 p-6 md:p-10 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-4 md:mb-8 flex-row-reverse">
-              <h2 className="font-display text-4xl md:text-6xl font-bold truncate text-right tracking-wider" style={{ color: state.courtB?.color_hex }}>
-                {state.courtB?.name.toUpperCase()}
-              </h2>
+            <div className="flex items-start justify-between mb-2 flex-row-reverse">
+              <div className="flex flex-col items-end min-w-0 pl-2">
+                <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold truncate text-right tracking-wider" style={{ color: state.courtB?.color_hex }}>
+                  {state.courtB?.name.toUpperCase()}
+                </h2>
+                <div className="flex flex-wrap justify-end gap-1 mt-1">
+                  {state.courtB?.team_players.map((p: any) => (
+                    <span key={p.player} className="text-[10px] md:text-xs text-text-muted bg-surface/50 px-2 py-0.5 rounded-full border border-border/50 truncate max-w-[100px] sm:max-w-[150px]">
+                      {p.player_name}
+                    </span>
+                  ))}
+                </div>
+              </div>
               {state.consecutiveB > 0 && (
-                <div className="flex text-yellow-400 flex-row-reverse" title={`${state.consecutiveB} vitórias seguidas. Na 2ª, também sai!`}>
-                  {Array.from({ length: state.consecutiveB }).map((_, i) => <Star key={i} size={32} className="fill-yellow-400" />)}
-                  {state.consecutiveB === 1 && <Star size={32} className="opacity-20" />}
+                <div className="flex text-yellow-400 flex-row-reverse flex-shrink-0 mt-1" title={`${state.consecutiveB} vitórias seguidas. Na 2ª, também sai!`}>
+                  {Array.from({ length: state.consecutiveB }).map((_, i) => <Star key={i} size={24} className="fill-yellow-400 sm:w-8 sm:h-8" />)}
+                  {state.consecutiveB === 1 && <Star size={24} className="opacity-20 sm:w-8 sm:h-8" />}
                 </div>
               )}
             </div>
 
-            <div className="flex-1 flex items-center justify-center py-8 md:py-16">
-              <span className="text-[10rem] md:text-[20rem] leading-none font-display font-bold tabular-nums tracking-tighter" style={{ color: state.courtB?.color_hex }}>
+            <div className="flex-1 flex items-center justify-center py-4 md:py-8 lg:py-12">
+              <span className="text-[7rem] sm:text-[10rem] lg:text-[18rem] leading-none font-display font-bold tabular-nums tracking-tighter" style={{ color: state.courtB?.color_hex }}>
                 {state.scoreB}
               </span>
             </div>
 
-            <div className="flex gap-4 md:gap-8 mt-auto">
-              <button onClick={() => updateScore('B', -1)} className="flex-1 h-20 md:h-28 rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95">
+            <div className="flex gap-2 sm:gap-4 md:gap-8 mt-auto">
+              <button onClick={() => updateScore('B', -1)} className="flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-4xl sm:text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95">
                 -
               </button>
-              <button onClick={() => updateScore('B', 1)} className="flex-1 h-20 md:h-28 rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border text-5xl md:text-8xl font-bold transition-colors active:scale-95 shadow-lg flex items-center justify-center" style={{ borderColor: `${state.courtB?.color_hex}80`, color: state.courtB?.color_hex }}>
+              <button onClick={() => updateScore('B', 1)} className="flex-[1.5] sm:flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border text-4xl sm:text-5xl md:text-8xl font-bold transition-colors active:scale-95 shadow-lg flex items-center justify-center" style={{ borderColor: `${state.courtB?.color_hex}80`, color: state.courtB?.color_hex }}>
                 +
               </button>
             </div>
@@ -526,12 +591,21 @@ export function BracketPage() {
           <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-text-muted mb-4 flex items-center gap-2">
             <ArrowRightLeft size={16} /> Na fila de espera
           </h3>
-          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {state.queue.map((team, idx) => (
-              <div key={team.id} className="flex-shrink-0 flex items-center gap-2 md:gap-3 bg-surface border border-border rounded-xl px-4 md:px-6 py-3">
-                <span className="text-text-muted font-bold text-sm md:text-base">{idx + 1}°</span>
-                <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: team.color_hex }} />
-                <span className="text-sm md:text-lg font-bold" style={{ color: team.color_hex }}>{team.name}</span>
+              <div key={team.id} className="flex flex-col justify-center bg-surface border border-border rounded-xl px-4 py-3">
+                <div className="flex items-center gap-2 md:gap-3 mb-2">
+                  <span className="text-text-muted font-bold text-sm md:text-base">{idx + 1}°</span>
+                  <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: team.color_hex }} />
+                  <span className="text-sm md:text-lg font-bold truncate" style={{ color: team.color_hex }}>{team.name}</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {team.team_players.map((p: any) => (
+                    <span key={p.player} className="text-[10px] text-text-muted bg-background/50 px-2 py-0.5 rounded-full border border-border/50 truncate max-w-full">
+                      {p.player_name}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

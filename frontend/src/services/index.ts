@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { DashboardData, Evaluation, EvaluationConfig, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData } from '@/types';
+import type { DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData } from '@/types';
 
 export const dashboardService = {
   get: () => api.get<DashboardData>('/dashboard/').then(r => r.data),
@@ -26,16 +26,6 @@ export const evaluationsService = {
 
   radar: (playerId: number) =>
     api.get(`/evaluations/radar/${playerId}/`).then(r => r.data),
-
-  configs: {
-    list: () => api.get<EvaluationConfig[]>('/evaluations/configs/').then(r => r.data),
-    update: (id: number, data: Partial<EvaluationConfig>) =>
-      api.patch<EvaluationConfig>(`/evaluations/configs/${id}/`, data).then(r => r.data),
-    setActive: (id: number) =>
-      api.post(`/evaluations/configs/${id}/set-active/`).then(r => r.data),
-    create: (data: Partial<EvaluationConfig>) =>
-      api.post<EvaluationConfig>('/evaluations/configs/', data).then(r => r.data),
-  },
 };
 
 export const attendanceService = {
@@ -93,6 +83,12 @@ export const teamsService = {
 
   movePlayer: (generationId: number, playerId: number, targetTeamId: number) =>
     api.patch(`/teams/${generationId}/move-player/`, { player_id: playerId, target_team_id: targetTeamId }).then(r => r.data),
+
+  addPlayer: (generationId: number, playerId: number, teamId: number) =>
+    api.post(`/teams/${generationId}/add-player/`, { player_id: playerId, team_id: teamId }).then(r => r.data),
+
+  removePlayer: (generationId: number, playerId: number) =>
+    api.post(`/teams/${generationId}/remove-player/`, { player_id: playerId }).then(r => r.data),
 
   lock: (id: number) =>
     api.post(`/teams/${id}/lock/`).then(r => r.data),

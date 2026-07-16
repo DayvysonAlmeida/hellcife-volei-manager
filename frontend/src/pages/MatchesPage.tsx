@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Plus, Calendar, MapPin, Trophy, Star, Zap, Shield, ChevronDown, Users, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Avatar } from '@/components/ui/Avatar';
 import { matchesService } from '@/services';
 import { formatDate } from '@/lib/utils';
@@ -19,6 +20,7 @@ export function MatchesPage() {
   const isAdmin = user?.profile === 'admin';
   const qc = useQueryClient();
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
   const { data, isLoading } = useQuery({
     queryKey: ['matches'],
@@ -39,6 +41,14 @@ export function MatchesPage() {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
+        title={confirmDialog.title}
+        description={confirmDialog.desc}
+        onConfirm={confirmDialog.onConfirm}
+      />
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="page-title">Jogos (Resultados)</h1>
@@ -68,10 +78,13 @@ export function MatchesPage() {
               isDeleting={deleteMutation.isPending}
               expanded={expandedId === match.id}
               onToggle={() => setExpandedId(expandedId === match.id ? null : match.id)}
-              onDelete={(id) => {
-                if (confirm('Tem certeza que deseja excluir esta partida? Todos os dados de desempenho dos jogadores serão perdidos.')) {
-                  deleteMutation.mutate(id);
-                }
+              onDelete={() => {
+                setConfirmDialog({
+                  isOpen: true,
+                  title: 'Excluir Partida',
+                  desc: 'Tem certeza que deseja excluir esta partida? Todos os dados de desempenho dos jogadores serão perdidos.',
+                  onConfirm: () => deleteMutation.mutate(match.id)
+                });
               }}
             />
           ))}

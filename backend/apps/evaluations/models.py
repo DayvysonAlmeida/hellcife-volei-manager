@@ -1,81 +1,15 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-
-
-class EvaluationConfig(models.Model):
-    """Configuração de pesos para cada fundamento."""
-    name = models.CharField(max_length=100, default='Padrão', verbose_name='Nome da configuração')
-    is_active = models.BooleanField(default=True, verbose_name='Configuração ativa')
-
-    # Pesos (somam 100 idealmente)
-    w_serve = models.FloatField(default=7.0, verbose_name='Peso - Saque')
-    w_reception = models.FloatField(default=8.0, verbose_name='Peso - Recepção')
-    w_pass = models.FloatField(default=8.0, verbose_name='Peso - Passe')
-    w_setting = models.FloatField(default=7.0, verbose_name='Peso - Levantamento')
-    w_attack = models.FloatField(default=10.0, verbose_name='Peso - Ataque')
-    w_block = models.FloatField(default=8.0, verbose_name='Peso - Bloqueio')
-    w_defense = models.FloatField(default=9.0, verbose_name='Peso - Defesa')
-    w_recovery = models.FloatField(default=7.0, verbose_name='Peso - Recuperação de bola')
-    w_positioning = models.FloatField(default=8.0, verbose_name='Peso - Posicionamento')
-    w_communication = models.FloatField(default=7.0, verbose_name='Peso - Comunicação')
-    w_tactical = models.FloatField(default=8.0, verbose_name='Peso - Inteligência tática')
-    w_conditioning = models.FloatField(default=7.0, verbose_name='Peso - Condicionamento físico')
-    w_consistency = models.FloatField(default=6.0, verbose_name='Peso - Regularidade')
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = 'Configuração de avaliação'
-        verbose_name_plural = 'Configurações de avaliação'
-
-    def __str__(self):
-        return f'{self.name} ({"ativa" if self.is_active else "inativa"})'
-
-    @classmethod
-    def get_active(cls):
-        return cls.objects.filter(is_active=True).first()
-
-
-def calculate_overall(evaluation, config=None):
-    """Calcula o overall ponderado com base nos pesos da configuração."""
-    if config is None:
-        config = EvaluationConfig.get_active()
-    if config is None:
-        # Média simples se não houver config
-        fields = [
-            evaluation.serve, evaluation.reception, evaluation.passing,
-            evaluation.setting, evaluation.attack, evaluation.block,
-            evaluation.defense, evaluation.recovery, evaluation.positioning,
-            evaluation.communication, evaluation.tactical_iq,
-            evaluation.conditioning, evaluation.consistency,
-        ]
-        return round(sum(fields) / len(fields), 2)
-
-    total_weight = (
-        config.w_serve + config.w_reception + config.w_pass + config.w_setting +
-        config.w_attack + config.w_block + config.w_defense + config.w_recovery +
-        config.w_positioning + config.w_communication + config.w_tactical +
-        config.w_conditioning + config.w_consistency
-    )
-
-    weighted_sum = (
-        evaluation.serve * config.w_serve +
-        evaluation.reception * config.w_reception +
-        evaluation.passing * config.w_pass +
-        evaluation.setting * config.w_setting +
-        evaluation.attack * config.w_attack +
-        evaluation.block * config.w_block +
-        evaluation.defense * config.w_defense +
-        evaluation.recovery * config.w_recovery +
-        evaluation.positioning * config.w_positioning +
-        evaluation.communication * config.w_communication +
-        evaluation.tactical_iq * config.w_tactical +
-        evaluation.conditioning * config.w_conditioning +
-        evaluation.consistency * config.w_consistency
-    )
-
-    return round(weighted_sum / total_weight, 2)
+def calculate_overall(evaluation):
+    """Calcula o overall como média simples dos 13 fundamentos."""
+    fields = [
+        evaluation.serve, evaluation.reception, evaluation.passing,
+        evaluation.setting, evaluation.attack, evaluation.block,
+        evaluation.defense, evaluation.recovery, evaluation.positioning,
+        evaluation.communication, evaluation.tactical_iq,
+        evaluation.conditioning, evaluation.consistency,
+    ]
+    return round(sum(fields) / len(fields), 2)
 
 
 SCORE_VALIDATOR = [MinValueValidator(0), MaxValueValidator(10)]

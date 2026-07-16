@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History } from 'lucide-react';
+import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History, Plus, X } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading } from '@/components/ui/Loading';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { teamsService, attendanceService } from '@/services';
+import { playersService } from '@/services/players';
 import { MODALITY_LABELS } from '@/types';
 import type { GenerateTeamsResult, GeneratedTeam, Modality } from '@/types';
 import { useAuth } from '@/store/AuthContext';
@@ -26,6 +28,7 @@ export function TeamsPage() {
   const [selectedGameDayId, setSelectedGameDayId] = useState<number | null>(null);
   const [result, setResult] = useState<GenerateTeamsResult | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
   const deleteGenMutation = useMutation({
     mutationFn: (id: number) => teamsService.delete(id),
@@ -43,6 +46,30 @@ export function TeamsPage() {
        toast.success('Jogador transferido com sucesso!');
     }
   });
+
+  const addPlayerMutation = useMutation({
+    mutationFn: ({ genId, playerId, teamId }: { genId: number, playerId: number, teamId: number }) => 
+       teamsService.addPlayer(genId, playerId, teamId),
+    onSuccess: () => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       toast.success('Jogador adicionado ao time!');
+    }
+  });
+
+  const removePlayerMutation = useMutation({
+    mutationFn: ({ genId, playerId }: { genId: number, playerId: number }) => 
+       teamsService.removePlayer(genId, playerId),
+    onSuccess: () => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       toast.success('Jogador removido do time!');
+    }
+  });
+
+  const { data: allPlayersData } = useQuery({
+    queryKey: ['all-players'],
+    queryFn: () => playersService.list({ is_active: true, page_size: 200 }),
+  });
+  const allPlayers = allPlayersData?.results || [];
 
   const { data: gameDaysData } = useQuery({
     queryKey: ['gamedays'],
@@ -120,6 +147,14 @@ export function TeamsPage() {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
+        title={confirmDialog.title}
+        description={confirmDialog.desc}
+        onConfirm={confirmDialog.onConfirm}
+      />
+
       <div>
         <h1 className="page-title">Peladas</h1>
         <p className="page-subtitle">Sorteio e histórico de times da sua pelada.</p>
@@ -281,9 +316,12 @@ export function TeamsPage() {
                       <div className="flex items-center gap-2 border-l border-border pl-3">
                         <button
                           onClick={() => {
-                            if (confirm('Tem certeza que deseja excluir esta geração de times?')) {
-                              deleteGenMutation.mutate(gen.id);
-                            }
+                            setConfirmDialog({
+                              isOpen: true,
+                              title: 'Excluir Geração',
+                              desc: 'Tem certeza que deseja excluir esta geração de times?',
+                              onConfirm: () => deleteGenMutation.mutate(gen.id)
+                            });
                           }}
                           disabled={deleteGenMutation.isPending}
                           className="btn-ghost p-1.5 hover:bg-red/10 hover:text-red rounded-lg transition-colors text-text-muted"
@@ -307,7 +345,25 @@ export function TeamsPage() {
                       <div className="space-y-1">
                         {team.team_players.map(p => (
                           <div key={p.id} className="flex justify-between items-center text-xs group">
-                            <span className="text-text-secondary truncate pr-2">{p.player_name}</span>
+                            <span className="text-text-secondary truncate pr-2 flex items-center gap-1">
+                              {canEdit && !gen.is_locked && (
+                                <button
+                                  onClick={() => {
+                                    setConfirmDialog({
+                                      isOpen: true,
+                                      title: 'Remover Jogador',
+                                      desc: `Remover ${p.player_name} da pelada?`,
+                                      onConfirm: () => removePlayerMutation.mutate({ genId: gen.id, playerId: p.player })
+                                    });
+                                  }}
+                                  className="text-text-muted hover:text-red p-0.5 rounded opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                  title="Remover Jogador"
+                                >
+                                  <X size={12} />
+                                </button>
+                              )}
+                              {p.player_name}
+                            </span>
                             <div className="flex items-center gap-2">
                               <span className="text-text-muted">{p.player_overall}</span>
                               {canEdit && !gen.is_locked && (
@@ -336,6 +392,30 @@ export function TeamsPage() {
                             </div>
                           </div>
                         ))}
+
+                        {/* Add Player Dropdown */}
+                        {canEdit && !gen.is_locked && (
+                          <div className="pt-2 mt-2 border-t border-border-subtle">
+                            <select
+                              className="w-full bg-surface border border-border rounded text-xs text-text-muted p-1 outline-none cursor-pointer"
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  addPlayerMutation.mutate({ genId: gen.id, playerId: Number(e.target.value), teamId: team.id });
+                                  e.target.value = '';
+                                }
+                              }}
+                              disabled={addPlayerMutation.isPending}
+                            >
+                              <option value="">+ Adicionar Jogador</option>
+                              {allPlayers
+                                .filter((p: any) => !gen.teams.some(t => t.team_players.some(tp => tp.player === p.id)))
+                                .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name))
+                                .map((p: any) => (
+                                  <option key={p.id} value={p.id}>{p.display_name} ({p.overall})</option>
+                                ))}
+                            </select>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

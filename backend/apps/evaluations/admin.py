@@ -1,12 +1,5 @@
 from django.contrib import admin
-from .models import Evaluation, EvaluationConfig, EvaluationHistory
-
-
-@admin.register(EvaluationConfig)
-class EvaluationConfigAdmin(admin.ModelAdmin):
-    list_display = ['name', 'is_active', 'updated_at']
-
-
+from .models import Evaluation, EvaluationHistory
 @admin.register(Evaluation)
 class EvaluationAdmin(admin.ModelAdmin):
     list_display = ['player', 'date', 'overall', 'evaluator']

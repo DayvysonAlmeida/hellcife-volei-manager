@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { attendanceService, teamsService } from '@/services';
 import { formatDate } from '@/lib/utils';
 import type { GameDay, Position } from '@/types';
@@ -25,6 +26,7 @@ export function AttendancePage() {
   const [newTime, setNewTime] = useState('19:30');
   const [newLocation, setNewLocation] = useState('');
   const [newMaxPlayers, setNewMaxPlayers] = useState<number | ''>('');
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
 
   // Guest modal state
@@ -121,6 +123,14 @@ export function AttendancePage() {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
+        title={confirmDialog.title}
+        description={confirmDialog.desc}
+        onConfirm={confirmDialog.onConfirm}
+      />
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="page-title">Controle de Presença</h1>
@@ -209,9 +219,12 @@ export function AttendancePage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm('Tem certeza que deseja excluir esta pelada? Todos os dados de presença serão perdidos.')) {
-                              deleteGameDayMutation.mutate(gd.id);
-                            }
+                            setConfirmDialog({
+                              isOpen: true,
+                              title: 'Excluir Pelada',
+                              desc: 'Tem certeza que deseja excluir esta pelada? Todos os dados de presença serão perdidos.',
+                              onConfirm: () => deleteGameDayMutation.mutate(gd.id)
+                            });
                           }}
                           disabled={deleteGameDayMutation.isPending}
                           className="p-1.5 text-text-muted hover:text-red hover:bg-red/10 rounded-md transition-colors"

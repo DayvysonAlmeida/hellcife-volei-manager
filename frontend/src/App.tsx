@@ -19,7 +19,6 @@ import { TeamsPage } from '@/pages/TeamsPage';
 import { MatchesPage } from '@/pages/MatchesPage';
 import { MatchFormPage } from '@/pages/MatchFormPage';
 import { StarsSystemPage } from '@/pages/StarsSystemPage';
-import { SettingsPage } from '@/pages/SettingsPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { RegulationPage } from '@/pages/RegulationPage';
 import { CheckinPage } from '@/pages/CheckinPage';
@@ -67,7 +66,6 @@ function App() {
               <Route path="matches" element={<MatchesPage />} />
               <Route path="matches/new" element={<MatchFormPage />} />
               <Route path="stars-system" element={<StarsSystemPage />} />
-              <Route path="settings" element={<SettingsPage />} />
               <Route path="regulation" element={<RegulationPage />} />
             </Route>
 

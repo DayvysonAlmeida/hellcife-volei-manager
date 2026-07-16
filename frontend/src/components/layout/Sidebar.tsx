@@ -17,10 +17,6 @@ const navItems = [
   { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
 ];
 
-const adminItems = [
-  { to: '/settings', icon: Settings, label: 'Configurações' },
-];
-
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -141,44 +137,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
             </NavLink>
           ))}
 
-          {user?.profile === 'admin' && (
-            <>
-              {!collapsed && (
-                <p className="text-text-muted text-[10px] font-bold uppercase tracking-widest px-3 mt-4 mb-2">
-                  Admin
-                </p>
-              )}
-              {adminItems.map(({ to, icon: Icon, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  onClick={() => onMobileClose()} // Fecha menu no mobile ao clicar
-                  className={({ isActive }) => cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer',
-                    isActive
-                      ? 'bg-red/10 text-red border-l-2 border-red'
-                      : 'text-text-secondary hover:bg-surface hover:text-text-primary'
-                  )}
-                  title={collapsed ? label : undefined}
-                >
-                  <Icon size={20} className="flex-shrink-0" />
-                  <AnimatePresence>
-                    {!collapsed && (
-                      <motion.span
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="whitespace-nowrap text-sm"
-                      >
-                        {label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </NavLink>
-              ))}
-            </>
-          )}
-        </nav>
+          </nav>
 
         {/* User info + Logout */}
         <div className="border-t border-border p-3">
