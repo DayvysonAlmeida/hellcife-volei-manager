@@ -10,7 +10,9 @@ from apps.core.permissions import IsAdminOrModerator
 
 
 class MatchViewSet(viewsets.ModelViewSet):
-    queryset = Match.objects.all().prefetch_related(
+    queryset = Match.objects.all().select_related(
+        'created_by', 'team_generation'
+    ).prefetch_related(
         'match_teams__match_players__player'
     )
     permission_classes = [IsAuthenticated]

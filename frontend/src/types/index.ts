@@ -371,6 +371,7 @@ export interface DashboardData {
   top_winners: TopWinner[];
   position_distribution: PositionDist[];
   highlights: Record<string, HighlightPlayer[]>;
+  hall_of_fame: { id: number; player_name: string; avatar_url?: string; category: string; year: number }[];
   last_updated: string;
 }
 

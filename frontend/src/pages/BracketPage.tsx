@@ -232,10 +232,17 @@ export function BracketPage() {
       let message = '';
       if (winnerMustLeave) {
         message = `${winner.name.toUpperCase()} atingiu 2 vitórias seguidas e dá lugar na quadra!`;
-        q.push(winner);
-        q.push(loser);
-        nextA = q.shift() || null;
-        nextB = q.shift() || null;
+        
+        if (totalTeams === 3) {
+          q.unshift(winner); // Vencedor vira o próximo da fila
+          nextA = loser;     // Quem perdeu continua para jogar com quem tava de fora
+          nextB = q.pop() || null; // Entra quem tava de fora
+        } else {
+          nextA = q.shift() || null;
+          nextB = q.shift() || null;
+          q.unshift(winner); // Vencedor vira o próximo da fila (1º de fora)
+          q.push(loser);     // Perdedor vai pro final da fila
+        }
       } else {
         message = `${winner.name.toUpperCase()} venceu e continua na quadra!`;
         q.push(loser);

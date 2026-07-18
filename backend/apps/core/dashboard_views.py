@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.players.models import Player
 from apps.attendance.models import Attendance
 from apps.matches.models import MatchPlayer
+from apps.halloffame.models import HallOfFameEntry
 
 
 class DashboardView(APIView):
@@ -95,6 +96,18 @@ class DashboardView(APIView):
             for item in position_distribution
         ]
 
+        # Hall da Fama Oficial
+        hall_of_fame_qs = HallOfFameEntry.objects.select_related('player').order_by('-year', 'category')
+        hall_of_fame_list = []
+        for entry in hall_of_fame_qs:
+            hall_of_fame_list.append({
+                'id': entry.id,
+                'player_name': entry.player.display_name,
+                'avatar_url': entry.player.avatar_url,
+                'category': entry.get_category_display(),
+                'year': entry.year,
+            })
+
         return Response({
             'total_players': total_players,
             'active_players': active_count,
@@ -103,5 +116,6 @@ class DashboardView(APIView):
             'top_winners': top_winners,
             'position_distribution': formatted_distribution,
             'highlights': highlights,
+            'hall_of_fame': hall_of_fame_list,
             'last_updated': timezone.now().isoformat(),
         })
