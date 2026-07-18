@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History } from 'lucide-react';
+import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList } from 'lucide-react';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -10,6 +10,7 @@ import { teamsService, matchesService } from '@/services';
 import type { DBTeam, QuickMatchData, Modality, Match } from '@/types';
 import toast from 'react-hot-toast';
 import { MatchCard } from '@/components/matches/MatchCard';
+import { AttendanceModal } from '@/components/attendance/AttendanceModal';
 import { useAuth } from '@/store/AuthContext';
 
 interface BracketState {
@@ -34,6 +35,7 @@ export function BracketPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
   const storageKey = `hellcife_bracket_${id}`;
 
@@ -280,6 +282,7 @@ export function BracketPage() {
     mutationFn: () => teamsService.lock(generation!.id),
     onSuccess: () => {
       localStorage.removeItem(storageKey);
+      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
       toast.success('Pelada encerrada e times trancados no histórico.');
       navigate('/teams');
     },
@@ -448,10 +451,16 @@ export function BracketPage() {
 
       {/* Header Placar */}
       <div className="flex items-center justify-between">
-        <div className="flex-1">
+        <div className="flex-1 flex gap-2">
           <button onClick={() => navigate('/teams')} className="btn-ghost p-2 rounded-full hover:bg-surface border border-border" title="Voltar">
             <ArrowLeft size={24} />
           </button>
+          {generation.gameday && (
+            <button onClick={() => setShowAttendanceModal(true)} className="btn-secondary flex items-center gap-2 px-3 py-2 text-sm rounded-lg border-border" title="Lista de Presença / Pix">
+              <ClipboardList size={18} className="text-red" />
+              <span className="hidden md:inline font-bold">Chamada / Pix</span>
+            </button>
+          )}
         </div>
         <div className="text-center flex-1 min-w-[200px]">
           <h1 className="font-display text-2xl md:text-4xl tracking-widest text-text-primary uppercase flex items-center justify-center gap-3">
@@ -494,11 +503,11 @@ export function BracketPage() {
           
           <div className="relative z-10 p-6 md:p-10 flex flex-col h-full">
             <div className="flex items-start justify-between mb-2">
-              <div className="flex flex-col min-w-0 pr-2">
-                <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold truncate tracking-wider" style={{ color: state.courtA?.color_hex }}>
+              <div className="flex flex-col min-w-0 pr-2 flex-1">
+                <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold truncate tracking-wider w-full" style={{ color: state.courtA?.color_hex }}>
                   {state.courtA?.name.toUpperCase()}
                 </h2>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <div className="flex flex-wrap gap-1 mt-1 w-full">
                   {state.courtA?.team_players.map((p: any) => (
                     <span key={p.player} className="text-[10px] md:text-xs text-text-muted bg-surface/50 px-2 py-0.5 rounded-full border border-border/50 truncate max-w-[100px] sm:max-w-[150px]">
                       {p.player_name}
@@ -543,11 +552,11 @@ export function BracketPage() {
           
           <div className="relative z-10 p-6 md:p-10 flex flex-col h-full">
             <div className="flex items-start justify-between mb-2 flex-row-reverse">
-              <div className="flex flex-col items-end min-w-0 pl-2">
-                <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold truncate text-right tracking-wider" style={{ color: state.courtB?.color_hex }}>
+              <div className="flex flex-col min-w-0 pl-2 flex-1">
+                <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold truncate text-right tracking-wider w-full" style={{ color: state.courtB?.color_hex }}>
                   {state.courtB?.name.toUpperCase()}
                 </h2>
-                <div className="flex flex-wrap justify-end gap-1 mt-1">
+                <div className="flex flex-wrap justify-end gap-1 mt-1 w-full">
                   {state.courtB?.team_players.map((p: any) => (
                     <span key={p.player} className="text-[10px] md:text-xs text-text-muted bg-surface/50 px-2 py-0.5 rounded-full border border-border/50 truncate max-w-[100px] sm:max-w-[150px]">
                       {p.player_name}
@@ -646,11 +655,12 @@ export function BracketPage() {
       {/* Modal Salvar Resultado */}
       <AnimatePresence>
         {state.showSaveModal && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               className="bg-card w-full max-w-2xl rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="p-6 md:p-8 border-b border-border bg-surface/50">
@@ -661,13 +671,13 @@ export function BracketPage() {
               <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
                 {/* Placar Final */}
                 <div className="flex justify-center items-center gap-8 mb-10 bg-surface p-6 rounded-2xl border border-border shadow-inner">
-                  <div className="text-center">
-                    <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider" style={{ color: state.courtA?.color_hex }}>{state.courtA?.name}</span>
+                  <div className="text-center w-1/3">
+                    <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider truncate" style={{ color: state.courtA?.color_hex }}>{state.courtA?.name}</span>
                     <span className={`text-6xl md:text-7xl font-display font-bold ${state.scoreA >= state.scoreB ? 'text-yellow-400' : 'text-text-muted'}`}>{state.scoreA}</span>
                   </div>
-                  <span className="text-text-muted text-2xl font-display opacity-50">X</span>
-                  <div className="text-center">
-                    <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider" style={{ color: state.courtB?.color_hex }}>{state.courtB?.name}</span>
+                  <span className="text-text-muted text-2xl font-display opacity-50 flex-shrink-0">X</span>
+                  <div className="text-center w-1/3">
+                    <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider truncate" style={{ color: state.courtB?.color_hex }}>{state.courtB?.name}</span>
                     <span className={`text-6xl md:text-7xl font-display font-bold ${state.scoreB >= state.scoreA ? 'text-yellow-400' : 'text-text-muted'}`}>{state.scoreB}</span>
                   </div>
                 </div>
@@ -722,6 +732,14 @@ export function BracketPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {generation?.gameday && (
+        <AttendanceModal 
+          gamedayId={generation.gameday} 
+          isOpen={showAttendanceModal} 
+          onClose={() => setShowAttendanceModal(false)} 
+        />
+      )}
     </div>
   );
 }

@@ -41,9 +41,14 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
           <span className="text-xs font-bold text-red bg-red/10 border border-red/20 px-2 py-0.5 rounded-full tracking-wider uppercase">
             {MODALITY_LABELS[match.modality as Modality]}
           </span>
-          <div className="flex items-center gap-1 text-text-muted text-xs">
+          <div className="flex items-center gap-1 text-text-muted text-xs" title={match.created_at ? `Confirmado em: ${new Date(match.created_at).toLocaleString('pt-BR')}` : ''}>
             <Calendar size={11} />
             {formatDate(match.date)}
+            {match.created_at && (
+              <span className="ml-1 opacity-70 border-l border-border pl-2">
+                {new Date(match.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </div>
           {match.location && (
             <div className="flex items-center gap-1 text-text-muted text-xs truncate max-w-[140px]">

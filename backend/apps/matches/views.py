@@ -20,7 +20,7 @@ class MatchViewSet(viewsets.ModelViewSet):
     filterset_fields = ['modality', 'gameday', 'team_generation']
     search_fields = ['location', 'notes']
     ordering_fields = ['date', 'created_at']
-    ordering = ['-date']
+    ordering = ['-created_at']
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -42,6 +42,7 @@ class MatchViewSet(viewsets.ModelViewSet):
 
         # Limpa resultado anterior
         MatchTeam.objects.filter(match=match).delete()
+        MatchPlayer.objects.filter(match=match).delete()
 
         max_score = max((t.get('score', 0) for t in teams_data), default=0)
         for team_data in teams_data:
@@ -53,26 +54,19 @@ class MatchViewSet(viewsets.ModelViewSet):
                 winner=team_data.get('score', 0) == max_score,
                 team_id=team_data.get('team_id'),
             )
-            # Adiciona jogadores ao time nesta partida
+            # Adiciona jogadores ao time usando bulk_create (super rápido)
+            match_players = []
             for player_id in team_data.get('player_ids', []):
-                MatchPlayer.objects.get_or_create(
+                match_players.append(MatchPlayer(
                     match=match,
                     player_id=player_id,
-                    defaults={'match_team': mt}
-                )
-                # Marca MVP e Destaques
-                update_fields = {}
-                if player_id in team_data.get('mvp_ids', []):
-                    update_fields['mvp'] = True
-                if player_id in team_data.get('best_attacker_ids', []):
-                    update_fields['best_attacker'] = True
-                if player_id in team_data.get('best_server_ids', []):
-                    update_fields['best_server'] = True
-                if player_id in team_data.get('best_defender_ids', []):
-                    update_fields['best_defender'] = True
-                
-                if update_fields:
-                    MatchPlayer.objects.filter(match=match, player_id=player_id).update(**update_fields)
+                    match_team=mt,
+                    mvp=player_id in team_data.get('mvp_ids', []),
+                    best_attacker=player_id in team_data.get('best_attacker_ids', []),
+                    best_server=player_id in team_data.get('best_server_ids', []),
+                    best_defender=player_id in team_data.get('best_defender_ids', [])
+                ))
+            MatchPlayer.objects.bulk_create(match_players)
 
         return Response({'detail': 'Resultado registrado com sucesso.'})
 
@@ -101,25 +95,18 @@ class MatchViewSet(viewsets.ModelViewSet):
                 winner=team_data.get('score', 0) == max_score,
                 team_id=team_data.get('team_id'),
             )
-            # Adiciona jogadores ao time nesta partida
+            # Adiciona jogadores ao time usando bulk_create (super rápido)
+            match_players = []
             for player_id in team_data.get('player_ids', []):
-                MatchPlayer.objects.get_or_create(
+                match_players.append(MatchPlayer(
                     match=match,
                     player_id=player_id,
-                    defaults={'match_team': mt}
-                )
-                # Marca MVP e Destaques
-                update_fields = {}
-                if player_id in team_data.get('mvp_ids', []):
-                    update_fields['mvp'] = True
-                if player_id in team_data.get('best_attacker_ids', []):
-                    update_fields['best_attacker'] = True
-                if player_id in team_data.get('best_server_ids', []):
-                    update_fields['best_server'] = True
-                if player_id in team_data.get('best_defender_ids', []):
-                    update_fields['best_defender'] = True
-                
-                if update_fields:
-                    MatchPlayer.objects.filter(match=match, player_id=player_id).update(**update_fields)
+                    match_team=mt,
+                    mvp=player_id in team_data.get('mvp_ids', []),
+                    best_attacker=player_id in team_data.get('best_attacker_ids', []),
+                    best_server=player_id in team_data.get('best_server_ids', []),
+                    best_defender=player_id in team_data.get('best_defender_ids', [])
+                ))
+            MatchPlayer.objects.bulk_create(match_players)
 
         return Response(MatchSerializer(match).data, status=status.HTTP_201_CREATED)
