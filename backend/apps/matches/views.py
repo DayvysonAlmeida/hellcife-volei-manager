@@ -64,7 +64,11 @@ class MatchViewSet(viewsets.ModelViewSet):
                     mvp=player_id in team_data.get('mvp_ids', []),
                     best_attacker=player_id in team_data.get('best_attacker_ids', []),
                     best_server=player_id in team_data.get('best_server_ids', []),
-                    best_defender=player_id in team_data.get('best_defender_ids', [])
+                    best_defender=player_id in team_data.get('best_defender_ids', []),
+                    best_setter=player_id in team_data.get('best_setter_ids', []),
+                    best_libero=player_id in team_data.get('best_libero_ids', []),
+                    best_blocker=player_id in team_data.get('best_blocker_ids', []),
+                    best_opposite=player_id in team_data.get('best_opposite_ids', [])
                 ))
             MatchPlayer.objects.bulk_create(match_players)
 
@@ -105,7 +109,11 @@ class MatchViewSet(viewsets.ModelViewSet):
                     mvp=player_id in team_data.get('mvp_ids', []),
                     best_attacker=player_id in team_data.get('best_attacker_ids', []),
                     best_server=player_id in team_data.get('best_server_ids', []),
-                    best_defender=player_id in team_data.get('best_defender_ids', [])
+                    best_defender=player_id in team_data.get('best_defender_ids', []),
+                    best_setter=player_id in team_data.get('best_setter_ids', []),
+                    best_libero=player_id in team_data.get('best_libero_ids', []),
+                    best_blocker=player_id in team_data.get('best_blocker_ids', []),
+                    best_opposite=player_id in team_data.get('best_opposite_ids', [])
                 ))
             MatchPlayer.objects.bulk_create(match_players)
 

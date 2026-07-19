@@ -30,8 +30,8 @@ class GameDaySerializer(serializers.ModelSerializer):
 
 
 class GameDayListSerializer(serializers.ModelSerializer):
-    total_present = serializers.ReadOnlyField()
-    total_players = serializers.ReadOnlyField()
+    total_present = serializers.IntegerField(source='_total_present', read_only=True)
+    total_players = serializers.IntegerField(source='_total_players', read_only=True)
 
     class Meta:
         model = GameDay

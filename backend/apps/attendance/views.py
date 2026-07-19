@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Count, Q
 
 from .models import GameDay, Attendance
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer
@@ -11,10 +12,19 @@ from apps.core.permissions import IsAdminOrModerator
 
 
 class GameDayViewSet(viewsets.ModelViewSet):
-    queryset = GameDay.objects.all().prefetch_related('attendances__player')
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     ordering = ['-date']
+
+    def get_queryset(self):
+        if self.action == 'list':
+            # Para listagem: usar annotations ao invés de properties (evita N+1)
+            return GameDay.objects.all().annotate(
+                _total_present=Count('attendances', filter=Q(attendances__present=True)),
+                _total_players=Count('attendances'),
+            ).order_by('-date')
+        # Para detail: prefetch completo com os jogadores
+        return GameDay.objects.all().prefetch_related('attendances__player')
 
     def get_serializer_class(self):
         if self.action == 'list':

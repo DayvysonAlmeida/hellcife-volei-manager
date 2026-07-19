@@ -299,6 +299,10 @@ export interface QuickMatchData {
     best_attacker_ids?: number[];
     best_server_ids?: number[];
     best_defender_ids?: number[];
+    best_setter_ids?: number[];
+    best_libero_ids?: number[];
+    best_blocker_ids?: number[];
+    best_opposite_ids?: number[];
   }[];
 }
 
@@ -325,6 +329,10 @@ export interface MatchPlayer {
   best_attacker: boolean;
   best_server: boolean;
   best_defender: boolean;
+  best_setter: boolean;
+  best_libero: boolean;
+  best_blocker: boolean;
+  best_opposite: boolean;
 }
 
 // ==================== Hall of Fame ====================
@@ -372,6 +380,9 @@ export interface DashboardData {
   position_distribution: PositionDist[];
   highlights: Record<string, HighlightPlayer[]>;
   hall_of_fame: { id: number; player_name: string; avatar_url?: string; category: string; year: number }[];
+  most_present?: { id: number; name: string; avatar_url?: string; count: number } | null;
+  season_mvp?: { id: number; name: string; avatar_url?: string; count: number } | null;
+  revelation?: { id: number; name: string; avatar_url?: string; matches: number } | null;
   last_updated: string;
 }
 

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Calendar, MapPin, Trophy, Star, Zap, Shield, ChevronDown, Users, Trash2 } from 'lucide-react';
+import { Swords, Calendar, MapPin, Trophy, Star, Zap, Shield, ChevronDown, Users, Trash2, Target, UserCheck, Hand, Flame } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatDate } from '@/lib/utils';
 import { MODALITY_LABELS } from '@/types';
@@ -23,8 +23,12 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
   const bestAttacker = allPlayers.find(p => p.best_attacker);
   const bestServer = allPlayers.find(p => p.best_server);
   const bestDefender = allPlayers.find(p => p.best_defender);
+  const bestSetter = allPlayers.find(p => p.best_setter);
+  const bestLibero = allPlayers.find(p => p.best_libero);
+  const bestBlocker = allPlayers.find(p => p.best_blocker);
+  const bestOpposite = allPlayers.find(p => p.best_opposite);
 
-  const hasDestaques = mvp || bestAttacker || bestServer || bestDefender;
+  const hasDestaques = mvp || bestAttacker || bestServer || bestDefender || bestSetter || bestLibero || bestBlocker || bestOpposite;
   const hasPlayers = allPlayers.length > 0;
 
   return (
@@ -210,6 +214,30 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
                 {bestDefender.player_name}
               </span>
             )}
+            {bestSetter && (
+              <span className="inline-flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 whitespace-nowrap">
+                <Target size={10} />
+                {bestSetter.player_name}
+              </span>
+            )}
+            {bestLibero && (
+              <span className="inline-flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-400 border border-teal-500/20 whitespace-nowrap">
+                <UserCheck size={10} />
+                {bestLibero.player_name}
+              </span>
+            )}
+            {bestBlocker && (
+              <span className="inline-flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400 border border-orange-500/20 whitespace-nowrap">
+                <Hand size={10} />
+                {bestBlocker.player_name}
+              </span>
+            )}
+            {bestOpposite && (
+              <span className="inline-flex flex-shrink-0 items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-500 border border-rose-500/20 whitespace-nowrap">
+                <Flame size={10} />
+                {bestOpposite.player_name}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -269,6 +297,10 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
                                   {mp.best_attacker && <Swords size={11} className="text-red" />}
                                   {mp.best_server && <Zap size={11} className="text-blue-400" />}
                                   {mp.best_defender && <Shield size={11} className="text-green-400" />}
+                                  {mp.best_setter && <Target size={11} className="text-indigo-400" />}
+                                  {mp.best_libero && <UserCheck size={11} className="text-teal-400" />}
+                                  {mp.best_blocker && <Hand size={11} className="text-orange-400" />}
+                                  {mp.best_opposite && <Flame size={11} className="text-rose-500" />}
                                 </div>
                               </div>
                             ))}

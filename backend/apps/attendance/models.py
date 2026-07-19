@@ -23,10 +23,14 @@ class GameDay(models.Model):
 
     @property
     def total_present(self):
+        if hasattr(self, '_prefetched_objects_cache') and 'attendances' in self._prefetched_objects_cache:
+            return sum(1 for a in self.attendances.all() if a.present)
         return self.attendances.filter(present=True).count()
 
     @property
     def total_players(self):
+        if hasattr(self, '_prefetched_objects_cache') and 'attendances' in self._prefetched_objects_cache:
+            return len(self.attendances.all())
         return self.attendances.count()
 
 
@@ -39,7 +43,7 @@ class Attendance(models.Model):
         'players.Player', on_delete=models.CASCADE,
         related_name='attendances', verbose_name='Jogador'
     )
-    present = models.BooleanField(default=False, verbose_name='Presente')
+    present = models.BooleanField(default=False, verbose_name='Presente', db_index=True)
     has_paid = models.BooleanField(default=False, verbose_name='Pagou')
     checked_at = models.DateTimeField(auto_now=True, verbose_name='Hora do check-in')
 

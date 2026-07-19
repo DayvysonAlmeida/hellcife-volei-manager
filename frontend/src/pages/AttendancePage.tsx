@@ -37,7 +37,7 @@ export function AttendancePage() {
 
   const { data: gameDaysData, isLoading } = useQuery({
     queryKey: ['gamedays'],
-    queryFn: () => attendanceService.listGameDays(),
+    queryFn: () => attendanceService.listGameDays({ page_size: 50 }),
   });
 
   const { data: gameDayDetail, isLoading: loadingDetail } = useQuery({

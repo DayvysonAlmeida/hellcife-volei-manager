@@ -10,7 +10,8 @@ class MatchPlayerSerializer(serializers.ModelSerializer):
     class Meta:
         model = MatchPlayer
         fields = ['id', 'player', 'player_name', 'player_avatar', 'player_shirt',
-                  'match_team', 'mvp', 'best_attacker', 'best_server', 'best_defender']
+                  'match_team', 'mvp', 'best_attacker', 'best_server', 'best_defender',
+                  'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
 
 
 class MatchTeamSerializer(serializers.ModelSerializer):
@@ -43,7 +44,8 @@ class MatchListPlayerSerializer(serializers.ModelSerializer):
     class Meta:
         model = MatchPlayer
         fields = ['id', 'player', 'player_name', 'player_avatar', 'player_position',
-                  'player_shirt', 'mvp', 'best_attacker', 'best_server', 'best_defender']
+                  'player_shirt', 'mvp', 'best_attacker', 'best_server', 'best_defender',
+                  'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
 
 
 class MatchListTeamSerializer(serializers.ModelSerializer):

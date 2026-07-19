@@ -25,7 +25,7 @@ export function MatchesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['matches'],
-    queryFn: () => matchesService.list(),
+    queryFn: () => matchesService.list({ page_size: 100 }),
   });
 
   const deleteMutation = useMutation({

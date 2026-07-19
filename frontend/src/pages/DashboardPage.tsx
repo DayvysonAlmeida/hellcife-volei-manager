@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Zap, Shield, Trophy } from 'lucide-react';
+import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Zap, Shield, Trophy, Target, Hand, Flame, Crown, Medal, CalendarDays } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell,
@@ -29,6 +29,33 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   }
   return null;
 };
+
+function HighlightColumn({ title, icon: Icon, colorClass, bgClass, data }: { title: string, icon: any, colorClass: string, bgClass: string, data: any[] }) {
+  return (
+    <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
+      <div className={`w-10 h-10 rounded-full ${bgClass} ${colorClass} flex items-center justify-center mb-3`}>
+        <Icon size={20} className={colorClass.includes('fill') ? colorClass : ''} />
+      </div>
+      <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">{title}</h3>
+      {data && data.length > 0 ? (
+        <div className="flex flex-col gap-2 w-full mt-2">
+          {data.map((p, i) => (
+            <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left border border-transparent hover:border-border transition-colors">
+              <span className={`${colorClass} font-bold text-xs`}>{i + 1}º</span>
+              <Avatar name={p.name} src={p.avatar_url} size="sm" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
+              </div>
+              <span className={`text-xs ${colorClass} font-bold`}>{p.count}x</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-text-muted text-sm my-auto opacity-50">Sem dados</p>
+      )}
+    </div>
+  );
+}
 
 export function DashboardPage() {
   const { data, isLoading, error, refetch } = useQuery<DashboardData>({
@@ -106,7 +133,74 @@ export function DashboardPage() {
         </motion.div>
       </div>
 
-      {/* Destaques (Hall of Fame) */}
+      {/* OS COROADOS DA TEMPORADA */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+        className="card p-6 border-yellow-500/30 overflow-hidden relative"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-transparent pointer-events-none" />
+        <h2 className="font-display text-xl text-yellow-500 tracking-wider mb-6 flex items-center gap-2">
+          <Crown size={20} className="text-yellow-500" />
+          OS COROADOS DA TEMPORADA
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* MVP da Temporada */}
+          <div className="bg-gradient-to-b from-yellow-500/20 to-surface/50 border border-yellow-500/30 rounded-2xl p-6 flex flex-col items-center text-center relative shadow-[0_0_30px_rgba(234,179,8,0.1)]">
+            <div className="absolute top-4 right-4 text-yellow-500/30">
+              <Star size={40} className="fill-yellow-500/20" />
+            </div>
+            <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-widest mb-4">MVP da Temporada</h3>
+            {data.season_mvp ? (
+              <>
+                <Avatar name={data.season_mvp.name} src={data.season_mvp.avatar_url} size="xl" className="ring-4 ring-yellow-500/50 mb-4 shadow-lg shadow-yellow-500/20" />
+                <p className="font-display text-xl text-text-primary truncate w-full">{data.season_mvp.name}</p>
+                <p className="text-sm text-yellow-500 font-bold mt-2 bg-yellow-500/10 px-3 py-1 rounded-full">{data.season_mvp.count} títulos de MVP</p>
+              </>
+            ) : (
+              <p className="text-text-muted mt-auto mb-auto">Aguardando mais jogos...</p>
+            )}
+          </div>
+
+          {/* Revelação */}
+          <div className="bg-gradient-to-b from-indigo-500/20 to-surface/50 border border-indigo-500/30 rounded-2xl p-6 flex flex-col items-center text-center relative shadow-[0_0_30px_rgba(99,102,241,0.1)]">
+            <div className="absolute top-4 right-4 text-indigo-500/30">
+              <Medal size={40} />
+            </div>
+            <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-4">Revelação</h3>
+            {data.revelation ? (
+              <>
+                <Avatar name={data.revelation.name} src={data.revelation.avatar_url} size="xl" className="ring-4 ring-indigo-500/50 mb-4 shadow-lg shadow-indigo-500/20" />
+                <p className="font-display text-xl text-text-primary truncate w-full">{data.revelation.name}</p>
+                <p className="text-sm text-indigo-400 font-bold mt-2 bg-indigo-500/10 px-3 py-1 rounded-full">{data.revelation.matches} partidas jogadas</p>
+              </>
+            ) : (
+              <p className="text-text-muted mt-auto mb-auto">Aguardando novos jogadores...</p>
+            )}
+          </div>
+
+          {/* Mais Presente */}
+          <div className="bg-gradient-to-b from-emerald-500/20 to-surface/50 border border-emerald-500/30 rounded-2xl p-6 flex flex-col items-center text-center relative shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+            <div className="absolute top-4 right-4 text-emerald-500/30">
+              <CalendarDays size={40} />
+            </div>
+            <h3 className="text-sm font-bold text-emerald-500 uppercase tracking-widest mb-4">Mais Presente</h3>
+            {data.most_present ? (
+              <>
+                <Avatar name={data.most_present.name} src={data.most_present.avatar_url} size="xl" className="ring-4 ring-emerald-500/50 mb-4 shadow-lg shadow-emerald-500/20" />
+                <p className="font-display text-xl text-text-primary truncate w-full">{data.most_present.name}</p>
+                <p className="text-sm text-emerald-500 font-bold mt-2 bg-emerald-500/10 px-3 py-1 rounded-full">{data.most_present.count} presenças confirmadas</p>
+              </>
+            ) : (
+              <p className="text-text-muted mt-auto mb-auto">Aguardando listas de presença...</p>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Destaques (Corridas por Partida) */}
       {data.highlights && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -115,105 +209,19 @@ export function DashboardPage() {
           className="card p-6"
         >
           <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-2">
-            <Trophy size={20} className="text-yellow-500" />
-            DESTAQUES GERAIS DA TEMPORADA (POR PARTIDA)
+            <Trophy size={20} className="text-red" />
+            A CORRIDA PELAS ESTATUETAS (LÍDERES DAS PARTIDAS)
           </h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* MVP */}
-            <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
-              <div className="w-10 h-10 rounded-full bg-yellow-500/20 text-yellow-500 flex items-center justify-center mb-3">
-                <Star size={20} className="fill-yellow-500" />
-              </div>
-              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Mais vezes MVP</h3>
-              {data.highlights.mvp && data.highlights.mvp.length > 0 ? (
-                <div className="flex flex-col gap-2 w-full mt-2">
-                  {data.highlights.mvp.map((p, i) => (
-                    <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left">
-                      <span className="text-yellow-500 font-bold text-xs">{i + 1}º</span>
-                      <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
-                      </div>
-                      <span className="text-xs text-yellow-500 font-bold">{p.count}x</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-text-muted text-sm my-auto">Sem dados</p>
-              )}
-            </div>
-
-            {/* Melhor Ataque */}
-            <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
-              <div className="w-10 h-10 rounded-full bg-red/20 text-red flex items-center justify-center mb-3">
-                <Swords size={20} />
-              </div>
-              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Ataque</h3>
-              {data.highlights.best_attacker && data.highlights.best_attacker.length > 0 ? (
-                <div className="flex flex-col gap-2 w-full mt-2">
-                  {data.highlights.best_attacker.map((p, i) => (
-                    <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left">
-                      <span className="text-red font-bold text-xs">{i + 1}º</span>
-                      <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
-                      </div>
-                      <span className="text-xs text-red font-bold">{p.count}x</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-text-muted text-sm my-auto">Sem dados</p>
-              )}
-            </div>
-
-            {/* Melhor Saque */}
-            <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
-              <div className="w-10 h-10 rounded-full bg-blue/20 text-blue flex items-center justify-center mb-3">
-                <Zap size={20} />
-              </div>
-              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Saque</h3>
-              {data.highlights.best_server && data.highlights.best_server.length > 0 ? (
-                <div className="flex flex-col gap-2 w-full mt-2">
-                  {data.highlights.best_server.map((p, i) => (
-                    <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left">
-                      <span className="text-blue-400 font-bold text-xs">{i + 1}º</span>
-                      <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
-                      </div>
-                      <span className="text-xs text-blue-400 font-bold">{p.count}x</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-text-muted text-sm my-auto">Sem dados</p>
-              )}
-            </div>
-
-            {/* Melhor Defesa */}
-            <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
-              <div className="w-10 h-10 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center mb-3">
-                <Shield size={20} />
-              </div>
-              <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Melhor Defesa</h3>
-              {data.highlights.best_defender && data.highlights.best_defender.length > 0 ? (
-                <div className="flex flex-col gap-2 w-full mt-2">
-                  {data.highlights.best_defender.map((p, i) => (
-                    <div key={p.id} className="flex items-center gap-2 bg-surface/50 p-2 rounded-lg text-left">
-                      <span className="text-green-500 font-bold text-xs">{i + 1}º</span>
-                      <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text-primary text-xs truncate">{p.name}</p>
-                      </div>
-                      <span className="text-xs text-green-500 font-bold">{p.count}x</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-text-muted text-sm my-auto">Sem dados</p>
-              )}
-            </div>
+            <HighlightColumn title="Mais vezes MVP" icon={Star} colorClass="text-yellow-500 fill-yellow-500" bgClass="bg-yellow-500/20" data={data.highlights.mvp || []} />
+            <HighlightColumn title="Melhor Ataque" icon={Swords} colorClass="text-red" bgClass="bg-red/20" data={data.highlights.best_attacker || []} />
+            <HighlightColumn title="Melhor Saque" icon={Zap} colorClass="text-blue-400" bgClass="bg-blue-500/20" data={data.highlights.best_server || []} />
+            <HighlightColumn title="Melhor Defesa" icon={Shield} colorClass="text-green-500" bgClass="bg-green-500/20" data={data.highlights.best_defender || []} />
+            
+            <HighlightColumn title="Melhor Levantador" icon={Target} colorClass="text-indigo-400" bgClass="bg-indigo-500/20" data={data.highlights.best_setter || []} />
+            <HighlightColumn title="Melhor Líbero" icon={UserCheck} colorClass="text-teal-400" bgClass="bg-teal-500/20" data={data.highlights.best_libero || []} />
+            <HighlightColumn title="Melhor Blocador" icon={Hand} colorClass="text-orange-400" bgClass="bg-orange-500/20" data={data.highlights.best_blocker || []} />
+            <HighlightColumn title="Melhor Oposto" icon={Flame} colorClass="text-rose-500" bgClass="bg-rose-500/20" data={data.highlights.best_opposite || []} />
           </div>
         </motion.div>
       )}

@@ -24,7 +24,7 @@ class Evaluation(models.Model):
         'core.User', on_delete=models.SET_NULL, null=True,
         related_name='evaluations_made', verbose_name='Avaliador'
     )
-    date = models.DateField(verbose_name='Data da avaliação')
+    date = models.DateField(verbose_name='Data da avaliação', db_index=True)
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
 
     # Fundamentos (0-10)

@@ -1,5 +1,17 @@
 import django_filters
+from django.db.models import Subquery, OuterRef, FloatField
+from django.db.models.functions import Coalesce
 from .models import Player
+from apps.evaluations.models import Evaluation
+
+
+def _latest_overall_subquery():
+    return Subquery(
+        Evaluation.objects.filter(
+            player=OuterRef('pk')
+        ).order_by('-date').values('overall')[:1],
+        output_field=FloatField()
+    )
 
 
 class PlayerFilter(django_filters.FilterSet):
@@ -13,15 +25,12 @@ class PlayerFilter(django_filters.FilterSet):
         fields = ['main_position', 'status', 'dominant_hand', 'is_guest']
 
     def filter_min_overall(self, queryset, name, value):
-        ids = []
-        for p in queryset:
-            if p.latest_overall is not None and p.latest_overall >= float(value):
-                ids.append(p.id)
-        return queryset.filter(id__in=ids)
+        return queryset.annotate(
+            _overall=Coalesce(_latest_overall_subquery(), 0.0)
+        ).filter(_overall__gte=float(value))
 
     def filter_max_overall(self, queryset, name, value):
-        ids = []
-        for p in queryset:
-            if p.latest_overall is not None and p.latest_overall <= float(value):
-                ids.append(p.id)
-        return queryset.filter(id__in=ids)
+        return queryset.annotate(
+            _overall=Coalesce(_latest_overall_subquery(), 0.0)
+        ).filter(_overall__lte=float(value))
+

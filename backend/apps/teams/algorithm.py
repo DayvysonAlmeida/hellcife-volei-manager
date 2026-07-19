@@ -32,8 +32,13 @@ def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id:
 
     result = []
     for p in players.prefetch_related('evaluations'):
-        last_eval = p.evaluations.order_by('-date').first()
-        overall = last_eval.overall if last_eval else 5.0
+        # Use prefetched evaluations — sort in Python to avoid bypassing prefetch
+        evals = list(p.evaluations.all())
+        if evals:
+            evals.sort(key=lambda e: e.date, reverse=True)
+            overall = evals[0].overall
+        else:
+            overall = 5.0
         result.append({
             'id': p.id,
             'name': p.name,

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList, Target, UserCheck, Hand, Flame } from 'lucide-react';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -115,7 +115,11 @@ export function BracketPage() {
     attacker: number | null;
     server: number | null;
     defender: number | null;
-  }>({ mvp: null, attacker: null, server: null, defender: null });
+    setter: number | null;
+    libero: number | null;
+    blocker: number | null;
+    opposite: number | null;
+  }>({ mvp: null, attacker: null, server: null, defender: null, setter: null, libero: null, blocker: null, opposite: null });
 
   useEffect(() => {
     if (generation && !state.isStarted && state.queue.length === 0) {
@@ -194,6 +198,10 @@ export function BracketPage() {
           best_attacker_ids: highlights.attacker && state.courtA.team_players.some((p: any) => p.player === highlights.attacker) ? [highlights.attacker] : [],
           best_server_ids: highlights.server && state.courtA.team_players.some((p: any) => p.player === highlights.server) ? [highlights.server] : [],
           best_defender_ids: highlights.defender && state.courtA.team_players.some((p: any) => p.player === highlights.defender) ? [highlights.defender] : [],
+          best_setter_ids: highlights.setter && state.courtA.team_players.some((p: any) => p.player === highlights.setter) ? [highlights.setter] : [],
+          best_libero_ids: highlights.libero && state.courtA.team_players.some((p: any) => p.player === highlights.libero) ? [highlights.libero] : [],
+          best_blocker_ids: highlights.blocker && state.courtA.team_players.some((p: any) => p.player === highlights.blocker) ? [highlights.blocker] : [],
+          best_opposite_ids: highlights.opposite && state.courtA.team_players.some((p: any) => p.player === highlights.opposite) ? [highlights.opposite] : [],
         },
         {
           team_id: state.courtB.id,
@@ -205,6 +213,10 @@ export function BracketPage() {
           best_attacker_ids: highlights.attacker && state.courtB.team_players.some((p: any) => p.player === highlights.attacker) ? [highlights.attacker] : [],
           best_server_ids: highlights.server && state.courtB.team_players.some((p: any) => p.player === highlights.server) ? [highlights.server] : [],
           best_defender_ids: highlights.defender && state.courtB.team_players.some((p: any) => p.player === highlights.defender) ? [highlights.defender] : [],
+          best_setter_ids: highlights.setter && state.courtB.team_players.some((p: any) => p.player === highlights.setter) ? [highlights.setter] : [],
+          best_libero_ids: highlights.libero && state.courtB.team_players.some((p: any) => p.player === highlights.libero) ? [highlights.libero] : [],
+          best_blocker_ids: highlights.blocker && state.courtB.team_players.some((p: any) => p.player === highlights.blocker) ? [highlights.blocker] : [],
+          best_opposite_ids: highlights.opposite && state.courtB.team_players.some((p: any) => p.player === highlights.opposite) ? [highlights.opposite] : [],
         }
       ]
     };
@@ -259,7 +271,7 @@ export function BracketPage() {
         }
       }
 
-      setHighlights({ mvp: null, attacker: null, server: null, defender: null });
+      setHighlights({ mvp: null, attacker: null, server: null, defender: null, setter: null, libero: null, blocker: null, opposite: null });
 
       return {
         ...prev,
@@ -707,6 +719,30 @@ export function BracketPage() {
                     players={allPlayersInCourt}
                     value={highlights.defender}
                     onChange={(v: number | null) => setHighlights(h => ({ ...h, defender: v }))}
+                  />
+                  <HighlightSelect
+                    icon={Target} iconColor="text-indigo-400" title="Melhor Levantador"
+                    players={allPlayersInCourt}
+                    value={highlights.setter}
+                    onChange={(v: number | null) => setHighlights(h => ({ ...h, setter: v }))}
+                  />
+                  <HighlightSelect
+                    icon={UserCheck} iconColor="text-teal-400" title="Melhor Líbero"
+                    players={allPlayersInCourt}
+                    value={highlights.libero}
+                    onChange={(v: number | null) => setHighlights(h => ({ ...h, libero: v }))}
+                  />
+                  <HighlightSelect
+                    icon={Hand} iconColor="text-orange-400" title="Melhor Blocador"
+                    players={allPlayersInCourt}
+                    value={highlights.blocker}
+                    onChange={(v: number | null) => setHighlights(h => ({ ...h, blocker: v }))}
+                  />
+                  <HighlightSelect
+                    icon={Flame} iconColor="text-rose-500" title="Melhor Oposto"
+                    players={allPlayersInCourt}
+                    value={highlights.opposite}
+                    onChange={(v: number | null) => setHighlights(h => ({ ...h, opposite: v }))}
                   />
                 </div>
               </div>

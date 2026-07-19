@@ -10,7 +10,7 @@ class Match(models.Model):
         (6, 'Sexteto (6x6)'),
     ]
 
-    date = models.DateField(verbose_name='Data')
+    date = models.DateField(verbose_name='Data', db_index=True)
     location = models.CharField(max_length=200, blank=True, null=True, verbose_name='Local')
     modality = models.PositiveSmallIntegerField(choices=MODALITY_CHOICES, default=6, verbose_name='Modalidade')
     gameday = models.ForeignKey(
@@ -73,10 +73,14 @@ class MatchPlayer(models.Model):
         related_name='match_players', verbose_name='Time na partida'
     )
     # Para cálculo de stats via MatchTeam.winner
-    mvp = models.BooleanField(default=False, verbose_name='MVP da partida')
-    best_attacker = models.BooleanField(default=False, verbose_name='Melhor Ataque')
-    best_server = models.BooleanField(default=False, verbose_name='Melhor Saque')
-    best_defender = models.BooleanField(default=False, verbose_name='Melhor Defesa')
+    mvp = models.BooleanField(default=False, verbose_name='MVP da partida', db_index=True)
+    best_attacker = models.BooleanField(default=False, verbose_name='Melhor Ataque', db_index=True)
+    best_server = models.BooleanField(default=False, verbose_name='Melhor Saque', db_index=True)
+    best_defender = models.BooleanField(default=False, verbose_name='Melhor Defesa', db_index=True)
+    best_setter = models.BooleanField(default=False, verbose_name='Melhor Levantador', db_index=True)
+    best_libero = models.BooleanField(default=False, verbose_name='Melhor Líbero', db_index=True)
+    best_blocker = models.BooleanField(default=False, verbose_name='Melhor Blocador', db_index=True)
+    best_opposite = models.BooleanField(default=False, verbose_name='Melhor Oposto', db_index=True)
 
     class Meta:
         verbose_name = 'Jogador na partida'

@@ -29,7 +29,7 @@ class Player(models.Model):
     shirt_number = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Número da camisa')
     age = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Idade')
     
-    is_guest = models.BooleanField(default=False, verbose_name='É Convidado?')
+    is_guest = models.BooleanField(default=False, verbose_name='É Convidado?', db_index=True)
     invited_by = models.CharField(max_length=150, blank=True, null=True, verbose_name='Convidado por')
     height = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True, verbose_name='Altura (m)')
     weight = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name='Peso (kg)')
@@ -44,7 +44,7 @@ class Player(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
     mini_stars = models.PositiveSmallIntegerField(default=1, verbose_name='Mini Estrelas')
     big_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Estrelas Grandes')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Status')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Status', db_index=True)
     user = models.OneToOneField(
         'core.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='player_profile', verbose_name='Usuário vinculado'
