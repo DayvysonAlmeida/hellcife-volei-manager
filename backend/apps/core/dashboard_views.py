@@ -112,8 +112,9 @@ class DashboardView(APIView):
             .order_by('-count')
         )
         # Formatar a saída
+        pos_dict = dict(Player.POSITION_CHOICES)
         formatted_distribution = [
-            {'position': item['main_position'].capitalize(), 'count': item['count']}
+            {'position': pos_dict.get(item['main_position'], item['main_position']), 'count': item['count']}
             for item in position_distribution
         ]
 
