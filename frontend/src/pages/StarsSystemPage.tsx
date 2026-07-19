@@ -1,13 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Star, AlertCircle } from 'lucide-react';
+import { Star, AlertCircle, Plus, Minus, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { playersService } from '@/services/players';
+import { useAuth } from '@/store/AuthContext';
+import toast from 'react-hot-toast';
 
 export function StarsSystemPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.profile === 'admin' || user?.profile === 'moderator';
+  const queryClient = useQueryClient();
+
   const { data: players, isLoading, error, refetch } = useQuery({
     queryKey: ['players'],
     queryFn: () => playersService.list(),
@@ -16,6 +22,23 @@ export function StarsSystemPage() {
   if (isLoading) return <PageLoading />;
   if (error) return <ErrorState onRetry={refetch} />;
   if (!players?.results) return null;
+
+  const updateStarsMutation = useMutation({
+    mutationFn: ({ id, mini_stars }: { id: number; mini_stars: number }) => 
+      playersService.update(id, { mini_stars }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['players'] });
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar estrelas');
+    }
+  });
+
+  const handleUpdateStars = (e: React.MouseEvent, playerId: number, currentStars: number, delta: number) => {
+    e.preventDefault();
+    const newStars = Math.max(0, (currentStars || 0) + delta);
+    updateStarsMutation.mutate({ id: playerId, mini_stars: newStars });
+  };
 
   const activePlayers = players.results.filter(p => p.status === 'active');
 
@@ -129,6 +152,31 @@ export function StarsSystemPage() {
                           )}
                         </div>
                       </div>
+
+                      {isAdmin && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => handleUpdateStars(e, player.id, player.mini_stars, -1)}
+                            disabled={updateStarsMutation.isPending || (player.mini_stars || 0) === 0}
+                            className="w-8 h-8 rounded-full bg-surface-hover flex items-center justify-center text-text-muted hover:text-red hover:bg-red/10 transition-colors disabled:opacity-30 border border-border"
+                            title="Remover 1 Mini Estrela"
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <button
+                            onClick={(e) => handleUpdateStars(e, player.id, player.mini_stars, 1)}
+                            disabled={updateStarsMutation.isPending}
+                            className="w-8 h-8 rounded-full bg-surface-hover flex items-center justify-center text-text-muted hover:text-green-500 hover:bg-green-500/10 transition-colors disabled:opacity-30 border border-border"
+                            title="Adicionar 1 Mini Estrela"
+                          >
+                            {updateStarsMutation.isPending && updateStarsMutation.variables?.id === player.id ? (
+                              <Loader2 size={16} className="animate-spin text-text-muted" />
+                            ) : (
+                              <Plus size={16} />
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </Link>
                   </motion.div>
                 ))}

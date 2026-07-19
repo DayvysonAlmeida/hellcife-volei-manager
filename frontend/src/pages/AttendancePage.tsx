@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, CalendarCheck, ChevronRight, Check, Users, Shuffle, RefreshCw, Trash2, DollarSign, Share2, ChevronLeft, Swords } from 'lucide-react';
+import { CalendarCheck, Search, Users, ChevronRight, ChevronLeft, Plus, DollarSign, Check, X, RefreshCw, AlertCircle, Share2, Trash2, Edit2, Lock, Swords } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { OverallBadge } from '@/components/ui/OverallBadge';
@@ -19,6 +19,7 @@ export function AttendancePage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
+  const todayStr = new Date().toISOString().split('T')[0];
 
   const [selectedGameDay, setSelectedGameDay] = useState<GameDay | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -45,6 +46,31 @@ export function AttendancePage() {
     queryFn: () => attendanceService.getGameDay(selectedGameDay!.id),
     enabled: !!selectedGameDay,
   });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const { presentAttendances, absentAttendances, totalPaid } = useMemo(() => {
+    if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], totalPaid: 0 };
+    
+    let filtered = gameDayDetail.attendances;
+    if (searchTerm) {
+      const lower = searchTerm.toLowerCase();
+      filtered = filtered.filter(a => a.player_name.toLowerCase().includes(lower));
+    }
+    
+    // Sort present by name, absent by name
+    filtered.sort((a, b) => a.player_name.localeCompare(b.player_name));
+    
+    const present = filtered.filter(a => a.present);
+    const absent = filtered.filter(a => !a.present);
+    const totalPaid = gameDayDetail.attendances.filter(a => a.has_paid).length;
+    
+    return { presentAttendances: present, absentAttendances: absent, totalPaid };
+  }, [gameDayDetail, searchTerm]);
+
+  const isToday = (dateStr: string) => {
+    return new Date().toISOString().split('T')[0] === dateStr;
+  };
 
 
 
@@ -118,8 +144,119 @@ export function AttendancePage() {
     }
   });
 
+  const updateLimitMutation = useMutation({
+    mutationFn: (limit: number) => attendanceService.updateGameDay(selectedGameDay!.id, { max_players: limit }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+      toast.success('Limite de jogadores atualizado!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar limite.');
+    }
+  });
+
+  const handleEditLimit = () => {
+    if (!gameDayDetail) return;
+    const currentLimit = gameDayDetail.max_players || 0;
+    const response = window.prompt('Qual o novo limite de jogadores? (Digite 0 para ilimitado)', String(currentLimit));
+    
+    if (response !== null) {
+      const newLimit = parseInt(response.trim(), 10);
+      if (!isNaN(newLimit) && newLimit >= 0) {
+        updateLimitMutation.mutate(newLimit);
+      } else {
+        toast.error('Valor inválido para o limite.');
+      }
+    }
+  };
+
 
   const gameDays = gameDaysData?.results || [];
+  const isPastGameday = !!gameDayDetail?.date && gameDayDetail.date < todayStr;
+  const showEditControls = canEdit && !isPastGameday;
+
+  const renderAttendanceCard = (att: any) => {
+    const isTogglingPresence = toggleMutation.isPending && toggleMutation.variables?.playerId === att.player;
+    const isTogglingPayment = togglePaymentMutation.isPending && togglePaymentMutation.variables?.playerId === att.player;
+
+    return (
+      <div
+        key={att.id}
+        className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left
+          ${att.player_status !== 'active'
+            ? 'bg-surface/50 border-border/30 opacity-70'
+            : att.present
+              ? 'bg-green-950/30 border-green-800/50'
+              : 'bg-surface border-border hover:border-border-subtle'
+          }`}
+      >
+        <Avatar name={att.player_name} src={att.player_avatar} size="sm" />
+          <div className="min-w-0 flex-1">
+            <p className="text-text-primary text-sm font-medium truncate flex items-center gap-2">
+              {att.player_name}
+              {att.player_is_guest && (
+                <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                  Convidado
+                </span>
+              )}
+              {att.player_status !== 'active' && (
+                <span className="text-[10px] bg-red/10 text-red px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
+                  Inativo
+                </span>
+              )}
+            </p>
+            <PositionBadge position={att.player_position} />
+          </div>
+        
+        {showEditControls ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => togglePaymentMutation.mutate({ gamedayId: gameDayDetail!.id, playerId: att.player })}
+              disabled={isTogglingPayment}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                att.has_paid 
+                  ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' 
+                  : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-green-500 hover:text-green-500'
+              }`}
+              title="Alternar Pagamento"
+            >
+              {isTogglingPayment ? <RefreshCw size={16} className="animate-spin text-text-muted" /> : <DollarSign size={20} />}
+            </button>
+            <button
+              onClick={() => {
+                if (!att.present && gameDayDetail!.max_players && gameDayDetail!.total_present >= gameDayDetail!.max_players) {
+                  toast.error(`Limite de ${gameDayDetail!.max_players} jogadores já atingido!`);
+                  return;
+                }
+                toggleMutation.mutate({ gamedayId: gameDayDetail!.id, playerId: att.player });
+              }}
+              disabled={isTogglingPresence}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                att.present 
+                  ? 'bg-red text-white shadow-lg shadow-red/20 scale-110' 
+                  : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-red hover:text-red'
+              }`}
+              title="Alternar Presença"
+            >
+              {isTogglingPresence ? <RefreshCw size={16} className="animate-spin text-text-muted" /> : (att.present && <Check size={20} />)}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
+              ${att.has_paid ? 'bg-green-500' : 'bg-border'}`}>
+              {att.has_paid && <DollarSign size={12} className="text-white" />}
+            </div>
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
+              ${att.present ? 'bg-red' : 'bg-border'}`}>
+              {att.present && <Check size={12} className="text-white" />}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -206,12 +343,25 @@ export function AttendancePage() {
                         {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''}
                       </p>
                       {gd.location && <p className="text-text-muted text-xs">{gd.location}</p>}
-                      <div className="flex items-center gap-1 mt-1">
-                        <Users size={11} className="text-text-muted" />
-                        <span className={`text-xs ${gd.max_players && gd.total_present >= gd.max_players ? 'text-red font-bold' : 'text-text-muted'}`}>
-                          {gd.total_present}/{gd.max_players ? gd.max_players : gd.total_players}
-                          {gd.max_players && gd.total_present >= gd.max_players ? ' (LOTADO)' : ''}
-                        </span>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {isToday(gd.date) && (
+                          <span className="bg-red/20 text-red text-[10px] uppercase font-bold px-1.5 py-0.5 rounded">Hoje</span>
+                        )}
+                        <div className="flex items-center gap-1 bg-surface-hover px-1.5 py-0.5 rounded">
+                          <Users size={10} className="text-text-muted" />
+                          <span className={`text-[10px] ${gd.max_players && gd.total_present >= gd.max_players ? 'text-red font-bold' : 'text-text-muted'}`}>
+                            {gd.total_present}/{gd.max_players ? gd.max_players : gd.total_players}
+                            {gd.max_players && gd.total_present >= gd.max_players ? ' (LOTADO)' : ''}
+                          </span>
+                        </div>
+                        {gd.total_paid !== undefined && (
+                          <div className="flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded">
+                            <DollarSign size={10} className="text-green-500" />
+                            <span className="text-[10px] text-green-500 font-medium">
+                              {gd.total_paid}/{gd.total_present}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -255,6 +405,12 @@ export function AttendancePage() {
             <PageLoading />
           ) : gameDayDetail ? (
             <div className="card p-5 space-y-4">
+              {isPastGameday && (
+                <div className="bg-red/10 border border-red/20 text-red text-center py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+                  <Lock size={14} />
+                  Pelada encerrada — Exibindo histórico
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <button
@@ -283,16 +439,33 @@ export function AttendancePage() {
                     </button>
                   </div>
                 </div>
-                <div className="text-center self-center sm:self-start flex flex-col items-center">
-                  <p className="font-display text-3xl text-red">{gameDayDetail.total_present}</p>
-                  <p className="text-text-muted text-xs mb-3">de {gameDayDetail.total_players} presentes</p>
-                  {canEdit && (
+                <div className="flex items-center gap-6 self-center sm:self-start">
+                  <div className="text-center flex flex-col items-center">
+                    <p className="font-display text-3xl text-green-500">{totalPaid}</p>
+                    <p className="text-text-muted text-[10px] uppercase tracking-wider mb-3">Pagaram</p>
+                  </div>
+                  <div className="text-center flex flex-col items-center group relative">
+                    <p className="font-display text-3xl text-red">{gameDayDetail.total_present}</p>
+                    <p className="text-text-muted text-[10px] uppercase tracking-wider mb-3 flex items-center justify-center gap-1">
+                      de {gameDayDetail.max_players ? gameDayDetail.max_players : 'ILIMITADO'} presentes
+                      {showEditControls && (
+                        <button
+                          onClick={handleEditLimit}
+                          className="text-text-muted hover:text-red transition-colors ml-1"
+                          title="Editar limite de jogadores"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                      )}
+                    </p>
+                  </div>
+                  {showEditControls && (
                     <Link
                       to="/teams"
-                      className="btn-primary py-1.5 px-4 text-xs flex items-center gap-2 rounded-lg"
+                      className="btn-primary py-1.5 px-4 text-xs flex items-center gap-2 rounded-lg h-10 ml-2"
                     >
                       <Swords size={14} />
-                      Times / Pelada
+                      <span className="hidden sm:inline">Times</span>
                     </Link>
                   )}
                 </div>
@@ -300,108 +473,78 @@ export function AttendancePage() {
 
               <div className="divider" />
 
-              <div className="flex items-center justify-between border-b border-border mb-4">
-                <div className="flex gap-4">
-                  <span className="pb-2 text-sm font-medium border-b-2 border-red text-red">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border mb-4 pb-3 sm:pb-0">
+                <div className="flex items-center gap-4">
+                  <span className="sm:pb-2 text-sm font-medium border-b-2 border-transparent sm:border-red text-red">
                     Lista de Presença
                   </span>
                 </div>
-                {canEdit && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowGuestModal(true)}
-                      className="pb-2 text-xs text-text-muted hover:text-red flex items-center gap-1 transition-colors"
-                      title="Adicionar um convidado para jogar hoje"
-                    >
-                      <Plus size={12} />
-                      <span className="hidden sm:inline">Convidado</span>
-                    </button>
-                    <button
-                      onClick={() => refreshMutation.mutate()}
-                      disabled={refreshMutation.isPending}
-                      className="pb-2 text-xs text-text-muted hover:text-red flex items-center gap-1 transition-colors"
-                      title="Puxar novos jogadores ativos para esta lista"
-                    >
-                      <RefreshCw size={12} className={refreshMutation.isPending ? "animate-spin" : ""} />
-                      <span className="hidden sm:inline">Atualizar Lista</span>
-                    </button>
+                
+                <div className="flex items-center gap-2 w-full sm:w-auto sm:pb-2">
+                  <div className="relative flex-1 sm:w-48">
+                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar jogador..." 
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="input w-full pl-8 py-1.5 text-xs bg-surface"
+                    />
                   </div>
-                )}
+                  {showEditControls && (
+                    <>
+                      <button
+                        onClick={() => setShowGuestModal(true)}
+                        className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1"
+                        title="Adicionar um convidado para jogar hoje"
+                      >
+                        <Plus size={12} />
+                        <span className="hidden sm:inline">Convidado</span>
+                      </button>
+                      <button
+                        onClick={() => refreshMutation.mutate()}
+                        disabled={refreshMutation.isPending}
+                        className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1"
+                        title="Puxar novos jogadores ativos para esta lista"
+                      >
+                        <RefreshCw size={12} className={refreshMutation.isPending ? "animate-spin" : ""} />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {gameDayDetail.attendances.map((att) => (
-                    <div
-                      key={att.id}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left
-                        ${att.player_status !== 'active'
-                          ? 'bg-surface/50 border-border/30 opacity-70'
-                          : att.present
-                            ? 'bg-green-950/30 border-green-800/50'
-                            : 'bg-surface border-border hover:border-border-subtle'
-                        }`}
-                    >
-                      <Avatar name={att.player_name} src={att.player_avatar} size="sm" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-text-primary text-sm font-medium truncate flex items-center gap-2">
-                            {att.player_name}
-                            {att.player_status !== 'active' && (
-                              <span className="text-[10px] bg-red/10 text-red px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
-                                Inativo
-                              </span>
-                            )}
-                          </p>
-                          <PositionBadge position={att.player_position} />
-                        </div>
-                      
-                      {canEdit ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => togglePaymentMutation.mutate({ gamedayId: gameDayDetail.id, playerId: att.player })}
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
-                              att.has_paid 
-                                ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' 
-                                : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-green-500 hover:text-green-500'
-                            }`}
-                            title="Alternar Pagamento"
-                          >
-                            <DollarSign size={20} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (!att.present && gameDayDetail.max_players && gameDayDetail.total_present >= gameDayDetail.max_players) {
-                                toast.error(`Limite de ${gameDayDetail.max_players} jogadores já atingido!`);
-                                return;
-                              }
-                              toggleMutation.mutate({ gamedayId: gameDayDetail.id, playerId: att.player });
-                            }}
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
-                              att.present 
-                                ? 'bg-red text-white shadow-lg shadow-red/20 scale-110' 
-                                : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-red hover:text-red'
-                            }`}
-                            title="Alternar Presença"
-                          >
-                            {att.present && <Check size={20} />}
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
-                            ${att.has_paid ? 'bg-green-500' : 'bg-border'}`}>
-                            {att.has_paid && <DollarSign size={12} className="text-white" />}
-                          </div>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
-                            ${att.present ? 'bg-red' : 'bg-border'}`}>
-                            {att.present && <Check size={12} className="text-white" />}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {/* Seção Confirmados */}
+              {presentAttendances.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <Check size={14} className="text-green-500" /> Confirmados ({presentAttendances.length})
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {presentAttendances.map(att => renderAttendanceCard(att))}
+                  </div>
                 </div>
+              )}
+
+              {/* Seção Pendentes / Ausentes */}
+              {absentAttendances.length > 0 && (
+                <div>
+                  <h3 className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <Users size={14} /> Aguardando / Ausentes ({absentAttendances.length})
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {absentAttendances.map(att => renderAttendanceCard(att))}
+                  </div>
+                </div>
+              )}
+
+              {presentAttendances.length === 0 && absentAttendances.length === 0 && (
+                 <p className="text-text-muted text-center py-8">
+                   {searchTerm ? `Nenhum jogador encontrado com "${searchTerm}".` : "Nenhum jogador na lista."}
+                 </p>
+              )}
                 
-                {canEdit && (
+              {showEditControls && (
                   <div className="mt-6 flex justify-end">
                     <button
                       onClick={() => {

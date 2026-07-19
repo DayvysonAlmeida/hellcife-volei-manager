@@ -291,7 +291,14 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
                             {team.match_players?.map((mp: any) => (
                               <div key={mp.id} className="flex items-center gap-2 py-0.5">
                                 <Avatar name={mp.player_name} src={mp.player_avatar} size="sm" />
-                                <span className="text-xs text-text-secondary truncate flex-1">{mp.player_name}</span>
+                                <span className="text-xs text-text-secondary truncate flex-1 flex items-center gap-1">
+                                  {mp.player_name}
+                                  {mp.player_is_guest && (
+                                    <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold hidden sm:inline-block">
+                                      Convidado
+                                    </span>
+                                  )}
+                                </span>
                                 <div className="flex gap-1.5 flex-shrink-0">
                                   {mp.mvp && <Star size={11} className="text-yellow-500 fill-yellow-500" />}
                                   {mp.best_attacker && <Swords size={11} className="text-red" />}

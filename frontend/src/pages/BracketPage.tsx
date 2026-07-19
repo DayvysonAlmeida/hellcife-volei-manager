@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList, Target, UserCheck, Hand, Flame } from 'lucide-react';
+import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList, Target, UserCheck, Hand, Flame, ArrowUp, ArrowDown, ChevronsUp } from 'lucide-react';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -130,6 +130,21 @@ export function BracketPage() {
   const shuffleQueue = () => {
     setState(prev => {
       const newQueue = [...prev.queue].sort(() => Math.random() - 0.5);
+      return { ...prev, queue: newQueue };
+    });
+  };
+
+  const moveInQueue = (index: number, direction: 'up' | 'down' | 'top') => {
+    setState(prev => {
+      const newQueue = [...prev.queue];
+      if (direction === 'up' && index > 0) {
+        [newQueue[index - 1], newQueue[index]] = [newQueue[index], newQueue[index - 1]];
+      } else if (direction === 'down' && index < newQueue.length - 1) {
+        [newQueue[index + 1], newQueue[index]] = [newQueue[index], newQueue[index + 1]];
+      } else if (direction === 'top' && index > 0) {
+        const item = newQueue.splice(index, 1)[0];
+        newQueue.unshift(item);
+      }
       return { ...prev, queue: newQueue };
     });
   };
@@ -415,7 +430,33 @@ export function BracketPage() {
                       </span>
                     )}
                   </div>
-                  <span className="text-sm font-bold opacity-50">{team.avg_overall.toFixed(1)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold opacity-50 mr-2 md:mr-4">{team.avg_overall.toFixed(1)}</span>
+                    <div className="flex gap-1 bg-surface border border-border rounded-lg p-1">
+                      <button 
+                        onClick={() => moveInQueue(idx, 'top')} 
+                        disabled={idx === 0}
+                        className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-red disabled:opacity-20 transition-colors"
+                        title="Mover para o topo"
+                      >
+                         <ChevronsUp size={16} />
+                      </button>
+                      <button 
+                        onClick={() => moveInQueue(idx, 'up')} 
+                        disabled={idx === 0}
+                        className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-20 transition-colors"
+                      >
+                         <ArrowUp size={16} />
+                      </button>
+                      <button 
+                        onClick={() => moveInQueue(idx, 'down')} 
+                        disabled={idx === state.queue.length - 1}
+                        className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-20 transition-colors"
+                      >
+                         <ArrowDown size={16} />
+                      </button>
+                    </div>
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -676,8 +717,8 @@ export function BracketPage() {
               className="bg-card w-full max-w-2xl rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]"
             >
               <div className="p-6 md:p-8 border-b border-border bg-surface/50">
-                <h2 className="font-display text-3xl mb-1 text-text-primary">Vencedor e Destaques</h2>
-                <p className="text-sm text-text-muted">Confirme o placar e selecione quem brilhou no jogo.</p>
+                <h2 className="font-display text-3xl mb-1 text-text-primary">Confirmar Resultado</h2>
+                <p className="text-sm text-text-muted">Revise o placar final e, se quiser, escolha os destaques da partida.</p>
               </div>
 
               <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
@@ -694,56 +735,69 @@ export function BracketPage() {
                   </div>
                 </div>
 
+                <div className="flex justify-center mb-10">
+                  <button 
+                    onClick={() => handleSaveResult()}
+                    disabled={saveMutation.isPending}
+                    className="btn-secondary py-3 px-8 text-base font-bold flex items-center gap-2 w-full max-w-sm justify-center border-border hover:bg-surface-hover transition-colors shadow-sm"
+                  >
+                    <Save size={18} /> Salvar Só o Placar
+                  </button>
+                </div>
+
                 {/* Seleção Destaques */}
-                <div className="space-y-6">
-                  <HighlightSelect
-                    icon={Star} iconColor="text-yellow-500" title="MVP da Partida"
-                    players={allPlayersInCourt}
-                    value={highlights.mvp}
-                    onChange={(v: number | null) => setHighlights(h => ({ ...h, mvp: v }))}
-                  />
-                  <HighlightSelect
-                    icon={Swords} iconColor="text-red" title="Melhor Ataque"
-                    players={allPlayersInCourt}
-                    value={highlights.attacker}
-                    onChange={(v: number | null) => setHighlights(h => ({ ...h, attacker: v }))}
-                  />
-                  <HighlightSelect
-                    icon={Zap} iconColor="text-blue-400" title="Melhor Saque"
-                    players={allPlayersInCourt}
-                    value={highlights.server}
-                    onChange={(v: number | null) => setHighlights(h => ({ ...h, server: v }))}
-                  />
-                  <HighlightSelect
-                    icon={Shield} iconColor="text-green-400" title="Melhor Defesa"
-                    players={allPlayersInCourt}
-                    value={highlights.defender}
-                    onChange={(v: number | null) => setHighlights(h => ({ ...h, defender: v }))}
-                  />
-                  <HighlightSelect
-                    icon={Target} iconColor="text-indigo-400" title="Melhor Levantador"
-                    players={allPlayersInCourt}
-                    value={highlights.setter}
-                    onChange={(v: number | null) => setHighlights(h => ({ ...h, setter: v }))}
-                  />
-                  <HighlightSelect
-                    icon={UserCheck} iconColor="text-teal-400" title="Melhor Líbero"
-                    players={allPlayersInCourt}
-                    value={highlights.libero}
-                    onChange={(v: number | null) => setHighlights(h => ({ ...h, libero: v }))}
-                  />
-                  <HighlightSelect
-                    icon={Hand} iconColor="text-orange-400" title="Melhor Blocador"
-                    players={allPlayersInCourt}
-                    value={highlights.blocker}
-                    onChange={(v: number | null) => setHighlights(h => ({ ...h, blocker: v }))}
-                  />
-                  <HighlightSelect
-                    icon={Flame} iconColor="text-rose-500" title="Melhor Oposto"
-                    players={allPlayersInCourt}
-                    value={highlights.opposite}
-                    onChange={(v: number | null) => setHighlights(h => ({ ...h, opposite: v }))}
-                  />
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-text-muted mb-4 border-b border-border pb-2">Opcional: Destaques da Partida</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <HighlightSelect
+                      icon={Star} iconColor="text-yellow-500" title="MVP da Partida"
+                      players={allPlayersInCourt}
+                      value={highlights.mvp}
+                      onChange={(v: number | null) => setHighlights(h => ({ ...h, mvp: v }))}
+                    />
+                    <HighlightSelect
+                      icon={Swords} iconColor="text-red" title="Melhor Ataque"
+                      players={allPlayersInCourt}
+                      value={highlights.attacker}
+                      onChange={(v: number | null) => setHighlights(h => ({ ...h, attacker: v }))}
+                    />
+                    <HighlightSelect
+                      icon={Zap} iconColor="text-blue-400" title="Melhor Saque"
+                      players={allPlayersInCourt}
+                      value={highlights.server}
+                      onChange={(v: number | null) => setHighlights(h => ({ ...h, server: v }))}
+                    />
+                    <HighlightSelect
+                      icon={Shield} iconColor="text-green-400" title="Melhor Defesa"
+                      players={allPlayersInCourt}
+                      value={highlights.defender}
+                      onChange={(v: number | null) => setHighlights(h => ({ ...h, defender: v }))}
+                    />
+                    <HighlightSelect
+                      icon={Target} iconColor="text-indigo-400" title="Melhor Levantador"
+                      players={allPlayersInCourt}
+                      value={highlights.setter}
+                      onChange={(v: number | null) => setHighlights(h => ({ ...h, setter: v }))}
+                    />
+                    <HighlightSelect
+                      icon={UserCheck} iconColor="text-teal-400" title="Melhor Líbero"
+                      players={allPlayersInCourt}
+                      value={highlights.libero}
+                      onChange={(v: number | null) => setHighlights(h => ({ ...h, libero: v }))}
+                    />
+                    <HighlightSelect
+                      icon={Hand} iconColor="text-orange-400" title="Melhor Blocador"
+                      players={allPlayersInCourt}
+                      value={highlights.blocker}
+                      onChange={(v: number | null) => setHighlights(h => ({ ...h, blocker: v }))}
+                    />
+                    <HighlightSelect
+                      icon={Flame} iconColor="text-rose-500" title="Melhor Oposto"
+                      players={allPlayersInCourt}
+                      value={highlights.opposite}
+                      onChange={(v: number | null) => setHighlights(h => ({ ...h, opposite: v }))}
+                    />
+                  </div>
                 </div>
               </div>
 

@@ -38,6 +38,9 @@ export const attendanceService = {
   createGameDay: (data: Partial<GameDay>) =>
     api.post<GameDay>('/attendance/gamedays/', data).then(r => r.data),
 
+  updateGameDay: (id: number, data: Partial<GameDay>) =>
+    api.patch<GameDay>(`/attendance/gamedays/${id}/`, data).then(r => r.data),
+
   deleteGameDay: (id: number) =>
     api.delete(`/attendance/gamedays/${id}/`),
 

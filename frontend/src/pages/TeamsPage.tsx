@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -78,6 +78,25 @@ export function TeamsPage() {
 
   const gameDays = gameDaysData?.results || [];
 
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  
+  const { upcomingGameDays, pastGameDays } = useMemo(() => {
+    const upcoming = gameDays.filter(gd => gd.date >= todayStr);
+    const past = gameDays.filter(gd => gd.date < todayStr);
+    // Assumindo que a API retorna ordenado descrescente (-date)
+    // Então o upcoming mais próximo de hoje é o ÚLTIMO item do array upcoming
+    return { upcomingGameDays: upcoming, pastGameDays: past };
+  }, [gameDays, todayStr]);
+
+  // Auto-selecionar o próximo jogo se nenhum estiver selecionado
+  useEffect(() => {
+    if (gameDays.length > 0 && selectedGameDayId === null) {
+      if (upcomingGameDays.length > 0) {
+        setSelectedGameDayId(upcomingGameDays[upcomingGameDays.length - 1].id);
+      }
+    }
+  }, [gameDays.length, selectedGameDayId, upcomingGameDays]);
+
   const generateMutation = useMutation({
     mutationFn: () => teamsService.generate({
       modality,
@@ -145,6 +164,30 @@ export function TeamsPage() {
   });
   const history = historyData?.results || [];
 
+  const handleGenerate = () => {
+    if (!selectedGameDayId) {
+      toast.error('Selecione um dia de jogo para gerar os times.');
+      return;
+    }
+
+    const alreadyGenerated = history.some(h => h.gameday === selectedGameDayId);
+    
+    // Se já existe e a pessoa ainda não gerou um novo (result é null)
+    if (alreadyGenerated && !result) {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Pelada Já Gerada!',
+        desc: 'Já existe um sorteio salvo para esta pelada no histórico. Tem certeza que deseja gerar uma nova combinação? Isso não apagará a anterior até que você decida salvá-la.',
+        onConfirm: () => {
+          setConfirmDialog(s => ({ ...s, isOpen: false }));
+          generateMutation.mutate();
+        }
+      });
+    } else {
+      generateMutation.mutate();
+    }
+  };
+
   return (
     <div className="space-y-6">
       <ConfirmDialog 
@@ -195,18 +238,34 @@ export function TeamsPage() {
               onChange={(e) => setSelectedGameDayId(Number(e.target.value) || null)}
             >
               <option value="">Selecione uma pelada</option>
-              {gameDays.map(gd => (
-                <option key={gd.id} value={gd.id}>
-                  {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_present} confirmados) {gd.location ? `- ${gd.location}` : ''}
-                </option>
-              ))}
+              
+              {upcomingGameDays.length > 0 && (
+                <optgroup label="🔴 Peladas Abertas (Hoje/Futuro)">
+                  {upcomingGameDays.map(gd => (
+                    <option key={gd.id} value={gd.id}>
+                      {gd.date === todayStr ? '[ HOJE ] ' : ''}
+                      {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_present} confirmados) {gd.location ? `- ${gd.location}` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+
+              {pastGameDays.length > 0 && (
+                <optgroup label="🔒 Histórico (Encerradas)">
+                  {pastGameDays.map(gd => (
+                    <option key={gd.id} value={gd.id}>
+                      {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_present} confirmados) {gd.location ? `- ${gd.location}` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
         </div>
 
         <div className="flex gap-3 mt-6">
           <button
-            onClick={() => generateMutation.mutate()}
+            onClick={handleGenerate}
             disabled={generateMutation.isPending}
             className="btn-primary flex items-center gap-2"
           >
@@ -363,6 +422,11 @@ export function TeamsPage() {
                                 </button>
                               )}
                               {p.player_name}
+                              {p.player_is_guest && (
+                                <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold ml-1">
+                                  Convidado
+                                </span>
+                              )}
                             </span>
                             <div className="flex items-center gap-2">
                               <span className="text-text-muted">{p.player_overall}</span>
@@ -470,7 +534,14 @@ function TeamCard({ team, idx }: { team: GeneratedTeam; idx: number }) {
               <span className="text-text-muted text-xs w-4">{i + 1}</span>
               <Avatar name={player.display_name} src={player.avatar_url} size="sm" />
               <div className="flex-1 min-w-0">
-                <p className="text-text-primary text-xs font-medium truncate">{player.display_name}</p>
+                <p className="text-text-primary text-xs font-medium truncate flex items-center gap-1">
+                  {player.display_name}
+                  {player.is_guest && (
+                    <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold">
+                      Convidado
+                    </span>
+                  )}
+                </p>
                 <PositionBadge position={player.main_position} />
               </div>
               <OverallBadge overall={player.overall} size="sm" />

@@ -104,6 +104,62 @@ export function DashboardPage() {
         />
       </div>
 
+      {/* Ranking de Méritos */}
+      {data.top_stars && data.top_stars.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="card p-6 border-yellow-200/20"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <Star size={24} className="text-yellow-400 fill-yellow-400" />
+            <div>
+              <h2 className="font-display text-xl text-yellow-400 tracking-wider">RANKING DE MÉRITOS (ESTRELAS)</h2>
+              <p className="text-sm text-text-muted">Membros com mais estrelas da comunidade</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {data.top_stars.map((player, idx) => (
+              <div key={player.id} className="bg-surface/80 rounded-xl p-4 flex flex-col items-center text-center border border-border hover:border-yellow-400/50 transition-colors relative shadow-lg shadow-yellow-500/5">
+                <div className={`absolute -top-3 -left-3 w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-lg ${
+                  idx === 0 ? 'bg-yellow-500 text-black' : 
+                  idx === 1 ? 'bg-zinc-300 text-black' : 
+                  idx === 2 ? 'bg-orange-400 text-black' : 
+                  'bg-surface-hover text-text-muted border border-border'
+                }`}>
+                  {idx + 1}º
+                </div>
+                
+                <Avatar name={player.name} src={player.avatar_url} size="lg" className={`mb-3 ${idx < 3 ? 'ring-2 ring-yellow-400/50' : ''}`} />
+                
+                <h3 className="text-text-primary font-bold text-sm w-full truncate mb-2">{player.name}</h3>
+                
+                <div className="flex flex-col gap-1 items-center bg-background/50 rounded-lg p-2 w-full">
+                  {player.big_stars > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-bold text-text-muted">{player.big_stars}x</span>
+                      <div className="flex gap-0.5 text-yellow-500">
+                        {[...Array(Math.min(player.big_stars, 5))].map((_, i) => <Star key={`big-${i}`} size={16} className="fill-yellow-500" />)}
+                        {player.big_stars > 5 && <span className="text-xs text-yellow-500 font-bold ml-1">...</span>}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-bold text-text-muted">{player.mini_stars}x</span>
+                    <div className="flex gap-0.5 text-yellow-200">
+                      {[...Array(Math.min(player.mini_stars, 5))].map((_, i) => <Star key={`mini-${i}`} size={14} className="fill-yellow-200" />)}
+                      {player.mini_stars > 5 && <span className="text-xs text-yellow-200 font-bold ml-1">...</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-6">
         {/* Distribuição por posição */}
@@ -255,6 +311,8 @@ export function DashboardPage() {
           </div>
         </motion.div>
       )}
+
+
 
       {/* Ranking dos maiores vencedores */}
       <motion.div

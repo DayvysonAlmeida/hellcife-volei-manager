@@ -8,11 +8,12 @@ class TeamPlayerSerializer(serializers.ModelSerializer):
     player_overall = serializers.SerializerMethodField()
     player_avatar = serializers.CharField(source='player.avatar_url', read_only=True)
     player_shirt = serializers.IntegerField(source='player.shirt_number', read_only=True)
+    player_is_guest = serializers.BooleanField(source='player.is_guest', read_only=True)
 
     class Meta:
         model = TeamPlayer
         fields = ['id', 'player', 'player_name', 'player_position',
-                  'player_overall', 'player_avatar', 'player_shirt', 'order_in_team']
+                  'player_overall', 'player_avatar', 'player_shirt', 'player_is_guest', 'order_in_team']
 
     def get_player_overall(self, obj):
         """Usa evaluations prefetchados quando disponível para evitar N+1."""

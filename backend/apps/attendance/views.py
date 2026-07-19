@@ -21,6 +21,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
             # Para listagem: usar annotations ao invés de properties (evita N+1)
             return GameDay.objects.all().annotate(
                 _total_present=Count('attendances', filter=Q(attendances__present=True)),
+                _total_paid=Count('attendances', filter=Q(attendances__has_paid=True)),
                 _total_players=Count('attendances'),
             ).order_by('-date')
         # Para detail: prefetch completo com os jogadores

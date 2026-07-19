@@ -174,6 +174,7 @@ export interface GameDay {
   max_players?: number;
   created_by?: number;
   total_present: number;
+  total_paid: number;
   total_players: number;
   attendances: Attendance[];
   created_at: string;
@@ -188,6 +189,7 @@ export interface Attendance {
   player_position: Position;
   player_shirt?: number;
   player_status?: string;
+  player_is_guest?: boolean;
   present: boolean;
   has_paid: boolean;
   checked_at: string;
@@ -212,6 +214,7 @@ export interface TeamPlayerData {
   shirt_number?: number;
   avatar_url?: string;
   overall: number;
+  is_guest?: boolean;
 }
 
 export interface GeneratedTeam {
@@ -268,6 +271,7 @@ export interface DBTeamPlayer {
   player_overall: number;
   player_avatar?: string;
   player_shirt?: number;
+  player_is_guest?: boolean;
   order_in_team: number;
 }
 
@@ -383,6 +387,13 @@ export interface DashboardData {
   most_present?: { id: number; name: string; avatar_url?: string; count: number } | null;
   season_mvp?: { id: number; name: string; avatar_url?: string; count: number } | null;
   revelation?: { id: number; name: string; avatar_url?: string; matches: number } | null;
+  top_stars: Array<{
+    id: number;
+    name: string;
+    avatar_url: string;
+    mini_stars: number;
+    big_stars: number;
+  }>;
   last_updated: string;
 }
 

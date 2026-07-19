@@ -40,11 +40,12 @@ class MatchListPlayerSerializer(serializers.ModelSerializer):
     player_avatar = serializers.CharField(source='player.avatar_url', read_only=True)
     player_position = serializers.CharField(source='player.main_position', read_only=True)
     player_shirt = serializers.IntegerField(source='player.shirt_number', read_only=True)
+    player_is_guest = serializers.BooleanField(source='player.is_guest', read_only=True)
 
     class Meta:
         model = MatchPlayer
         fields = ['id', 'player', 'player_name', 'player_avatar', 'player_position',
-                  'player_shirt', 'mvp', 'best_attacker', 'best_server', 'best_defender',
+                  'player_shirt', 'player_is_guest', 'mvp', 'best_attacker', 'best_server', 'best_defender',
                   'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
 
 

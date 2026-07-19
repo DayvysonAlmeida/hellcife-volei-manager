@@ -48,6 +48,7 @@ def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id:
             'secondary_position': p.secondary_position,
             'shirt_number': p.shirt_number,
             'avatar_url': p.avatar_url,
+            'is_guest': p.is_guest,
             'overall': overall,
         })
 

@@ -181,7 +181,14 @@ export function PlayersPage() {
                     <div className="flex items-center gap-3">
                       <Avatar name={player.display_name} src={player.avatar_url} size="sm" />
                       <div>
-                        <p className="text-text-primary font-medium text-sm">{player.display_name}</p>
+                        <p className="text-text-primary font-medium text-sm flex items-center gap-1">
+                          {player.display_name}
+                          {player.is_guest && (
+                            <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold">
+                              Convidado
+                            </span>
+                          )}
+                        </p>
                         {player.shirt_number && (
                           <p className="text-text-muted text-xs">#{player.shirt_number}</p>
                         )}
@@ -256,7 +263,14 @@ function PlayerCard({ player, idx, canEdit, onDelete }: {
           <div className="flex items-center gap-3">
             <Avatar name={player.display_name} src={player.avatar_url} size="md" />
             <div className="min-w-0">
-              <p className="text-text-primary font-semibold text-sm truncate">{player.display_name}</p>
+              <p className="text-text-primary font-semibold text-sm truncate flex items-center gap-1">
+                {player.display_name}
+                {player.is_guest && (
+                  <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold">
+                    Convidado
+                  </span>
+                )}
+              </p>
               {player.shirt_number && (
                 <p className="text-text-muted text-xs">#{player.shirt_number}</p>
               )}
