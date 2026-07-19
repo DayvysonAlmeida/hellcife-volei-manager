@@ -152,7 +152,7 @@ class DashboardView(APIView):
             revelation = {'id': revelation_player.id, 'name': revelation_player.display_name, 'avatar_url': revelation_player.avatar_url, 'matches': revelation_player.matches}
 
         # 4. Top Estrelas (Destaques de Mérito da Comunidade)
-        top_stars_qs = Player.objects.filter(status='active', mini_stars__gt=0).order_by('-mini_stars', 'name')[:5]
+        top_stars_qs = Player.objects.filter(status='active', is_guest=False, mini_stars__gt=0).order_by('-mini_stars', 'name')[:5]
         top_stars = []
         for p in top_stars_qs:
             top_stars.append({
