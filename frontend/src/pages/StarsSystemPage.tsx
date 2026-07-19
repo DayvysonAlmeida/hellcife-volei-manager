@@ -65,18 +65,19 @@ export function StarsSystemPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
+      {/* Header */}
       <div>
-        <h1 className="page-title flex items-center gap-3">
-          <Star className="text-yellow-500" size={32} />
+        <h1 className="page-title">
+          <Star className="text-yellow-500 fill-yellow-500" size={32} />
           SISTEMA DE ESTRELAS
         </h1>
         <p className="page-subtitle">Classificação oficial dos atletas no Hellcife Vôlei baseada em mérito, evolução e comprometimento.</p>
       </div>
 
-      <div className="bg-surface-highlight border border-border p-4 rounded-xl flex items-start gap-3">
-        <AlertCircle className="text-blue-500 mt-0.5 flex-shrink-0" size={20} />
-        <div className="text-sm text-text-secondary space-y-1">
-          <p><strong>Como funciona?</strong> Todo atleta inicia com 1 Mini Estrela (⭐). O ganho de novas estrelas acontece através do desempenho em circuitos e campeonatos.</p>
+      <div className="bg-surface border border-blue-500/30 p-5 rounded-xl flex items-start gap-4 shadow-[0_0_15px_rgba(37,99,235,0.05)]">
+        <AlertCircle className="text-blue-500 mt-0.5 flex-shrink-0" size={24} />
+        <div className="text-sm text-text-secondary space-y-2">
+          <p><strong className="text-blue-400 font-display tracking-wider">COMO FUNCIONA?</strong> Todo atleta inicia com 1 Mini Estrela. O ganho de novas estrelas acontece através do desempenho em circuitos e campeonatos.</p>
           <p>Apenas Administradores podem promover atletas. As estrelas definem o nível e o agrupamento nos jogos e garantem o equilíbrio técnico dos times gerados.</p>
         </div>
       </div>
@@ -123,60 +124,60 @@ export function StarsSystemPage() {
                   >
                     <Link
                       to={`/players/${player.id}`}
-                      className="card p-4 flex items-center gap-4 hover:bg-surface-highlight transition-colors group relative overflow-hidden"
+                      className="card p-5 flex flex-col justify-between hover:bg-surface-highlight transition-all duration-300 group relative overflow-hidden min-h-[140px] hover:-translate-y-1 hover:shadow-neon-yellow border-border hover:border-yellow-500/50"
                     >
-                      {/* Borda superior colorida baseada no número de estrelas para dar destaque */}
-                      <div className={`absolute top-0 left-0 w-full h-1 ${
-                        stars >= 3 ? 'bg-yellow-500' :
-                        stars === 2 ? 'bg-blue-500' :
-                        stars === 1 ? 'bg-green-500' :
-                        'bg-border'
-                      }`} />
-
-                      <Avatar name={player.display_name} src={player.avatar_url} size="md" />
+                      <div className="flex items-center gap-4 mb-4">
+                        <Avatar name={player.display_name} src={player.avatar_url} size="md" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-text-primary font-bold text-base truncate group-hover:text-yellow-400 transition-colors">
+                            {player.display_name}
+                          </h3>
+                          <div className="mt-1">
+                            <PositionBadge position={player.main_position} />
+                          </div>
+                        </div>
+                      </div>
                       
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-text-primary font-medium text-base truncate group-hover:text-red transition-colors">
-                          {player.display_name}
-                        </h3>
-                        <PositionBadge position={player.main_position} />
-                        
-                        <div className="flex items-center gap-1 mt-2">
-                          {Array.from({ length: player.mini_stars || 0 }).map((_, i) => (
-                            <div key={`mini-${i}`} className="w-4 h-4 bg-yellow-500/10 rounded-sm flex items-center justify-center border border-yellow-500/30">
-                              <span className="text-yellow-500 text-[10px]">⭐</span>
-                            </div>
-                          ))}
-                          {(player.mini_stars || 0) === 0 && (
-                            <span className="text-xs text-text-muted italic">Sem mini estrelas</span>
-                          )}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-text-muted tracking-widest">Mini Estrelas</span>
+                          <span className="text-xs font-bold text-yellow-400">{player.mini_stars || 0}/15</span>
+                        </div>
+                        <div className="w-full bg-surface-highlight rounded-full h-1.5 overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-yellow-700 via-yellow-400 to-yellow-700 h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(250,204,21,0.5)]" 
+                            style={{ width: `${Math.min(100, ((player.mini_stars || 0) / 15) * 100)}%` }}
+                          />
                         </div>
                       </div>
 
                       {isAdmin && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => handleUpdateStars(e, player.id, player.mini_stars, -1)}
-                            disabled={updateStarsMutation.isPending || (player.mini_stars || 0) === 0}
-                            className="w-8 h-8 rounded-full bg-surface-hover flex items-center justify-center text-text-muted hover:text-red hover:bg-red/10 transition-colors disabled:opacity-30 border border-border"
-                            title="Remover 1 Mini Estrela"
-                          >
-                            <Minus size={16} />
-                          </button>
+                        <div className="absolute right-3 top-4 flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-surface/90 backdrop-blur-sm p-1.5 rounded-lg border border-border">
                           <button
                             onClick={(e) => handleUpdateStars(e, player.id, player.mini_stars, 1)}
                             disabled={updateStarsMutation.isPending}
-                            className="w-8 h-8 rounded-full bg-surface-hover flex items-center justify-center text-text-muted hover:text-green-500 hover:bg-green-500/10 transition-colors disabled:opacity-30 border border-border"
+                            className="w-7 h-7 rounded-md bg-green-500/10 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-all disabled:opacity-30 border border-green-500/20"
                             title="Adicionar 1 Mini Estrela"
                           >
                             {updateStarsMutation.isPending && updateStarsMutation.variables?.id === player.id ? (
-                              <Loader2 size={16} className="animate-spin text-text-muted" />
+                              <Loader2 size={14} className="animate-spin" />
                             ) : (
-                              <Plus size={16} />
+                              <Plus size={14} strokeWidth={3} />
                             )}
+                          </button>
+                          <button
+                            onClick={(e) => handleUpdateStars(e, player.id, player.mini_stars, -1)}
+                            disabled={updateStarsMutation.isPending || (player.mini_stars || 0) === 0}
+                            className="w-7 h-7 rounded-md bg-red/10 flex items-center justify-center text-red hover:bg-red hover:text-white transition-all disabled:opacity-30 border border-red/20"
+                            title="Remover 1 Mini Estrela"
+                          >
+                            <Minus size={14} strokeWidth={3} />
                           </button>
                         </div>
                       )}
+                      
+                      {/* Glow gradient bottom line */}
+                      <div className="absolute bottom-0 left-0 right-0 h-[2px] opacity-40 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-yellow-700 via-yellow-400 to-yellow-700" />
                     </Link>
                   </motion.div>
                 ))}

@@ -12,7 +12,7 @@ export function RegulationPage() {
       >
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red via-blue to-red" />
         <ScrollText className="w-16 h-16 text-red mx-auto mb-4" />
-        <h1 className="font-display text-3xl md:text-4xl tracking-wider text-text-primary mb-2">
+        <h1 className="page-title">
           REGULAMENTO OFICIAL
         </h1>
         <h2 className="text-xl text-text-secondary font-medium uppercase tracking-widest">

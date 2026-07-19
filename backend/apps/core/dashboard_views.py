@@ -163,6 +163,24 @@ class DashboardView(APIView):
                 'big_stars': p.big_stars,
             })
 
+        # 5. Novos Estrelados (Últimos 3 jogadores que receberam estrelas - usando heurística do updated_at)
+        new_stars_qs = Player.objects.filter(
+            Q(mini_stars__gt=1) | Q(big_stars__gt=0),
+            status='active', 
+            is_guest=False
+        ).order_by('-updated_at')[:3]
+        
+        new_stars = []
+        for p in new_stars_qs:
+            new_stars.append({
+                'id': p.id,
+                'name': p.display_name,
+                'avatar_url': p.avatar_url,
+                'mini_stars': p.mini_stars,
+                'big_stars': p.big_stars,
+                'updated_at': p.updated_at.isoformat(),
+            })
+
         return Response({
             'total_players': total_players,
             'active_players': active_count,
@@ -176,5 +194,6 @@ class DashboardView(APIView):
             'season_mvp': season_mvp,
             'revelation': revelation,
             'top_stars': top_stars,
+            'new_stars': new_stars,
             'last_updated': timezone.now().isoformat(),
         })

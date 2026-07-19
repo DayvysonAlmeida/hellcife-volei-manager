@@ -13,28 +13,28 @@ interface StatCardProps {
 
 const colorVariants = {
   red: {
-    iconBg: 'bg-red/10 text-red',
-    border: 'border-red/20',
+    iconBg: 'text-red',
+    border: 'border-red/20 hover:border-red/50 shadow-sm hover:shadow-neon-red',
     valueCls: 'text-red',
-    glow: 'hover:shadow-neon-red-sm',
+    lineGrad: 'from-red-dark via-red to-red-dark',
   },
   blue: {
-    iconBg: 'bg-blue/10 text-blue',
-    border: 'border-blue/20',
+    iconBg: 'text-blue',
+    border: 'border-blue/20 hover:border-blue/50 shadow-sm hover:shadow-neon-blue',
     valueCls: 'text-blue',
-    glow: 'hover:shadow-neon-blue-sm',
+    lineGrad: 'from-blue-dark via-blue to-blue-dark',
   },
   green: {
-    iconBg: 'bg-green-500/10 text-green-400',
-    border: 'border-green-500/20',
+    iconBg: 'text-green-400',
+    border: 'border-green-500/20 hover:border-green-500/50 shadow-sm hover:shadow-neon-green',
     valueCls: 'text-green-400',
-    glow: 'hover:shadow-[0_0_10px_rgba(22,163,74,0.3)]',
+    lineGrad: 'from-green-800 via-green-500 to-green-800',
   },
   yellow: {
-    iconBg: 'bg-yellow-500/10 text-yellow-400',
-    border: 'border-yellow-500/20',
+    iconBg: 'text-yellow-400',
+    border: 'border-yellow-500/20 hover:border-yellow-500/50 shadow-sm hover:shadow-neon-yellow',
     valueCls: 'text-yellow-400',
-    glow: 'hover:shadow-[0_0_10px_rgba(202,138,4,0.3)]',
+    lineGrad: 'from-yellow-700 via-yellow-400 to-yellow-700',
   },
 };
 
@@ -47,19 +47,36 @@ export function StatCard({ title, value, icon, subtitle, color = 'red', delay = 
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.4 }}
       className={cn(
-        'card p-5 flex items-center gap-4 transition-all duration-300',
+        'card p-6 flex flex-col justify-between transition-all duration-300 min-h-[110px] relative overflow-hidden group',
         variant.border,
-        variant.glow
+        'hover:-translate-y-1'
       )}
     >
-      <div className={cn('p-3 rounded-xl flex-shrink-0', variant.iconBg)}>
-        {icon}
+      <div className="flex items-center justify-between w-full mb-2">
+        <p className="text-text-muted text-xs font-bold uppercase tracking-widest">{title}</p>
+        <div className={cn(variant.valueCls, 'opacity-70 group-hover:opacity-100 transition-opacity')}>
+          {icon}
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-text-muted text-xs font-medium uppercase tracking-wider truncate">{title}</p>
-        <p className={cn('font-display text-3xl font-bold mt-0.5', variant.valueCls)}>{value}</p>
-        {subtitle && <p className="text-text-muted text-xs mt-0.5">{subtitle}</p>}
+      
+      <div className="flex items-end justify-between w-full mt-auto z-10">
+        <p className={cn('font-display text-4xl font-bold leading-none tracking-wider', variant.valueCls)}>
+          {value}
+        </p>
+        {subtitle && <p className="text-text-muted text-xs font-medium pb-1 text-right">{subtitle}</p>}
       </div>
+      
+      {/* Glow gradient bottom line */}
+      <div className={cn(
+        'absolute bottom-0 left-0 right-0 h-[3px] opacity-60 group-hover:opacity-100 transition-opacity bg-gradient-to-r',
+        variant.lineGrad
+      )} />
+      
+      {/* Background glow radial */}
+      <div className={cn(
+        'absolute -bottom-10 -right-10 w-32 h-32 rounded-full blur-[40px] opacity-10 group-hover:opacity-30 transition-opacity pointer-events-none',
+        color === 'red' ? 'bg-red' : color === 'blue' ? 'bg-blue' : color === 'green' ? 'bg-green-500' : 'bg-yellow-500'
+      )} />
     </motion.div>
   );
 }

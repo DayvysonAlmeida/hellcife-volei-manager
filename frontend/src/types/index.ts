@@ -390,9 +390,17 @@ export interface DashboardData {
   top_stars: Array<{
     id: number;
     name: string;
-    avatar_url: string;
+    avatar_url?: string;
     mini_stars: number;
     big_stars: number;
+  }>;
+  new_stars?: Array<{
+    id: number;
+    name: string;
+    avatar_url?: string;
+    mini_stars: number;
+    big_stars: number;
+    updated_at: string;
   }>;
   last_updated: string;
 }

@@ -60,7 +60,7 @@ export function ConfirmDialog({
               }}
               className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
                 isDestructive 
-                  ? 'bg-red hover:bg-red/90 text-white shadow-neon-red-sm' 
+                  ? 'bg-red hover:bg-red/90 text-white shadow-neon-red' 
                   : 'btn-primary'
               }`}
             >

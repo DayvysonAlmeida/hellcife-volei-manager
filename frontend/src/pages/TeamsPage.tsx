@@ -217,7 +217,7 @@ export function TeamsPage() {
                   onClick={() => setModality(m)}
                   className={`px-4 py-2 rounded-lg text-sm font-bold transition-all
                     ${modality === m
-                      ? 'bg-red text-white shadow-neon-red-sm'
+                      ? 'bg-red text-white shadow-neon-red'
                       : 'bg-surface border border-border text-text-muted hover:border-border-subtle'
                     }`}
                 >
@@ -344,8 +344,8 @@ export function TeamsPage() {
       {/* History */}
       {history.length > 0 && (
         <div className="mt-12 space-y-6 pt-8 border-t border-border">
-          <h2 className="font-display text-2xl tracking-wider text-text-primary uppercase flex items-center gap-2">
-            <Shuffle className="text-red" />
+          <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3">
+            <Shuffle className="text-red" size={24} />
             Histórico de Gerações
           </h2>
           <div className="space-y-6">

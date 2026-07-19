@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Zap, Shield, Trophy, Target, Hand, Flame, Crown, Medal, CalendarDays } from 'lucide-react';
+import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Zap, Shield, Trophy, Target, Hand, Flame, Crown, Medal, CalendarDays, Sparkles } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell,
@@ -72,33 +73,33 @@ export function DashboardPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="page-title">Dashboard</h1>
+        <h1 className="page-title">DASHBOARD</h1>
         <p className="page-subtitle">
-          Visão geral do desempenho do time • Atualizado em {formatDateTime(data.last_updated)}
+          Visão geral do desempenho do time.
         </p>
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total de Atletas"
+          title="ATLETAS"
           value={data.total_players}
-          icon={<Users size={22} />}
+          icon={<Users size={20} />}
           color="blue"
           delay={0}
         />
         <StatCard
-          title="Atletas Ativos"
+          title="ATLETAS ATIVOS"
           value={data.active_players}
-          icon={<UserCheck size={22} />}
+          icon={<UserCheck size={20} />}
           color="green"
           delay={0.1}
         />
         <StatCard
-          title="Presentes Hoje"
+          title="PRESENTES HOJE"
           value={data.present_today}
           subtitle={`${data.paid_today} pagaram`}
-          icon={<CalendarCheck size={22} />}
+          icon={<CalendarCheck size={20} />}
           color="red"
           delay={0.2}
         />
@@ -112,12 +113,18 @@ export function DashboardPage() {
           transition={{ delay: 0.3 }}
           className="card p-6 border-yellow-200/20"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <Star size={24} className="text-yellow-400 fill-yellow-400" />
-            <div>
-              <h2 className="font-display text-xl text-yellow-400 tracking-wider">RANKING DE MÉRITOS (ESTRELAS)</h2>
-              <p className="text-sm text-text-muted">Membros com mais estrelas da comunidade</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+            <div className="flex items-center gap-3">
+              <Star size={24} className="text-yellow-400 fill-yellow-400" />
+              <div>
+                <h2 className="font-display text-xl text-yellow-400 tracking-wider">RANKING DE MÉRITOS (ESTRELAS)</h2>
+                <p className="text-sm text-text-muted">Membros com mais estrelas da comunidade</p>
+              </div>
             </div>
+            <Link to="/stars" className="btn-secondary text-xs px-4 py-2 flex items-center justify-center gap-2 whitespace-nowrap bg-surface hover:bg-surface-hover">
+              <Star size={14} className="text-yellow-400" />
+              Ver Ranking Completo
+            </Link>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
@@ -157,6 +164,28 @@ export function DashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* Novos Estrelados */}
+          {data.new_stars && data.new_stars.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-border/50">
+              <h3 className="text-sm font-bold text-text-primary tracking-wider mb-4 flex items-center gap-2">
+                <Sparkles size={16} className="text-yellow-400" />
+                NOVOS ESTRELADOS
+              </h3>
+              <div className="flex flex-wrap gap-4">
+                {data.new_stars.map((player: any) => (
+                  <div key={`new-${player.id}`} className="flex items-center gap-3 bg-surface rounded-full pr-4 p-1.5 border border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.1)]">
+                    <Avatar name={player.name} src={player.avatar_url} size="sm" />
+                    <span className="text-sm font-medium text-text-primary">{player.name}</span>
+                    <div className="flex items-center gap-0.5 ml-2">
+                      <Star size={12} className="fill-yellow-400 text-yellow-400" />
+                      <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest">Novo</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </motion.div>
       )}
 
