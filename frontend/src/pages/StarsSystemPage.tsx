@@ -19,10 +19,6 @@ export function StarsSystemPage() {
     queryFn: () => playersService.list(),
   });
 
-  if (isLoading) return <PageLoading />;
-  if (error) return <ErrorState onRetry={refetch} />;
-  if (!players?.results) return null;
-
   const updateStarsMutation = useMutation({
     mutationFn: ({ id, mini_stars }: { id: number; mini_stars: number }) => 
       playersService.update(id, { mini_stars }),
@@ -33,6 +29,10 @@ export function StarsSystemPage() {
       toast.error('Erro ao atualizar estrelas');
     }
   });
+
+  if (isLoading) return <PageLoading />;
+  if (error) return <ErrorState onRetry={refetch} />;
+  if (!players?.results) return null;
 
   const handleUpdateStars = (e: React.MouseEvent, playerId: number, currentStars: number, delta: number) => {
     e.preventDefault();
