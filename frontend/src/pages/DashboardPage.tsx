@@ -62,7 +62,7 @@ export function DashboardPage() {
   const { data, isLoading, error, refetch } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
     queryFn: dashboardService.get,
-    refetchInterval: 30000, // Atualiza a cada 30s
+    refetchInterval: 1000 * 60 * 5, // Atualiza a cada 5 min (era 30s — desnecessário)
   });
 
   if (isLoading) return <PageLoading />;

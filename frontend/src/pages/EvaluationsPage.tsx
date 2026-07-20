@@ -10,6 +10,7 @@ import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { evaluationsService } from '@/services';
 import { playersService } from '@/services/players';
+import { useDebounce } from '@/lib/useDebounce';
 import { SKILL_LABELS } from '@/types';
 import type { Evaluation, Player } from '@/types';
 import { formatDate } from '@/lib/utils';
@@ -24,9 +25,16 @@ export function EvaluationsPage() {
 
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
 
+  // Debounce na busca de atletas
+  const debouncedSearch = useDebounce(searchPlayer, 300);
+
   const { data: playersData, isLoading: loadingPlayers } = useQuery({
-    queryKey: ['players', searchPlayer],
-    queryFn: () => playersService.list({ search: searchPlayer || undefined, status: 'active' }),
+    queryKey: ['players', debouncedSearch, 'active-for-eval'],
+    queryFn: () => playersService.list({
+      search: debouncedSearch || undefined,
+      status: 'active',
+      page_size: 500,  // Lista auxiliar — busca todos os atletas ativos de uma vez
+    }),
   });
 
   const { data: evaluations, isLoading: loadingEvals } = useQuery({

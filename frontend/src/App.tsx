@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/store/AuthContext';
@@ -6,23 +7,24 @@ import { queryClient } from '@/lib/queryClient';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProtectedRoute, PublicRoute } from '@/routes/guards';
 import { Toaster } from 'react-hot-toast';
+import { PageLoading } from '@/components/ui/Loading';
 
-// Pages
-import { LoginPage } from '@/pages/LoginPage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { PlayersPage } from '@/pages/PlayersPage';
-import { PlayerDetailPage } from '@/pages/PlayerDetailPage';
-import { PlayerFormPage } from '@/pages/PlayerFormPage';
-import { EvaluationsPage } from '@/pages/EvaluationsPage';
-import { AttendancePage } from '@/pages/AttendancePage';
-import { TeamsPage } from '@/pages/TeamsPage';
-import { MatchesPage } from '@/pages/MatchesPage';
-import { MatchFormPage } from '@/pages/MatchFormPage';
-import { StarsSystemPage } from '@/pages/StarsSystemPage';
-import { LeaderboardPage } from '@/pages/LeaderboardPage';
-import { RegulationPage } from '@/pages/RegulationPage';
-import { CheckinPage } from '@/pages/CheckinPage';
-import { BracketPage } from '@/pages/BracketPage';
+// Lazy loading — cada página é carregada apenas quando visitada
+const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const PlayersPage = lazy(() => import('@/pages/PlayersPage').then(m => ({ default: m.PlayersPage })));
+const PlayerDetailPage = lazy(() => import('@/pages/PlayerDetailPage').then(m => ({ default: m.PlayerDetailPage })));
+const PlayerFormPage = lazy(() => import('@/pages/PlayerFormPage').then(m => ({ default: m.PlayerFormPage })));
+const EvaluationsPage = lazy(() => import('@/pages/EvaluationsPage').then(m => ({ default: m.EvaluationsPage })));
+const AttendancePage = lazy(() => import('@/pages/AttendancePage').then(m => ({ default: m.AttendancePage })));
+const TeamsPage = lazy(() => import('@/pages/TeamsPage').then(m => ({ default: m.TeamsPage })));
+const MatchesPage = lazy(() => import('@/pages/MatchesPage').then(m => ({ default: m.MatchesPage })));
+const MatchFormPage = lazy(() => import('@/pages/MatchFormPage').then(m => ({ default: m.MatchFormPage })));
+const StarsSystemPage = lazy(() => import('@/pages/StarsSystemPage').then(m => ({ default: m.StarsSystemPage })));
+const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
+const RegulationPage = lazy(() => import('@/pages/RegulationPage').then(m => ({ default: m.RegulationPage })));
+const CheckinPage = lazy(() => import('@/pages/CheckinPage').then(m => ({ default: m.CheckinPage })));
+const BracketPage = lazy(() => import('@/pages/BracketPage').then(m => ({ default: m.BracketPage })));
 
 function App() {
   return (
@@ -30,6 +32,7 @@ function App() {
       <AuthProvider>
         <ThemeProvider>
           <BrowserRouter>
+          <Suspense fallback={<PageLoading />}>
           <Routes>
             {/* Public routes */}
             <Route
@@ -72,6 +75,7 @@ function App() {
             {/* 404 fallback */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
         <Toaster
           position="bottom-center"
@@ -97,3 +101,4 @@ function App() {
 }
 
 export default App;
+

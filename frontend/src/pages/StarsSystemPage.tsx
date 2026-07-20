@@ -15,8 +15,12 @@ export function StarsSystemPage() {
   const queryClient = useQueryClient();
 
   const { data: players, isLoading, error, refetch } = useQuery({
-    queryKey: ['players'],
-    queryFn: () => playersService.list(),
+    queryKey: ['players', 'all-active-stars'],
+    queryFn: () => playersService.list({
+      status: 'active',
+      page_size: 500,  // Busca todos os atletas ativos de uma vez para o sistema de estrelas
+    }),
+    staleTime: 1000 * 60 * 5,  // 5 min — dados de estrelas raramente mudam
   });
 
   const updateStarsMutation = useMutation({

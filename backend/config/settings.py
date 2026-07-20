@@ -125,10 +125,9 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    # Classe customizada que respeita ?page_size= na query string (max 1000)
+    'DEFAULT_PAGINATION_CLASS': 'apps.core.pagination.StandardPagination',
     'PAGE_SIZE': 20,
-    'PAGE_SIZE_QUERY_PARAM': 'page_size',
-    'MAX_PAGE_SIZE': 1000,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 

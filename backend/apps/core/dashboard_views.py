@@ -1,6 +1,7 @@
 from django.utils import timezone
 from datetime import date
 from django.db.models import Count, Q
+from django.core.cache import cache
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -14,8 +15,19 @@ from apps.halloffame.models import HallOfFameEntry
 
 class DashboardView(APIView):
     permission_classes = [IsAuthenticated]
+    CACHE_KEY = 'dashboard_data'
+    CACHE_TTL = 60 * 3  # 3 minutos
 
     def get(self, request):
+        cached = cache.get(self.CACHE_KEY)
+        if cached:
+            return Response(cached)
+
+        data = self._build_data()
+        cache.set(self.CACHE_KEY, data, self.CACHE_TTL)
+        return Response(data)
+
+    def _build_data(self):
         # Contagens básicas
         total_players = Player.objects.count()
         active_count = Player.objects.filter(status='active').count()
@@ -132,18 +144,45 @@ class DashboardView(APIView):
 
         # Cálculos Dinâmicos Especiais
         # 1. Mais Presente
-        most_present_agg = Attendance.objects.filter(present=True, player__status='active').values('player').annotate(count=Count('id')).order_by('-count').first()
+        most_present_agg = (
+            Attendance.objects.filter(present=True, player__status='active')
+            .values('player')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+            .first()
+        )
         most_present = None
         if most_present_agg:
-            p_mp = Player.objects.get(id=most_present_agg['player'])
-            most_present = {'id': p_mp.id, 'name': p_mp.display_name, 'avatar_url': p_mp.avatar_url, 'count': most_present_agg['count']}
-            
+            p_id = most_present_agg['player']
+            # Reutiliza players_map se disponível, senão faz query mínima
+            p_mp = players_map.get(p_id) or Player.objects.filter(id=p_id).only('id', 'name', 'nickname', 'avatar').first()
+            if p_mp:
+                most_present = {
+                    'id': p_mp.id,
+                    'name': p_mp.display_name,
+                    'avatar_url': p_mp.avatar_url,
+                    'count': most_present_agg['count'],
+                }
+
         # 2. MVP da Temporada (Mais MVPs no ano atual)
-        season_mvp_agg = MatchPlayer.objects.filter(mvp=True, player__status='active', match__date__year=today.year).values('player').annotate(count=Count('id')).order_by('-count').first()
+        season_mvp_agg = (
+            MatchPlayer.objects.filter(mvp=True, player__status='active', match__date__year=today.year)
+            .values('player')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+            .first()
+        )
         season_mvp = None
         if season_mvp_agg:
-            p_mvp = Player.objects.get(id=season_mvp_agg['player'])
-            season_mvp = {'id': p_mvp.id, 'name': p_mvp.display_name, 'avatar_url': p_mvp.avatar_url, 'count': season_mvp_agg['count']}
+            p_id = season_mvp_agg['player']
+            p_mvp = players_map.get(p_id) or Player.objects.filter(id=p_id).only('id', 'name', 'nickname', 'avatar').first()
+            if p_mvp:
+                season_mvp = {
+                    'id': p_mvp.id,
+                    'name': p_mvp.display_name,
+                    'avatar_url': p_mvp.avatar_url,
+                    'count': season_mvp_agg['count'],
+                }
             
         # 3. Revelação (Jogador com registro mais recente que mais jogou)
         revelation_player = Player.objects.filter(status='active', created_at__year=today.year).annotate(matches=Count('match_appearances')).order_by('-matches', '-created_at').first()
@@ -181,7 +220,7 @@ class DashboardView(APIView):
                 'updated_at': p.updated_at.isoformat(),
             })
 
-        return Response({
+        return {
             'total_players': total_players,
             'active_players': active_count,
             'present_today': present_today,
@@ -196,4 +235,4 @@ class DashboardView(APIView):
             'top_stars': top_stars,
             'new_stars': new_stars,
             'last_updated': timezone.now().isoformat(),
-        })
+        }

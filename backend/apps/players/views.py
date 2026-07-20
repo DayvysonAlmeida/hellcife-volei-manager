@@ -34,14 +34,23 @@ class PlayerViewSet(viewsets.ModelViewSet):
     ordering = ['name']
 
     def get_queryset(self):
-        qs = Player.objects.all().prefetch_related('evaluations')
-        
-        if 'include_guests' in self.request.query_params:
-            return qs
+        qs = Player.objects.all()
 
-        # Se is_guest não for passado explicitamente, filtra apenas jogadores normais
-        if 'is_guest' not in self.request.query_params:
+        if 'include_guests' in self.request.query_params:
+            pass
+        elif 'is_guest' not in self.request.query_params:
             qs = qs.filter(is_guest=False)
+
+        # Na listagem, anotar o overall mais recente via subquery para eliminar N+1.
+        # O serializer usa a annotation quando disponível, evitando 1 query por jogador.
+        if self.action == 'list':
+            qs = qs.annotate(
+                annotated_overall=latest_overall_subquery()
+            )
+        else:
+            # Para outras actions, prefetch para uso em PlayerDetailSerializer
+            qs = qs.prefetch_related('evaluations')
+
         return qs
 
     def get_serializer_class(self):

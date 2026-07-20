@@ -8,8 +8,10 @@ import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { playersService } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
+import { useDebounce } from '@/lib/useDebounce';
 import { POSITION_LABELS, type Position, type PlayerStatus } from '@/types';
 import type { Player } from '@/types';
 import { cn } from '@/lib/utils';
@@ -18,6 +20,8 @@ const POSITIONS = Object.entries(POSITION_LABELS) as [Position, string][];
 const STATUSES: [PlayerStatus, string][] = [
   ['active', 'Ativo'], ['inactive', 'Inativo'], ['injured', 'Lesionado'], ['suspended', 'Suspenso']
 ];
+
+const PAGE_SIZE = 24;
 
 export function PlayersPage() {
   const { user } = useAuth();
@@ -28,15 +32,32 @@ export function PlayersPage() {
   const [positionFilter, setPositionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [page, setPage] = useState(1);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
+  // Debounce na busca — espera 300ms após parar de digitar
+  const debouncedSearch = useDebounce(search, 300);
+
+  // Reset para página 1 ao mudar filtros ou busca
+  const handleFilterChange = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setter(e.target.value);
+    setPage(1);
+  };
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(1);
+  };
+
   const { data, isLoading } = useQuery({
-    queryKey: ['players', search, positionFilter, statusFilter],
+    queryKey: ['players', debouncedSearch, positionFilter, statusFilter, page],
     queryFn: () => playersService.list({
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       main_position: positionFilter || undefined,
       status: statusFilter || undefined,
+      page,
+      page_size: PAGE_SIZE,
     }),
+    placeholderData: (prev) => prev, // Mantém dados anteriores durante carregamento
   });
 
   const deleteMutation = useMutation({
@@ -81,7 +102,7 @@ export function PlayersPage() {
               type="text"
               placeholder="Buscar por nome ou apelido..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={handleSearchChange}
               className="input w-full pl-9"
             />
           </div>
@@ -89,7 +110,7 @@ export function PlayersPage() {
           {/* Position filter */}
           <select
             value={positionFilter}
-            onChange={(e) => setPositionFilter(e.target.value)}
+            onChange={handleFilterChange(setPositionFilter)}
             className="input sm:w-44"
           >
             <option value="">Todas posições</option>
@@ -101,7 +122,7 @@ export function PlayersPage() {
           {/* Status filter */}
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={handleFilterChange(setStatusFilter)}
             className="input sm:w-36"
           >
             <option value="">Todos status</option>
@@ -236,6 +257,16 @@ export function PlayersPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Paginação */}
+      {data && data.count > PAGE_SIZE && (
+        <Pagination
+          count={data.count}
+          page={page}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       )}
     </div>
   );
