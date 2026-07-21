@@ -89,7 +89,7 @@ function HighlightColumn({ title, icon: Icon, colorClass, bgClass, data }: { tit
           
           {/* Outros (4º em diante) se houver */}
           {data.length > 3 && (
-            <div className="flex flex-col gap-1.5 w-full mt-2 pt-2 border-t border-border/50">
+            <div className="flex flex-col gap-1.5 w-full mt-2 pt-2 border-t border-border/50 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
               {data.slice(3).map((p, i) => (
                 <div key={p.id} className="flex items-center gap-2 bg-surface/30 p-1.5 rounded-lg text-left">
                   <span className="text-text-muted font-bold text-[10px] w-4 text-center">{i + 4}º</span>
@@ -300,12 +300,14 @@ export function DashboardPage() {
                     
                     <div className="flex-1 min-w-0">
                       <h3 className={`font-bold text-xs truncate ${hasBigStar ? 'text-yellow-400' : 'text-text-primary'}`}>{player.name}</h3>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        {hasBigStar ? (
-                          <span className="text-[10px] font-bold text-yellow-500">🌟 {player.big_stars}</span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-text-muted">{player.mini_stars} minis</span>
+                      <div className="flex flex-wrap items-center gap-x-2 mt-0.5 text-[9px] font-bold">
+                        {hasBigStar && (
+                          <span className="text-[10px] text-yellow-500 mr-1">🌟 {player.big_stars}</span>
                         )}
+                        {player.mvp_stars > 0 && <span className="text-yellow-400">MVP {player.mvp_stars}</span>}
+                        {player.attack_stars > 0 && <span className="text-red">ATQ {player.attack_stars}</span>}
+                        {player.defense_stars > 0 && <span className="text-blue">DEF {player.defense_stars}</span>}
+                        {player.mini_stars === 0 && !hasBigStar && <span className="text-text-muted">Sem minis</span>}
                       </div>
                     </div>
                   </Link>

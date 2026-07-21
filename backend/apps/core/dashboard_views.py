@@ -72,7 +72,7 @@ class DashboardView(APIView):
 
         highlights = {}
         for key, field in highlight_fields.items():
-            top = Player.objects.filter(**{f"{field}__gt": 0}).order_by(f"-{field}")[:3]
+            top = Player.objects.filter(**{f"{field}__gt": 0}).order_by(f"-{field}")
             highlights[key] = [
                 {
                     'id': p.id,
