@@ -19,17 +19,17 @@ const STAR_CATEGORIES = [
     key: 'mvp_stars' as keyof StarsPayload,
     label: 'MVP',
     icon: Trophy,
-    color: 'text-red',
-    fillColor: '#D90429',
-    glowClass: 'shadow-neon-red-sm',
+    color: 'text-yellow-400',
+    fillColor: '#FACC15',
+    glowClass: 'drop-shadow-[0_0_4px_rgba(250,204,21,0.8)]',
   },
   {
     key: 'attack_stars' as keyof StarsPayload,
     label: 'ATAQUE',
     icon: Zap,
-    color: 'text-yellow-400',
-    fillColor: '#FACC15',
-    glowClass: 'drop-shadow-[0_0_4px_rgba(250,204,21,0.8)]',
+    color: 'text-red',
+    fillColor: '#D90429',
+    glowClass: 'shadow-neon-red-sm',
   },
   {
     key: 'defense_stars' as keyof StarsPayload,
@@ -251,7 +251,15 @@ export function StarsSystemPage() {
   if (isLoading) return <PageLoading />;
   if (error) return <ErrorState onRetry={refetch} />;
 
-  const players = data?.results ?? [];
+  const players = (data?.results ?? []).sort((a, b) => {
+    const aBig = a.big_stars ?? 0;
+    const bBig = b.big_stars ?? 0;
+    if (aBig !== bBig) return bBig - aBig;
+    
+    const aMini = a.mini_stars ?? 0;
+    const bMini = b.mini_stars ?? 0;
+    return bMini - aMini;
+  });
 
   return (
     <div className="space-y-6">

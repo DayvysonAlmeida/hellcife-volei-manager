@@ -86,6 +86,16 @@ class PlayerViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+        # Calcula o delta das estrelas para incrementar os totais históricos
+        diff_mvp = max(0, mvp - player.mvp_stars)
+        diff_attack = max(0, attack - player.attack_stars)
+        diff_defense = max(0, defense - player.defense_stars)
+
+        player.total_mvp += diff_mvp
+        player.total_attack += diff_attack
+        player.total_defense += diff_defense
+
+        # Atualiza os valores parciais (que resetam ao virar grande estrela)
         player.mvp_stars = mvp
         player.attack_stars = attack
         player.defense_stars = defense
@@ -96,7 +106,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
         # Salva apenas os campos necessários para eficiência
         player.save(update_fields=[
             'mvp_stars', 'attack_stars', 'defense_stars',
-            'mini_stars', 'big_stars', 'updated_at'
+            'mini_stars', 'big_stars', 'updated_at',
+            'total_mvp', 'total_attack', 'total_defense'
         ])
 
         # Invalida cache do dashboard para refletir nova pontuação
@@ -115,6 +126,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='ranking')
     def ranking(self, request):
         position = request.query_params.get('position')
+        show_all = request.query_params.get('all') == 'true'
 
         # Uma única query com annotations para overall, stats de partidas
         players = (
@@ -128,8 +140,11 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 best_defenders=Count('match_appearances', filter=Q(match_appearances__best_defender=True), distinct=True),
                 wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
             )
-            .filter(annotated_overall__gt=0)  # Apenas jogadores com avaliação
         )
+        
+        # Filtra jogadores sem avaliação apenas se 'all' não for true
+        if not show_all:
+            players = players.filter(annotated_overall__gt=0)
 
         if position:
             players = players.filter(main_position=position)

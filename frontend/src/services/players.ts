@@ -28,8 +28,8 @@ export const playersService = {
       `/players/${id}/update_stars/`, payload
     ).then(r => r.data),
 
-  ranking: (position?: string) =>
-    api.get('/players/ranking/', { params: position ? { position } : undefined }).then(r => r.data),
+  ranking: (position?: string, all?: boolean) =>
+    api.get('/players/ranking/', { params: { ...(position ? { position } : {}), ...(all ? { all: 'true' } : {}) } }).then(r => r.data),
 
   stats: (id: number) =>
     api.get(`/players/${id}/stats/`).then(r => r.data),

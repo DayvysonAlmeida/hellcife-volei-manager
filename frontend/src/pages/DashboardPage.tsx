@@ -188,17 +188,17 @@ export function DashboardPage() {
                   <div className="w-full space-y-1 mt-auto">
                     {/* MVP */}
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-red font-bold w-8 text-left">MVP</span>
+                      <span className="text-[9px] text-yellow-400 font-bold w-8 text-left">MVP</span>
                       <div className="flex-1 h-1 bg-surface-highlight rounded-full overflow-hidden">
-                        <div className="h-full bg-red rounded-full transition-all" style={{ width: `${(player.mvp_stars / 5) * 100}%` }} />
+                        <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${(player.mvp_stars / 5) * 100}%` }} />
                       </div>
                       <span className="text-[9px] text-text-muted w-3 text-right">{player.mvp_stars}</span>
                     </div>
                     {/* Ataque */}
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-yellow-400 font-bold w-8 text-left">ATQ</span>
+                      <span className="text-[9px] text-red font-bold w-8 text-left">ATQ</span>
                       <div className="flex-1 h-1 bg-surface-highlight rounded-full overflow-hidden">
-                        <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${(player.attack_stars / 5) * 100}%` }} />
+                        <div className="h-full bg-red rounded-full transition-all" style={{ width: `${(player.attack_stars / 5) * 100}%` }} />
                       </div>
                       <span className="text-[9px] text-text-muted w-3 text-right">{player.attack_stars}</span>
                     </div>
@@ -222,51 +222,7 @@ export function DashboardPage() {
             })}
           </div>
 
-          {/* Novos Estrelados */}
-          {data.new_stars && data.new_stars.length > 0 && (
-            <div className="mt-6 pt-5 border-t border-border/50">
-              <h3 className="text-sm font-bold text-text-primary tracking-wider mb-3 flex items-center gap-2">
-                <Sparkles size={16} className="text-yellow-400" />
-                DESTAQUES RECENTES
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                {data.new_stars.map((player) => {
-                  const catConfig = {
-                    mvp: { label: 'MVP', icon: Trophy, color: 'text-red bg-red/10 border-red/30' },
-                    attack: { label: 'Ataque', icon: Zap, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' },
-                    defense: { label: 'Defesa', icon: Shield, color: 'text-blue bg-blue/10 border-blue/30' },
-                  };
-                  const cat = player.top_category ? catConfig[player.top_category] : null;
-                  const CatIcon = cat?.icon;
-                  return (
-                    <Link
-                      key={`new-${player.id}`}
-                      to={`/players/${player.id}`}
-                      className="flex items-center gap-2.5 bg-surface rounded-xl px-3 py-2 border border-border hover:border-yellow-500/40 transition-colors group"
-                    >
-                      <Avatar name={player.name} src={player.avatar_url} size="sm" />
-                      <div>
-                        <span className="text-sm font-medium text-text-primary group-hover:text-yellow-400 transition-colors block leading-tight">
-                          {player.name}
-                        </span>
-                        {player.big_stars > 0 && (
-                          <span className="text-[10px] font-bold text-yellow-400">
-                            🌟 {player.big_stars} Estrela{player.big_stars > 1 ? 's' : ''} Grande{player.big_stars > 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </div>
-                      {cat && CatIcon && (
-                        <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cat.color}`}>
-                          <CatIcon size={10} />
-                          {cat.label}
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+
         </motion.div>
       )}
 
@@ -309,61 +265,56 @@ export function DashboardPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-transparent pointer-events-none" />
         <h2 className="font-display text-xl text-yellow-500 tracking-wider mb-6 flex items-center gap-2">
           <Crown size={20} className="text-yellow-500" />
-          OS COROADOS DA TEMPORADA
+          OS COROADOS (ÚLTIMOS DESTAQUES)
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* MVP da Temporada */}
-          <div className="bg-gradient-to-b from-yellow-500/20 to-surface/50 border border-yellow-500/30 rounded-2xl p-6 flex flex-col items-center text-center relative shadow-[0_0_30px_rgba(234,179,8,0.1)]">
-            <div className="absolute top-4 right-4 text-yellow-500/30">
-              <Star size={40} className="fill-yellow-500/20" />
-            </div>
-            <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-widest mb-4">MVP da Temporada</h3>
-            {data.season_mvp ? (
-              <>
-                <Avatar name={data.season_mvp.name} src={data.season_mvp.avatar_url} size="xl" className="ring-4 ring-yellow-500/50 mb-4 shadow-lg shadow-yellow-500/20" />
-                <p className="font-display text-xl text-text-primary truncate w-full">{data.season_mvp.name}</p>
-                <p className="text-sm text-yellow-500 font-bold mt-2 bg-yellow-500/10 px-3 py-1 rounded-full">{data.season_mvp.count} títulos de MVP</p>
-              </>
-            ) : (
-              <p className="text-text-muted mt-auto mb-auto">Aguardando mais jogos...</p>
-            )}
+        {data.new_stars && data.new_stars.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {data.new_stars.map((player) => {
+              const catConfig = {
+                mvp: { label: 'MVP', icon: Trophy, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' },
+                attack: { label: 'Melhor Ataque', icon: Zap, color: 'text-red bg-red/10 border-red/30' },
+                defense: { label: 'Melhor Defesa', icon: Shield, color: 'text-blue bg-blue/10 border-blue/30' },
+              };
+              const cat = player.top_category ? catConfig[player.top_category] : null;
+              const CatIcon = cat?.icon || Star;
+              const catColor = cat ? cat.color : 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30';
+              
+              return (
+                <Link
+                  key={`coroado-${player.id}`}
+                  to={`/players/${player.id}`}
+                  className="bg-gradient-to-b from-surface-highlight to-surface/50 border border-border hover:border-yellow-500/40 rounded-2xl p-5 flex flex-col items-center text-center relative shadow-lg group transition-all"
+                >
+                  <div className={`absolute top-3 right-3 ${catColor} w-8 h-8 rounded-full flex items-center justify-center border`}>
+                    <CatIcon size={14} />
+                  </div>
+                  
+                  <Avatar name={player.name} src={player.avatar_url} size="xl" className="ring-4 ring-surface-highlight mb-3 shadow-md group-hover:ring-yellow-500/40 transition-all" />
+                  
+                  <h3 className="font-display text-lg text-text-primary truncate w-full group-hover:text-yellow-400 transition-colors">
+                    {player.name}
+                  </h3>
+                  
+                  {cat && (
+                    <span className={`text-[10px] font-bold uppercase tracking-widest mt-2 px-2.5 py-1 rounded-full border ${cat.color}`}>
+                      {cat.label}
+                    </span>
+                  )}
+                  
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50 w-full justify-center">
+                    {player.big_stars > 0 && (
+                      <span className="text-xs text-yellow-500 font-bold" title="Grandes Estrelas">🌟 {player.big_stars}</span>
+                    )}
+                    <span className="text-xs text-yellow-500/70 font-bold" title="Mini Estrelas">✦ {player.mini_stars}/15</span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
-
-          {/* Revelação */}
-          <div className="bg-gradient-to-b from-indigo-500/20 to-surface/50 border border-indigo-500/30 rounded-2xl p-6 flex flex-col items-center text-center relative shadow-[0_0_30px_rgba(99,102,241,0.1)]">
-            <div className="absolute top-4 right-4 text-indigo-500/30">
-              <Medal size={40} />
-            </div>
-            <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-4">Revelação</h3>
-            {data.revelation ? (
-              <>
-                <Avatar name={data.revelation.name} src={data.revelation.avatar_url} size="xl" className="ring-4 ring-indigo-500/50 mb-4 shadow-lg shadow-indigo-500/20" />
-                <p className="font-display text-xl text-text-primary truncate w-full">{data.revelation.name}</p>
-                <p className="text-sm text-indigo-400 font-bold mt-2 bg-indigo-500/10 px-3 py-1 rounded-full">{data.revelation.matches} partidas jogadas</p>
-              </>
-            ) : (
-              <p className="text-text-muted mt-auto mb-auto">Aguardando novos jogadores...</p>
-            )}
-          </div>
-
-          {/* Mais Presente */}
-          <div className="bg-gradient-to-b from-emerald-500/20 to-surface/50 border border-emerald-500/30 rounded-2xl p-6 flex flex-col items-center text-center relative shadow-[0_0_30px_rgba(16,185,129,0.1)]">
-            <div className="absolute top-4 right-4 text-emerald-500/30">
-              <CalendarDays size={40} />
-            </div>
-            <h3 className="text-sm font-bold text-emerald-500 uppercase tracking-widest mb-4">Mais Presente</h3>
-            {data.most_present ? (
-              <>
-                <Avatar name={data.most_present.name} src={data.most_present.avatar_url} size="xl" className="ring-4 ring-emerald-500/50 mb-4 shadow-lg shadow-emerald-500/20" />
-                <p className="font-display text-xl text-text-primary truncate w-full">{data.most_present.name}</p>
-                <p className="text-sm text-emerald-500 font-bold mt-2 bg-emerald-500/10 px-3 py-1 rounded-full">{data.most_present.count} presenças confirmadas</p>
-              </>
-            ) : (
-              <p className="text-text-muted mt-auto mb-auto">Aguardando listas de presença...</p>
-            )}
-          </div>
-        </div>
+        ) : (
+          <p className="text-text-muted">Aguardando que atletas recebam estrelas para aparecerem aqui...</p>
+        )}
       </motion.div>
 
       {/* Destaques (Corridas por Partida) */}

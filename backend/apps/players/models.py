@@ -61,6 +61,11 @@ class Player(models.Model):
     mini_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Mini Estrelas')
     big_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Estrelas Grandes')
 
+    # Totais absolutos para o Dashboard (não são resetados ao virar grande estrela)
+    total_mvp = models.PositiveIntegerField(default=0, verbose_name='Total MVP')
+    total_attack = models.PositiveIntegerField(default=0, verbose_name='Total Ataque')
+    total_defense = models.PositiveIntegerField(default=0, verbose_name='Total Defesa')
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Status', db_index=True)
     user = models.OneToOneField(
         'core.User', on_delete=models.SET_NULL, null=True, blank=True,

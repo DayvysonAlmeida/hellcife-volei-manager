@@ -63,53 +63,27 @@ class DashboardView(APIView):
                 'wins': p.wins,
             })
 
-        # Destaques — Top 3 jogadores com mais premiações por categoria (apenas 3 mantidas)
+        # Destaques — Top 3 jogadores com mais premiações usando os totais absolutos no model Player
         highlight_fields = {
-            'mvp': 'mvp',
-            'best_attacker': 'best_attacker',
-            'best_defender': 'best_defender',
+            'mvp': 'total_mvp',
+            'best_attacker': 'total_attack',
+            'best_defender': 'total_defense',
         }
 
         highlights = {}
-        # Collect all aggregations first (8 queries — one per category)
-        raw_highlights = {}
         for key, field in highlight_fields.items():
-            raw_highlights[key] = list(
-                MatchPlayer.objects.filter(**{field: True}, player__status='active')
-                .values('player')
-                .annotate(count=Count('id'))
-                .order_by('-count')[:3]
-            )
-
-        # Collect ALL unique player IDs across all categories (to batch load)
-        all_player_ids = set()
-        for aggs in raw_highlights.values():
-            for agg in aggs:
-                all_player_ids.add(agg['player'])
-
-        # 1 single query to load all needed players
-        players_map = {}
-        if all_player_ids:
-            for p in Player.objects.filter(id__in=all_player_ids).only(
-                'id', 'name', 'nickname', 'avatar', 'mini_stars', 'big_stars'
-            ):
-                players_map[p.id] = p
-
-        # Build the response using the pre-loaded map
-        for key, aggs in raw_highlights.items():
-            top_list = []
-            for agg in aggs:
-                player = players_map.get(agg['player'])
-                if player:
-                    top_list.append({
-                        'id': player.id,
-                        'name': player.display_name,
-                        'avatar_url': player.avatar_url,
-                        'mini_stars': player.mini_stars,
-                        'big_stars': player.big_stars,
-                        'count': agg['count']
-                    })
-            highlights[key] = top_list
+            top = Player.objects.filter(**{f"{field}__gt": 0}).order_by(f"-{field}")[:3]
+            highlights[key] = [
+                {
+                    'id': p.id,
+                    'name': p.display_name,
+                    'avatar_url': p.avatar_url,
+                    'mini_stars': p.mini_stars,
+                    'big_stars': p.big_stars,
+                    'count': getattr(p, field)
+                }
+                for p in top
+            ]
 
         # Distribuição por Posição
         position_distribution = list(
@@ -137,53 +111,6 @@ class DashboardView(APIView):
                 'year': entry.year,
             })
 
-        # Cálculos Dinâmicos Especiais
-        # 1. Mais Presente
-        most_present_agg = (
-            Attendance.objects.filter(present=True, player__status='active')
-            .values('player')
-            .annotate(count=Count('id'))
-            .order_by('-count')
-            .first()
-        )
-        most_present = None
-        if most_present_agg:
-            p_id = most_present_agg['player']
-            # Reutiliza players_map se disponível, senão faz query mínima
-            p_mp = players_map.get(p_id) or Player.objects.filter(id=p_id).only('id', 'name', 'nickname', 'avatar').first()
-            if p_mp:
-                most_present = {
-                    'id': p_mp.id,
-                    'name': p_mp.display_name,
-                    'avatar_url': p_mp.avatar_url,
-                    'count': most_present_agg['count'],
-                }
-
-        # 2. MVP da Temporada (Mais MVPs no ano atual)
-        season_mvp_agg = (
-            MatchPlayer.objects.filter(mvp=True, player__status='active', match__date__year=today.year)
-            .values('player')
-            .annotate(count=Count('id'))
-            .order_by('-count')
-            .first()
-        )
-        season_mvp = None
-        if season_mvp_agg:
-            p_id = season_mvp_agg['player']
-            p_mvp = players_map.get(p_id) or Player.objects.filter(id=p_id).only('id', 'name', 'nickname', 'avatar').first()
-            if p_mvp:
-                season_mvp = {
-                    'id': p_mvp.id,
-                    'name': p_mvp.display_name,
-                    'avatar_url': p_mvp.avatar_url,
-                    'count': season_mvp_agg['count'],
-                }
-            
-        # 3. Revelação (Jogador com registro mais recente que mais jogou)
-        revelation_player = Player.objects.filter(status='active', created_at__year=today.year).annotate(matches=Count('match_appearances')).order_by('-matches', '-created_at').first()
-        revelation = None
-        if revelation_player:
-            revelation = {'id': revelation_player.id, 'name': revelation_player.display_name, 'avatar_url': revelation_player.avatar_url, 'matches': revelation_player.matches}
 
         # 4. Top Estrelas — top 10 ordenados por big_stars desc, depois mini_stars desc
         top_stars_qs = (
@@ -241,9 +168,7 @@ class DashboardView(APIView):
             'position_distribution': formatted_distribution,
             'highlights': highlights,
             'hall_of_fame': hall_of_fame_list,
-            'most_present': most_present,
-            'season_mvp': season_mvp,
-            'revelation': revelation,
+
             'top_stars': top_stars,
             'new_stars': new_stars,
             'last_updated': timezone.now().isoformat(),
