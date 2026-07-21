@@ -110,16 +110,6 @@ export function BracketPage() {
     }
   }, [generation, state.isStarted]);
 
-  const [highlights, setHighlights] = useState<{
-    mvp: number | null;
-    attacker: number | null;
-    server: number | null;
-    defender: number | null;
-    setter: number | null;
-    libero: number | null;
-    blocker: number | null;
-    opposite: number | null;
-  }>({ mvp: null, attacker: null, server: null, defender: null, setter: null, libero: null, blocker: null, opposite: null });
 
   useEffect(() => {
     if (generation && !state.isStarted && state.queue.length === 0) {
@@ -209,14 +199,6 @@ export function BracketPage() {
           color_hex: state.courtA.color_hex,
           score: state.scoreA,
           player_ids: state.courtA.team_players.map((p: any) => p.player),
-          mvp_ids: highlights.mvp && state.courtA.team_players.some((p: any) => p.player === highlights.mvp) ? [highlights.mvp] : [],
-          best_attacker_ids: highlights.attacker && state.courtA.team_players.some((p: any) => p.player === highlights.attacker) ? [highlights.attacker] : [],
-          best_server_ids: highlights.server && state.courtA.team_players.some((p: any) => p.player === highlights.server) ? [highlights.server] : [],
-          best_defender_ids: highlights.defender && state.courtA.team_players.some((p: any) => p.player === highlights.defender) ? [highlights.defender] : [],
-          best_setter_ids: highlights.setter && state.courtA.team_players.some((p: any) => p.player === highlights.setter) ? [highlights.setter] : [],
-          best_libero_ids: highlights.libero && state.courtA.team_players.some((p: any) => p.player === highlights.libero) ? [highlights.libero] : [],
-          best_blocker_ids: highlights.blocker && state.courtA.team_players.some((p: any) => p.player === highlights.blocker) ? [highlights.blocker] : [],
-          best_opposite_ids: highlights.opposite && state.courtA.team_players.some((p: any) => p.player === highlights.opposite) ? [highlights.opposite] : [],
         },
         {
           team_id: state.courtB.id,
@@ -224,14 +206,6 @@ export function BracketPage() {
           color_hex: state.courtB.color_hex,
           score: state.scoreB,
           player_ids: state.courtB.team_players.map((p: any) => p.player),
-          mvp_ids: highlights.mvp && state.courtB.team_players.some((p: any) => p.player === highlights.mvp) ? [highlights.mvp] : [],
-          best_attacker_ids: highlights.attacker && state.courtB.team_players.some((p: any) => p.player === highlights.attacker) ? [highlights.attacker] : [],
-          best_server_ids: highlights.server && state.courtB.team_players.some((p: any) => p.player === highlights.server) ? [highlights.server] : [],
-          best_defender_ids: highlights.defender && state.courtB.team_players.some((p: any) => p.player === highlights.defender) ? [highlights.defender] : [],
-          best_setter_ids: highlights.setter && state.courtB.team_players.some((p: any) => p.player === highlights.setter) ? [highlights.setter] : [],
-          best_libero_ids: highlights.libero && state.courtB.team_players.some((p: any) => p.player === highlights.libero) ? [highlights.libero] : [],
-          best_blocker_ids: highlights.blocker && state.courtB.team_players.some((p: any) => p.player === highlights.blocker) ? [highlights.blocker] : [],
-          best_opposite_ids: highlights.opposite && state.courtB.team_players.some((p: any) => p.player === highlights.opposite) ? [highlights.opposite] : [],
         }
       ]
     };
@@ -285,8 +259,6 @@ export function BracketPage() {
           nextConsecutiveB = newConsecutiveB;
         }
       }
-
-      setHighlights({ mvp: null, attacker: null, server: null, defender: null, setter: null, libero: null, blocker: null, opposite: null });
 
       return {
         ...prev,
@@ -721,9 +693,9 @@ export function BracketPage() {
                 <p className="text-sm text-text-muted">Revise o placar final e, se quiser, escolha os destaques da partida.</p>
               </div>
 
-              <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar">
+              <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex flex-col items-center">
                 {/* Placar Final */}
-                <div className="flex justify-center items-center gap-8 mb-10 bg-surface p-6 rounded-2xl border border-border shadow-inner">
+                <div className="flex justify-center items-center gap-8 mb-10 w-full bg-surface p-6 rounded-2xl border border-border shadow-inner">
                   <div className="text-center w-1/3">
                     <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider truncate" style={{ color: state.courtA?.color_hex }}>{state.courtA?.name}</span>
                     <span className={`text-6xl md:text-7xl font-display font-bold ${state.scoreA >= state.scoreB ? 'text-yellow-400' : 'text-text-muted'}`}>{state.scoreA}</span>
@@ -735,70 +707,13 @@ export function BracketPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-center mb-10">
-                  <button 
-                    onClick={() => handleSaveResult()}
-                    disabled={saveMutation.isPending}
-                    className="btn-secondary py-3 px-8 text-base font-bold flex items-center gap-2 w-full max-w-sm justify-center border-border hover:bg-surface-hover transition-colors shadow-sm"
-                  >
-                    <Save size={18} /> Salvar Só o Placar
-                  </button>
-                </div>
-
-                {/* Seleção Destaques */}
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-text-muted mb-4 border-b border-border pb-2">Opcional: Destaques da Partida</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                    <HighlightSelect
-                      icon={Star} iconColor="text-yellow-500" title="MVP da Partida"
-                      players={allPlayersInCourt}
-                      value={highlights.mvp}
-                      onChange={(v: number | null) => setHighlights(h => ({ ...h, mvp: v }))}
-                    />
-                    <HighlightSelect
-                      icon={Swords} iconColor="text-red" title="Melhor Ataque"
-                      players={allPlayersInCourt}
-                      value={highlights.attacker}
-                      onChange={(v: number | null) => setHighlights(h => ({ ...h, attacker: v }))}
-                    />
-                    <HighlightSelect
-                      icon={Zap} iconColor="text-blue-400" title="Melhor Saque"
-                      players={allPlayersInCourt}
-                      value={highlights.server}
-                      onChange={(v: number | null) => setHighlights(h => ({ ...h, server: v }))}
-                    />
-                    <HighlightSelect
-                      icon={Shield} iconColor="text-green-400" title="Melhor Defesa"
-                      players={allPlayersInCourt}
-                      value={highlights.defender}
-                      onChange={(v: number | null) => setHighlights(h => ({ ...h, defender: v }))}
-                    />
-                    <HighlightSelect
-                      icon={Target} iconColor="text-indigo-400" title="Melhor Levantador"
-                      players={allPlayersInCourt}
-                      value={highlights.setter}
-                      onChange={(v: number | null) => setHighlights(h => ({ ...h, setter: v }))}
-                    />
-                    <HighlightSelect
-                      icon={UserCheck} iconColor="text-teal-400" title="Melhor Líbero"
-                      players={allPlayersInCourt}
-                      value={highlights.libero}
-                      onChange={(v: number | null) => setHighlights(h => ({ ...h, libero: v }))}
-                    />
-                    <HighlightSelect
-                      icon={Hand} iconColor="text-orange-400" title="Melhor Blocador"
-                      players={allPlayersInCourt}
-                      value={highlights.blocker}
-                      onChange={(v: number | null) => setHighlights(h => ({ ...h, blocker: v }))}
-                    />
-                    <HighlightSelect
-                      icon={Flame} iconColor="text-rose-500" title="Melhor Oposto"
-                      players={allPlayersInCourt}
-                      value={highlights.opposite}
-                      onChange={(v: number | null) => setHighlights(h => ({ ...h, opposite: v }))}
-                    />
-                  </div>
-                </div>
+                <button 
+                  onClick={() => handleSaveResult()}
+                  disabled={saveMutation.isPending}
+                  className="btn-primary py-4 px-12 text-lg font-bold flex items-center gap-3 justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+                >
+                  <Save size={22} /> {saveMutation.isPending ? 'Salvando...' : 'CONFIRMAR RESULTADO DA PARTIDA'}
+                </button>
               </div>
 
               <div className="p-4 md:p-6 border-t border-border bg-surface/50 flex gap-4">
@@ -830,41 +745,6 @@ export function BracketPage() {
           onClose={() => setShowAttendanceModal(false)} 
         />
       )}
-    </div>
-  );
-}
-
-function HighlightSelect({ icon: Icon, iconColor, title, players, value, onChange }: any) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <Icon size={16} className={iconColor} />
-        <span className="text-sm font-bold uppercase tracking-widest text-text-secondary">{title}</span>
-      </div>
-      <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide -mx-1 px-1">
-        <button
-          onClick={() => onChange(null)}
-          className={`flex-shrink-0 px-4 py-2 rounded-xl border text-sm md:text-base font-bold transition-colors ${
-            value === null ? 'bg-surface border-border text-text-primary' : 'border-transparent text-text-muted hover:bg-surface/50'
-          }`}
-        >
-          Nenhum
-        </button>
-        {players.map((p: any) => (
-          <button
-            key={p.player}
-            onClick={() => onChange(p.player)}
-            className={`flex-shrink-0 flex items-center gap-3 px-4 py-2 rounded-xl border text-sm md:text-base font-bold transition-all ${
-              value === p.player 
-                ? 'bg-red/10 border-red/30 text-text-primary shadow-[0_0_15px_rgba(217,4,41,0.2)]' 
-                : 'border-border/50 bg-surface/30 text-text-muted hover:border-border'
-            }`}
-          >
-            <Avatar name={p.player_name} src={p.player_avatar} size="sm" />
-            {p.player_name}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }

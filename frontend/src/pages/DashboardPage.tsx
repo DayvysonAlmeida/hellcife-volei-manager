@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Zap, Shield, Trophy, Target, Hand, Flame, Crown, Medal, CalendarDays, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Shield, Trophy, Flame, Crown, Medal, CalendarDays, Sparkles, Zap } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell,
@@ -111,78 +112,158 @@ export function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="card p-6 border-yellow-200/20"
+          className="card p-6 border-yellow-500/20"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
             <div className="flex items-center gap-3">
               <Star size={24} className="text-yellow-400 fill-yellow-400" />
               <div>
                 <h2 className="font-display text-xl text-yellow-400 tracking-wider">RANKING DE MÉRITOS (ESTRELAS)</h2>
-                <p className="text-sm text-text-muted">Membros com mais estrelas da comunidade</p>
+                <p className="text-sm text-text-muted">Top 10 membros com mais estrelas — grandes estrelas são mérito máximo</p>
               </div>
             </div>
             <Link to="/stars" className="btn-secondary text-xs px-4 py-2 flex items-center justify-center gap-2 whitespace-nowrap bg-surface hover:bg-surface-hover">
               <Star size={14} className="text-yellow-400" />
-              Ver Ranking Completo
+              Ver Sistema Completo
             </Link>
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            {data.top_stars.map((player, idx) => (
-              <div key={player.id} className="bg-surface/80 rounded-xl p-4 flex flex-col items-center text-center border border-border hover:border-yellow-400/50 transition-colors relative shadow-lg shadow-yellow-500/5">
-                <div className={`absolute -top-3 -left-3 w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-lg ${
-                  idx === 0 ? 'bg-yellow-500 text-black' : 
-                  idx === 1 ? 'bg-zinc-300 text-black' : 
-                  idx === 2 ? 'bg-orange-400 text-black' : 
-                  'bg-surface-hover text-text-muted border border-border'
-                }`}>
-                  {idx + 1}º
-                </div>
-                
-                <Avatar name={player.name} src={player.avatar_url} size="lg" className={`mb-3 ${idx < 3 ? 'ring-2 ring-yellow-400/50' : ''}`} />
-                
-                <h3 className="text-text-primary font-bold text-sm w-full truncate mb-2">{player.name}</h3>
-                
-                <div className="flex flex-col gap-1 items-center bg-background/50 rounded-lg p-2 w-full">
-                  {player.big_stars > 0 && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-bold text-text-muted">{player.big_stars}x</span>
-                      <div className="flex gap-0.5 text-yellow-500">
-                        {[...Array(Math.min(player.big_stars, 5))].map((_, i) => <Star key={`big-${i}`} size={16} className="fill-yellow-500" />)}
-                        {player.big_stars > 5 && <span className="text-xs text-yellow-500 font-bold ml-1">...</span>}
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {data.top_stars.map((player, idx) => {
+              const hasBigStar = player.big_stars > 0;
+              return (
+                <Link
+                  key={player.id}
+                  to={`/players/${player.id}`}
+                  className={`
+                    relative rounded-xl p-3 flex flex-col items-center text-center transition-all duration-300 group
+                    ${hasBigStar
+                      ? 'bg-gradient-to-b from-yellow-500/15 to-surface/80 border-2 border-yellow-500/50 shadow-[0_0_20px_rgba(234,179,8,0.15)] hover:shadow-[0_0_30px_rgba(234,179,8,0.3)] hover:border-yellow-400/70'
+                      : 'bg-surface/80 border border-border hover:border-yellow-400/30 hover:bg-surface-hover'}
+                  `}
+                >
+                  {/* Badge de posição */}
+                  <div className={`absolute -top-2 -left-2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md z-10 ${
+                    idx === 0 ? 'bg-yellow-500 text-black' :
+                    idx === 1 ? 'bg-zinc-300 text-black' :
+                    idx === 2 ? 'bg-orange-400 text-black' :
+                    'bg-surface-hover text-text-muted border border-border'
+                  }`}>
+                    {idx + 1}
+                  </div>
+
+                  {/* Troféu para grande estrela */}
+                  {hasBigStar && (
+                    <div className="absolute -top-2 -right-2 z-10">
+                      <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center shadow-lg shadow-yellow-500/50">
+                        <Trophy size={12} className="text-black" />
                       </div>
                     </div>
                   )}
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-bold text-text-muted">{player.mini_stars}x</span>
-                    <div className="flex gap-0.5 text-yellow-200">
-                      {[...Array(Math.min(player.mini_stars, 5))].map((_, i) => <Star key={`mini-${i}`} size={14} className="fill-yellow-200" />)}
-                      {player.mini_stars > 5 && <span className="text-xs text-yellow-200 font-bold ml-1">...</span>}
+
+                  {/* Avatar */}
+                  <Avatar
+                    name={player.name}
+                    src={player.avatar_url}
+                    size={hasBigStar ? 'lg' : 'md'}
+                    className={`mb-2 ${hasBigStar ? 'ring-2 ring-yellow-400/60 shadow-lg shadow-yellow-500/20' : ''}`}
+                  />
+
+                  {/* Nome */}
+                  <h3 className={`font-bold text-xs w-full truncate mb-2 ${
+                    hasBigStar ? 'text-yellow-300' : 'text-text-primary'
+                  }`}>{player.name}</h3>
+
+                  {/* Estrelas Grandes */}
+                  {hasBigStar && (
+                    <div className="flex items-center gap-0.5 mb-1.5">
+                      {Array.from({ length: Math.min(player.big_stars, 5) }).map((_, i) => (
+                        <span key={i} className="text-sm">🌟</span>
+                      ))}
+                      {player.big_stars > 5 && <span className="text-xs text-yellow-400 font-bold">+{player.big_stars - 5}</span>}
+                    </div>
+                  )}
+
+                  {/* Barras de categoria */}
+                  <div className="w-full space-y-1 mt-auto">
+                    {/* MVP */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-red font-bold w-8 text-left">MVP</span>
+                      <div className="flex-1 h-1 bg-surface-highlight rounded-full overflow-hidden">
+                        <div className="h-full bg-red rounded-full transition-all" style={{ width: `${(player.mvp_stars / 5) * 100}%` }} />
+                      </div>
+                      <span className="text-[9px] text-text-muted w-3 text-right">{player.mvp_stars}</span>
+                    </div>
+                    {/* Ataque */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-yellow-400 font-bold w-8 text-left">ATQ</span>
+                      <div className="flex-1 h-1 bg-surface-highlight rounded-full overflow-hidden">
+                        <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${(player.attack_stars / 5) * 100}%` }} />
+                      </div>
+                      <span className="text-[9px] text-text-muted w-3 text-right">{player.attack_stars}</span>
+                    </div>
+                    {/* Defesa */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-blue font-bold w-8 text-left">DEF</span>
+                      <div className="flex-1 h-1 bg-surface-highlight rounded-full overflow-hidden">
+                        <div className="h-full bg-blue rounded-full transition-all" style={{ width: `${(player.defense_stars / 5) * 100}%` }} />
+                      </div>
+                      <span className="text-[9px] text-text-muted w-3 text-right">{player.defense_stars}</span>
+                    </div>
+
+                    {/* Mini-estrelas totais */}
+                    <div className="flex items-center justify-between pt-1 border-t border-border/50 mt-1">
+                      <span className="text-[9px] text-text-muted uppercase tracking-wider">Mini</span>
+                      <span className="text-[10px] font-bold text-yellow-400">{player.mini_stars}/15</span>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </Link>
+              );
+            })}
           </div>
 
           {/* Novos Estrelados */}
           {data.new_stars && data.new_stars.length > 0 && (
-            <div className="mt-8 pt-6 border-t border-border/50">
-              <h3 className="text-sm font-bold text-text-primary tracking-wider mb-4 flex items-center gap-2">
+            <div className="mt-6 pt-5 border-t border-border/50">
+              <h3 className="text-sm font-bold text-text-primary tracking-wider mb-3 flex items-center gap-2">
                 <Sparkles size={16} className="text-yellow-400" />
-                NOVOS ESTRELADOS
+                DESTAQUES RECENTES
               </h3>
-              <div className="flex flex-wrap gap-4">
-                {data.new_stars.map((player: any) => (
-                  <div key={`new-${player.id}`} className="flex items-center gap-3 bg-surface rounded-full pr-4 p-1.5 border border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.1)]">
-                    <Avatar name={player.name} src={player.avatar_url} size="sm" />
-                    <span className="text-sm font-medium text-text-primary">{player.name}</span>
-                    <div className="flex items-center gap-0.5 ml-2">
-                      <Star size={12} className="fill-yellow-400 text-yellow-400" />
-                      <span className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest">Novo</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex flex-wrap gap-3">
+                {data.new_stars.map((player) => {
+                  const catConfig = {
+                    mvp: { label: 'MVP', icon: Trophy, color: 'text-red bg-red/10 border-red/30' },
+                    attack: { label: 'Ataque', icon: Zap, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' },
+                    defense: { label: 'Defesa', icon: Shield, color: 'text-blue bg-blue/10 border-blue/30' },
+                  };
+                  const cat = player.top_category ? catConfig[player.top_category] : null;
+                  const CatIcon = cat?.icon;
+                  return (
+                    <Link
+                      key={`new-${player.id}`}
+                      to={`/players/${player.id}`}
+                      className="flex items-center gap-2.5 bg-surface rounded-xl px-3 py-2 border border-border hover:border-yellow-500/40 transition-colors group"
+                    >
+                      <Avatar name={player.name} src={player.avatar_url} size="sm" />
+                      <div>
+                        <span className="text-sm font-medium text-text-primary group-hover:text-yellow-400 transition-colors block leading-tight">
+                          {player.name}
+                        </span>
+                        {player.big_stars > 0 && (
+                          <span className="text-[10px] font-bold text-yellow-400">
+                            🌟 {player.big_stars} Estrela{player.big_stars > 1 ? 's' : ''} Grande{player.big_stars > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      {cat && CatIcon && (
+                        <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cat.color}`}>
+                          <CatIcon size={10} />
+                          {cat.label}
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -297,16 +378,10 @@ export function DashboardPage() {
             <Trophy size={20} className="text-red" />
             A CORRIDA PELAS ESTATUETAS (LÍDERES DAS PARTIDAS)
           </h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <HighlightColumn title="Mais vezes MVP" icon={Star} colorClass="text-yellow-500 fill-yellow-500" bgClass="bg-yellow-500/20" data={data.highlights.mvp || []} />
             <HighlightColumn title="Melhor Ataque" icon={Swords} colorClass="text-red" bgClass="bg-red/20" data={data.highlights.best_attacker || []} />
-            <HighlightColumn title="Melhor Saque" icon={Zap} colorClass="text-blue-400" bgClass="bg-blue-500/20" data={data.highlights.best_server || []} />
             <HighlightColumn title="Melhor Defesa" icon={Shield} colorClass="text-green-500" bgClass="bg-green-500/20" data={data.highlights.best_defender || []} />
-            
-            <HighlightColumn title="Melhor Levantador" icon={Target} colorClass="text-indigo-400" bgClass="bg-indigo-500/20" data={data.highlights.best_setter || []} />
-            <HighlightColumn title="Melhor Líbero" icon={UserCheck} colorClass="text-teal-400" bgClass="bg-teal-500/20" data={data.highlights.best_libero || []} />
-            <HighlightColumn title="Melhor Blocador" icon={Hand} colorClass="text-orange-400" bgClass="bg-orange-500/20" data={data.highlights.best_blocker || []} />
-            <HighlightColumn title="Melhor Oposto" icon={Flame} colorClass="text-rose-500" bgClass="bg-rose-500/20" data={data.highlights.best_opposite || []} />
           </div>
         </motion.div>
       )}
@@ -344,77 +419,109 @@ export function DashboardPage() {
 
 
       {/* Ranking dos maiores vencedores */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="card p-6"
-      >
-        <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-2">
-          <Award size={20} className="text-red" />
-          MAIORES VENCEDORES (TIME GANHADOR)
-        </h2>
-        <div className="space-y-3">
-          {data.top_winners.map((player, idx) => (
-            <motion.div
-              key={player.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6 + idx * 0.05 }}
-              className="flex items-center gap-4 p-3 rounded-xl hover:bg-surface transition-colors group"
-            >
-              {/* Rank */}
-              <div className={`
-                w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-                ${idx === 0 ? 'bg-yellow-500/20 text-yellow-400' :
-                  idx === 1 ? 'bg-zinc-400/20 text-zinc-300' :
-                  idx === 2 ? 'bg-orange-500/20 text-orange-400' :
-                  'bg-surface text-text-muted'}
-              `}>
-                {idx + 1}
-              </div>
-
-              {/* Avatar */}
-              <Avatar name={player.name} src={player.avatar_url} size="sm" />
-
-              {/* Info */}
-              <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-4">
-                <div className="flex items-center gap-2 flex-1">
-                  <p className="text-text-primary font-medium text-sm truncate">
-                    {player.nickname || player.name}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 mt-1 sm:mt-0">
-                  <PositionBadge position={player.position} />
-                  
-                  {/* Estrelas do Jogador */}
-                  <div className="flex items-center gap-0.5 min-w-[60px]">
-                    {player.big_stars > 0 && (
-                      <div className="flex items-center text-yellow-400">
-                        {[...Array(player.big_stars)].map((_, i) => <Star key={`big-${i}`} size={14} className="fill-yellow-400" />)}
-                      </div>
-                    )}
-                    {player.mini_stars > 0 && (
-                      <div className="flex items-center text-yellow-200">
-                        {[...Array(player.mini_stars)].map((_, i) => <Star key={`mini-${i}`} size={12} className="fill-yellow-200" />)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Vitórias */}
-              <div className="text-right flex flex-col items-end">
-                <span className="text-red font-bold text-lg leading-none">{player.wins}</span>
-                <span className="text-[10px] text-text-muted uppercase">Vitórias</span>
-              </div>
-            </motion.div>
-          ))}
-          {data.top_winners.length === 0 && (
-            <p className="text-text-muted text-center py-4">Nenhum dado de vitória registrado ainda.</p>
-          )}
-        </div>
-      </motion.div>
+      <WinnersSection winners={data.top_winners} />
     </div>
+  );
+}
+
+const POSITION_FILTERS = [
+  { value: '', label: 'Todos' },
+  { value: 'libero', label: 'Líbero' },
+  { value: 'setter', label: 'Levantador' },
+  { value: 'outside', label: 'Ponteiro' },
+  { value: 'middle', label: 'Central' },
+  { value: 'opposite', label: 'Oposto' },
+  { value: 'universal', label: 'Universal' },
+];
+
+function WinnersSection({ winners }: { winners: any[] }) {
+  const [posFilter, setPosFilter] = useState('');
+
+  const filtered = posFilter
+    ? winners.filter(p => p.position === posFilter)
+    : winners;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.6 }}
+      className="card p-6"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+        <h2 className="font-display text-xl text-text-primary tracking-wider flex items-center gap-2">
+          <Award size={20} className="text-red" />
+          MAIORES VENCEDORES
+        </h2>
+        {/* Filtros de posição */}
+        <div className="flex flex-wrap gap-1.5">
+          {POSITION_FILTERS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setPosFilter(f.value)}
+              className={`text-[11px] font-bold px-3 py-1 rounded-full transition-all border ${
+                posFilter === f.value
+                  ? 'bg-red text-white border-red shadow-[0_0_8px_rgba(217,4,41,0.4)]'
+                  : 'bg-surface text-text-muted border-border hover:border-red/40 hover:text-text-secondary'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {filtered.length === 0 && (
+          <p className="text-text-muted text-center py-4">Nenhum vencedor nessa posição ainda.</p>
+        )}
+        {filtered.map((player, idx) => (
+          <motion.div
+            key={player.id}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: idx * 0.04 }}
+            className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface transition-colors group"
+          >
+            {/* Rank */}
+            <div className={`
+              w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
+              ${idx === 0 ? 'bg-yellow-500/20 text-yellow-400' :
+                idx === 1 ? 'bg-zinc-400/20 text-zinc-300' :
+                idx === 2 ? 'bg-orange-500/20 text-orange-400' :
+                'bg-surface text-text-muted'}
+            `}>
+              {idx + 1}
+            </div>
+            <Avatar name={player.name} src={player.avatar_url} size="sm" />
+            <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-4">
+              <div className="flex items-center gap-2 flex-1">
+                <p className="text-text-primary font-medium text-sm truncate">
+                  {player.nickname || player.name}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 mt-0.5 sm:mt-0">
+                <PositionBadge position={player.position} />
+                {player.big_stars > 0 && (
+                  <div className="flex items-center text-yellow-400">
+                    {[...Array(Math.min(player.big_stars, 3))].map((_, i) => (
+                      <span key={i} className="text-sm">🌟</span>
+                    ))}
+                    {player.big_stars > 3 && <span className="text-xs text-yellow-400 font-bold ml-0.5">+{player.big_stars - 3}</span>}
+                  </div>
+                )}
+                {player.mini_stars > 0 && player.big_stars === 0 && (
+                  <span className="text-[10px] text-yellow-300 font-bold">{player.mini_stars}✦</span>
+                )}
+              </div>
+            </div>
+            <div className="text-right flex flex-col items-end flex-shrink-0">
+              <span className="text-red font-bold text-lg leading-none">{player.wins}</span>
+              <span className="text-[10px] text-text-muted uppercase">Vitórias</span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
   );
 }

@@ -1,6 +1,12 @@
 import api from '@/lib/api';
 import type { Player, PaginatedResponse } from '@/types';
 
+export interface StarsPayload {
+  mvp_stars: number;
+  attack_stars: number;
+  defense_stars: number;
+}
+
 export const playersService = {
   list: (params?: Record<string, unknown>) =>
     api.get<PaginatedResponse<Player>>('/players/', { params }).then(r => r.data),
@@ -16,6 +22,11 @@ export const playersService = {
 
   delete: (id: number) =>
     api.delete(`/players/${id}/`),
+
+  updateStars: (id: number, payload: StarsPayload) =>
+    api.patch<Pick<Player, 'id' | 'mvp_stars' | 'attack_stars' | 'defense_stars' | 'mini_stars' | 'big_stars'>>(
+      `/players/${id}/update_stars/`, payload
+    ).then(r => r.data),
 
   ranking: (position?: string) =>
     api.get('/players/ranking/', { params: position ? { position } : undefined }).then(r => r.data),

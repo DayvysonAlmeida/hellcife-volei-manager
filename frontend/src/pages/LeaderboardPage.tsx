@@ -27,7 +27,6 @@ const PlayerStats = ({ stats }: { stats: any }) => {
       {stats.win_rate > 0 && <span title="Taxa de Vitória" className="flex items-center gap-1 bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded border border-green-500/20"><TrendingUp size={12}/> {stats.win_rate}%</span>}
       {stats.mvp > 0 && <span title="MVP" className="flex items-center gap-1 bg-yellow-500/10 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-500/20"><Star size={12}/> {stats.mvp}</span>}
       {stats.best_attacker > 0 && <span title="Melhor Ataque" className="flex items-center gap-1 bg-red/10 text-red px-1.5 py-0.5 rounded border border-red/20"><Swords size={12}/> {stats.best_attacker}</span>}
-      {stats.best_server > 0 && <span title="Melhor Saque" className="flex items-center gap-1 bg-blue/10 text-blue px-1.5 py-0.5 rounded border border-blue/20"><Zap size={12}/> {stats.best_server}</span>}
       {stats.best_defender > 0 && <span title="Melhor Defesa" className="flex items-center gap-1 bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded border border-green-500/20"><Shield size={12}/> {stats.best_defender}</span>}
     </div>
   );

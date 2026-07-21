@@ -1,194 +1,331 @@
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Star, AlertCircle, Plus, Minus, Loader2 } from 'lucide-react';
+import { Star, Search, Trophy, Zap, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { playersService } from '@/services/players';
+import type { StarsPayload } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
+import { useDebounce } from '@/lib/useDebounce';
 import toast from 'react-hot-toast';
+import type { Player } from '@/types';
+
+// Configuração das 3 categorias de estrelas
+const STAR_CATEGORIES = [
+  {
+    key: 'mvp_stars' as keyof StarsPayload,
+    label: 'MVP',
+    icon: Trophy,
+    color: 'text-red',
+    fillColor: '#D90429',
+    glowClass: 'shadow-neon-red-sm',
+  },
+  {
+    key: 'attack_stars' as keyof StarsPayload,
+    label: 'ATAQUE',
+    icon: Zap,
+    color: 'text-yellow-400',
+    fillColor: '#FACC15',
+    glowClass: 'drop-shadow-[0_0_4px_rgba(250,204,21,0.8)]',
+  },
+  {
+    key: 'defense_stars' as keyof StarsPayload,
+    label: 'DEFESA',
+    icon: Shield,
+    color: 'text-blue',
+    fillColor: '#2563EB',
+    glowClass: 'shadow-neon-blue-sm',
+  },
+] as const;
+
+// Componente de 5 estrelas clicáveis por categoria
+function StarRow({
+  label,
+  value,
+  fillColor,
+  glowClass,
+  icon: Icon,
+  color,
+  canEdit,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  fillColor: string;
+  glowClass: string;
+  icon: typeof Trophy;
+  color: string;
+  canEdit: boolean;
+  onChange: (val: number) => void;
+}) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const display = hovered !== null ? hovered : value;
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className={`flex items-center gap-1.5 min-w-[68px]`}>
+        <Icon size={12} className={color} />
+        <span className={`text-[10px] font-bold tracking-widest uppercase ${color}`}>{label}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        {Array.from({ length: 5 }, (_, i) => {
+          const starVal = i + 1;
+          const filled = display >= starVal;
+          return (
+            <button
+              key={i}
+              type="button"
+              disabled={!canEdit}
+              onClick={() => canEdit && onChange(value === starVal ? starVal - 1 : starVal)}
+              onMouseEnter={() => canEdit && setHovered(starVal)}
+              onMouseLeave={() => canEdit && setHovered(null)}
+              className={`transition-transform ${canEdit ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
+              aria-label={`${label} ${starVal} estrela(s)`}
+            >
+              <Star
+                size={18}
+                style={filled ? { color: fillColor, fill: fillColor } : undefined}
+                className={`${filled ? glowClass : 'text-text-muted/30'} transition-all duration-150`}
+              />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Card individual do atleta
+function PlayerStarCard({
+  player,
+  canEdit,
+  onUpdate,
+  isPending,
+}: {
+  player: Player;
+  canEdit: boolean;
+  onUpdate: (id: number, payload: StarsPayload) => void;
+  isPending: boolean;
+}) {
+  // Estado local para edição otimista (sem aguardar server)
+  const [localStars, setLocalStars] = useState<StarsPayload>({
+    mvp_stars: player.mvp_stars ?? 0,
+    attack_stars: player.attack_stars ?? 0,
+    defense_stars: player.defense_stars ?? 0,
+  });
+
+  const handleChange = useCallback(
+    (key: keyof StarsPayload, val: number) => {
+      if (!canEdit) return;
+      const updated = { ...localStars, [key]: val };
+      setLocalStars(updated);
+      onUpdate(player.id, updated);
+    },
+    [localStars, canEdit, onUpdate, player.id]
+  );
+
+  const mini = (localStars.mvp_stars + localStars.attack_stars + localStars.defense_stars);
+  const progressPct = Math.min(100, (mini / 15) * 100);
+  const bigStars = player.big_stars ?? 0;
+
+  return (
+    <div className="card p-4 flex flex-col gap-3 border-border hover:border-yellow-500/30 transition-colors duration-300 relative overflow-hidden group">
+      {/* Glow line topo */}
+      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-yellow-500/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+      {/* Header: avatar + info + estrelas grandes */}
+      <div className="flex items-center gap-3">
+        <Link to={`/players/${player.id}`} className="flex-shrink-0">
+          <Avatar name={player.display_name} src={player.avatar_url} size="md" />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/players/${player.id}`}
+              className="font-bold text-sm text-text-primary truncate hover:text-yellow-400 transition-colors"
+            >
+              {player.display_name}
+            </Link>
+            {player.shirt_number && (
+              <span className="text-[10px] text-text-muted font-mono">#{player.shirt_number}</span>
+            )}
+          </div>
+          <div className="mt-0.5">
+            <PositionBadge position={player.main_position} />
+          </div>
+        </div>
+        {/* Estrelas Grandes */}
+        {bigStars > 0 && (
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            {Array.from({ length: bigStars }).map((_, i) => (
+              <span key={i} className="text-base leading-none" title={`${bigStars} Estrela(s) Grande(s)`}>
+                🌟
+              </span>
+            ))}
+          </div>
+        )}
+        {/* Indicador de loading */}
+        {isPending && (
+          <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse flex-shrink-0" />
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="h-px bg-border" />
+
+      {/* Linhas de estrelas por categoria */}
+      <div className="flex flex-col gap-2.5">
+        {STAR_CATEGORIES.map((cat) => (
+          <StarRow
+            key={cat.key}
+            label={cat.label}
+            value={localStars[cat.key]}
+            fillColor={cat.fillColor}
+            glowClass={cat.glowClass}
+            icon={cat.icon}
+            color={cat.color}
+            canEdit={canEdit}
+            onChange={(val) => handleChange(cat.key, val)}
+          />
+        ))}
+      </div>
+
+      {/* Barra de progresso mini-estrelas */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-text-muted uppercase tracking-widest">Mini Estrelas</span>
+          <span className="text-[11px] font-bold text-yellow-400 font-mono">{mini}/15</span>
+        </div>
+        <div className="w-full h-1.5 bg-surface-highlight rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-yellow-700 via-yellow-400 to-yellow-500 transition-all duration-500 shadow-[0_0_6px_rgba(250,204,21,0.5)]"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function StarsSystemPage() {
   const { user } = useAuth();
   const isAdmin = user?.profile === 'admin' || user?.profile === 'moderator';
   const queryClient = useQueryClient();
 
-  const { data: players, isLoading, error, refetch } = useQuery({
-    queryKey: ['players', 'all-active-stars'],
-    queryFn: () => playersService.list({
-      status: 'active',
-      page_size: 500,  // Busca todos os atletas ativos de uma vez para o sistema de estrelas
-    }),
-    staleTime: 1000 * 60 * 5,  // 5 min — dados de estrelas raramente mudam
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  // Busca todos os atletas ativos — sem paginação (lista auxiliar)
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['players', 'stars-system', debouncedSearch],
+    queryFn: () =>
+      playersService.list({
+        status: 'active',
+        search: debouncedSearch || undefined,
+        page_size: 500,
+      }),
+    staleTime: 1000 * 60 * 3,
   });
 
-  const updateStarsMutation = useMutation({
-    mutationFn: ({ id, mini_stars }: { id: number; mini_stars: number }) => 
-      playersService.update(id, { mini_stars }),
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: StarsPayload }) =>
+      playersService.updateStars(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['players'] });
     },
     onError: () => {
-      toast.error('Erro ao atualizar estrelas');
-    }
+      toast.error('Erro ao salvar estrelas. Tente novamente.');
+    },
   });
+
+  const handleUpdate = useCallback(
+    (id: number, payload: StarsPayload) => {
+      updateMutation.mutate({ id, payload });
+    },
+    [updateMutation]
+  );
 
   if (isLoading) return <PageLoading />;
   if (error) return <ErrorState onRetry={refetch} />;
-  if (!players?.results) return null;
 
-  const handleUpdateStars = (e: React.MouseEvent, playerId: number, currentStars: number, delta: number) => {
-    e.preventDefault();
-    const newStars = Math.max(0, (currentStars || 0) + delta);
-    updateStarsMutation.mutate({ id: playerId, mini_stars: newStars });
-  };
-
-  const activePlayers = players.results.filter(p => p.status === 'active');
-
-  // Agrupar os jogadores por big_stars
-  const groupedPlayers = activePlayers.reduce((acc, player) => {
-    const stars = player.big_stars || 0;
-    if (!acc[stars]) {
-      acc[stars] = [];
-    }
-    acc[stars].push(player);
-    return acc;
-  }, {} as Record<number, typeof activePlayers>);
-
-  // Ordenar os grupos em ordem decrescente (ex: 3 Estrelas Grandes primeiro)
-  const sortedGroups = Object.keys(groupedPlayers)
-    .map(Number)
-    .sort((a, b) => b - a);
-
-  // Ordenar os jogadores dentro do grupo por mini_stars (decrescente)
-  sortedGroups.forEach(group => {
-    groupedPlayers[group].sort((a, b) => (b.mini_stars || 0) - (a.mini_stars || 0));
-  });
+  const players = data?.results ?? [];
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="page-title">
-          <Star className="text-yellow-500 fill-yellow-500" size={32} />
+          <Star className="text-yellow-500 fill-yellow-500" size={28} />
           SISTEMA DE ESTRELAS
         </h1>
-        <p className="page-subtitle">Classificação oficial dos atletas no Hellcife Vôlei baseada em mérito, evolução e comprometimento.</p>
+        <p className="page-subtitle">
+          Classificação dos atletas por MVP, Ataque e Defesa. Ao completar 15 mini-estrelas, o atleta conquista uma Estrela Grande.
+        </p>
       </div>
 
-      <div className="bg-surface border border-blue-500/30 p-5 rounded-xl flex items-start gap-4 shadow-[0_0_15px_rgba(37,99,235,0.05)]">
-        <AlertCircle className="text-blue-500 mt-0.5 flex-shrink-0" size={24} />
-        <div className="text-sm text-text-secondary space-y-2">
-          <p><strong className="text-blue-400 font-display tracking-wider">COMO FUNCIONA?</strong> Todo atleta inicia com 1 Mini Estrela. O ganho de novas estrelas acontece através do desempenho em circuitos e campeonatos.</p>
-          <p>Apenas Administradores podem promover atletas. As estrelas definem o nível e o agrupamento nos jogos e garantem o equilíbrio técnico dos times gerados.</p>
+      {/* Legenda rápida */}
+      <div className="flex flex-wrap gap-3 text-xs">
+        {STAR_CATEGORIES.map((cat) => (
+          <div key={cat.key} className="flex items-center gap-1.5 bg-surface px-3 py-1.5 rounded-full border border-border">
+            <cat.icon size={12} className={cat.color} />
+            <span className={`font-bold tracking-wider uppercase ${cat.color}`}>{cat.label}</span>
+            <span className="text-text-muted">— até 5 estrelas</span>
+          </div>
+        ))}
+        <div className="flex items-center gap-1.5 bg-surface px-3 py-1.5 rounded-full border border-border">
+          <span>🌟</span>
+          <span className="text-text-muted">— Estrela Grande (a cada 15)</span>
         </div>
       </div>
 
-      {sortedGroups.length === 0 ? (
-        <div className="text-center py-12 text-text-muted">
-          Nenhum atleta ativo encontrado no sistema de estrelas.
+      {/* Busca */}
+      <div className="relative max-w-sm">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+        <input
+          type="text"
+          placeholder="Buscar atleta..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="input w-full pl-9"
+        />
+      </div>
+
+      {/* Contagem */}
+      {players.length > 0 && (
+        <p className="text-xs text-text-muted">
+          {players.length} atleta{players.length !== 1 ? 's' : ''} ativo{players.length !== 1 ? 's' : ''}
+          {!isAdmin && <span className="ml-2 text-text-muted/60">· somente leitura</span>}
+        </p>
+      )}
+
+      {/* Grid de atletas */}
+      {players.length === 0 ? (
+        <div className="text-center py-16 text-text-muted">
+          {debouncedSearch ? 'Nenhum atleta encontrado para essa busca.' : 'Nenhum atleta ativo no sistema.'}
         </div>
       ) : (
-        <div className="space-y-10">
-          {sortedGroups.map((stars) => (
-            <div key={stars} className="space-y-4">
-              {/* Cabeçalho do Grupo */}
-              <div className="flex items-center gap-4">
-                <div className="flex gap-1">
-                  {stars === 0 ? (
-                    <div className="text-text-muted font-display text-sm uppercase tracking-widest px-3 py-1 bg-surface rounded-full border border-border">
-                      Iniciantes / Em Avaliação
-                    </div>
-                  ) : (
-                    Array.from({ length: stars }).map((_, i) => (
-                      <div key={i} className="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center border-b-2 border-yellow-600 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
-                        <span className="text-yellow-900 font-display text-sm font-bold">🌟</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-                {stars > 0 && (
-                  <h2 className="font-display text-xl text-text-primary tracking-wider uppercase">
-                    Nível {stars} Estrela{stars > 1 ? 's' : ''}
-                  </h2>
-                )}
-                <div className="flex-1 h-px bg-gradient-to-r from-border to-transparent" />
-              </div>
-
-              {/* Grid de Jogadores do Grupo */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {groupedPlayers[stars].map((player, idx) => (
-                  <motion.div
-                    key={player.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                  >
-                    <Link
-                      to={`/players/${player.id}`}
-                      className="card p-5 flex flex-col justify-between hover:bg-surface-highlight transition-all duration-300 group relative overflow-hidden min-h-[140px] hover:-translate-y-1 hover:shadow-neon-yellow border-border hover:border-yellow-500/50"
-                    >
-                      <div className="flex items-center gap-4 mb-4">
-                        <Avatar name={player.display_name} src={player.avatar_url} size="md" />
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-text-primary font-bold text-base truncate group-hover:text-yellow-400 transition-colors">
-                            {player.display_name}
-                          </h3>
-                          <div className="mt-1">
-                            <PositionBadge position={player.main_position} />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase font-bold text-text-muted tracking-widest">Mini Estrelas</span>
-                          <span className="text-xs font-bold text-yellow-400">{player.mini_stars || 0}/15</span>
-                        </div>
-                        <div className="w-full bg-surface-highlight rounded-full h-1.5 overflow-hidden">
-                          <div 
-                            className="bg-gradient-to-r from-yellow-700 via-yellow-400 to-yellow-700 h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(250,204,21,0.5)]" 
-                            style={{ width: `${Math.min(100, ((player.mini_stars || 0) / 15) * 100)}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {isAdmin && (
-                        <div className="absolute right-3 top-4 flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-surface/90 backdrop-blur-sm p-1.5 rounded-lg border border-border">
-                          <button
-                            onClick={(e) => handleUpdateStars(e, player.id, player.mini_stars, 1)}
-                            disabled={updateStarsMutation.isPending}
-                            className="w-7 h-7 rounded-md bg-green-500/10 flex items-center justify-center text-green-500 hover:bg-green-500 hover:text-white transition-all disabled:opacity-30 border border-green-500/20"
-                            title="Adicionar 1 Mini Estrela"
-                          >
-                            {updateStarsMutation.isPending && updateStarsMutation.variables?.id === player.id ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Plus size={14} strokeWidth={3} />
-                            )}
-                          </button>
-                          <button
-                            onClick={(e) => handleUpdateStars(e, player.id, player.mini_stars, -1)}
-                            disabled={updateStarsMutation.isPending || (player.mini_stars || 0) === 0}
-                            className="w-7 h-7 rounded-md bg-red/10 flex items-center justify-center text-red hover:bg-red hover:text-white transition-all disabled:opacity-30 border border-red/20"
-                            title="Remover 1 Mini Estrela"
-                          >
-                            <Minus size={14} strokeWidth={3} />
-                          </button>
-                        </div>
-                      )}
-                      
-                      {/* Glow gradient bottom line */}
-                      <div className="absolute bottom-0 left-0 right-0 h-[2px] opacity-40 group-hover:opacity-100 transition-opacity bg-gradient-to-r from-yellow-700 via-yellow-400 to-yellow-700" />
-                    </Link>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          {players.map((player) => (
+            <PlayerStarCard
+              key={player.id}
+              player={player}
+              canEdit={isAdmin}
+              onUpdate={handleUpdate}
+              isPending={
+                updateMutation.isPending &&
+                (updateMutation.variables as { id: number })?.id === player.id
+              }
+            />
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );

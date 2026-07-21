@@ -70,8 +70,12 @@ export interface Player {
   status_display: string;
   user?: number;
   latest_overall?: number;
-  mini_stars: number;
-  big_stars: number;
+  // Sistema de estrelas por categoria (0–5 cada)
+  mvp_stars: number;
+  attack_stars: number;
+  defense_stars: number;
+  mini_stars: number;   // soma das 3 categorias (0–15, reseta ao virar big_star)
+  big_stars: number;    // estrelas grandes conquistadas
   created_at: string;
   updated_at?: string;
   is_guest?: boolean;
@@ -391,6 +395,9 @@ export interface DashboardData {
     id: number;
     name: string;
     avatar_url?: string;
+    mvp_stars: number;
+    attack_stars: number;
+    defense_stars: number;
     mini_stars: number;
     big_stars: number;
   }>;
@@ -398,8 +405,12 @@ export interface DashboardData {
     id: number;
     name: string;
     avatar_url?: string;
+    mvp_stars: number;
+    attack_stars: number;
+    defense_stars: number;
     mini_stars: number;
     big_stars: number;
+    top_category: 'mvp' | 'attack' | 'defense' | null;
     updated_at: string;
   }>;
   last_updated: string;

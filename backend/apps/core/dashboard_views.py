@@ -63,16 +63,11 @@ class DashboardView(APIView):
                 'wins': p.wins,
             })
 
-        # Destaques — Top 3 jogadores com mais premiações por categoria
+        # Destaques — Top 3 jogadores com mais premiações por categoria (apenas 3 mantidas)
         highlight_fields = {
             'mvp': 'mvp',
             'best_attacker': 'best_attacker',
-            'best_server': 'best_server',
             'best_defender': 'best_defender',
-            'best_setter': 'best_setter',
-            'best_libero': 'best_libero',
-            'best_blocker': 'best_blocker',
-            'best_opposite': 'best_opposite',
         }
 
         highlights = {}
@@ -190,33 +185,50 @@ class DashboardView(APIView):
         if revelation_player:
             revelation = {'id': revelation_player.id, 'name': revelation_player.display_name, 'avatar_url': revelation_player.avatar_url, 'matches': revelation_player.matches}
 
-        # 4. Top Estrelas (Destaques de Mérito da Comunidade)
-        top_stars_qs = Player.objects.filter(status='active', is_guest=False, mini_stars__gt=0).order_by('-mini_stars', 'name')[:5]
+        # 4. Top Estrelas — top 10 ordenados por big_stars desc, depois mini_stars desc
+        top_stars_qs = (
+            Player.objects.filter(status='active', is_guest=False)
+            .order_by('-big_stars', '-mini_stars', 'name')[:10]
+        )
         top_stars = []
         for p in top_stars_qs:
             top_stars.append({
                 'id': p.id,
                 'name': p.display_name,
                 'avatar_url': p.avatar_url,
+                'mvp_stars': p.mvp_stars,
+                'attack_stars': p.attack_stars,
+                'defense_stars': p.defense_stars,
                 'mini_stars': p.mini_stars,
                 'big_stars': p.big_stars,
             })
 
-        # 5. Novos Estrelados (Últimos 3 jogadores que receberam estrelas - usando heurística do updated_at)
+        # 5. Novos Estrelados (Últimos 5 atletas com estrelas atualizadas recentemente)
         new_stars_qs = Player.objects.filter(
-            Q(mini_stars__gt=1) | Q(big_stars__gt=0),
-            status='active', 
+            Q(mini_stars__gt=0) | Q(big_stars__gt=0),
+            status='active',
             is_guest=False
-        ).order_by('-updated_at')[:3]
-        
+        ).order_by('-updated_at')[:5]
+
         new_stars = []
         for p in new_stars_qs:
+            # Descobrir qual categoria tem mais estrelas (a principal conquista)
+            cats = {
+                'mvp': p.mvp_stars or 0,
+                'attack': p.attack_stars or 0,
+                'defense': p.defense_stars or 0,
+            }
+            top_cat = max(cats, key=lambda k: cats[k]) if any(cats.values()) else None
             new_stars.append({
                 'id': p.id,
                 'name': p.display_name,
                 'avatar_url': p.avatar_url,
+                'mvp_stars': p.mvp_stars,
+                'attack_stars': p.attack_stars,
+                'defense_stars': p.defense_stars,
                 'mini_stars': p.mini_stars,
                 'big_stars': p.big_stars,
+                'top_category': top_cat,
                 'updated_at': p.updated_at.isoformat(),
             })
 

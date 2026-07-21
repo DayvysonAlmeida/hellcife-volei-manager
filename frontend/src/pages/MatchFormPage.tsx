@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Trophy, Users, Star, Trash2, Plus, Swords, Shield, Zap } from 'lucide-react';
+import { ArrowLeft, Loader2, Trophy, Users, Star, Trash2, Plus, Swords, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { matchesService, attendanceService, teamsService } from '@/services';
@@ -42,7 +42,6 @@ export function MatchFormPage() {
   const [selectedGenerationId, setSelectedGenerationId] = useState<number | null>(null);
   const [mvpId, setMvpId] = useState<number | null>(null);
   const [bestAttackerId, setBestAttackerId] = useState<number | null>(null);
-  const [bestServerId, setBestServerId] = useState<number | null>(null);
   const [bestDefenderId, setBestDefenderId] = useState<number | null>(null);
   const [playerSearch, setPlayerSearch] = useState('');
 
@@ -152,7 +151,6 @@ export function MatchFormPage() {
           player_ids: teamA.playerIds,
           mvp_ids: mvpId && teamA.playerIds.includes(mvpId) ? [mvpId] : [],
           best_attacker_ids: bestAttackerId && teamA.playerIds.includes(bestAttackerId) ? [bestAttackerId] : [],
-          best_server_ids: bestServerId && teamA.playerIds.includes(bestServerId) ? [bestServerId] : [],
           best_defender_ids: bestDefenderId && teamA.playerIds.includes(bestDefenderId) ? [bestDefenderId] : [],
         },
         {
@@ -162,7 +160,6 @@ export function MatchFormPage() {
           player_ids: teamB.playerIds,
           mvp_ids: mvpId && teamB.playerIds.includes(mvpId) ? [mvpId] : [],
           best_attacker_ids: bestAttackerId && teamB.playerIds.includes(bestAttackerId) ? [bestAttackerId] : [],
-          best_server_ids: bestServerId && teamB.playerIds.includes(bestServerId) ? [bestServerId] : [],
           best_defender_ids: bestDefenderId && teamB.playerIds.includes(bestDefenderId) ? [bestDefenderId] : [],
         }
       ]);
@@ -199,9 +196,6 @@ export function MatchFormPage() {
   };
   const toggleBestAttacker = (id: number) => {
     setBestAttackerId(prev => prev === id ? null : id);
-  };
-  const toggleBestServer = (id: number) => {
-    setBestServerId(prev => prev === id ? null : id);
   };
   const toggleBestDefender = (id: number) => {
     setBestDefenderId(prev => prev === id ? null : id);
@@ -258,14 +252,6 @@ export function MatchFormPage() {
                 title="Melhor Ataque"
               >
                 <Swords size={12} />
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleBestServer(player.id)}
-                className={cn("p-1 rounded transition-colors", bestServerId === player.id ? "bg-blue/20 text-blue" : "text-text-muted hover:text-blue")}
-                title="Melhor Saque"
-              >
-                <Zap size={12} />
               </button>
               <button
                 type="button"

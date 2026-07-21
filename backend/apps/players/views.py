@@ -61,9 +61,56 @@ class PlayerViewSet(viewsets.ModelViewSet):
         return PlayerDetailSerializer
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'update_stars']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
+
+    @action(detail=True, methods=['patch'], url_path='update_stars')
+    def update_stars(self, request, pk=None):
+        """
+        Atualiza as estrelas por categoria de um atleta.
+        Aceita: { mvp_stars, attack_stars, defense_stars } (0–5 cada)
+        Aplica a lógica Opção B: ao atingir 15, big_stars sobe e categorias resetam.
+        """
+        player = self.get_object()
+
+        mvp = int(request.data.get('mvp_stars', player.mvp_stars or 0))
+        attack = int(request.data.get('attack_stars', player.attack_stars or 0))
+        defense = int(request.data.get('defense_stars', player.defense_stars or 0))
+
+        # Validação de range
+        for name, val in [('mvp_stars', mvp), ('attack_stars', attack), ('defense_stars', defense)]:
+            if not (0 <= val <= 5):
+                return Response(
+                    {name: f'Deve ser entre 0 e 5. Recebido: {val}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        player.mvp_stars = mvp
+        player.attack_stars = attack
+        player.defense_stars = defense
+
+        # Aplica lógica de promoção (Opção B)
+        player.promote_stars()
+
+        # Salva apenas os campos necessários para eficiência
+        player.save(update_fields=[
+            'mvp_stars', 'attack_stars', 'defense_stars',
+            'mini_stars', 'big_stars', 'updated_at'
+        ])
+
+        # Invalida cache do dashboard para refletir nova pontuação
+        from django.core.cache import cache
+        cache.delete('dashboard_data')
+
+        return Response({
+            'id': player.id,
+            'mvp_stars': player.mvp_stars,
+            'attack_stars': player.attack_stars,
+            'defense_stars': player.defense_stars,
+            'mini_stars': player.mini_stars,
+            'big_stars': player.big_stars,
+        })
 
     @action(detail=False, methods=['get'], url_path='ranking')
     def ranking(self, request):

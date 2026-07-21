@@ -1,4 +1,7 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+STAR_VALIDATORS = [MinValueValidator(0), MaxValueValidator(5)]
 
 
 class Player(models.Model):
@@ -28,7 +31,7 @@ class Player(models.Model):
     nickname = models.CharField(max_length=80, blank=True, null=True, verbose_name='Apelido')
     shirt_number = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Número da camisa')
     age = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Idade')
-    
+
     is_guest = models.BooleanField(default=False, verbose_name='É Convidado?', db_index=True)
     invited_by = models.CharField(max_length=150, blank=True, null=True, verbose_name='Convidado por')
     height = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True, verbose_name='Altura (m)')
@@ -42,8 +45,22 @@ class Player(models.Model):
     instagram = models.CharField(max_length=100, blank=True, null=True, verbose_name='Instagram')
     avatar = models.FileField(upload_to='avatars/', blank=True, null=True, verbose_name='Foto do Jogador')
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
-    mini_stars = models.PositiveSmallIntegerField(default=1, verbose_name='Mini Estrelas')
+
+    # Sistema de Estrelas — cada categoria tem 0–5 estrelas
+    # Total (mvp + ataque + defesa) = mini_stars (0–15)
+    # Opção B: ao atingir 15, big_stars sobe e as categorias resetam
+    mvp_stars = models.PositiveSmallIntegerField(
+        default=0, validators=STAR_VALIDATORS, verbose_name='Estrelas MVP'
+    )
+    attack_stars = models.PositiveSmallIntegerField(
+        default=0, validators=STAR_VALIDATORS, verbose_name='Estrelas de Ataque'
+    )
+    defense_stars = models.PositiveSmallIntegerField(
+        default=0, validators=STAR_VALIDATORS, verbose_name='Estrelas de Defesa'
+    )
+    mini_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Mini Estrelas')
     big_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Estrelas Grandes')
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Status', db_index=True)
     user = models.OneToOneField(
         'core.User', on_delete=models.SET_NULL, null=True, blank=True,
@@ -62,6 +79,22 @@ class Player(models.Model):
         if self.shirt_number:
             return f'#{self.shirt_number} {display}'
         return display
+
+    def promote_stars(self):
+        """
+        Recalcula mini_stars a partir das 3 categorias.
+        Opção B: ao atingir 15, big_stars sobe e as 3 categorias resetam para 0.
+        Deve ser chamado ANTES de salvar (não chama save() internamente).
+        """
+        total = (self.mvp_stars or 0) + (self.attack_stars or 0) + (self.defense_stars or 0)
+        if total >= 15:
+            self.big_stars = (self.big_stars or 0) + 1
+            self.mvp_stars = 0
+            self.attack_stars = 0
+            self.defense_stars = 0
+            self.mini_stars = 0
+        else:
+            self.mini_stars = total
 
     @property
     def latest_overall(self):

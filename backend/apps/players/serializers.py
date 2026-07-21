@@ -15,7 +15,8 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'id', 'name', 'nickname', 'display_name', 'shirt_number',
             'main_position', 'main_position_display', 'secondary_position',
             'avatar_url', 'status', 'status_display', 'latest_overall',
-            'mini_stars', 'big_stars', 'created_at', 'is_guest', 'invited_by'
+            'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
+            'created_at', 'is_guest', 'invited_by'
         ]
 
     def get_latest_overall(self, obj):
@@ -78,6 +79,6 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
             'id', 'name', 'nickname', 'shirt_number', 'age', 'height', 'weight',
             'main_position', 'secondary_position', 'dominant_hand',
             'phone', 'instagram', 'avatar', 'notes', 'status', 'user',
-            'mini_stars', 'big_stars',
+            'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
         ]
         read_only_fields = ['id']
