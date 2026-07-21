@@ -108,23 +108,23 @@ export function PlayersPage() {
       />
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="page-title">Atletas</h1>
           <p className="page-subtitle">Cadastro e gestão do elenco.</p>
         </div>
         {canEdit && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button 
               onClick={() => setShowGuestModal(true)}
-              className="btn-secondary flex items-center gap-2"
+              className="btn-secondary flex-1 sm:flex-none flex items-center justify-center gap-2"
             >
               <Users size={16} />
-              Convidados
+              <span className="whitespace-nowrap">Convidados</span>
             </button>
-            <Link to="/players/new" className="btn-primary flex items-center gap-2">
+            <Link to="/players/new" className="btn-primary flex-1 sm:flex-none flex items-center justify-center gap-2">
               <Plus size={16} />
-              Novo Atleta
+              <span className="whitespace-nowrap">Novo Atleta</span>
             </Link>
           </div>
         )}
@@ -222,8 +222,8 @@ export function PlayersPage() {
           ))}
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full">
+        <div className="card overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-[600px]">
             <thead className="border-b border-border">
               <tr>
                 <th className="text-left px-4 py-3 text-text-muted text-xs font-semibold uppercase tracking-wider">Atleta</th>
