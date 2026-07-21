@@ -354,9 +354,12 @@ export function PlayersPage() {
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => {
-                            if (window.confirm(`Deseja promover ${guest.name} a Atleta Oficial?`)) {
-                              promotePlayerMutation.mutate(guest.id);
-                            }
+                            setConfirmDialog({
+                              isOpen: true,
+                              title: 'Promover a Oficial',
+                              desc: `Deseja transformar ${guest.name} em um Atleta Oficial? Ele passará a aparecer nas estatísticas principais e ranking do Dashboard.`,
+                              onConfirm: () => promotePlayerMutation.mutate(guest.id)
+                            });
                           }}
                           disabled={promotePlayerMutation.isPending}
                           className="p-1.5 text-yellow-500 hover:bg-yellow-500/10 rounded-md transition-colors flex flex-col items-center gap-1"
@@ -366,9 +369,12 @@ export function PlayersPage() {
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm(`Tem certeza que deseja apagar o convidado ${guest.name} do sistema?`)) {
-                              deletePlayerMutation.mutate(guest.id);
-                            }
+                            setConfirmDialog({
+                              isOpen: true,
+                              title: 'Excluir Convidado',
+                              desc: `Tem certeza que deseja apagar o convidado ${guest.name} do sistema?`,
+                              onConfirm: () => deletePlayerMutation.mutate(guest.id)
+                            });
                           }}
                           disabled={deletePlayerMutation.isPending}
                           className="p-1.5 text-text-muted hover:text-red hover:bg-red/10 rounded-md transition-colors"

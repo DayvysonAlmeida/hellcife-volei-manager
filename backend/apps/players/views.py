@@ -36,14 +36,14 @@ class PlayerViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Player.objects.all()
 
-        if 'include_guests' in self.request.query_params:
-            pass
-        elif 'is_guest' not in self.request.query_params:
-            qs = qs.filter(is_guest=False)
-
-        # Na listagem, anotar o overall mais recente via subquery para eliminar N+1.
-        # O serializer usa a annotation quando disponível, evitando 1 query por jogador.
         if self.action == 'list':
+            if 'include_guests' in self.request.query_params:
+                pass
+            elif 'is_guest' not in self.request.query_params:
+                qs = qs.filter(is_guest=False)
+
+            # Na listagem, anotar o overall mais recente via subquery para eliminar N+1.
+            # O serializer usa a annotation quando disponível, evitando 1 query por jogador.
             qs = qs.annotate(
                 annotated_overall=latest_overall_subquery()
             )
