@@ -80,5 +80,6 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
             'main_position', 'secondary_position', 'dominant_hand',
             'phone', 'instagram', 'avatar', 'notes', 'status', 'user',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
+            'is_guest',
         ]
         read_only_fields = ['id']
