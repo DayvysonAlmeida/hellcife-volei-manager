@@ -2,13 +2,14 @@ import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { CalendarCheck, Search, Users, ChevronRight, ChevronLeft, Plus, DollarSign, Check, X, RefreshCw, AlertCircle, Share2, Trash2, Edit2, Lock, Swords } from 'lucide-react';
+import { CalendarCheck, Search, Users, ChevronRight, ChevronLeft, Plus, DollarSign, Check, X, RefreshCw, AlertCircle, Share2, Trash2, Edit2, Lock, Swords, Star } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { attendanceService, teamsService } from '@/services';
+import { playersService } from '@/services/players';
 import { formatDate } from '@/lib/utils';
 import type { GameDay, Position } from '@/types';
 import { useAuth } from '@/store/AuthContext';
@@ -32,9 +33,17 @@ export function AttendancePage() {
 
   // Guest modal state
   const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestTab, setGuestTab] = useState<'list' | 'new'>('list');
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<Position>('outside');
   const [guestInvitedBy, setGuestInvitedBy] = useState(user?.name || '');
+
+  const { data: guestsData, isLoading: loadingGuests } = useQuery({
+    queryKey: ['guests'],
+    queryFn: () => playersService.list({ is_guest: 'true', page_size: 100 }),
+    enabled: showGuestModal,
+  });
+  const existingGuests = guestsData?.results || [];
 
   const { data: gameDaysData, isLoading } = useQuery({
     queryKey: ['gamedays'],
@@ -129,6 +138,24 @@ export function AttendancePage() {
     },
     onError: () => {
       toast.error('Erro ao adicionar convidado.');
+    }
+  });
+
+  const deletePlayerMutation = useMutation({
+    mutationFn: (id: number) => playersService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['guests'] });
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      toast.success('Convidado excluído com sucesso!');
+    }
+  });
+
+  const promotePlayerMutation = useMutation({
+    mutationFn: (id: number) => playersService.update(id, { is_guest: false }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['guests'] });
+      qc.invalidateQueries({ queryKey: ['players'] });
+      toast.success('Convidado promovido a atleta oficial!');
     }
   });
 
@@ -303,13 +330,13 @@ export function AttendancePage() {
               <input type="number" placeholder="Ilimitado" value={newMaxPlayers} onChange={(e) => setNewMaxPlayers(e.target.value === '' ? '' : Number(e.target.value))} min={0} className="input w-full mt-1" />
             </div>
             <div className="sm:col-span-1">
-              <label className="text-text-muted text-xs uppercase tracking-wider">Local</label>
+              <label className="text-text-muted text-xs uppercase tracking-wider">Local *</label>
               <input placeholder="Ex: Quadra HellCife" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="input w-full mt-1" />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
             <button onClick={() => setShowNewForm(false)} className="btn-secondary text-sm">Cancelar</button>
-            <button onClick={() => createMutation.mutate()} disabled={createMutation.isPending} className="btn-primary text-sm">
+            <button onClick={() => createMutation.mutate()} disabled={!newDate || !newLocation || createMutation.isPending} className="btn-primary text-sm">
               Criar dia de jogo
             </button>
           </div>
@@ -568,65 +595,169 @@ export function AttendancePage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="card max-w-md w-full p-6 shadow-xl"
+            className="card max-w-md w-full p-6 shadow-xl flex flex-col max-h-[90vh]"
           >
-            <h2 className="text-xl font-display text-text-primary mb-4 flex items-center gap-2">
-              <Plus className="text-red" />
-              Adicionar Convidado
-            </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Nome do Convidado *</label>
-                <input 
-                  type="text" 
-                  value={guestName} 
-                  onChange={e => setGuestName(e.target.value)} 
-                  className="input w-full"
-                  placeholder="Ex: João Silva"
-                />
-              </div>
-
-              <div>
-                <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Posição Principal *</label>
-                <select 
-                  value={guestPosition} 
-                  onChange={e => setGuestPosition(e.target.value as Position)} 
-                  className="input w-full"
-                >
-                  <option value="outside">Ponteiro</option>
-                  <option value="setter">Levantador</option>
-                  <option value="middle">Central</option>
-                  <option value="opposite">Oposto</option>
-                  <option value="libero">Líbero</option>
-                  <option value="universal">Universal</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Convidado por</label>
-                <input 
-                  type="text" 
-                  value={guestInvitedBy} 
-                  onChange={e => setGuestInvitedBy(e.target.value)} 
-                  className="input w-full"
-                  placeholder="Seu nome"
-                />
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-display text-text-primary flex items-center gap-2">
+                <Users className="text-red" />
+                Gerenciar Convidados
+              </h2>
+              <button onClick={() => setShowGuestModal(false)} className="text-text-muted hover:text-text-primary">
+                <X size={20} />
+              </button>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowGuestModal(false)} className="btn-secondary">
-                Cancelar
-              </button>
-              <button 
-                onClick={() => addGuestMutation.mutate({ name: guestName, main_position: guestPosition, invited_by: guestInvitedBy })}
-                disabled={!guestName || addGuestMutation.isPending}
-                className="btn-primary"
+            {/* Tabs */}
+            <div className="flex border-b border-border mb-4">
+              <button
+                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${guestTab === 'list' ? 'border-red text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}
+                onClick={() => setGuestTab('list')}
               >
-                {addGuestMutation.isPending ? 'Adicionando...' : 'Adicionar e Marcar Presença'}
+                Selecionar Existente
+              </button>
+              <button
+                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${guestTab === 'new' ? 'border-red text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}
+                onClick={() => setGuestTab('new')}
+              >
+                Novo Convidado
               </button>
             </div>
+            
+            {guestTab === 'new' && (
+              <div className="space-y-4 overflow-y-auto pr-2">
+                <div>
+                  <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Nome do Convidado *</label>
+                  <input 
+                    type="text" 
+                    value={guestName} 
+                    onChange={e => setGuestName(e.target.value)} 
+                    className="input w-full"
+                    placeholder="Ex: João Silva"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Posição Principal *</label>
+                  <select 
+                    value={guestPosition} 
+                    onChange={e => setGuestPosition(e.target.value as Position)} 
+                    className="input w-full"
+                  >
+                    <option value="outside">Ponteiro</option>
+                    <option value="setter">Levantador</option>
+                    <option value="middle">Central</option>
+                    <option value="opposite">Oposto</option>
+                    <option value="libero">Líbero</option>
+                    <option value="universal">Universal</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">Convidado por</label>
+                  <input 
+                    type="text" 
+                    value={guestInvitedBy} 
+                    onChange={e => setGuestInvitedBy(e.target.value)} 
+                    className="input w-full"
+                    placeholder="Seu nome"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-4 mt-2 border-t border-border">
+                  <button 
+                    onClick={() => addGuestMutation.mutate({ name: guestName, main_position: guestPosition, invited_by: guestInvitedBy })}
+                    disabled={!guestName || addGuestMutation.isPending}
+                    className="btn-primary"
+                  >
+                    {addGuestMutation.isPending ? 'Adicionando...' : 'Adicionar à Pelada'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {guestTab === 'list' && (
+              <div className="flex-1 overflow-hidden flex flex-col">
+                {loadingGuests ? (
+                  <div className="py-8 text-center text-text-muted animate-pulse">Carregando convidados...</div>
+                ) : existingGuests.length === 0 ? (
+                  <div className="py-12 text-center text-text-muted">
+                    <p>Nenhum convidado salvo no histórico.</p>
+                    <button onClick={() => setGuestTab('new')} className="mt-4 text-red hover:underline text-sm font-bold">
+                      Cadastrar o primeiro convidado
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 overflow-y-auto pr-2 pb-2">
+                    {existingGuests.map(guest => {
+                      const alreadyInGame = presentAttendances.some(a => a.player === guest.id) || absentAttendances.some(a => a.player === guest.id);
+                      
+                      return (
+                        <div key={guest.id} className="flex items-center justify-between bg-surface/50 p-3 rounded-xl border border-border">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
+                            <div>
+                              <p className="text-sm font-bold text-text-primary">{guest.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <PositionBadge position={guest.main_position} />
+                                {guest.invited_by && (
+                                  <span className="text-[9px] text-text-muted uppercase truncate max-w-[80px]">
+                                    Por: {guest.invited_by}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Deseja promover ${guest.name} a Atleta Oficial?`)) {
+                                  promotePlayerMutation.mutate(guest.id);
+                                }
+                              }}
+                              disabled={promotePlayerMutation.isPending}
+                              className="p-1.5 text-yellow-500 hover:bg-yellow-500/10 rounded-md transition-colors"
+                              title="Promover a Oficial"
+                            >
+                              <Star size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Tem certeza que deseja apagar o convidado ${guest.name} do sistema? (Isso removerá ele do histórico de jogos)`)) {
+                                  deletePlayerMutation.mutate(guest.id);
+                                }
+                              }}
+                              disabled={deletePlayerMutation.isPending}
+                              className="p-1.5 text-text-muted hover:text-red hover:bg-red/10 rounded-md transition-colors"
+                              title="Excluir Convidado"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                            
+                            <button
+                              onClick={() => {
+                                toggleMutation.mutate({ gamedayId: gameDayDetail!.id, playerId: guest.id });
+                                toast.success(`${guest.name} jogado na pelada!`);
+                              }}
+                              disabled={alreadyInGame || toggleMutation.isPending}
+                              className={`p-1.5 rounded-md transition-colors flex items-center gap-1 px-2 text-xs font-bold ${
+                                alreadyInGame 
+                                  ? 'bg-surface border border-border text-text-muted cursor-not-allowed' 
+                                  : 'bg-red text-white hover:bg-red-500 shadow-md shadow-red/20'
+                              }`}
+                              title={alreadyInGame ? "Já está na pelada" : "Adicionar à pelada atual"}
+                            >
+                              {alreadyInGame ? <Check size={14} /> : <Plus size={14} />}
+                              <span className="hidden sm:inline">{alreadyInGame ? 'Add' : 'Add'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         </div>
       )}

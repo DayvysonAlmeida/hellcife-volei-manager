@@ -33,4 +33,7 @@ export const playersService = {
 
   stats: (id: number) =>
     api.get(`/players/${id}/stats/`).then(r => r.data),
+
+  getStarHistory: () =>
+    api.get('/players/stars-history/').then(r => r.data),
 };

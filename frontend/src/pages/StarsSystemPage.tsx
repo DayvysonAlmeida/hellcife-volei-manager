@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Star, Search, Trophy, Zap, Shield } from 'lucide-react';
+import { Star, Search, Trophy, Zap, Shield, History } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { formatDateTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
@@ -210,6 +211,86 @@ function PlayerStarCard({
   );
 }
 
+function StarHistoryTimeline() {
+  const { data: history, isLoading } = useQuery({
+    queryKey: ['stars-history'],
+    queryFn: playersService.getStarHistory,
+    refetchInterval: 1000 * 60 * 5, // Atualiza a cada 5 mins
+  });
+
+  if (isLoading) return <div className="animate-pulse h-20 bg-surface rounded-xl mt-12 mb-8"></div>;
+
+  return (
+    <div className="mt-12 mb-8">
+      <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-2">
+        <History size={20} className="text-yellow-500" />
+        LINHA DO TEMPO (HISTÓRICO DE ESTRELAS)
+      </h2>
+      <div className="bg-surface border border-border rounded-2xl p-6">
+        {(!history || history.length === 0) ? (
+          <div className="text-center py-8 text-text-muted">
+            <Star className="mx-auto mb-3 text-text-muted/30" size={32} />
+            <p>Nenhuma estrela foi distribuída ainda.</p>
+            <p className="text-xs mt-1">O histórico aparecerá aqui automaticamente.</p>
+          </div>
+        ) : (
+          <div className="relative border-l-2 border-border/50 ml-4 space-y-6">
+          {history.map((item: any) => {
+            const isPromo = item.category === 'promotion';
+            const isMvp = item.category === 'mvp';
+            const isAttack = item.category === 'attack';
+            
+            let color = 'text-yellow-400';
+            let icon = '🌟';
+            let label = 'Estrela';
+            
+            if (isPromo) {
+               icon = '👑'; label = 'Grande Estrela'; color = 'text-yellow-500';
+            } else if (isMvp) {
+               icon = '🏆'; label = 'Estrela MVP'; color = 'text-yellow-400';
+            } else if (isAttack) {
+               icon = '⚡'; label = 'Melhor Ataque'; color = 'text-red';
+            } else {
+               icon = '🛡️'; label = 'Melhor Defesa'; color = 'text-blue';
+            }
+
+            const actionText = item.action === 'add' ? 'Ganhou' : item.action === 'remove' ? 'Perdeu' : 'Conquistou';
+            const countText = item.count > 1 ? `${item.count} ` : '';
+
+            return (
+              <div key={item.id} className="relative pl-6 sm:pl-8">
+                {/* Marcador na linha */}
+                <div className={`absolute -left-[5px] top-1.5 w-2 h-2 rounded-full ${color.replace('text-', 'bg-')} ring-4 ring-surface`}></div>
+                
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 group">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={item.player_name} src={item.avatar_url} size="sm" />
+                    <div>
+                      <p className="text-sm text-text-primary">
+                        <Link to={`/players/${item.player_id}`} className="font-bold hover:text-yellow-400 transition-colors">
+                          {item.player_name}
+                        </Link>{' '}
+                        <span className="text-text-muted">{actionText.toLowerCase()}</span>{' '}
+                        <span className={`font-bold ${color}`}>
+                          {countText}{label} {icon}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-text-muted font-mono whitespace-nowrap opacity-70 group-hover:opacity-100 transition-opacity mt-1 sm:mt-0">
+                    {formatDateTime(item.created_at)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function StarsSystemPage() {
   const { user } = useAuth();
   const isAdmin = user?.profile === 'admin' || user?.profile === 'moderator';
@@ -335,6 +416,9 @@ export function StarsSystemPage() {
           ))}
         </motion.div>
       )}
+
+      {/* Histórico Timeline */}
+      <StarHistoryTimeline />
     </div>
   );
 }

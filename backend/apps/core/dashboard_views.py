@@ -28,9 +28,9 @@ class DashboardView(APIView):
         return Response(data)
 
     def _build_data(self):
-        # Contagens básicas
-        total_players = Player.objects.count()
-        active_count = Player.objects.filter(status='active').count()
+        # Contagens básicas (ignorando convidados)
+        total_players = Player.objects.filter(is_guest=False).count()
+        active_count = Player.objects.filter(status='active', is_guest=False).count()
 
         # Presença de hoje
         today = date.today()
@@ -85,9 +85,9 @@ class DashboardView(APIView):
                 for p in top
             ]
 
-        # Distribuição por Posição
+        # Distribuição por Posição (ignorando convidados)
         position_distribution = list(
-            Player.objects.filter(status='active')
+            Player.objects.filter(status='active', is_guest=False)
             .values('main_position')
             .annotate(count=Count('id'))
             .order_by('-count')

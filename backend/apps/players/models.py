@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
 
 STAR_VALIDATORS = [MinValueValidator(0), MaxValueValidator(5)]
 
@@ -115,3 +116,32 @@ class Player(models.Model):
     @property
     def display_name(self):
         return self.nickname or self.name
+
+
+class StarHistory(models.Model):
+    CATEGORY_CHOICES = [
+        ('mvp', 'MVP'),
+        ('attack', 'Ataque'),
+        ('defense', 'Defesa'),
+        ('promotion', 'Promoção (Grande Estrela)'),
+    ]
+
+    ACTION_CHOICES = [
+        ('add', 'Adicionado'),
+        ('remove', 'Removido'),
+        ('promote', 'Conquistou Grande Estrela'),
+    ]
+
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='star_history', verbose_name='Jogador')
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, verbose_name='Categoria')
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name='Ação')
+    count = models.PositiveSmallIntegerField(default=1, verbose_name='Quantidade')
+    created_at = models.DateTimeField(default=timezone.now, verbose_name='Data e Hora')
+
+    class Meta:
+        verbose_name = 'Histórico de Estrela'
+        verbose_name_plural = 'Histórico de Estrelas'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.player.display_name} - {self.get_action_display()} {self.count} {self.get_category_display()}"

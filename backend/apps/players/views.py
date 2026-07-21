@@ -6,7 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q, Subquery, OuterRef, FloatField, Case, When, IntegerField
 from django.db.models.functions import Coalesce
 
-from .models import Player
+from .models import Player, StarHistory
 from .serializers import PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer
 from .filters import PlayerFilter
 from apps.core.permissions import IsAdminOrModerator
@@ -74,9 +74,13 @@ class PlayerViewSet(viewsets.ModelViewSet):
         """
         player = self.get_object()
 
-        mvp = int(request.data.get('mvp_stars', player.mvp_stars or 0))
-        attack = int(request.data.get('attack_stars', player.attack_stars or 0))
-        defense = int(request.data.get('defense_stars', player.defense_stars or 0))
+        old_mvp = player.mvp_stars or 0
+        old_attack = player.attack_stars or 0
+        old_defense = player.defense_stars or 0
+
+        mvp = int(request.data.get('mvp_stars', old_mvp))
+        attack = int(request.data.get('attack_stars', old_attack))
+        defense = int(request.data.get('defense_stars', old_defense))
 
         # Validação de range
         for name, val in [('mvp_stars', mvp), ('attack_stars', attack), ('defense_stars', defense)]:
@@ -86,29 +90,44 @@ class PlayerViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-        # Calcula o delta das estrelas para incrementar os totais históricos
-        diff_mvp = max(0, mvp - player.mvp_stars)
-        diff_attack = max(0, attack - player.attack_stars)
-        diff_defense = max(0, defense - player.defense_stars)
+        # Calcula o delta das estrelas
+        diff_mvp = mvp - old_mvp
+        diff_attack = attack - old_attack
+        diff_defense = defense - old_defense
 
-        player.total_mvp += diff_mvp
-        player.total_attack += diff_attack
-        player.total_defense += diff_defense
+        player.total_mvp += max(0, diff_mvp)
+        player.total_attack += max(0, diff_attack)
+        player.total_defense += max(0, diff_defense)
 
-        # Atualiza os valores parciais (que resetam ao virar grande estrela)
         player.mvp_stars = mvp
         player.attack_stars = attack
         player.defense_stars = defense
 
-        # Aplica lógica de promoção (Opção B)
+        prev_big_stars = player.big_stars or 0
         player.promote_stars()
+        new_big_stars = player.big_stars or 0
 
-        # Salva apenas os campos necessários para eficiência
+        # Salva as alterações
         player.save(update_fields=[
             'mvp_stars', 'attack_stars', 'defense_stars',
             'mini_stars', 'big_stars', 'updated_at',
             'total_mvp', 'total_attack', 'total_defense'
         ])
+
+        # Cria os registros de histórico de estrelas
+        history_to_create = []
+        if diff_mvp != 0:
+            history_to_create.append(StarHistory(player=player, category='mvp', action='add' if diff_mvp > 0 else 'remove', count=abs(diff_mvp)))
+        if diff_attack != 0:
+            history_to_create.append(StarHistory(player=player, category='attack', action='add' if diff_attack > 0 else 'remove', count=abs(diff_attack)))
+        if diff_defense != 0:
+            history_to_create.append(StarHistory(player=player, category='defense', action='add' if diff_defense > 0 else 'remove', count=abs(diff_defense)))
+            
+        if new_big_stars > prev_big_stars:
+            history_to_create.append(StarHistory(player=player, category='promotion', action='promote', count=new_big_stars - prev_big_stars))
+
+        if history_to_create:
+            StarHistory.objects.bulk_create(history_to_create)
 
         # Invalida cache do dashboard para refletir nova pontuação
         from django.core.cache import cache
@@ -122,6 +141,23 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'mini_stars': player.mini_stars,
             'big_stars': player.big_stars,
         })
+
+    @action(detail=False, methods=['get'], url_path='stars-history')
+    def stars_history(self, request):
+        qs = StarHistory.objects.select_related('player').order_by('-created_at')[:50]
+        data = []
+        for h in qs:
+            data.append({
+                'id': h.id,
+                'player_id': h.player_id,
+                'player_name': h.player.display_name,
+                'avatar_url': h.player.avatar_url,
+                'category': h.category,
+                'action': h.action,
+                'count': h.count,
+                'created_at': h.created_at.isoformat(),
+            })
+        return Response(data)
 
     @action(detail=False, methods=['get'], url_path='ranking')
     def ranking(self, request):

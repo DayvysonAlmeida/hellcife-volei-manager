@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
@@ -12,6 +12,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { playersService } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
 import { useDebounce } from '@/lib/useDebounce';
+import toast from 'react-hot-toast';
 import { POSITION_LABELS, type Position, type PlayerStatus } from '@/types';
 import type { Player } from '@/types';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,34 @@ export function PlayersPage() {
 
   // Debounce na busca — espera 300ms após parar de digitar
   const debouncedSearch = useDebounce(search, 300);
+
+  // Guest modal state
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  
+  const { data: guestsData, isLoading: loadingGuests } = useQuery({
+    queryKey: ['guests'],
+    queryFn: () => playersService.list({ is_guest: 'true', page_size: 100 }),
+    enabled: showGuestModal,
+  });
+  const existingGuests = guestsData?.results || [];
+
+  const deletePlayerMutation = useMutation({
+    mutationFn: (id: number) => playersService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['guests'] });
+      qc.invalidateQueries({ queryKey: ['players'] });
+      toast.success('Convidado excluído com sucesso!');
+    }
+  });
+
+  const promotePlayerMutation = useMutation({
+    mutationFn: (id: number) => playersService.update(id, { is_guest: false }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['guests'] });
+      qc.invalidateQueries({ queryKey: ['players'] });
+      toast.success('Convidado promovido a atleta oficial!');
+    }
+  });
 
   // Reset para página 1 ao mudar filtros ou busca
   const handleFilterChange = (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -85,10 +114,19 @@ export function PlayersPage() {
           <p className="page-subtitle">Cadastro e gestão do elenco.</p>
         </div>
         {canEdit && (
-          <Link to="/players/new" className="btn-primary flex items-center gap-2">
-            <Plus size={16} />
-            Novo Atleta
-          </Link>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowGuestModal(true)}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Users size={16} />
+              Convidados
+            </button>
+            <Link to="/players/new" className="btn-primary flex items-center gap-2">
+              <Plus size={16} />
+              Novo Atleta
+            </Link>
+          </div>
         )}
       </div>
 
@@ -267,6 +305,85 @@ export function PlayersPage() {
           pageSize={PAGE_SIZE}
           onPageChange={setPage}
         />
+      )}
+
+      {/* Guest Manager Modal */}
+      {showGuestModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="card max-w-md w-full p-6 shadow-xl flex flex-col max-h-[90vh]"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-display text-text-primary flex items-center gap-2">
+                <Users className="text-red" />
+                Gerenciar Convidados
+              </h2>
+              <button onClick={() => setShowGuestModal(false)} className="text-text-muted hover:text-text-primary">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex flex-col mt-2">
+              {loadingGuests ? (
+                <div className="py-8 text-center text-text-muted animate-pulse">Carregando convidados...</div>
+              ) : existingGuests.length === 0 ? (
+                <div className="py-12 text-center text-text-muted">
+                  <p>Nenhum convidado no sistema.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 overflow-y-auto pr-2 pb-2">
+                  {existingGuests.map(guest => (
+                    <div key={guest.id} className="flex items-center justify-between bg-surface/50 p-3 rounded-xl border border-border">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
+                        <div>
+                          <p className="text-sm font-bold text-text-primary">{guest.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <PositionBadge position={guest.main_position} />
+                            {guest.invited_by && (
+                              <span className="text-[9px] text-text-muted uppercase truncate max-w-[80px]">
+                                Por: {guest.invited_by}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Deseja promover ${guest.name} a Atleta Oficial?`)) {
+                              promotePlayerMutation.mutate(guest.id);
+                            }
+                          }}
+                          disabled={promotePlayerMutation.isPending}
+                          className="p-1.5 text-yellow-500 hover:bg-yellow-500/10 rounded-md transition-colors flex flex-col items-center gap-1"
+                          title="Promover a Oficial"
+                        >
+                          <Star size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Tem certeza que deseja apagar o convidado ${guest.name} do sistema?`)) {
+                              deletePlayerMutation.mutate(guest.id);
+                            }
+                          }}
+                          disabled={deletePlayerMutation.isPending}
+                          className="p-1.5 text-text-muted hover:text-red hover:bg-red/10 rounded-md transition-colors"
+                          title="Excluir Convidado"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

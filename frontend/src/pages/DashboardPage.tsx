@@ -46,7 +46,7 @@ function HighlightColumn({ title, icon: Icon, colorClass, bgClass, data }: { tit
       {data && data.length > 0 ? (
         <div className="flex flex-col items-center w-full relative pt-4 pb-2">
           {/* PÓDIO */}
-          <div className="flex items-end justify-center gap-2 w-full h-28 mb-4 relative">
+          <div className="flex items-end justify-center gap-2 w-full h-36 mb-4 relative mt-4">
             {/* 2º Lugar */}
             {second && (
               <div className="flex flex-col items-center w-1/3 z-10 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
@@ -61,8 +61,8 @@ function HighlightColumn({ title, icon: Icon, colorClass, bgClass, data }: { tit
             
             {/* 1º Lugar */}
             {first && (
-              <div className="flex flex-col items-center w-[40%] z-20 -mb-2 animate-fade-in-up">
-                <div className="absolute -top-6 text-yellow-400 animate-pulse">
+              <div className="relative flex flex-col items-center w-[40%] z-20 -mb-2 animate-fade-in-up">
+                <div className="absolute -top-7 text-yellow-400 animate-pulse">
                   <Crown size={20} />
                 </div>
                 <Avatar name={first.name} src={first.avatar_url} size="md" className={`mb-2 ring-4 shadow-[0_0_15px_currentColor] ${colorClass.split(' ')[0].replace('text-', 'ring-').replace('fill-', '')} ${colorClass}`} />
@@ -480,7 +480,7 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <HighlightColumn title="Mais vezes MVP" icon={Star} colorClass="text-yellow-500 fill-yellow-500" bgClass="bg-yellow-500/20" data={data.highlights.mvp || []} />
             <HighlightColumn title="Melhor Ataque" icon={Swords} colorClass="text-red" bgClass="bg-red/20" data={data.highlights.best_attacker || []} />
-            <HighlightColumn title="Melhor Defesa" icon={Shield} colorClass="text-green-500" bgClass="bg-green-500/20" data={data.highlights.best_defender || []} />
+            <HighlightColumn title="Melhor Defesa" icon={Shield} colorClass="text-blue" bgClass="bg-blue/20" data={data.highlights.best_defender || []} />
           </div>
         </motion.div>
       )}
