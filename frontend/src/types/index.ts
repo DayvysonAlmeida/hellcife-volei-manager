@@ -432,6 +432,9 @@ export interface HighlightPlayer {
   name: string;
   avatar_url?: string;
   count: number;
+  mvp_stars: number;
+  attack_stars: number;
+  defense_stars: number;
   mini_stars: number;
   big_stars: number;
 }
