@@ -24,6 +24,7 @@ export function AttendancePage() {
 
   const [selectedGameDay, setSelectedGameDay] = useState<GameDay | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +59,15 @@ export function AttendancePage() {
     
     return { presentAttendances: present, absentAttendances: absent, totalPaid };
   }, [gameDayDetail, searchTerm]);
+
+  const { courtPrice, rateio, totalCollected, remaining } = useMemo(() => {
+    if (!gameDayDetail || !gameDayDetail.court_price) return { courtPrice: 0, rateio: 0, totalCollected: 0, remaining: 0 };
+    const cp = Number(gameDayDetail.court_price);
+    const rat = gameDayDetail.total_present > 0 ? cp / gameDayDetail.total_present : 0;
+    const coll = totalPaid * rat;
+    const rem = Math.max(0, cp - coll);
+    return { courtPrice: cp, rateio: rat, totalCollected: coll, remaining: rem };
+  }, [gameDayDetail, totalPaid]);
 
   const isPastGameday = !!gameDayDetail?.date && gameDayDetail.date < todayStr;
   const showEditControls = canEdit && !isPastGameday;
@@ -137,13 +147,13 @@ export function AttendancePage() {
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title">Controle de Presença</h1>
-          <p className="page-subtitle">Registro de presença por dia de jogo.</p>
+          <h1 className="page-title">Circuito Hellcife</h1>
+          <p className="page-subtitle">Registro de presença por dia de circuito.</p>
         </div>
         {canEdit && (
           <button onClick={() => setShowNewForm(!showNewForm)} className="btn-primary flex items-center gap-2">
             <Plus size={16} />
-            Novo dia de jogo
+            Novo Circuito
           </button>
         )}
       </div>
@@ -155,7 +165,7 @@ export function AttendancePage() {
         <div className={`card p-4 ${selectedGameDay ? 'hidden lg:block' : 'block'}`}>
           <h2 className="font-display text-base tracking-wider text-text-primary mb-3 flex items-center gap-2">
             <CalendarCheck size={16} className="text-red" />
-            DIAS DE JOGO
+            CIRCUITOS
           </h2>
           {isLoading ? (
             <PageLoading />
@@ -251,9 +261,20 @@ export function AttendancePage() {
                     <ChevronLeft size={24} />
                   </button>
                   <div>
-                    <h2 className="font-display text-xl tracking-wider text-text-primary flex items-center gap-2">
-                      {formatDate(gameDayDetail.date)}
-                    </h2>
+                    <div className="flex items-center gap-4">
+                      <h2 className="font-display text-xl tracking-wider text-text-primary flex items-center gap-2">
+                        {formatDate(gameDayDetail.date)} {gameDayDetail.time ? `- ${gameDayDetail.time.slice(0, 5)}` : ''} {gameDayDetail.time_end ? `às ${gameDayDetail.time_end.slice(0, 5)}` : ''}
+                      </h2>
+                      {showEditControls && (
+                        <button
+                          onClick={() => setShowEditForm(!showEditForm)}
+                          className="btn-ghost p-1 text-text-muted hover:text-red transition-colors"
+                          title="Editar Circuito"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      )}
+                    </div>
                     {gameDayDetail.location && (
                       <p className="text-text-muted text-sm">{gameDayDetail.location}</p>
                     )}
@@ -279,15 +300,6 @@ export function AttendancePage() {
                     <p className="font-display text-3xl text-red">{gameDayDetail.total_present}</p>
                     <p className="text-text-muted text-[10px] uppercase tracking-wider mb-3 flex items-center justify-center gap-1">
                       de {gameDayDetail.max_players ? gameDayDetail.max_players : 'ILIMITADO'} presentes
-                      {showEditControls && (
-                        <button
-                          onClick={handleEditLimit}
-                          className="text-text-muted hover:text-red transition-colors ml-1"
-                          title="Editar limite de jogadores"
-                        >
-                          <Edit2 size={12} />
-                        </button>
-                      )}
                     </p>
                   </div>
                   {showEditControls && (
@@ -301,6 +313,33 @@ export function AttendancePage() {
                   )}
                 </div>
               </div>
+              
+              {gameDayDetail.court_price && (
+                <div className="p-3 bg-surface-hover rounded-xl border border-border flex items-center justify-between text-sm flex-wrap gap-4">
+                  <div className="flex-1 min-w-[100px]">
+                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Valor da Quadra</p>
+                    <p className="font-bold text-text-primary">R$ {courtPrice.toFixed(2).replace('.', ',')}</p>
+                  </div>
+                  <div className="flex-1 min-w-[100px]">
+                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Rateio (Por Atleta)</p>
+                    <p className="font-bold text-text-primary">R$ {rateio.toFixed(2).replace('.', ',')}</p>
+                  </div>
+                  <div className="flex-1 min-w-[100px]">
+                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Arrecadado</p>
+                    <p className="font-bold text-green-500">R$ {totalCollected.toFixed(2).replace('.', ',')}</p>
+                  </div>
+                  <div className="flex-1 min-w-[100px]">
+                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Falta Arrecadar</p>
+                    <p className="font-bold text-red">R$ {remaining.toFixed(2).replace('.', ',')}</p>
+                  </div>
+                </div>
+              )}
+
+              {showEditForm && canEdit && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <GameDayForm initialData={gameDayDetail} onClose={() => setShowEditForm(false)} />
+                </div>
+              )}
 
               <div className="divider" />
 

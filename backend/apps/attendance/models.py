@@ -3,7 +3,9 @@ from django.db import models
 
 class GameDay(models.Model):
     date = models.DateField(verbose_name='Data')
-    time = models.TimeField(blank=True, null=True, verbose_name='Hora')
+    time = models.TimeField(blank=True, null=True, verbose_name='Hora Inicial')
+    time_end = models.TimeField(blank=True, null=True, verbose_name='Hora Final')
+    court_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, verbose_name='Valor da Quadra')
     description = models.CharField(max_length=200, blank=True, null=True, verbose_name='Descrição')
     location = models.CharField(max_length=200, blank=True, null=True, verbose_name='Local')
     max_players = models.PositiveSmallIntegerField(default=0, verbose_name='Limite de Jogadores')

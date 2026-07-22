@@ -173,6 +173,8 @@ export interface GameDay {
   id: number;
   date: string;
   time?: string;
+  time_end?: string;
+  court_price?: number;
   description?: string;
   location?: string;
   max_players?: number;

@@ -178,7 +178,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'location': gameday.location,
                 'description': gameday.description,
                 'total_present': len(present_ids),
-                'max_players': gameday.max_players
+                'max_players': gameday.max_players,
+                'court_price': gameday.court_price,
+                'time': gameday.time,
+                'time_end': gameday.time_end
             },
             'players': players_data
         })
@@ -191,17 +194,18 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if not player_id:
             return Response({'detail': 'ID do jogador não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        if gameday.max_players and gameday.total_present >= gameday.max_players:
-            # Verifica se ele já estava presente (caso esteja querendo desmarcar)
-            att = Attendance.objects.filter(gameday=gameday, player_id=player_id).first()
-            if not att or not att.present:
-                return Response({'detail': 'Lista de presença cheia!'}, status=status.HTTP_400_BAD_REQUEST)
-                
+
         attendance, _ = Attendance.objects.get_or_create(
             gameday=gameday, player_id=player_id
         )
-        attendance.present = not attendance.present
+
+        if attendance.present:
+            return Response({'detail': 'Você já confirmou sua presença! Para cancelar, fale com a organização.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if gameday.max_players and gameday.total_present >= gameday.max_players:
+            return Response({'detail': 'Lista de presença cheia!'}, status=status.HTTP_400_BAD_REQUEST)
+                
+        attendance.present = True
         attendance.save()
         
         return Response({'present': attendance.present, 'player_id': player_id})
