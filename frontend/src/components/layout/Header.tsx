@@ -39,7 +39,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/logo.jpg" alt="HellCife" className="w-6 h-6 rounded object-cover" />
+            <img src="/logo.png" alt="HellCife" className="w-6 h-6 rounded object-cover" />
             <span className="text-red font-display text-base tracking-widest hidden sm:block">
               HELLCIFE VÔLEI
             </span>

@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.core.cache import cache
 
 from .models import Match, MatchTeam, MatchPlayer
 from .serializers import MatchSerializer, MatchListSerializer, MatchWriteSerializer, MatchTeamSerializer
@@ -72,6 +73,9 @@ class MatchViewSet(viewsets.ModelViewSet):
                 ))
             MatchPlayer.objects.bulk_create(match_players)
 
+        # Invalidar cache do dashboard
+        cache.delete('dashboard_data')
+
         return Response({'detail': 'Resultado registrado com sucesso.'})
 
     @action(detail=False, methods=['post'], url_path='quick')
@@ -116,5 +120,8 @@ class MatchViewSet(viewsets.ModelViewSet):
                     best_opposite=player_id in team_data.get('best_opposite_ids', [])
                 ))
             MatchPlayer.objects.bulk_create(match_players)
+
+        # Invalidar cache do dashboard
+        cache.delete('dashboard_data')
 
         return Response(MatchSerializer(match).data, status=status.HTTP_201_CREATED)

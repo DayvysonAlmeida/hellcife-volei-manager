@@ -68,7 +68,7 @@ export function LoginPage() {
             className="inline-block mb-4"
           >
             <img
-              src="/logo.jpg"
+              src="/logo.png"
               alt="HellCife Vôlei"
               className="w-24 h-24 rounded-2xl object-cover mx-auto shadow-neon-red"
             />

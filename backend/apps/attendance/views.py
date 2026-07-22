@@ -52,6 +52,11 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if not name or not main_position:
             return Response({'detail': 'Nome e Posição são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        existing_guest = Player.objects.filter(name=name, is_guest=True, attendances__gameday=gameday).first()
+        if existing_guest:
+            return Response({'detail': 'Um convidado com esse nome já está na lista deste dia.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
         # Create Guest Player
         guest_player = Player.objects.create(
             name=name,
@@ -153,7 +158,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def checkin_info(self, request, pk=None):
         """Retorna informações resumidas para a tela pública de check-in."""
         gameday = self.get_object()
-        active_players = Player.objects.filter(status='active').order_by('name')
+        active_players = Player.objects.filter(status='active', is_guest=False).order_by('name')
         
         present_ids = set(gameday.attendances.filter(present=True).values_list('player_id', flat=True))
         

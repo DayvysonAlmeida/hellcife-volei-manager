@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.jpg'],
+      includeAssets: ['logo.png'],
       manifest: {
         name: 'HellCife Vôlei Manager',
         short_name: 'HellCife',
@@ -19,14 +19,14 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'logo.jpg',
+            src: 'logo.png',
             sizes: '192x192',
-            type: 'image/jpeg',
+            type: 'image/png',
           },
           {
-            src: 'logo.jpg',
+            src: 'logo.png',
             sizes: '512x512',
-            type: 'image/jpeg',
+            type: 'image/png',
           }
         ],
       },
