@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q
 
-from .models import GameDay, Attendance
-from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer
+from .models import GameDay, Attendance, CourtCheckin
+from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
 from apps.players.models import Player
 from apps.core.permissions import IsAdminOrModerator
 
@@ -20,9 +20,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             # Para listagem: usar annotations ao invés de properties (evita N+1)
             return GameDay.objects.all().annotate(
-                _total_present=Count('attendances', filter=Q(attendances__present=True)),
-                _total_paid=Count('attendances', filter=Q(attendances__has_paid=True)),
-                _total_players=Count('attendances'),
+                _total_present=Count('attendances', filter=Q(attendances__present=True), distinct=True),
+                _total_paid=Count('attendances', filter=Q(attendances__has_paid=True), distinct=True),
+                _total_players=Count('attendances', distinct=True),
+                _total_court_checkins=Count('court_checkins', distinct=True)
             ).order_by('-date')
         # Para detail: prefetch completo com os jogadores
         return GameDay.objects.all().prefetch_related('attendances__player')
@@ -217,3 +218,34 @@ class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['gameday', 'player', 'present']
+
+
+class CourtCheckinViewSet(viewsets.ModelViewSet):
+    queryset = CourtCheckin.objects.all().select_related('player', 'gameday')
+    serializer_class = CourtCheckinSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['gameday', 'player']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'toggle']:
+            return [IsAdminOrModerator()]
+        return [IsAuthenticated()]
+
+    @action(detail=False, methods=['post'], url_path='toggle')
+    def toggle(self, request):
+        """Toggle de chegada na quadra de um jogador específico."""
+        gameday_id = request.data.get('gameday_id')
+        player_id = request.data.get('player_id')
+        
+        if not gameday_id or not player_id:
+            return Response({'detail': 'Faltando gameday_id ou player_id.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        checkin = CourtCheckin.objects.filter(gameday_id=gameday_id, player_id=player_id).first()
+        
+        if checkin:
+            checkin.delete()
+            return Response({'arrived': False, 'player_id': player_id})
+        else:
+            CourtCheckin.objects.create(gameday_id=gameday_id, player_id=player_id)
+            return Response({'arrived': True, 'player_id': player_id})

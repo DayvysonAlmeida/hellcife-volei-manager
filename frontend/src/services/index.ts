@@ -60,6 +60,9 @@ export const attendanceService = {
 
   togglePayment: (gamedayId: number, playerId: number) =>
     api.patch(`/attendance/gamedays/${gamedayId}/toggle-payment/${playerId}/`).then(r => r.data),
+
+  toggleCourtCheckin: (gamedayId: number, playerId: number) =>
+    api.post('/attendance/court-checkins/toggle/', { gameday_id: gamedayId, player_id: playerId }).then(r => r.data),
 };
 
 export const teamsService = {

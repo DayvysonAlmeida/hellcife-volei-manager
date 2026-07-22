@@ -244,7 +244,7 @@ export function TeamsPage() {
                   {upcomingGameDays.map(gd => (
                     <option key={gd.id} value={gd.id}>
                       {gd.date === todayStr ? '[ HOJE ] ' : ''}
-                      {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_present} confirmados) {gd.location ? `- ${gd.location}` : ''}
+                      {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_court_checkins || 0} na quadra) {gd.location ? `- ${gd.location}` : ''}
                     </option>
                   ))}
                 </optgroup>
@@ -254,7 +254,7 @@ export function TeamsPage() {
                 <optgroup label="🔒 Histórico (Encerradas)">
                   {pastGameDays.map(gd => (
                     <option key={gd.id} value={gd.id}>
-                      {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_present} confirmados) {gd.location ? `- ${gd.location}` : ''}
+                      {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_court_checkins || 0} na quadra) {gd.location ? `- ${gd.location}` : ''}
                     </option>
                   ))}
                 </optgroup>

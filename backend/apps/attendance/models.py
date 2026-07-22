@@ -57,3 +57,23 @@ class Attendance(models.Model):
     def __str__(self):
         status = 'Presente' if self.present else 'Ausente'
         return f'{self.player} — {self.gameday.date}: {status}'
+
+
+class CourtCheckin(models.Model):
+    gameday = models.ForeignKey(
+        GameDay, on_delete=models.CASCADE,
+        related_name='court_checkins', verbose_name='Dia de jogo'
+    )
+    player = models.ForeignKey(
+        'players.Player', on_delete=models.CASCADE,
+        related_name='court_checkins', verbose_name='Jogador'
+    )
+    arrived_at = models.DateTimeField(auto_now_add=True, verbose_name='Hora de chegada na quadra')
+
+    class Meta:
+        verbose_name = 'Tiragem de Falta (Quadra)'
+        verbose_name_plural = 'Tiragens de Falta (Quadra)'
+        unique_together = ('gameday', 'player')
+
+    def __str__(self):
+        return f'{self.player.name} chegou em {self.gameday.date}'

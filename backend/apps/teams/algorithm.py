@@ -12,17 +12,17 @@ import statistics
 from typing import List, Dict, Optional
 
 from apps.players.models import Player
-from apps.attendance.models import GameDay, Attendance
+from apps.attendance.models import GameDay, Attendance, CourtCheckin
 
 
 def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id: Optional[int] = None) -> List[Dict]:
     """
     Retorna jogadores com seu último overall.
-    Filtra por gameday (presentes) ou por lista de IDs.
+    Filtra por gameday (presentes na quadra via CourtCheckin) ou por lista de IDs.
     """
     if gameday_id:
-        present_player_ids = Attendance.objects.filter(
-            gameday_id=gameday_id, present=True
+        present_player_ids = CourtCheckin.objects.filter(
+            gameday_id=gameday_id
         ).values_list('player_id', flat=True)
         players = Player.objects.filter(id__in=present_player_ids, status='active')
     elif player_ids:

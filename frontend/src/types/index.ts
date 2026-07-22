@@ -169,6 +169,17 @@ export const SKILL_LABELS: Record<keyof EvaluationSkills, string> = {
 };
 
 // ==================== Attendance ====================
+export interface CourtCheckin {
+  id: number;
+  gameday: number;
+  player: number;
+  player_name: string;
+  player_avatar: string | null;
+  player_position: string;
+  player_is_guest: boolean;
+  arrived_at: string;
+}
+
 export interface GameDay {
   id: number;
   date: string;
@@ -180,9 +191,11 @@ export interface GameDay {
   max_players?: number;
   created_by?: number;
   total_present: number;
-  total_paid: number;
+  total_paid?: number;
   total_players: number;
+  total_court_checkins?: number;
   attendances: Attendance[];
+  court_checkins: CourtCheckin[];
   created_at: string;
 }
 
