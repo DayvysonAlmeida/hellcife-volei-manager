@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X } from 'lucide-react';
+import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X, AlertTriangle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
@@ -522,10 +522,10 @@ function PlayerCard({ player, idx, canEdit, onDelete }: {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: idx * 0.04 }}
-      className="card-hover overflow-hidden group"
+      className={`card-hover overflow-hidden group ${player.status === 'inactive' ? 'opacity-60 grayscale-[0.5]' : ''}`}
     >
       {/* Top accent bar */}
-      <div className="h-1 bg-red-gradient" />
+      <div className={`h-1 ${player.status === 'inactive' ? 'bg-zinc-500' : (player.consecutive_absences >= 8 ? 'bg-orange-500' : 'bg-red-gradient')}`} />
 
       <div className="p-4">
         {/* Header with avatar + overall */}
@@ -566,6 +566,14 @@ function PlayerCard({ player, idx, canEdit, onDelete }: {
             </div>
           </div>
         </div>
+
+        {/* Warning de Frequência */}
+        {player.consecutive_absences >= 8 && player.status === 'active' && (
+          <div className="mb-3 flex items-center gap-1.5 text-[10px] font-bold text-orange-600 bg-orange-500/10 px-2 py-1 rounded border border-orange-500/20">
+            <AlertTriangle size={12} className="text-orange-500" />
+            <span>Risco de Inativação: {player.consecutive_absences}/10 faltas seguidas</span>
+          </div>
+        )}
 
         {/* Stats bars (Overall) */}
         <div className="text-[10px] text-text-muted uppercase tracking-widest flex justify-between">

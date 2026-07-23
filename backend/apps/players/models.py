@@ -59,8 +59,15 @@ class Player(models.Model):
     defense_stars = models.PositiveSmallIntegerField(
         default=0, validators=STAR_VALIDATORS, verbose_name='Estrelas de Defesa'
     )
-    mini_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Mini Estrelas')
+    mini_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Total de Mini Estrelas')
     big_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Estrelas Grandes')
+    
+    # Controle de Frequência
+    consecutive_absences = models.PositiveSmallIntegerField(
+        default=0, 
+        verbose_name='Faltas Consecutivas',
+        help_text='Quantos circuitos fechados seguidos este jogador não fez check-in na quadra.'
+    )
 
     # Totais absolutos para o Dashboard (não são resetados ao virar grande estrela)
     total_mvp = models.PositiveIntegerField(default=0, verbose_name='Total MVP')

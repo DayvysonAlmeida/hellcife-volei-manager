@@ -80,6 +80,7 @@ export interface Player {
   updated_at?: string;
   is_guest?: boolean;
   invited_by?: string;
+  consecutive_absences: number;
 }
 
 export interface PlayerFormData {
@@ -213,6 +214,9 @@ export interface Attendance {
   present: boolean;
   has_paid: boolean;
   checked_at: string;
+  was_no_show?: boolean;
+  is_justified?: boolean;
+  justification_text?: string;
 }
 
 // ==================== Teams ====================

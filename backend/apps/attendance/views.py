@@ -86,6 +86,39 @@ class GameDayViewSet(viewsets.ModelViewSet):
             for p in base_players
         ])
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        was_closed = instance.is_closed
+        gameday = serializer.save()
+
+        if not was_closed and gameday.is_closed:
+            self._process_attendance_and_absences(gameday)
+
+    def _process_attendance_and_absences(self, gameday):
+        # 1. Faltas (No-shows): Quem estava na lista (present=True) mas não fez CourtCheckin
+        court_checkins_pids = set(gameday.court_checkins.values_list('player_id', flat=True))
+        
+        attendances = gameday.attendances.filter(present=True)
+        for att in attendances:
+            if att.player_id not in court_checkins_pids:
+                att.was_no_show = True
+                att.save()
+
+        # 2. Frequência (Ausência Prolongada)
+        active_players = Player.objects.filter(status='active', is_guest=False)
+        for p in active_players:
+            # Se o jogador foi criado DEPOIS da data do gameday, ignoramos
+            if p.created_at.date() > gameday.date:
+                continue
+                
+            if p.id in court_checkins_pids:
+                p.consecutive_absences = 0
+            else:
+                p.consecutive_absences += 1
+                if p.consecutive_absences >= 10:
+                    p.status = 'inactive'
+            p.save()
+
     @action(detail=True, methods=['post'], url_path='bulk-attendance')
     def bulk_attendance(self, request, pk=None):
         """Marca presença em bulk: recebe lista de player_ids presentes."""
@@ -217,7 +250,22 @@ class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AttendanceSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['gameday', 'player', 'present']
+    filterset_fields = ['gameday', 'player', 'present', 'was_no_show', 'is_justified']
+
+    @action(detail=True, methods=['post'], url_path='justify')
+    def justify(self, request, pk=None):
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+            
+        attendance = self.get_object()
+        justification_text = request.data.get('justification_text', '')
+        
+        attendance.is_justified = True
+        attendance.justification_text = justification_text
+        attendance.save()
+        
+        return Response({'detail': 'Falta justificada com sucesso!', 'is_justified': True})
 
 
 class CourtCheckinViewSet(viewsets.ModelViewSet):

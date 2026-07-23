@@ -14,7 +14,8 @@ class AttendanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attendance
         fields = ['id', 'gameday', 'player', 'player_name', 'player_avatar',
-                  'player_position', 'player_shirt', 'player_status', 'player_is_guest', 'present', 'has_paid', 'checked_at']
+                  'player_position', 'player_shirt', 'player_status', 'player_is_guest', 'present', 'has_paid', 'checked_at',
+                  'was_no_show', 'is_justified', 'justification_text']
         read_only_fields = ['checked_at']
 
 

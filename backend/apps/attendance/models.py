@@ -49,6 +49,15 @@ class Attendance(models.Model):
     present = models.BooleanField(default=False, verbose_name='Presente', db_index=True)
     has_paid = models.BooleanField(default=False, verbose_name='Pagou')
     checked_at = models.DateTimeField(auto_now=True, verbose_name='Hora do check-in')
+    
+    # Controle de Faltas (No-shows)
+    was_no_show = models.BooleanField(
+        default=False, 
+        verbose_name='Faltou',
+        help_text='Marcado automaticamente quando o circuito fecha e não há check-in na quadra.'
+    )
+    is_justified = models.BooleanField(default=False, verbose_name='Justificada')
+    justification_text = models.CharField(max_length=255, blank=True, null=True, verbose_name='Motivo da Justificativa')
 
     class Meta:
         verbose_name = 'Presença'

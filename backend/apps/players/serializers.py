@@ -16,7 +16,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'main_position', 'main_position_display', 'secondary_position',
             'avatar_url', 'status', 'status_display', 'latest_overall',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
-            'created_at', 'is_guest', 'invited_by'
+            'created_at', 'is_guest', 'invited_by', 'consecutive_absences'
         ]
 
     def get_latest_overall(self, obj):
@@ -57,7 +57,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             'user', 'latest_overall',
             'mini_stars', 'big_stars',
             'created_at', 'updated_at',
-            'is_guest', 'invited_by'
+            'is_guest', 'invited_by', 'consecutive_absences'
         ]
 
     def get_latest_overall(self, obj):

@@ -17,6 +17,7 @@ const PlayerDetailPage = lazy(() => import('@/pages/PlayerDetailPage').then(m =>
 const PlayerFormPage = lazy(() => import('@/pages/PlayerFormPage').then(m => ({ default: m.PlayerFormPage })));
 const EvaluationsPage = lazy(() => import('@/pages/EvaluationsPage').then(m => ({ default: m.EvaluationsPage })));
 const AttendancePage = lazy(() => import('@/pages/AttendancePage').then(m => ({ default: m.AttendancePage })));
+const AttendanceTrackingPage = lazy(() => import('@/pages/AttendanceTrackingPage').then(m => ({ default: m.AttendanceTrackingPage })));
 const CourtCheckinPage = lazy(() => import('@/pages/CourtCheckinPage').then(m => ({ default: m.CourtCheckinPage })));
 const TeamsPage = lazy(() => import('@/pages/TeamsPage').then(m => ({ default: m.TeamsPage })));
 const MatchesPage = lazy(() => import('@/pages/MatchesPage').then(m => ({ default: m.MatchesPage })));
@@ -65,6 +66,7 @@ function App() {
               <Route path="players/:id/edit" element={<PlayerFormPage />} />
               <Route path="evaluations" element={<EvaluationsPage />} />
               <Route path="attendance" element={<AttendancePage />} />
+              <Route path="attendance/tracking" element={<AttendanceTrackingPage />} />
               <Route path="court-checkin" element={<CourtCheckinPage />} />
               <Route path="teams" element={<TeamsPage />} />
               <Route path="bracket/:id" element={<BracketPage />} />
