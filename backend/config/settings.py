@@ -130,6 +130,9 @@ STORAGES = {
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_FILE_STORAGE = DEFAULT_FILE_STORAGE_BACKEND
 
+# Desabilita o erro estrito do Whitenoise caso algum CSS do Admin do Django tente referenciar imagens/arquivos que não existem
+WHITENOISE_MANIFEST_STRICT = False
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'core.User'
