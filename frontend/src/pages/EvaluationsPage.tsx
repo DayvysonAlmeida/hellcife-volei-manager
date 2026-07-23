@@ -114,9 +114,10 @@ export function EvaluationsPage() {
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setSelectedPlayer(null)}
-                    className="lg:hidden p-2 -ml-2 rounded-lg text-text-muted hover:bg-surface hover:text-text-primary transition-colors"
+                    className="lg:hidden px-3 py-1.5 -ml-2 rounded-lg text-text-muted hover:bg-surface hover:text-text-primary transition-colors flex items-center gap-1 font-medium text-sm"
                   >
-                    <ChevronLeft size={24} />
+                    <ChevronLeft size={20} />
+                    Voltar aos Atletas
                   </button>
                   <Avatar name={selectedPlayer.display_name} src={selectedPlayer.avatar_url} size="md" />
                   <div>

@@ -97,7 +97,7 @@ export function TeamsPage() {
 
   const { data: gameDaysData } = useQuery({
     queryKey: ['gamedays'],
-    queryFn: () => attendanceService.listGameDays(),
+    queryFn: () => attendanceService.listGameDays({ page_size: 100 }),
   });
 
   const gameDays = gameDaysData?.results || [];

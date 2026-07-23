@@ -41,13 +41,7 @@ export function AttendancePage() {
     enabled: !!selectedGameDay,
   });
 
-  // Auto-selecionar o circuito mais recente se nenhum estiver selecionado
-  useEffect(() => {
-    if (gameDays.length > 0 && !selectedGameDay) {
-      // O primeiro da lista é o mais recente, pois o backend ordena por -date
-      setSelectedGameDay(gameDays[0]);
-    }
-  }, [gameDays, selectedGameDay]);
+  // A auto-seleção foi removida para garantir que no mobile o usuário veja a lista de circuitos primeiro.
 
   const { presentAttendances, absentAttendances, totalPaid } = useMemo(() => {
     if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], totalPaid: 0 };
@@ -264,9 +258,10 @@ export function AttendancePage() {
                 <div className="flex items-start gap-3">
                   <button
                     onClick={() => setSelectedGameDay(null)}
-                    className="lg:hidden mt-1 p-2 -ml-2 rounded-lg text-text-muted hover:bg-surface hover:text-text-primary transition-colors"
+                    className="lg:hidden mt-1 px-3 py-1.5 -ml-2 rounded-lg text-text-muted hover:bg-surface hover:text-text-primary transition-colors flex items-center gap-1 font-medium text-sm"
                   >
-                    <ChevronLeft size={24} />
+                    <ChevronLeft size={20} />
+                    Voltar aos Circuitos
                   </button>
                   <div>
                     <div className="flex items-center gap-4">
