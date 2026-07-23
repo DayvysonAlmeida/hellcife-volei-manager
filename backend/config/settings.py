@@ -104,13 +104,15 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Cloudinary Config
 CLOUDINARY_CLOUD_NAME = config('CLOUDINARY_CLOUD_NAME', default='')
+CLOUDINARY_URL = config('CLOUDINARY_URL', default='')
 
-if CLOUDINARY_CLOUD_NAME:
-    CLOUDINARY_STORAGE = {
-        'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
-        'API_KEY': config('CLOUDINARY_API_KEY', default=''),
-        'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
-    }
+if CLOUDINARY_CLOUD_NAME or CLOUDINARY_URL:
+    if CLOUDINARY_CLOUD_NAME:
+        CLOUDINARY_STORAGE = {
+            'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
+            'API_KEY': config('CLOUDINARY_API_KEY', default=''),
+            'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
+        }
     DEFAULT_FILE_STORAGE_BACKEND = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 else:
     DEFAULT_FILE_STORAGE_BACKEND = 'django.core.files.storage.FileSystemStorage'
@@ -123,6 +125,10 @@ STORAGES = {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
 }
+
+# Fix para o bug do django-cloudinary-storage que ainda busca a variável antiga
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+DEFAULT_FILE_STORAGE = DEFAULT_FILE_STORAGE_BACKEND
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

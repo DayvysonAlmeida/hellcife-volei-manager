@@ -7,7 +7,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
     display_name = serializers.ReadOnlyField()
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    avatar_url = serializers.ReadOnlyField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -34,6 +34,14 @@ class PlayerListSerializer(serializers.ModelSerializer):
         eval_ = obj.evaluations.order_by('-date').first()
         return eval_.overall if eval_ else None
 
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
+
 
 class PlayerDetailSerializer(serializers.ModelSerializer):
     latest_overall = serializers.SerializerMethodField()
@@ -42,7 +50,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
     secondary_position_display = serializers.CharField(source='get_secondary_position_display', read_only=True)
     dominant_hand_display = serializers.CharField(source='get_dominant_hand_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
-    avatar_url = serializers.ReadOnlyField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -70,6 +78,14 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             return None
         eval_ = obj.evaluations.order_by('-date').first()
         return eval_.overall if eval_ else None
+
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
 
 
 class PlayerWriteSerializer(serializers.ModelSerializer):
