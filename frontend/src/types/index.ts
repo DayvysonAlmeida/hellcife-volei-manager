@@ -299,6 +299,14 @@ export interface DBTeamPlayer {
   order_in_team: number;
 }
 
+export interface CourtTeamPlayer extends DBTeamPlayer {
+  is_borrowed?: boolean;
+}
+
+export interface CourtTeam extends Omit<DBTeam, 'team_players'> {
+  team_players: CourtTeamPlayer[];
+}
+
 // ==================== Matches ====================
 export interface Match {
   id: number;

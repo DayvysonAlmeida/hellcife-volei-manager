@@ -7,7 +7,7 @@ import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { teamsService, matchesService, attendanceService } from '@/services';
-import type { DBTeam, QuickMatchData, Modality, Match } from '@/types';
+import type { DBTeam, QuickMatchData, Modality, Match, CourtTeam } from '@/types';
 import toast from 'react-hot-toast';
 import { MatchCard } from '@/components/matches/MatchCard';
 import { CourtCheckinModal } from '@/components/attendance/CourtCheckinModal';
@@ -16,8 +16,8 @@ import { useAuth } from '@/store/AuthContext';
 interface BracketState {
   isStarted: boolean;
   queue: DBTeam[];
-  courtA: DBTeam | null;
-  courtB: DBTeam | null;
+  courtA: CourtTeam | null;
+  courtB: CourtTeam | null;
   scoreA: number;
   scoreB: number;
   consecutiveA: number;
@@ -26,6 +26,69 @@ interface BracketState {
   showSaveModal: boolean;
   transitionMessage: string | null;
   transitionColor: string | null;
+}
+
+// Algoritmo de empréstimo para balancear o overall do time que está precisando
+function borrowPlayersForTeam(
+  team: DBTeam,
+  opposingAvg: number,
+  modality: number,
+  availableTeams: DBTeam[]
+): CourtTeam {
+  const needed = modality - team.team_players.length;
+  const courtTeam: CourtTeam = {
+    ...team,
+    team_players: team.team_players.map(p => ({ ...p, is_borrowed: false }))
+  };
+
+  if (needed <= 0 || availableTeams.length === 0) return courtTeam;
+
+  let candidates: any[] = [];
+  // Pegar candidatos do final da fila para o início
+  for (let i = availableTeams.length - 1; i >= 0; i--) {
+    candidates = [...candidates, ...availableTeams[i].team_players.map(p => ({
+       ...p,
+       is_borrowed: true,
+       original_team_id: availableTeams[i].id 
+    }))];
+    if (candidates.length >= needed) break;
+  }
+  
+  if (candidates.length === 0) return courtTeam;
+
+  // Encontrar todas as combinações
+  const getCombinations = (arr: any[], k: number): any[][] => {
+    if (k === 1) return arr.map(a => [a]);
+    const combs: any[][] = [];
+    for (let i = 0; i < arr.length - k + 1; i++) {
+      const head = arr.slice(i, i + 1);
+      const tailCombs = getCombinations(arr.slice(i + 1), k - 1);
+      tailCombs.forEach(tc => combs.push([...head, ...tc]));
+    }
+    return combs;
+  };
+  
+  const combinations = getCombinations(candidates, Math.min(needed, candidates.length));
+  
+  let bestComb: any[] = [];
+  let minDiff = Infinity;
+  const currentSum = team.team_players.reduce((acc, p) => acc + p.player_overall, 0);
+  const targetAvg = opposingAvg || team.avg_overall; // Se não tiver adversário definido, tenta manter a própria média
+  
+  for (const comb of combinations) {
+    const combSum = comb.reduce((acc, p) => acc + p.player_overall, 0);
+    const newAvg = (currentSum + combSum) / (team.team_players.length + comb.length);
+    const diff = Math.abs(newAvg - targetAvg);
+    if (diff < minDiff) {
+      minDiff = diff;
+      bestComb = comb;
+    }
+  }
+  
+  courtTeam.team_players = [...courtTeam.team_players, ...bestComb];
+  courtTeam.avg_overall = (currentSum + bestComb.reduce((acc, p) => acc + p.player_overall, 0)) / courtTeam.team_players.length;
+  
+  return courtTeam;
 }
 
 export function BracketPage() {
@@ -102,23 +165,37 @@ export function BracketPage() {
       setState(prev => {
         let changed = false;
         
-        const syncTeam = (t: DBTeam | null) => {
+        const syncTeam = (t: CourtTeam | null) => {
           if (!t) return null;
           const freshTeam = generation.teams.find((genT: any) => genT.id === t.id);
           if (!freshTeam) {
             changed = true;
             return null; // Time foi excluído
           }
-          if (JSON.stringify(freshTeam.team_players) !== JSON.stringify(t.team_players)) {
+          // Preservar jogadores emprestados
+          const borrowed = t.team_players.filter(p => p.is_borrowed);
+          const newPlayers = [...freshTeam.team_players.map((p: any) => ({ ...p, is_borrowed: false })), ...borrowed];
+          
+          if (JSON.stringify(newPlayers) !== JSON.stringify(t.team_players)) {
             changed = true;
-            return { ...t, team_players: freshTeam.team_players, avg_overall: freshTeam.avg_overall };
+            return { ...t, team_players: newPlayers, avg_overall: t.avg_overall }; // mantem o avg_overall calculado
           }
           return t;
         };
 
+        const syncQueueTeam = (t: DBTeam) => {
+           const freshTeam = generation.teams.find((genT: any) => genT.id === t.id);
+           if (!freshTeam) { changed = true; return null; }
+           if (JSON.stringify(freshTeam.team_players) !== JSON.stringify(t.team_players)) {
+             changed = true;
+             return { ...t, team_players: freshTeam.team_players, avg_overall: freshTeam.avg_overall };
+           }
+           return t;
+        };
+
         const newCourtA = syncTeam(prev.courtA);
         const newCourtB = syncTeam(prev.courtB);
-        let newQueue = prev.queue.map(syncTeam).filter(Boolean) as DBTeam[];
+        let newQueue = prev.queue.map(syncQueueTeam).filter(Boolean) as DBTeam[];
 
         if (prev.queue.length !== newQueue.length) changed = true;
         if (prev.courtA !== null && newCourtA === null) changed = true;
@@ -174,8 +251,12 @@ export function BracketPage() {
     }
     setState(prev => {
       const q = [...prev.queue];
-      const courtA = q.shift()!;
-      const courtB = q.shift()!;
+      let courtA: CourtTeam = { ...q.shift()!, team_players: [] } as any; 
+      let courtB: CourtTeam = { ...q.shift()!, team_players: [] } as any; 
+      // Recover original players to avoid ts errors in initial setup
+      courtA = borrowPlayersForTeam(prev.queue[0], prev.queue[1].avg_overall, generation!.modality, q);
+      courtB = borrowPlayersForTeam(prev.queue[1], courtA.avg_overall, generation!.modality, q);
+      
       return {
         ...prev,
         isStarted: true,
@@ -245,18 +326,31 @@ export function BracketPage() {
     setState(prev => {
       const q = [...prev.queue];
       const winnerIsA = prev.scoreA > prev.scoreB;
-      const winner = winnerIsA ? prev.courtA! : prev.courtB!;
-      const loser = winnerIsA ? prev.courtB! : prev.courtA!;
+      const winnerCourt = winnerIsA ? prev.courtA! : prev.courtB!;
+      const loserCourt = winnerIsA ? prev.courtB! : prev.courtA!;
       
+      // Limpar os jogadores emprestados para que retornem aos seus times de origem na fila
+      const stripTeam = (t: CourtTeam): DBTeam => ({
+         ...t,
+         team_players: t.team_players.filter(p => !p.is_borrowed)
+      });
+      const winner = stripTeam(winnerCourt);
+      const loser = stripTeam(loserCourt);
+
       const newConsecutiveA = winnerIsA ? prev.consecutiveA + 1 : 0;
       const newConsecutiveB = !winnerIsA ? prev.consecutiveB + 1 : 0;
       const winnerConsecutive = winnerIsA ? newConsecutiveA : newConsecutiveB;
 
       const totalTeams = prev.queue.length + 2;
-      const winnerMustLeave = winnerConsecutive >= 2 && totalTeams > 2;
+      
+      const allTeamsInPelada = [winnerCourt, loserCourt, ...prev.queue];
+      const getBaseLength = (t: CourtTeam) => t.team_players.filter(p => !p.is_borrowed).length;
+      const totalCompleteTeams = allTeamsInPelada.filter(t => getBaseLength(t as CourtTeam) >= generation!.modality).length;
+      
+      const winnerMustLeave = winnerConsecutive >= 2 && totalCompleteTeams >= 4;
 
-      let nextA: DBTeam | null = null;
-      let nextB: DBTeam | null = null;
+      let nextABase: DBTeam | null = null;
+      let nextBBase: DBTeam | null = null;
       let nextConsecutiveA = 0;
       let nextConsecutiveB = 0;
 
@@ -266,11 +360,11 @@ export function BracketPage() {
         
         if (totalTeams === 3) {
           q.unshift(winner); // Vencedor vira o próximo da fila
-          nextA = loser;     // Quem perdeu continua para jogar com quem tava de fora
-          nextB = q.pop() || null; // Entra quem tava de fora
+          nextABase = loser;     // Quem perdeu continua para jogar com quem tava de fora
+          nextBBase = q.pop() || null; // Entra quem tava de fora
         } else {
-          nextA = q.shift() || null;
-          nextB = q.shift() || null;
+          nextABase = q.shift() || null;
+          nextBBase = q.shift() || null;
           q.unshift(winner); // Vencedor vira o próximo da fila (1º de fora)
           q.push(loser);     // Perdedor vai pro final da fila
         }
@@ -278,20 +372,31 @@ export function BracketPage() {
         message = `${winner.name.toUpperCase()} venceu e continua na quadra!`;
         q.push(loser);
         if (winnerIsA) {
-          nextA = winner;
-          nextB = q.shift() || null;
+          nextABase = winner;
+          nextBBase = q.shift() || null;
           nextConsecutiveA = newConsecutiveA;
         } else {
-          nextB = winner;
-          nextA = q.shift() || null;
+          nextBBase = winner;
+          nextABase = q.shift() || null;
           nextConsecutiveB = newConsecutiveB;
         }
       }
 
+      // Aplicar o empréstimo nos times que vão entrar, usando a fila ATUALIZADA (q)
+      let finalNextA: CourtTeam | null = null;
+      let finalNextB: CourtTeam | null = null;
+
+      if (nextABase) {
+         finalNextA = borrowPlayersForTeam(nextABase, nextBBase?.avg_overall || 0, generation!.modality, q);
+      }
+      if (nextBBase) {
+         finalNextB = borrowPlayersForTeam(nextBBase, finalNextA?.avg_overall || 0, generation!.modality, q);
+      }
+
       return {
         ...prev,
-        courtA: nextA,
-        courtB: nextB,
+        courtA: finalNextA,
+        courtB: finalNextB,
         scoreA: 0,
         scoreB: 0,
         consecutiveA: nextConsecutiveA,
@@ -573,8 +678,9 @@ export function BracketPage() {
                 </h2>
                 <div className="flex flex-wrap gap-1 mt-1 w-full">
                   {state.courtA?.team_players.map((p: any) => (
-                    <span key={p.player} className="text-[10px] md:text-xs text-text-muted bg-surface/50 px-2 py-0.5 rounded-full border border-border/50 truncate max-w-[100px] sm:max-w-[150px]">
+                    <span key={p.player} className={`text-[10px] md:text-xs px-2 py-0.5 rounded-full border truncate max-w-[100px] sm:max-w-[150px] flex items-center gap-1 ${p.is_borrowed ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'text-text-muted bg-surface/50 border-border/50'}`}>
                       {p.player_name}
+                      {p.is_borrowed && <span className="text-[9px] uppercase font-bold opacity-80">(Emp)</span>}
                     </span>
                   ))}
                 </div>
@@ -622,8 +728,9 @@ export function BracketPage() {
                 </h2>
                 <div className="flex flex-wrap justify-end gap-1 mt-1 w-full">
                   {state.courtB?.team_players.map((p: any) => (
-                    <span key={p.player} className="text-[10px] md:text-xs text-text-muted bg-surface/50 px-2 py-0.5 rounded-full border border-border/50 truncate max-w-[100px] sm:max-w-[150px]">
+                    <span key={p.player} className={`text-[10px] md:text-xs px-2 py-0.5 rounded-full border truncate max-w-[100px] sm:max-w-[150px] flex items-center gap-1 flex-row-reverse ${p.is_borrowed ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'text-text-muted bg-surface/50 border-border/50'}`}>
                       {p.player_name}
+                      {p.is_borrowed && <span className="text-[9px] uppercase font-bold opacity-80">(Emp)</span>}
                     </span>
                   ))}
                 </div>
