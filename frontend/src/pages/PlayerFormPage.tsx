@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Image as ImageIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { playersService } from '@/services/players';
@@ -64,7 +64,7 @@ export function PlayerFormPage() {
     enabled: isEdit && !isNaN(Number(id)),
   });
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
     values: player ? {
       name: player.name,
@@ -105,6 +105,22 @@ export function PlayerFormPage() {
       toast.error('Erro ao salvar atleta!');
     },
   });
+
+  const avatarFile = watch('avatar');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (avatarFile && avatarFile.length > 0) {
+      const file = avatarFile[0];
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else if (player?.avatar_url) {
+      setPreviewUrl(player.avatar_url);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [avatarFile, player?.avatar_url]);
 
   if (isLoading) return <PageLoading />;
 
@@ -215,7 +231,30 @@ export function PlayerFormPage() {
           </Field>
           <div className="sm:col-span-2">
             <Field label="Foto do Jogador (Avatar)" error={errors.avatar?.message as string}>
-              <input type="file" accept="image/*" {...register('avatar')} className="input w-full p-2" />
+              <div className="flex items-center gap-4 mt-2">
+                {/* Preview Circle */}
+                {previewUrl ? (
+                  <div className="shrink-0 w-24 h-24 rounded-full border-2 border-border/50 overflow-hidden bg-black/10 shadow-sm relative group">
+                    <img 
+                      src={previewUrl} 
+                      alt="Preview" 
+                      className={`w-full h-full ${previewUrl.toLowerCase().includes('.png') ? 'object-contain object-bottom' : 'object-cover object-top'}`} 
+                    />
+                  </div>
+                ) : (
+                  <div className="shrink-0 w-24 h-24 rounded-full border-2 border-dashed border-border flex flex-col items-center justify-center bg-background/50 text-text-muted">
+                    <ImageIcon size={24} className="opacity-50 mb-1" />
+                    <span className="text-[10px] uppercase font-bold tracking-wider">Sem foto</span>
+                  </div>
+                )}
+                
+                <div className="flex-1">
+                  <input type="file" accept="image/*" {...register('avatar')} className="input w-full p-2 text-sm" />
+                  <p className="text-xs text-text-muted mt-2 leading-relaxed">
+                    <strong className="text-red">Dica de Ouro:</strong> Envie uma imagem <strong>PNG com fundo transparente</strong> do peito pra cima. O sistema vai automaticamente gerar o efeito 3D (Pop-out) no card FUT!
+                  </p>
+                </div>
+              </div>
             </Field>
           </div>
           <div className="sm:col-span-2">
