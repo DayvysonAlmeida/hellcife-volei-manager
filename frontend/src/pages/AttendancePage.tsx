@@ -28,6 +28,7 @@ export function AttendancePage() {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
   const [searchTerm, setSearchTerm] = useState('');
+  const [circuitTab, setCircuitTab] = useState<'active' | 'history'>('active');
 
   const { data: gameDaysData, isLoading } = useQuery({
     queryKey: ['gamedays'],
@@ -42,6 +43,12 @@ export function AttendancePage() {
   });
 
   // A auto-seleção foi removida para garantir que no mobile o usuário veja a lista de circuitos primeiro.
+
+  const { activeGameDays, historyGameDays } = useMemo(() => {
+    const active = gameDays.filter(gd => !gd.is_closed && gd.date >= todayStr);
+    const history = gameDays.filter(gd => gd.is_closed || gd.date < todayStr);
+    return { activeGameDays: active, historyGameDays: history };
+  }, [gameDays, todayStr]);
 
   const { presentAttendances, absentAttendances, totalPaid } = useMemo(() => {
     if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], totalPaid: 0 };
@@ -78,13 +85,51 @@ export function AttendancePage() {
   const toggleMutation = useMutation({
     mutationFn: ({ gamedayId, playerId }: { gamedayId: number; playerId: number }) =>
       attendanceService.toggleAttendance(gamedayId, playerId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
+    onMutate: async ({ gamedayId, playerId }) => {
+      await qc.cancelQueries({ queryKey: ['gameday', gamedayId] });
+      const previousGameday = qc.getQueryData(['gameday', gamedayId]);
+      
+      qc.setQueryData(['gameday', gamedayId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          attendances: old.attendances.map((att: any) => 
+            att.player === playerId ? { ...att, present: !att.present } : att
+          )
+        };
+      });
+      return { previousGameday };
+    },
+    onError: (err, newTodo, context) => {
+      qc.setQueryData(['gameday', selectedGameDay?.id], context?.previousGameday);
+      toast.error('Erro ao marcar presença.');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
   });
 
   const togglePaymentMutation = useMutation({
     mutationFn: ({ gamedayId, playerId }: { gamedayId: number; playerId: number }) =>
       attendanceService.togglePayment(gamedayId, playerId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
+    onMutate: async ({ gamedayId, playerId }) => {
+      await qc.cancelQueries({ queryKey: ['gameday', gamedayId] });
+      const previousGameday = qc.getQueryData(['gameday', gamedayId]);
+      
+      qc.setQueryData(['gameday', gamedayId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          attendances: old.attendances.map((att: any) => 
+            att.player === playerId ? { ...att, paid: !att.paid } : att
+          )
+        };
+      });
+      return { previousGameday };
+    },
+    onError: (err, variables, context) => {
+      qc.setQueryData(['gameday', selectedGameDay?.id], context?.previousGameday);
+      toast.error('Erro ao registrar pagamento.');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
   });
 
   const refreshMutation = useMutation({
@@ -165,17 +210,29 @@ export function AttendancePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Game days list */}
         <div className={`card p-4 ${selectedGameDay ? 'hidden lg:block' : 'block'}`}>
-          <h2 className="font-display text-base tracking-wider text-text-primary mb-3 flex items-center gap-2">
-            <CalendarCheck size={16} className="text-red" />
-            CIRCUITOS
-          </h2>
+          <div className="flex items-center gap-4 mb-4 border-b border-border">
+            <button
+              onClick={() => setCircuitTab('active')}
+              className={`pb-2 px-1 text-sm font-bold border-b-2 transition-colors ${circuitTab === 'active' ? 'border-red text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}
+            >
+              Abertos ({activeGameDays.length})
+            </button>
+            <button
+              onClick={() => setCircuitTab('history')}
+              className={`pb-2 px-1 text-sm font-bold border-b-2 transition-colors ${circuitTab === 'history' ? 'border-red text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}
+            >
+              Histórico ({historyGameDays.length})
+            </button>
+          </div>
           {isLoading ? (
             <PageLoading />
           ) : gameDays.length === 0 ? (
             <EmptyState message="Nenhum dia de jogo cadastrado." icon="📅" />
+          ) : (circuitTab === 'active' ? activeGameDays : historyGameDays).length === 0 ? (
+            <EmptyState message={`Nenhum circuito ${circuitTab === 'active' ? 'aberto' : 'no histórico'}.`} icon="📅" />
           ) : (
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
-              {gameDays.map((gd) => (
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              {(circuitTab === 'active' ? activeGameDays : historyGameDays).map((gd) => (
                 <div key={gd.id} className="relative">
                   <div
                     onClick={() => setSelectedGameDay(gd)}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X, AlertTriangle, Activity, TrendingUp, Swords, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
@@ -616,6 +616,17 @@ function PlayerCard({ player, idx, canEdit, onDelete }: {
               </div>
             )}
           </div>
+
+          {/* Floating Stats Badges */}
+          {player.stats && (player.stats.matches > 0 || player.stats.mvp > 0 || player.stats.best_attacker > 0 || player.stats.best_defender > 0) && (
+            <div className="absolute inset-x-0 bottom-[35%] translate-y-3 flex flex-wrap justify-center gap-1 z-20 px-2 pointer-events-none">
+              {player.stats.matches > 0 && <span title="Partidas Jogadas" className="flex items-center gap-0.5 bg-black/60 text-white px-1.5 py-[2px] rounded border border-white/20 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><Activity size={10}/> {player.stats.matches}</span>}
+              {player.stats.win_rate > 0 && <span title="Taxa de Vitória" className="flex items-center gap-0.5 bg-green-900/60 text-green-300 px-1.5 py-[2px] rounded border border-green-500/40 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><TrendingUp size={10}/> {player.stats.win_rate}%</span>}
+              {player.stats.mvp > 0 && <span title="MVP" className="flex items-center gap-0.5 bg-yellow-900/60 text-yellow-300 px-1.5 py-[2px] rounded border border-yellow-500/40 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><Star size={10}/> {player.stats.mvp}</span>}
+              {player.stats.best_attacker > 0 && <span title="Melhor Ataque" className="flex items-center gap-0.5 bg-red-900/60 text-red-300 px-1.5 py-[2px] rounded border border-red-500/40 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><Swords size={10}/> {player.stats.best_attacker}</span>}
+              {player.stats.best_defender > 0 && <span title="Melhor Defesa" className="flex items-center gap-0.5 bg-green-900/60 text-green-300 px-1.5 py-[2px] rounded border border-green-500/40 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><Shield size={10}/> {player.stats.best_defender}</span>}
+            </div>
+          )}
 
           {/* Spacer for Avatar */}
           <div className="flex-1" />

@@ -9,6 +9,7 @@ import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { SyncButton } from '@/components/ui/SyncButton';
 import { teamsService, attendanceService } from '@/services';
 import { playersService } from '@/services/players';
 import { MODALITY_LABELS } from '@/types';
@@ -462,20 +463,16 @@ export function TeamsPage() {
           <h1 className="page-title">Peladas</h1>
           <p className="page-subtitle">Sorteio e histórico de times da sua pelada.</p>
         </div>
-        <button
-          onClick={() => {
-            qc.invalidateQueries({ queryKey: ['team-generations-history'] });
-            qc.invalidateQueries({ queryKey: ['gamedays'] });
-            qc.invalidateQueries({ queryKey: ['all-players'] });
-            toast.success('Dados sincronizados!');
-          }}
-          className="btn-ghost flex items-center gap-2 text-text-muted hover:text-text-primary px-3 py-2 rounded-lg transition-colors border border-transparent hover:border-border"
-          title="Sincronizar dados"
-        >
-          <RefreshCw size={18} />
-          <span className="hidden sm:inline font-bold">Sincronizar</span>
-        </button>
       </div>
+      
+      <SyncButton 
+        onSync={() => {
+          qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+          qc.invalidateQueries({ queryKey: ['gamedays'] });
+          qc.invalidateQueries({ queryKey: ['all-players'] });
+          toast.success('Dados sincronizados!');
+        }} 
+      />
 
       {/* Config */}
       <div className="card p-6">

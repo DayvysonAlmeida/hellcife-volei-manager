@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList, Target, UserCheck, Hand, Flame, ArrowUp, ArrowDown, ChevronsUp, RefreshCw } from 'lucide-react';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
+import { PositionBadge } from '@/components/ui/Badges';
+import { SyncButton } from '@/components/ui/SyncButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { teamsService, matchesService, attendanceService } from '@/services';
 import type { DBTeam, QuickMatchData, Modality, Match, CourtTeam } from '@/types';
@@ -599,6 +601,14 @@ export function BracketPage() {
 
   return (
     <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto w-full">
+      <SyncButton 
+        onSync={() => {
+          qc.invalidateQueries({ queryKey: ['team-generation', id] });
+          qc.invalidateQueries({ queryKey: ['gameday', generation?.gameday] });
+          toast.success('Placar sincronizado!');
+        }} 
+      />
+
       <ConfirmDialog 
         isOpen={confirmDialog.isOpen}
         onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
@@ -607,23 +617,12 @@ export function BracketPage() {
         onConfirm={confirmDialog.onConfirm}
       />
 
-      {/* Header Placar */}
       <div className="flex items-center justify-between">
         <div className="flex-1 flex gap-2">
           <button onClick={() => navigate('/teams')} className="btn-ghost p-2 rounded-full hover:bg-surface border border-border" title="Voltar">
             <ArrowLeft size={24} />
           </button>
-          <button 
-            onClick={() => {
-              qc.invalidateQueries({ queryKey: ['team-generation', id] });
-              qc.invalidateQueries({ queryKey: ['gameday', generation?.gameday] });
-              toast.success('Placar sincronizado!');
-            }}
-            className="btn-ghost p-2 rounded-full hover:bg-surface border border-transparent hover:border-border text-text-muted hover:text-text-primary transition-all"
-            title="Sincronizar dados"
-          >
-            <RefreshCw size={20} />
-          </button>
+          
           {generation.gameday && (
             <button onClick={() => setShowCheckinModal(true)} className="btn-secondary flex items-center gap-2 px-3 py-2 text-sm rounded-lg border-border" title="Tiragem de Falta">
               <UserCheck size={18} className="text-red" />

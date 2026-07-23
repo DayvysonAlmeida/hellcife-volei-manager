@@ -21,16 +21,49 @@ export function CheckinPage() {
   const checkinMutation = useMutation({
     mutationFn: (playerId: number) => 
       api.post(`/attendance/gamedays/${id}/public-checkin/`, { player_id: playerId }).then(r => r.data),
+    onMutate: async (playerId) => {
+      await qc.cancelQueries({ queryKey: ['public-checkin', id] });
+      const previousData = qc.getQueryData(['public-checkin', id]);
+
+      qc.setQueryData(['public-checkin', id], (old: any) => {
+        if (!old) return old;
+        
+        let toggledPresent = false;
+        
+        const newPlayers = old.players.map((p: any) => {
+          if (p.id === playerId) {
+            toggledPresent = !p.present;
+            return { ...p, present: toggledPresent };
+          }
+          return p;
+        });
+        
+        const newTotalPresent = Math.max(0, old.gameday.total_present + (toggledPresent ? 1 : -1));
+
+        return {
+          ...old,
+          gameday: {
+            ...old.gameday,
+            total_present: newTotalPresent
+          },
+          players: newPlayers
+        };
+      });
+      return { previousData };
+    },
     onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['public-checkin', id] });
       if (res.present) {
         toast.success('Presença confirmada!', { icon: '✅' });
       } else {
         toast.success('Presença cancelada.', { icon: '❌' });
       }
     },
-    onError: (err: any) => {
+    onError: (err: any, playerId, context) => {
+      qc.setQueryData(['public-checkin', id], context?.previousData);
       toast.error(err.response?.data?.detail || 'Erro ao fazer check-in.');
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['public-checkin', id] });
     }
   });
 

@@ -12,9 +12,9 @@ const navItems = [
   { to: '/evaluations', icon: TrendingUp, label: 'Avaliações' },
   { to: '/attendance', icon: Volleyball, label: 'Circuito' },
   { to: '/court-checkin', icon: ClipboardList, label: 'Tiragem de Falta' },
-  { to: '/attendance/tracking', icon: ShieldAlert, label: 'Frequências e Faltas' },
   { to: '/teams', icon: Shuffle, label: 'Peladas' },
   { to: '/matches', icon: Swords, label: 'Jogos' },
+  { to: '/attendance/tracking', icon: ShieldAlert, label: 'Frequências e Faltas' },
   { to: '/stars-system', icon: Star, label: 'Sistema de Estrelas' },
   { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
 ];

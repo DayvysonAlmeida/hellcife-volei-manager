@@ -8,6 +8,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     avatar_url = serializers.SerializerMethodField()
+    stats = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -16,7 +17,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'main_position', 'main_position_display', 'secondary_position',
             'avatar_url', 'status', 'status_display', 'latest_overall',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
-            'created_at', 'is_guest', 'invited_by', 'consecutive_absences'
+            'created_at', 'is_guest', 'invited_by', 'consecutive_absences', 'stats'
         ]
 
     def get_latest_overall(self, obj):
@@ -40,6 +41,19 @@ class PlayerListSerializer(serializers.ModelSerializer):
             if request is not None:
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
+        return None
+
+    def get_stats(self, obj):
+        if hasattr(obj, 'total_matches'):
+            win_rate = (obj.wins / obj.total_matches * 100) if obj.total_matches > 0 else 0
+            return {
+                'matches': obj.total_matches,
+                'win_rate': round(win_rate, 1),
+                'mvp': obj.mvps,
+                'best_attacker': obj.best_attackers,
+                'best_server': obj.best_servers,
+                'best_defender': obj.best_defenders,
+            }
         return None
 
 

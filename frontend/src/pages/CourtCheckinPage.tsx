@@ -55,8 +55,33 @@ export function CourtCheckinPage() {
   const toggleMutation = useMutation({
     mutationFn: (playerId: number) =>
       attendanceService.toggleCourtCheckin(selectedGameDayId!, playerId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDayId] }),
-    onError: () => toast.error('Erro ao marcar presença na quadra.'),
+    onMutate: async (playerId) => {
+      await qc.cancelQueries({ queryKey: ['gameday', selectedGameDayId] });
+      const previousGameday = qc.getQueryData(['gameday', selectedGameDayId]);
+      
+      qc.setQueryData(['gameday', selectedGameDayId], (old: any) => {
+        if (!old) return old;
+        
+        const isCheckedIn = old.court_checkins.some((c: any) => c.player === playerId);
+        let newCheckins;
+        if (isCheckedIn) {
+          newCheckins = old.court_checkins.filter((c: any) => c.player !== playerId);
+        } else {
+          newCheckins = [...old.court_checkins, { player: playerId }];
+        }
+        
+        return {
+          ...old,
+          court_checkins: newCheckins
+        };
+      });
+      return { previousGameday };
+    },
+    onError: (err, playerId, context) => {
+      qc.setQueryData(['gameday', selectedGameDayId], context?.previousGameday);
+      toast.error('Erro ao marcar presença na quadra.');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDayId] }),
   });
 
   const { playersList, arrivedCount } = useMemo(() => {

@@ -78,9 +78,17 @@ export interface Player {
   big_stars: number;    // estrelas grandes conquistadas
   created_at: string;
   updated_at?: string;
-  is_guest?: boolean;
+  is_guest: boolean;
   invited_by?: string;
   consecutive_absences: number;
+  stats?: {
+    matches: number;
+    win_rate: number;
+    mvp: number;
+    best_attacker: number;
+    best_server: number;
+    best_defender: number;
+  };
 }
 
 export interface PlayerFormData {

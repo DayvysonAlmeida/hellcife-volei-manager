@@ -12,6 +12,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
+import { SyncButton } from '@/components/ui/SyncButton';
 import { dashboardService } from '@/services';
 import { formatDateTime } from '@/lib/utils';
 import type { DashboardData } from '@/types';
@@ -123,6 +124,12 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <SyncButton 
+        onSync={() => {
+          refetch();
+        }} 
+      />
+
       {/* Page header */}
       <div>
         <h1 className="page-title">DASHBOARD</h1>
@@ -209,7 +216,7 @@ export function DashboardPage() {
                 <p className="text-sm text-text-muted">Top 10 membros com mais estrelas — grandes estrelas são mérito máximo</p>
               </div>
             </div>
-            <Link to="/stars" className="btn-secondary text-xs px-4 py-2 flex items-center justify-center gap-2 whitespace-nowrap bg-surface hover:bg-surface-hover">
+            <Link to="/stars-system" className="btn-secondary text-xs px-4 py-2 flex items-center justify-center gap-2 whitespace-nowrap bg-surface hover:bg-surface-hover">
               <Star size={14} className="text-yellow-400" />
               Ver Sistema Completo
             </Link>

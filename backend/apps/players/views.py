@@ -45,7 +45,13 @@ class PlayerViewSet(viewsets.ModelViewSet):
             # Na listagem, anotar o overall mais recente via subquery para eliminar N+1.
             # O serializer usa a annotation quando disponível, evitando 1 query por jogador.
             qs = qs.annotate(
-                annotated_overall=latest_overall_subquery()
+                annotated_overall=latest_overall_subquery(),
+                total_matches=Count('match_appearances', distinct=True),
+                mvps=Count('match_appearances', filter=Q(match_appearances__mvp=True), distinct=True),
+                best_attackers=Count('match_appearances', filter=Q(match_appearances__best_attacker=True), distinct=True),
+                best_servers=Count('match_appearances', filter=Q(match_appearances__best_server=True), distinct=True),
+                best_defenders=Count('match_appearances', filter=Q(match_appearances__best_defender=True), distinct=True),
+                wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
             )
         else:
             # Para outras actions, prefetch para uso em PlayerDetailSerializer
