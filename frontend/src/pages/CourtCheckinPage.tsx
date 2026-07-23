@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ClipboardList, Check, Loader2, CalendarCheck, Search } from 'lucide-react';
+import { ClipboardList, Check, Loader2, CalendarCheck, Search, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
@@ -25,23 +25,26 @@ export function CourtCheckinPage() {
   });
   const gameDays = gameDaysData?.results || [];
 
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  
-  const { upcomingGameDays } = useMemo(() => {
-    const upcoming = gameDays.filter(gd => gd.date >= todayStr);
-    return { upcomingGameDays: upcoming };
-  }, [gameDays, todayStr]);
+  const { openGameDays } = useMemo(() => {
+    return { openGameDays: gameDays.filter(gd => !gd.is_closed) };
+  }, [gameDays]);
 
-  // Auto-selecionar o próximo jogo se nenhum estiver selecionado
+  // Auto-selecionar a última (mais recente) pelada aberta por padrão
   useEffect(() => {
     if (gameDays.length > 0 && selectedGameDayId === null) {
-      if (upcomingGameDays.length > 0) {
-        setSelectedGameDayId(upcomingGameDays[upcomingGameDays.length - 1].id);
+      if (openGameDays.length > 0) {
+        // O array já vem ordenado do mais recente pro mais antigo pelo backend (-date)
+        // Então openGameDays[0] é a "última criada/mais recente" que está aberta.
+        setSelectedGameDayId(openGameDays[0].id);
       } else {
         setSelectedGameDayId(gameDays[0].id);
       }
     }
-  }, [gameDays, selectedGameDayId, upcomingGameDays]);
+  }, [gameDays, selectedGameDayId, openGameDays]);
+
+  const handleSelectGameDay = (id: number | null) => {
+    setSelectedGameDayId(id);
+  };
 
   const { data: gameDayDetail, isLoading: loadingDetail } = useQuery({
     queryKey: ['gameday', selectedGameDayId],
@@ -117,8 +120,9 @@ export function CourtCheckinPage() {
               <select
                 className="input w-full"
                 value={selectedGameDayId || ''}
-                onChange={(e) => setSelectedGameDayId(Number(e.target.value))}
+                onChange={(e) => handleSelectGameDay(Number(e.target.value) || null)}
               >
+                <option value="">Selecione o circuito...</option>
                 {gameDays.map(gd => (
                   <option key={gd.id} value={gd.id}>
                     {formatDate(gd.date)} {gd.location ? `- ${gd.location}` : ''}
@@ -167,6 +171,13 @@ export function CourtCheckinPage() {
               </div>
             </div>
 
+            {gameDayDetail?.is_closed && (
+              <div className="mx-4 mt-4 bg-red/10 border border-red/20 text-red text-center py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+                <Lock size={14} />
+                Circuito Encerrado (Apenas Leitura)
+              </div>
+            )}
+
             {loadingDetail ? (
               <PageLoading />
             ) : !gameDayDetail ? (
@@ -194,13 +205,13 @@ export function CourtCheckinPage() {
                     
                     <button
                       onClick={() => toggleMutation.mutate(att.player)}
-                      disabled={toggleMutation.isPending}
+                      disabled={toggleMutation.isPending || gameDayDetail.is_closed}
                       className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all shadow-sm ${
                         att.arrived
                           ? 'bg-green-500 border-green-500 text-white'
                           : 'bg-background border-border-subtle hover:border-red hover:text-red text-text-muted'
-                      }`}
-                      title={att.arrived ? 'Desmarcar presença' : 'Marcar presença na quadra'}
+                      } ${gameDayDetail.is_closed ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                      title={gameDayDetail.is_closed ? 'Circuito encerrado' : (att.arrived ? 'Desmarcar presença' : 'Marcar presença na quadra')}
                     >
                       {toggleMutation.isPending && toggleMutation.variables === att.player ? (
                         <Loader2 size={20} className="animate-spin" />

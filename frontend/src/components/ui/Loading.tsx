@@ -22,13 +22,17 @@ export function LoadingSpinner({ message = 'Carregando...', size = 'md' }: Loadi
 
 export function PageLoading() {
   return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-2 border-red/20" />
-          <div className="absolute inset-0 rounded-full border-2 border-t-red animate-spin" />
+    <div className="flex items-center justify-center min-h-[400px] w-full">
+      <div className="flex flex-col items-center gap-5">
+        <div className="relative w-16 h-16 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-4 border-red/10" />
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-red border-r-red animate-spin" />
+          <Loader2 className="w-6 h-6 text-red animate-pulse" />
         </div>
-        <p className="text-text-muted text-sm tracking-wider uppercase font-medium">Carregando</p>
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-text-primary text-sm font-bold tracking-widest uppercase">Carregando</p>
+          <p className="text-text-muted text-xs">Preparando o ambiente...</p>
+        </div>
       </div>
     </div>
   );
@@ -59,9 +63,13 @@ export function ErrorState({ message = 'Ocorreu um erro ao carregar os dados.', 
 
 export function EmptyState({ message, icon }: { message: string; icon?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-      {icon && <span className="text-5xl">{icon}</span>}
-      <p className="text-text-muted text-sm max-w-sm">{message}</p>
+    <div className="flex flex-col items-center justify-center gap-4 py-16 px-4 text-center rounded-2xl border-2 border-dashed border-border bg-surface/30">
+      {icon && (
+        <div className="w-16 h-16 rounded-full bg-surface-highlight flex items-center justify-center text-4xl shadow-sm mb-2">
+          {icon}
+        </div>
+      )}
+      <p className="text-text-muted text-sm font-medium max-w-sm leading-relaxed">{message}</p>
     </div>
   );
 }

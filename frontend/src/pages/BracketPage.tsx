@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList, Target, UserCheck, Hand, Flame, ArrowUp, ArrowDown, ChevronsUp } from 'lucide-react';
+import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList, Target, UserCheck, Hand, Flame, ArrowUp, ArrowDown, ChevronsUp, RefreshCw } from 'lucide-react';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { teamsService, matchesService } from '@/services';
+import { teamsService, matchesService, attendanceService } from '@/services';
 import type { DBTeam, QuickMatchData, Modality, Match } from '@/types';
 import toast from 'react-hot-toast';
 import { MatchCard } from '@/components/matches/MatchCard';
-import { AttendanceModal } from '@/components/attendance/AttendanceModal';
+import { CourtCheckinModal } from '@/components/attendance/CourtCheckinModal';
 import { useAuth } from '@/store/AuthContext';
 
 interface BracketState {
@@ -35,7 +35,7 @@ export function BracketPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [showCheckinModal, setShowCheckinModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
   const storageKey = `hellcife_bracket_${id}`;
 
@@ -52,6 +52,20 @@ export function BracketPage() {
     enabled: !!generation?.id,
   });
   const matches = matchesData?.results || [];
+
+  const { data: gamedayData } = useQuery({
+    queryKey: ['gameday', generation?.gameday],
+    queryFn: () => attendanceService.getGameDay(generation!.gameday),
+    enabled: !!generation?.gameday,
+  });
+
+  const autoAllocateMutation = useMutation({
+    mutationFn: (genId: number) => teamsService.autoAllocate(genId),
+    onSuccess: (res) => {
+       qc.invalidateQueries({ queryKey: ['team-generation', Number(id)] });
+       toast.success(res.detail || 'Jogadores alocados com sucesso!');
+    }
+  });
 
   const [state, setState] = useState<BracketState>(() => {
     const saved = localStorage.getItem(storageKey);
@@ -82,16 +96,20 @@ export function BracketPage() {
     localStorage.setItem(storageKey, JSON.stringify(state));
   }, [state, storageKey]);
 
-  // Sincronização ao vivo de jogadores nos times
+  // Sincronização ao vivo de jogadores nos times e novos times
   useEffect(() => {
-    if (generation && state.isStarted) {
+    if (generation) {
       setState(prev => {
         let changed = false;
         
         const syncTeam = (t: DBTeam | null) => {
           if (!t) return null;
           const freshTeam = generation.teams.find((genT: any) => genT.id === t.id);
-          if (freshTeam && JSON.stringify(freshTeam.team_players) !== JSON.stringify(t.team_players)) {
+          if (!freshTeam) {
+            changed = true;
+            return null; // Time foi excluído
+          }
+          if (JSON.stringify(freshTeam.team_players) !== JSON.stringify(t.team_players)) {
             changed = true;
             return { ...t, team_players: freshTeam.team_players, avg_overall: freshTeam.avg_overall };
           }
@@ -100,7 +118,24 @@ export function BracketPage() {
 
         const newCourtA = syncTeam(prev.courtA);
         const newCourtB = syncTeam(prev.courtB);
-        const newQueue = prev.queue.map(syncTeam) as DBTeam[];
+        let newQueue = prev.queue.map(syncTeam).filter(Boolean) as DBTeam[];
+
+        if (prev.queue.length !== newQueue.length) changed = true;
+        if (prev.courtA !== null && newCourtA === null) changed = true;
+        if (prev.courtB !== null && newCourtB === null) changed = true;
+
+        // Verifica novos times criados
+        const currentIds = new Set([
+          newCourtA?.id,
+          newCourtB?.id,
+          ...newQueue.map(t => t.id)
+        ].filter(Boolean));
+
+        const newTeams = generation.teams.filter((t: any) => !currentIds.has(t.id));
+        if (newTeams.length > 0) {
+          changed = true;
+          newQueue = [...newQueue, ...newTeams];
+        }
 
         if (changed) {
           return { ...prev, courtA: newCourtA, courtB: newCourtB, queue: newQueue };
@@ -108,14 +143,7 @@ export function BracketPage() {
         return prev;
       });
     }
-  }, [generation, state.isStarted]);
-
-
-  useEffect(() => {
-    if (generation && !state.isStarted && state.queue.length === 0) {
-      setState(prev => ({ ...prev, queue: [...generation.teams] }));
-    }
-  }, [generation, state.isStarted, state.queue.length]);
+  }, [generation]);
 
   const shuffleQueue = () => {
     setState(prev => {
@@ -293,8 +321,8 @@ export function BracketPage() {
   const finishPelada = () => {
     setConfirmDialog({
       isOpen: true,
-      title: 'Encerrar Pelada',
-      desc: 'Tem certeza que deseja encerrar esta pelada? O histórico será salvo e os times trancados.',
+      title: 'Encerrar Pelada e Circuito',
+      desc: 'Tem certeza que deseja encerrar? O circuito inteiro será finalizado, e o histórico será salvo e trancado.',
       onConfirm: () => {
         if (!generation?.is_locked) {
           lockMutation.mutate();
@@ -480,10 +508,21 @@ export function BracketPage() {
           <button onClick={() => navigate('/teams')} className="btn-ghost p-2 rounded-full hover:bg-surface border border-border" title="Voltar">
             <ArrowLeft size={24} />
           </button>
+          <button 
+            onClick={() => {
+              qc.invalidateQueries({ queryKey: ['team-generation', id] });
+              qc.invalidateQueries({ queryKey: ['gameday', generation?.gameday] });
+              toast.success('Placar sincronizado!');
+            }}
+            className="btn-ghost p-2 rounded-full hover:bg-surface border border-transparent hover:border-border text-text-muted hover:text-text-primary transition-all"
+            title="Sincronizar dados"
+          >
+            <RefreshCw size={20} />
+          </button>
           {generation.gameday && (
-            <button onClick={() => setShowAttendanceModal(true)} className="btn-secondary flex items-center gap-2 px-3 py-2 text-sm rounded-lg border-border" title="Lista de Presença / Pix">
-              <ClipboardList size={18} className="text-red" />
-              <span className="hidden md:inline font-bold">Chamada / Pix</span>
+            <button onClick={() => setShowCheckinModal(true)} className="btn-secondary flex items-center gap-2 px-3 py-2 text-sm rounded-lg border-border" title="Tiragem de Falta">
+              <UserCheck size={18} className="text-red" />
+              <span className="hidden md:inline font-bold">Tiragem de Falta</span>
             </button>
           )}
         </div>
@@ -498,7 +537,7 @@ export function BracketPage() {
         <div className="flex-1 flex justify-end">
           <button onClick={finishPelada} className="btn-ghost text-text-muted hover:text-red hover:bg-red/10 flex items-center gap-2 px-3 py-2 text-sm rounded-lg">
             <Power size={18} />
-            <span className="hidden md:inline font-bold">Encerrar Pelada</span>
+            <span className="hidden md:inline font-bold">Encerrar Pelada e Circuito</span>
           </button>
         </div>
       </div>
@@ -629,9 +668,35 @@ export function BracketPage() {
       {/* Fila */}
       {state.queue.length > 0 && (
         <div className="card p-5 mt-6">
-          <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-text-muted mb-4 flex items-center gap-2">
-            <ArrowRightLeft size={16} /> Na fila de espera
-          </h3>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+            <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-text-muted flex items-center gap-2">
+              <ArrowRightLeft size={16} /> Na fila de espera
+            </h3>
+            
+            {/* Botão de Auto-alocar (Vem da Quadra) */}
+            {(() => {
+              if (!generation?.gameday) return null;
+              
+              const checkinCount = gamedayData?.total_court_checkins || 0;
+              const playersInGen = generation.teams.reduce((acc: number, t: any) => acc + t.team_players.length, 0);
+              const unassignedCount = Math.max(0, checkinCount - playersInGen);
+
+              if (unassignedCount > 0 && !generation.is_locked) {
+                return (
+                  <button 
+                    onClick={() => autoAllocateMutation.mutate(generation.id)}
+                    disabled={autoAllocateMutation.isPending}
+                    className="text-xs bg-red text-white hover:bg-red/90 px-3 py-2 rounded-lg font-bold uppercase shadow-neon-red flex items-center gap-2 transition-all w-full sm:w-auto justify-center"
+                    title="Alocar jogadores na fila"
+                  >
+                    <Zap size={14} />
+                    Completar Vagas ({unassignedCount} aguardando)
+                  </button>
+                );
+              }
+              return null;
+            })()}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {state.queue.map((team, idx) => (
               <div key={team.id} className="flex flex-col justify-center bg-surface border border-border rounded-xl px-4 py-3">
@@ -738,11 +803,11 @@ export function BracketPage() {
         )}
       </AnimatePresence>
 
-      {generation?.gameday && (
-        <AttendanceModal 
-          gamedayId={generation.gameday} 
-          isOpen={showAttendanceModal} 
-          onClose={() => setShowAttendanceModal(false)} 
+      {generation.gameday && (
+        <CourtCheckinModal
+          gamedayId={generation.gameday}
+          isOpen={showCheckinModal}
+          onClose={() => setShowCheckinModal(false)}
         />
       )}
     </div>

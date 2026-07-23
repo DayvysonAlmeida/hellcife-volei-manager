@@ -23,8 +23,14 @@
   --shadow-neon-blue: 0 0 20px rgba(37, 99, 235, 0.4), 0 0 40px rgba(37, 99, 235, 0.2);
   --shadow-neon-green: 0 0 20px rgba(22, 163, 74, 0.4), 0 0 40px rgba(22, 163, 74, 0.2);
   --shadow-neon-yellow: 0 0 20px rgba(250, 204, 21, 0.4), 0 0 40px rgba(250, 204, 21, 0.2);
+  
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 8px 32px rgba(0, 0, 0, 0.6);
+  
   --glow-bg-opacity: 0.1;
   --glow-bg-hover-opacity: 0.3;
+  --card-blur: blur(24px);
+  --card-opacity: 0.8;
 }
 
 .theme-light {
@@ -42,12 +48,18 @@
   --color-text-secondary: 63 63 70;
   --color-text-muted: 82 82 91;
 
-  --shadow-neon-red: 0 4px 15px rgba(217, 4, 41, 0.15);
-  --shadow-neon-blue: 0 4px 15px rgba(37, 99, 235, 0.15);
-  --shadow-neon-green: 0 4px 15px rgba(22, 163, 74, 0.15);
-  --shadow-neon-yellow: 0 4px 15px rgba(202, 138, 4, 0.15);
-  --glow-bg-opacity: 0.03;
-  --glow-bg-hover-opacity: 0.08;
+  --shadow-neon-red: 0 4px 15px rgba(217, 4, 41, 0.2);
+  --shadow-neon-blue: 0 4px 15px rgba(37, 99, 235, 0.2);
+  --shadow-neon-green: 0 4px 15px rgba(22, 163, 74, 0.2);
+  --shadow-neon-yellow: 0 4px 15px rgba(202, 138, 4, 0.2);
+  
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  
+  --glow-bg-opacity: 0.05;
+  --glow-bg-hover-opacity: 0.1;
+  --card-blur: blur(0px);
+  --card-opacity: 1;
 }
 
 @layer base {
@@ -91,17 +103,27 @@
 @layer components {
   /* Cards */
   .card {
-    @apply bg-surface/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-card
-           relative overflow-hidden;
+    @apply rounded-xl relative overflow-hidden transition-all duration-300;
+    background-color: rgba(var(--color-surface), var(--card-opacity));
+    backdrop-filter: var(--card-blur);
+    border: 1px solid rgba(var(--color-border), 0.5);
+    box-shadow: var(--shadow-card);
   }
   
   .card::before {
     content: '';
-    @apply absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 transition-opacity duration-300 pointer-events-none;
+    @apply absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 transition-opacity duration-300 pointer-events-none;
   }
 
   .card-hover {
-    @apply card transition-all duration-300 hover:border-border hover:shadow-card-hover hover:-translate-y-1;
+    @apply card;
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-hover:hover {
+    border-color: rgba(var(--color-border), 1);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
   }
   
   .card-hover:hover::before {

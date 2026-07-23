@@ -35,7 +35,7 @@ export function AppLayout() {
         <Header onMenuToggle={() => setMobileMenuOpen(true)} />
 
         {/* Page content */}
-        <main className="flex-1 p-4 md:p-6 flex flex-col">
+        <main className="flex-1 p-2 sm:p-4 md:p-6 flex flex-col">
           <div className="max-w-[1600px] mx-auto w-full flex-1 animate-fade-in">
             <Outlet />
           </div>

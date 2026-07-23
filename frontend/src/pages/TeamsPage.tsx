@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History, Plus, X } from 'lucide-react';
+import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History, Plus, X, UserCheck } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -65,6 +65,30 @@ export function TeamsPage() {
     }
   });
 
+  const addTeamMutation = useMutation({
+    mutationFn: (genId: number) => teamsService.addTeam(genId),
+    onSuccess: () => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       toast.success('Novo time vazio adicionado!');
+    }
+  });
+
+  const removeTeamMutation = useMutation({
+    mutationFn: ({ genId, teamId }: { genId: number, teamId: number }) => teamsService.removeTeam(genId, teamId),
+    onSuccess: () => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       toast.success('Time removido com sucesso!');
+    }
+  });
+
+  const autoAllocateMutation = useMutation({
+    mutationFn: (genId: number) => teamsService.autoAllocate(genId),
+    onSuccess: (res) => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       toast.success(res.detail || 'Jogadores alocados com sucesso!');
+    }
+  });
+
   const { data: allPlayersData } = useQuery({
     queryKey: ['all-players'],
     queryFn: () => playersService.list({ is_active: true, page_size: 200 }),
@@ -81,11 +105,9 @@ export function TeamsPage() {
   const todayStr = new Date().toLocaleDateString('en-CA');
   
   const { upcomingGameDays, pastGameDays } = useMemo(() => {
-    const upcoming = gameDays.filter(gd => gd.date >= todayStr);
-    const past = gameDays.filter(gd => gd.date < todayStr);
-    // Assumindo que a API retorna ordenado descrescente (-date)
-    // Então o upcoming mais próximo de hoje é o ÚLTIMO item do array upcoming
-    return { upcomingGameDays: upcoming, pastGameDays: past };
+    const upcomingGameDays = gameDays?.filter(gd => !gd.is_closed && gd.date >= todayStr) || [];
+    const pastGameDays = gameDays?.filter(gd => gd.is_closed || gd.date < todayStr) || [];
+    return { upcomingGameDays, pastGameDays };
   }, [gameDays, todayStr]);
 
   // Auto-selecionar o próximo jogo se nenhum estiver selecionado
@@ -188,6 +210,243 @@ export function TeamsPage() {
     }
   };
 
+  const renderGeneration = (gen: any) => {
+    return (
+      <div key={gen.id} className={`card p-5 border-l-2 ${gen.is_locked ? 'border-border opacity-70' : 'border-red shadow-neon-red shadow-red/10'}`}>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <p className="font-medium text-text-primary text-lg flex items-center gap-2">
+              {gen.modality_display} — {gen.gameday ? `${formatDate(gameDays.find((gd: any) => gd.id === gen.gameday)?.date || '')} ${gameDays.find((gd: any) => gd.id === gen.gameday)?.location ? `(${gameDays.find((gd: any) => gd.id === gen.gameday)?.location})` : ''}` : 'Avulso'}
+              {gen.is_locked && (
+                <span title="Pelada Encerrada" className="text-red/70 flex items-center bg-red/10 px-2 py-0.5 rounded-full text-xs gap-1">
+                  <Lock size={12} />
+                  Encerrada
+                </span>
+              )}
+            </p>
+            <p className="text-sm text-text-muted mt-0.5">
+              Gerado em {formatDate(gen.created_at)} por {gen.created_by_name}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right border-l border-border pl-3">
+              <span className="text-xs text-text-muted uppercase tracking-wider block">Balanceamento</span>
+              <span className="text-green-400 font-bold text-lg">{(10 - (gen.balance_score || 0) * 10).toFixed(1)}%</span>
+            </div>
+            {canEdit && (
+              <div className="flex items-center gap-2 border-l border-border pl-3">
+                <button
+                  onClick={() => {
+                    setConfirmDialog({
+                      isOpen: true,
+                      title: 'Excluir Geração',
+                      desc: 'Tem certeza que deseja excluir esta geração de times?',
+                      onConfirm: () => deleteGenMutation.mutate(gen.id)
+                    });
+                  }}
+                  disabled={deleteGenMutation.isPending}
+                  className="btn-ghost p-1.5 hover:bg-red/10 hover:text-red rounded-lg transition-colors text-text-muted"
+                  title="Excluir Geração"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Status da Quadra (Tiragem de Falta) */}
+        {(() => {
+          const checkinCount = gameDays.find((gd: any) => gd.id === gen.gameday)?.total_court_checkins || 0;
+          const playersInGen = gen.teams.reduce((acc: number, t: any) => acc + t.team_players.length, 0);
+          const unassignedCount = Math.max(0, checkinCount - playersInGen);
+          const progress = checkinCount > 0 ? (playersInGen / checkinCount) * 100 : 100;
+          const isComplete = unassignedCount === 0;
+
+          return (
+            <div className="mb-6 p-4 bg-surface-hover rounded-xl border border-border">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <UserCheck size={16} className={isComplete ? "text-green-500" : "text-yellow-500"} />
+                  <span className="font-bold text-sm text-text-primary">Sincronização da Quadra</span>
+                </div>
+                <span className="text-xs font-bold text-text-muted">
+                  {playersInGen} / {checkinCount} jogadores alocados
+                </span>
+              </div>
+              
+              {/* Barra de Progresso */}
+              <div className="w-full bg-border h-2 rounded-full overflow-hidden flex mb-3">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(100, progress)}%` }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
+                  className={`h-full ${isComplete ? 'bg-green-500' : 'bg-yellow-500'}`}
+                />
+              </div>
+              
+              {!isComplete && !gen.is_locked && (
+                <div className="flex justify-between items-center bg-yellow-500/10 border border-yellow-500/20 p-2 rounded-lg">
+                  <span className="text-xs text-yellow-500 font-bold ml-2">
+                    {unassignedCount} jogadores confirmados aguardando time!
+                  </span>
+                  <button 
+                    onClick={() => autoAllocateMutation.mutate(gen.id)}
+                    disabled={autoAllocateMutation.isPending}
+                    className="text-[10px] bg-red text-white hover:bg-red/90 px-3 py-1.5 rounded-lg font-bold uppercase shadow-neon-red flex items-center gap-1 transition-all"
+                    title="Clique para alocar os jogadores em novos times via inteligência"
+                  >
+                    <Zap size={12} />
+                    Completar Vagas
+                  </button>
+                </div>
+              )}
+              
+              {isComplete && checkinCount > 0 && (
+                <span className="text-xs text-green-500 font-bold">✓ Todos os jogadores da quadra estão em times.</span>
+              )}
+            </div>
+          );
+        })()}
+        
+        {/* Generated Teams Mini-grid */}
+        <div className="flex items-center justify-between mt-4 mb-2">
+          <h3 className="font-display text-sm text-text-muted">TIMES</h3>
+          {canEdit && !gen.is_locked && (
+            <button
+              onClick={() => addTeamMutation.mutate(gen.id)}
+              disabled={addTeamMutation.isPending}
+              className="btn-secondary py-1 px-3 text-xs flex items-center gap-2 rounded-lg border-border-subtle hover:border-red hover:text-red transition-all"
+            >
+              <Plus size={12} />
+              Adicionar Time Vazio
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {gen.teams.map((team: any) => (
+            <div key={team.id} className="bg-surface rounded-lg p-3 border border-border">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-display text-sm" style={{ color: team.color_hex }}>{team.name.toUpperCase()}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-xs" style={{ color: team.color_hex }}>{team.avg_overall.toFixed(1)}</span>
+                  {canEdit && !gen.is_locked && team.team_players.length === 0 && (
+                    <button
+                      onClick={() => {
+                        setConfirmDialog({
+                          isOpen: true,
+                          title: 'Excluir Time',
+                          desc: `Tem certeza que deseja excluir o ${team.name}?`,
+                          onConfirm: () => removeTeamMutation.mutate({ genId: gen.id, teamId: team.id })
+                        });
+                      }}
+                      className="text-text-muted hover:text-red p-1 rounded transition-colors"
+                      title="Excluir Time Vazio"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                {team.team_players.map((p: any) => (
+                  <div key={p.id} className="flex justify-between items-center text-xs group">
+                    <span className="text-text-secondary truncate pr-2 flex items-center gap-1">
+                      {canEdit && !gen.is_locked && (
+                        <button
+                          onClick={() => {
+                            setConfirmDialog({
+                              isOpen: true,
+                              title: 'Remover Jogador',
+                              desc: `Remover ${p.player_name} da pelada?`,
+                              onConfirm: () => removePlayerMutation.mutate({ genId: gen.id, playerId: p.player })
+                            });
+                          }}
+                          className="text-text-muted hover:text-red p-0.5 rounded opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                          title="Remover Jogador"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                      {p.player_name}
+                      {p.player_is_guest && (
+                        <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold ml-1">
+                          Convidado
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-text-muted">{p.player_overall}</span>
+                      {canEdit && !gen.is_locked && (
+                        <div className="relative">
+                          <select 
+                            className="opacity-100 md:opacity-0 focus:opacity-100 md:group-hover:opacity-100 transition-opacity bg-surface border border-border rounded text-[10px] text-text-primary h-5 pr-4 pl-1 outline-none cursor-pointer appearance-none"
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                movePlayerMutation.mutate({ genId: gen.id, playerId: p.player, targetTeamId: Number(e.target.value) });
+                                e.target.value = '';
+                              }
+                            }}
+                            disabled={movePlayerMutation.isPending}
+                            title="Mover para outro time"
+                          >
+                            <option value="">⇄ Mover</option>
+                            {gen.teams.filter((t: any) => t.id !== team.id).map((t: any) => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </select>
+                          <div className="absolute inset-0 pointer-events-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center bg-surface border border-border-subtle rounded group-hover:bg-blue/10 group-hover:border-blue/30 group-hover:text-blue text-text-muted">
+                            <ArrowRightLeft size={10} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add Player Dropdown */}
+                {canEdit && !gen.is_locked && (
+                  <div className="pt-2 mt-2 border-t border-border-subtle">
+                    <select
+                      className="w-full bg-surface border border-border rounded text-xs text-text-muted p-1 outline-none cursor-pointer"
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          addPlayerMutation.mutate({ genId: gen.id, playerId: Number(e.target.value), teamId: team.id });
+                          e.target.value = '';
+                        }
+                      }}
+                      disabled={addPlayerMutation.isPending}
+                    >
+                      <option value="">+ Adicionar Jogador</option>
+                      {allPlayers
+                        .filter((p: any) => !gen.teams.some((t: any) => t.team_players.some((tp: any) => tp.player === p.id)))
+                        .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name))
+                        .map((p: any) => (
+                          <option key={p.id} value={p.id}>{p.display_name} ({p.overall})</option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {canEdit && (
+          <div className="mt-6 pt-4 border-t border-border flex justify-end">
+            <Link
+              to={`/bracket/${gen.id}`}
+              className={`px-6 py-3 flex items-center gap-2 w-full sm:w-auto justify-center ${gen.is_locked ? 'btn-secondary text-text-secondary border border-border bg-surface/50 hover:bg-surface' : 'btn-primary'}`}
+            >
+              {gen.is_locked ? <History size={18} /> : <Trophy size={18} />}
+              {gen.is_locked ? 'Ver Histórico da Pelada' : 'Abrir Placar / Chaveamento'}
+            </Link>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <ConfirmDialog 
@@ -198,9 +457,24 @@ export function TeamsPage() {
         onConfirm={confirmDialog.onConfirm}
       />
 
-      <div>
-        <h1 className="page-title">Peladas</h1>
-        <p className="page-subtitle">Sorteio e histórico de times da sua pelada.</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="page-title">Peladas</h1>
+          <p className="page-subtitle">Sorteio e histórico de times da sua pelada.</p>
+        </div>
+        <button
+          onClick={() => {
+            qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+            qc.invalidateQueries({ queryKey: ['gamedays'] });
+            qc.invalidateQueries({ queryKey: ['all-players'] });
+            toast.success('Dados sincronizados!');
+          }}
+          className="btn-ghost flex items-center gap-2 text-text-muted hover:text-text-primary px-3 py-2 rounded-lg transition-colors border border-transparent hover:border-border"
+          title="Sincronizar dados"
+        >
+          <RefreshCw size={18} />
+          <span className="hidden sm:inline font-bold">Sincronizar</span>
+        </button>
       </div>
 
       {/* Config */}
@@ -263,19 +537,55 @@ export function TeamsPage() {
           </div>
         </div>
 
+        {/* Court Checkin Summary (Dynamic) */}
+        {selectedGameDayId && (() => {
+          const gd = gameDays.find((g: any) => g.id === selectedGameDayId);
+          if (!gd) return null;
+          const totalCheckins = gd.total_court_checkins || 0;
+          const expectedTeams = Math.max(1, Math.floor(totalCheckins / modality));
+          const leftovers = totalCheckins % modality;
+          
+          return (
+            <div className="mt-4 p-4 bg-surface border border-border rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-red/10 p-2 rounded-full">
+                  <UserCheck size={20} className="text-red" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-text-primary">Tiragem de Falta (Quadra)</p>
+                  <p className="text-xs text-text-muted">{totalCheckins} jogadores confirmados neste dia.</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-text-secondary font-medium">Previsão:</p>
+                <p className="text-xs text-text-muted font-bold">
+                  {expectedTeams} time(s) de {modality} {leftovers > 0 ? ` + 1 time de ${leftovers}` : ''}
+                </p>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleGenerate}
-            disabled={generateMutation.isPending}
-            className="btn-primary flex items-center gap-2"
-          >
-            {generateMutation.isPending ? (
-              <RefreshCw size={16} className="animate-spin" />
-            ) : (
-              <Zap size={16} />
-            )}
-            {result ? 'Regerar times' : 'Gerar times'}
-          </button>
+          {selectedGameDayId && gameDays.find((g: any) => g.id === selectedGameDayId)?.is_closed ? (
+            <div className="flex items-center gap-2 text-red font-bold text-sm bg-red/10 px-4 py-2 rounded-lg border border-red/20 w-full sm:w-auto">
+              <Lock size={16} />
+              Circuito encerrado. Geração bloqueada.
+            </div>
+          ) : (
+            <button
+              onClick={handleGenerate}
+              disabled={generateMutation.isPending}
+              className="btn-primary flex items-center gap-2"
+            >
+              {generateMutation.isPending ? (
+                <RefreshCw size={16} className="animate-spin" />
+              ) : (
+                <Zap size={16} />
+              )}
+              {result ? 'Regerar times' : 'Gerar times'}
+            </button>
+          )}
           {result && (
             <>
               <button
@@ -334,171 +644,48 @@ export function TeamsPage() {
             {/* Teams grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {result.teams.map((team, idx) => (
-                <TeamCard key={team.order} team={team} idx={idx} />
+                <motion.div 
+                  key={team.order}
+                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ delay: idx * 0.15, type: 'spring' }}
+                >
+                  <TeamCard team={team} idx={idx} />
+                </motion.div>
               ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
       
-      {/* History */}
-      {history.length > 0 && (
-        <div className="mt-12 space-y-6 pt-8 border-t border-border">
-          <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3">
-            <Shuffle className="text-red" size={24} />
-            Histórico de Gerações
-          </h2>
-          <div className="space-y-6">
-            {history.map(gen => (
-              <div key={gen.id} className="card p-5 border-l-2 border-red">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <p className="font-medium text-text-primary text-lg flex items-center gap-2">
-                      {gen.modality_display} — {gen.gameday ? `${formatDate(gen.gameday_date || '')} ${gen.gameday_location ? `(${gen.gameday_location})` : ''}` : 'Avulso'}
-                      {gen.is_locked && (
-                        <span title="Pelada Encerrada" className="text-red/70 flex items-center bg-red/10 px-2 py-0.5 rounded-full text-xs gap-1">
-                          <Lock size={12} />
-                          Encerrada
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-sm text-text-muted mt-0.5">
-                      Gerado em {formatDate(gen.created_at)} por {gen.created_by_name}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <span className="text-xs text-text-muted uppercase tracking-wider block">Balanceamento</span>
-                      <span className="text-green-400 font-bold text-lg">{(10 - (gen.balance_score || 0) * 10).toFixed(1)}%</span>
-                    </div>
-                    {canEdit && (
-                      <div className="flex items-center gap-2 border-l border-border pl-3">
-                        <button
-                          onClick={() => {
-                            setConfirmDialog({
-                              isOpen: true,
-                              title: 'Excluir Geração',
-                              desc: 'Tem certeza que deseja excluir esta geração de times?',
-                              onConfirm: () => deleteGenMutation.mutate(gen.id)
-                            });
-                          }}
-                          disabled={deleteGenMutation.isPending}
-                          className="btn-ghost p-1.5 hover:bg-red/10 hover:text-red rounded-lg transition-colors text-text-muted"
-                          title="Excluir Geração"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Generated Teams Mini-grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {gen.teams.map(team => (
-                    <div key={team.id} className="bg-surface rounded-lg p-3 border border-border">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="font-display text-sm" style={{ color: team.color_hex }}>{team.name.toUpperCase()}</span>
-                        <span className="font-bold text-xs" style={{ color: team.color_hex }}>{team.avg_overall.toFixed(1)}</span>
-                      </div>
-                      <div className="space-y-1">
-                        {team.team_players.map(p => (
-                          <div key={p.id} className="flex justify-between items-center text-xs group">
-                            <span className="text-text-secondary truncate pr-2 flex items-center gap-1">
-                              {canEdit && !gen.is_locked && (
-                                <button
-                                  onClick={() => {
-                                    setConfirmDialog({
-                                      isOpen: true,
-                                      title: 'Remover Jogador',
-                                      desc: `Remover ${p.player_name} da pelada?`,
-                                      onConfirm: () => removePlayerMutation.mutate({ genId: gen.id, playerId: p.player })
-                                    });
-                                  }}
-                                  className="text-text-muted hover:text-red p-0.5 rounded opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                                  title="Remover Jogador"
-                                >
-                                  <X size={12} />
-                                </button>
-                              )}
-                              {p.player_name}
-                              {p.player_is_guest && (
-                                <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold ml-1">
-                                  Convidado
-                                </span>
-                              )}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-text-muted">{p.player_overall}</span>
-                              {canEdit && !gen.is_locked && (
-                                <div className="relative">
-                                  <select 
-                                    className="opacity-100 md:opacity-0 focus:opacity-100 md:group-hover:opacity-100 transition-opacity bg-surface border border-border rounded text-[10px] text-text-primary h-5 pr-4 pl-1 outline-none cursor-pointer appearance-none"
-                                    onChange={(e) => {
-                                      if (e.target.value) {
-                                        movePlayerMutation.mutate({ genId: gen.id, playerId: p.player, targetTeamId: Number(e.target.value) });
-                                        e.target.value = '';
-                                      }
-                                    }}
-                                    disabled={movePlayerMutation.isPending}
-                                    title="Mover para outro time"
-                                  >
-                                    <option value="">⇄ Mover</option>
-                                    {gen.teams.filter(t => t.id !== team.id).map(t => (
-                                      <option key={t.id} value={t.id}>{t.name}</option>
-                                    ))}
-                                  </select>
-                                  <div className="absolute inset-0 pointer-events-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center bg-surface border border-border-subtle rounded group-hover:bg-blue/10 group-hover:border-blue/30 group-hover:text-blue text-text-muted">
-                                    <ArrowRightLeft size={10} />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* Add Player Dropdown */}
-                        {canEdit && !gen.is_locked && (
-                          <div className="pt-2 mt-2 border-t border-border-subtle">
-                            <select
-                              className="w-full bg-surface border border-border rounded text-xs text-text-muted p-1 outline-none cursor-pointer"
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  addPlayerMutation.mutate({ genId: gen.id, playerId: Number(e.target.value), teamId: team.id });
-                                  e.target.value = '';
-                                }
-                              }}
-                              disabled={addPlayerMutation.isPending}
-                            >
-                              <option value="">+ Adicionar Jogador</option>
-                              {allPlayers
-                                .filter((p: any) => !gen.teams.some(t => t.team_players.some(tp => tp.player === p.id)))
-                                .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name))
-                                .map((p: any) => (
-                                  <option key={p.id} value={p.id}>{p.display_name} ({p.overall})</option>
-                                ))}
-                            </select>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {canEdit && (
-                  <div className="mt-6 pt-4 border-t border-border flex justify-end">
-                    <Link
-                      to={`/bracket/${gen.id}`}
-                      className={`px-6 py-3 flex items-center gap-2 w-full sm:w-auto justify-center ${gen.is_locked ? 'btn-secondary text-text-secondary border border-border bg-surface/50 hover:bg-surface' : 'btn-primary'}`}
-                    >
-                      {gen.is_locked ? <History size={18} /> : <Trophy size={18} />}
-                      {gen.is_locked ? 'Ver Histórico da Pelada' : 'Abrir Placar / Chaveamento'}
-                    </Link>
-                  </div>
-                )}
+      {/* Active and History */}
+      {(history.length > 0) && (
+        <div className="mt-12 pt-8 border-t border-border">
+          {/* Active Generations */}
+          {history.filter(h => !h.is_locked).length > 0 && (
+            <div className="mb-12">
+              <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3 mb-6">
+                <Trophy className="text-yellow-400" size={24} />
+                Pelada Ativa (Jogando)
+              </h2>
+              <div className="space-y-6">
+                {history.filter(h => !h.is_locked).map(gen => renderGeneration(gen))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {/* Past Generations */}
+          {history.filter(h => h.is_locked).length > 0 && (
+            <div>
+              <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3 mb-6">
+                <History className="text-red" size={24} />
+                Histórico de Peladas Anteriores
+              </h2>
+              <div className="space-y-6">
+                {history.filter(h => h.is_locked).map(gen => renderGeneration(gen))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

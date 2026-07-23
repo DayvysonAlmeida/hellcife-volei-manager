@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CalendarCheck, ChevronRight, ChevronLeft, Plus, DollarSign, Share2, Trash2, Edit2, Lock, Swords } from 'lucide-react';
@@ -41,6 +41,14 @@ export function AttendancePage() {
     enabled: !!selectedGameDay,
   });
 
+  // Auto-selecionar o circuito mais recente se nenhum estiver selecionado
+  useEffect(() => {
+    if (gameDays.length > 0 && !selectedGameDay) {
+      // O primeiro da lista é o mais recente, pois o backend ordena por -date
+      setSelectedGameDay(gameDays[0]);
+    }
+  }, [gameDays, selectedGameDay]);
+
   const { presentAttendances, absentAttendances, totalPaid } = useMemo(() => {
     if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], totalPaid: 0 };
     
@@ -69,8 +77,8 @@ export function AttendancePage() {
     return { courtPrice: cp, rateio: rat, totalCollected: coll, remaining: rem };
   }, [gameDayDetail, totalPaid]);
 
-  const isPastGameday = !!gameDayDetail?.date && gameDayDetail.date < todayStr;
-  const showEditControls = canEdit && !isPastGameday;
+  const isClosedGameday = !!gameDayDetail?.is_closed || (!!gameDayDetail?.date && gameDayDetail.date < todayStr);
+  const showEditControls = canEdit && !isClosedGameday;
 
   // Mutations
   const toggleMutation = useMutation({
@@ -246,10 +254,10 @@ export function AttendancePage() {
             <PageLoading />
           ) : gameDayDetail ? (
             <div className="card p-5 space-y-4">
-              {isPastGameday && (
+              {isClosedGameday && (
                 <div className="bg-red/10 border border-red/20 text-red text-center py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
                   <Lock size={14} />
-                  Pelada encerrada — Exibindo histórico
+                  Circuito encerrado — Exibindo histórico
                 </div>
               )}
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">

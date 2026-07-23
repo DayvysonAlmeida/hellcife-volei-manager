@@ -26,7 +26,7 @@ export function ConfirmDialog({
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 animate-in fade-in-0" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] max-w-md bg-card border border-border p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in-0 duration-200">
+        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[95%] sm:w-[90%] max-w-md bg-surface border border-border p-6 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in-0 duration-200">
           <div className="flex justify-between items-start mb-4">
             <div className="flex items-center gap-3">
               {isDestructive && (
@@ -47,9 +47,9 @@ export function ConfirmDialog({
             {description}
           </Dialog.Description>
           
-          <div className="flex gap-3 justify-end">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end mt-2">
             <Dialog.Close asChild>
-              <button className="btn-secondary px-4 py-2 text-sm font-bold">
+              <button className="btn-secondary w-full sm:w-auto px-4 py-3 sm:py-2 text-sm font-bold">
                 {cancelText}
               </button>
             </Dialog.Close>
@@ -58,7 +58,7 @@ export function ConfirmDialog({
                 onConfirm();
                 onOpenChange(false);
               }}
-              className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+              className={`w-full sm:w-auto px-4 py-3 sm:py-2 text-sm font-bold rounded-lg transition-colors ${
                 isDestructive 
                   ? 'bg-red hover:bg-red/90 text-white shadow-neon-red' 
                   : 'btn-primary'

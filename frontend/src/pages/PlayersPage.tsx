@@ -549,17 +549,30 @@ function PlayerCard({ player, idx, canEdit, onDelete }: {
           <OverallBadge overall={player.latest_overall} size="md" showLabel />
         </div>
 
-        {/* Badges */}
+        {/* Badges and Stars */}
         <div className="flex items-center gap-2 flex-wrap mb-3">
           <PositionBadge position={player.main_position} />
           <StatusBadge status={player.status} />
+          
+          <div className="flex items-center gap-1 ml-auto" title="Estrelas Acumuladas">
+            {player.big_stars > 0 && (
+              <span className="text-sm leading-none tracking-tighter" title={`${player.big_stars} Estrela(s) Grande(s)`}>
+                {Array.from({ length: player.big_stars }).map(() => '🌟').join('')}
+              </span>
+            )}
+            <div className="flex items-center gap-0.5 text-[10px] font-bold text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20">
+              <Star size={10} className="fill-yellow-500 text-yellow-500" />
+              {player.mini_stars}/15
+            </div>
+          </div>
         </div>
 
-        {/* Stats bars (mini) */}
-        <div className="text-xs text-text-muted flex justify-between">
-          <span>Mini estrelas</span>
+        {/* Stats bars (Overall) */}
+        <div className="text-[10px] text-text-muted uppercase tracking-widest flex justify-between">
+          <span className="font-semibold">Overall</span>
+          <span className="font-bold text-text-primary">{player.latest_overall?.toFixed(1) || '0.0'}</span>
         </div>
-        <div className="mt-1 h-1 bg-border rounded-full">
+        <div className="mt-1 h-1.5 bg-border rounded-full overflow-hidden">
           <div
             className="h-full bg-red rounded-full transition-all"
             style={{ width: player.latest_overall ? `${(player.latest_overall / 10) * 100}%` : '0%' }}

@@ -64,11 +64,19 @@ def snake_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
     Round 3: time 0, 1... (repete)
     """
     n_teams = math.floor(len(players) / team_size)
-    if n_teams < 2:
-        n_teams = 2
+    if n_teams < 1:
+        n_teams = 1
+
+    # Apenas os primeiros (n_teams * team_size) jogadores entram no draft balanceado
+    limit = n_teams * team_size
+    if len(players) < team_size:
+        limit = len(players)
+    
+    draft_players = players[:limit]
+    leftover_players = players[limit:]
 
     teams = [[] for _ in range(n_teams)]
-    for i, player in enumerate(players):
+    for i, player in enumerate(draft_players):
         round_idx = i // n_teams
         pos_in_round = i % n_teams
         
@@ -78,6 +86,14 @@ def snake_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
             team_idx = (n_teams - 1) - pos_in_round
             
         teams[team_idx].append(player)
+
+    # Cria times extras para quem sobrou (em blocos de team_size)
+    if leftover_players:
+        extra_teams_count = math.ceil(len(leftover_players) / team_size)
+        for i in range(extra_teams_count):
+            start = i * team_size
+            end = start + team_size
+            teams.append(leftover_players[start:end])
 
     return teams
 

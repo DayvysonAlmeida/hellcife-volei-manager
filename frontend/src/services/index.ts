@@ -93,8 +93,17 @@ export const teamsService = {
   addPlayer: (generationId: number, playerId: number, teamId: number) =>
     api.post(`/teams/${generationId}/add-player/`, { player_id: playerId, team_id: teamId }).then(r => r.data),
 
-  removePlayer: (generationId: number, playerId: number) =>
-    api.post(`/teams/${generationId}/remove-player/`, { player_id: playerId }).then(r => r.data),
+  removePlayer: (genId: number, playerId: number) =>
+    api.post(`/teams/${genId}/remove-player/`, { player_id: playerId }).then(r => r.data),
+
+  addTeam: (genId: number) =>
+    api.post(`/teams/${genId}/add-team/`).then(r => r.data),
+
+  autoAllocate: (genId: number) =>
+    api.post(`/teams/${genId}/auto-allocate/`).then(r => r.data),
+
+  removeTeam: (genId: number, teamId: number) =>
+    api.delete(`/teams/${genId}/remove-team/${teamId}/`).then(r => r.data),
 
   lock: (id: number) =>
     api.post(`/teams/${id}/lock/`).then(r => r.data),

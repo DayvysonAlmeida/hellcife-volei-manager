@@ -194,6 +194,7 @@ export interface GameDay {
   total_paid?: number;
   total_players: number;
   total_court_checkins?: number;
+  is_closed?: boolean;
   attendances: Attendance[];
   court_checkins: CourtCheckin[];
   created_at: string;

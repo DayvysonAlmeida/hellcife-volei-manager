@@ -39,7 +39,7 @@ class GameDaySerializer(serializers.ModelSerializer):
     class Meta:
         model = GameDay
         fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'description', 'location', 'created_by',
-                  'total_present', 'total_players', 'attendances', 'court_checkins', 'created_at']
+                  'total_present', 'total_players', 'attendances', 'court_checkins', 'created_at', 'is_closed']
         read_only_fields = ['created_by', 'created_at']
 
 
@@ -52,7 +52,7 @@ class GameDayListSerializer(serializers.ModelSerializer):
     class Meta:
         model = GameDay
         fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'description', 'location',
-                  'total_present', 'total_paid', 'total_players', 'total_court_checkins', 'created_at']
+                  'total_present', 'total_paid', 'total_players', 'total_court_checkins', 'created_at', 'is_closed']
 
 
 class BulkAttendanceSerializer(serializers.Serializer):
