@@ -122,12 +122,12 @@ STORAGES = {
         'BACKEND': DEFAULT_FILE_STORAGE_BACKEND,
     },
     'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
 }
 
 # Fix para o bug do django-cloudinary-storage que ainda busca a variável antiga
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 DEFAULT_FILE_STORAGE = DEFAULT_FILE_STORAGE_BACKEND
 
 # Desabilita o erro estrito do Whitenoise caso algum CSS do Admin do Django tente referenciar imagens/arquivos que não existem
