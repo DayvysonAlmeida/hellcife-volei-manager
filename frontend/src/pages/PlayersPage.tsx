@@ -599,15 +599,15 @@ function PlayerCard({ player, idx, canEdit, onDelete }: {
           </div>
 
           {/* Avatar Centered */}
-          <div className="absolute inset-x-0 top-6 sm:top-8 bottom-[35%] flex items-start justify-center pointer-events-none z-0">
+          <div className="absolute inset-x-0 top-6 sm:top-8 bottom-[35%] flex items-end justify-center pointer-events-none z-0">
             {player.avatar_url ? (
               <img 
                 src={player.avatar_url} 
                 alt={player.name} 
-                className="h-full aspect-square object-cover object-top rounded-full border-[3px] border-current/20 shadow-xl pointer-events-auto" 
+                className="h-[110%] w-[110%] object-contain object-bottom drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] pointer-events-auto" 
               />
             ) : (
-              <div className="h-full aspect-square rounded-full border-[3px] border-current/20 shadow-xl overflow-hidden flex items-center justify-center bg-black/10 pointer-events-auto">
+              <div className="h-[80%] aspect-square rounded-full border-[3px] border-current/20 shadow-xl overflow-hidden flex items-center justify-center bg-black/10 pointer-events-auto mb-2">
                  <Avatar name={player.display_name} size="xl" className="w-full h-full text-4xl sm:text-5xl opacity-80" />
               </div>
             )}
