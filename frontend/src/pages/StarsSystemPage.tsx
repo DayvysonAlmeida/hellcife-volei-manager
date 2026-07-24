@@ -7,6 +7,7 @@ import { formatDateTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
+import { Pagination } from '@/components/ui/Pagination';
 import { playersService } from '@/services/players';
 import type { StarsPayload } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
@@ -212,20 +213,42 @@ function PlayerStarCard({
 }
 
 function StarHistoryTimeline() {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const { data: history, isLoading } = useQuery({
     queryKey: ['stars-history'],
     queryFn: playersService.getStarHistory,
     refetchInterval: 1000 * 60 * 5, // Atualiza a cada 5 mins
   });
 
+  const startIndex = (page - 1) * pageSize;
+  const currentItems = history ? history.slice(startIndex, startIndex + pageSize) : [];
+
   if (isLoading) return <div className="animate-pulse h-20 bg-surface rounded-xl mt-12 mb-8"></div>;
 
   return (
     <div className="mt-12 mb-8">
-      <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-2">
-        <History size={20} className="text-yellow-500" />
-        LINHA DO TEMPO (HISTÓRICO DE ESTRELAS)
-      </h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h2 className="font-display text-xl text-text-primary tracking-wider flex items-center gap-2">
+          <History size={20} className="text-yellow-500" />
+          LINHA DO TEMPO (HISTÓRICO DE ESTRELAS)
+        </h2>
+        {history && history.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-muted uppercase tracking-widest font-bold">Mostrar:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+              className="input py-1.5 px-3 h-auto text-sm w-24 bg-surface border-border"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        )}
+      </div>
       <div className="bg-surface border border-border rounded-2xl p-6">
         {(!history || history.length === 0) ? (
           <div className="text-center py-8 text-text-muted">
@@ -235,7 +258,7 @@ function StarHistoryTimeline() {
           </div>
         ) : (
           <div className="relative border-l-2 border-border/50 ml-4 space-y-6">
-          {history.map((item: any) => {
+          {currentItems.map((item: any) => {
             const isPromo = item.category === 'promotion';
             const isMvp = item.category === 'mvp';
             const isAttack = item.category === 'attack';
@@ -284,7 +307,19 @@ function StarHistoryTimeline() {
               </div>
             );
           })}
-        </div>
+          
+          {/* Paginação */}
+          {history.length > pageSize && (
+            <div className="mt-8 pt-4">
+              <Pagination
+                count={history.length}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
+          </div>
         )}
       </div>
     </div>

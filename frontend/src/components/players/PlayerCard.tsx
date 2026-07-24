@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, Edit, Trash2, Activity, TrendingUp, Shield, Swords, AlertTriangle, Flame } from 'lucide-react';
@@ -10,11 +11,11 @@ interface PlayerCardProps {
   player: Player;
   idx: number;
   canEdit: boolean;
-  onDelete: () => void;
+  onDelete: (player: Player) => void;
   winRank?: number; // 1, 2, 3 ou 4
 }
 
-export function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCardProps) {
+export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCardProps) {
   const navigate = useNavigate();
 
   const isInactive = player.status === 'inactive' || player.status === 'suspended';
@@ -184,6 +185,7 @@ export function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCa
                   <img 
                     src={player.avatar_url} 
                     alt={player.name} 
+                    loading="lazy"
                     className="pointer-events-auto h-[120%] w-[120%] object-contain object-bottom drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)] scale-125"
                   />
                 ) : (
@@ -191,6 +193,7 @@ export function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCa
                   <img 
                     src={player.avatar_url} 
                     alt={player.name} 
+                    loading="lazy"
                     className="pointer-events-auto h-[95%] aspect-square object-cover rounded-full border-[3px] border-yellow-500/80 shadow-[0_10px_20px_rgba(0,0,0,0.8)] mt-2"
                   />
                 )}
@@ -207,9 +210,17 @@ export function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCa
           {/* Área de Dados Base */}
           <div className="absolute bottom-[12%] inset-x-0 flex flex-col items-center z-30 px-3">
             
-            {/* Name */}
-            <div className="text-center w-full mb-1">
-              <h3 className="font-display text-lg sm:text-xl font-black uppercase tracking-wider text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] truncate">
+            {/* Name & Shirt Number */}
+            <div className="relative w-full mb-1 flex items-end justify-center">
+              {player.shirt_number && (
+                <div className="absolute left-1 bottom-0.5 pointer-events-none z-20" title={`Camisa ${player.shirt_number}`}>
+                  <span className="text-white/70 font-display font-black text-xl sm:text-2xl tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                    {player.shirt_number}
+                  </span>
+                </div>
+              )}
+              
+              <h3 className="font-display text-lg sm:text-xl font-black uppercase tracking-wider text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] truncate z-10 px-8 w-full text-center">
                 {player.display_name}
               </h3>
             </div>
@@ -278,7 +289,7 @@ export function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCa
             <Edit size={14} className="sm:w-4 sm:h-4" />
           </button>
           <button 
-            onClick={(e) => { e.preventDefault(); onDelete(); }} 
+            onClick={(e) => { e.preventDefault(); onDelete(player); }} 
             className="p-2 sm:p-2.5 rounded-full bg-red-600/95 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)] border border-red-500 hover:bg-red-500 pointer-events-auto hover:scale-110 transition-transform"
             title="Deletar Jogador"
           >
@@ -288,4 +299,4 @@ export function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCa
       )}
     </motion.div>
   );
-}
+});

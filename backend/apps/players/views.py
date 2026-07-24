@@ -30,7 +30,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = PlayerFilter
     search_fields = ['name', 'nickname', 'shirt_number']
-    ordering_fields = ['name', 'shirt_number', 'created_at']
+    ordering_fields = ['name', 'shirt_number', 'created_at', 'annotated_overall', 'main_position']
     ordering = ['name']
 
     def get_queryset(self):

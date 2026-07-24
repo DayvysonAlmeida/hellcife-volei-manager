@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { cn, getAvatarColor, getInitials } from '@/lib/utils';
 
 interface AvatarProps {
@@ -15,7 +15,7 @@ const sizeClasses = {
   xl: 'w-20 h-20 text-xl',
 };
 
-export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
+export const Avatar = memo(function Avatar({ name, src, size = 'md', className }: AvatarProps) {
   const [error, setError] = useState(false);
   const initials = getInitials(name);
   const gradientClass = getAvatarColor(name);
@@ -25,6 +25,7 @@ export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
       <img
         src={src}
         alt={name}
+        loading="lazy"
         onError={() => setError(true)}
         className={cn('rounded-full object-cover', sizeClasses[size], className)}
       />
@@ -43,4 +44,4 @@ export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
       {initials}
     </div>
   );
-}
+});

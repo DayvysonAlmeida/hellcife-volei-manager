@@ -13,6 +13,7 @@ import { PlayerCard } from '@/components/players/PlayerCard';
 import { playersService } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
 import { useDebounce } from '@/lib/useDebounce';
+import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { POSITION_LABELS, type Position, type PlayerStatus } from '@/types';
 import type { Player } from '@/types';
@@ -33,9 +34,12 @@ export function PlayersPage() {
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [guestFilter, setGuestFilter] = useState(''); // 'false' para oficiais, 'true' para convidados
+  const [ordering, setOrdering] = useState('name');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [page, setPage] = useState(1);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Debounce na busca — espera 300ms após parar de digitar
   const debouncedSearch = useDebounce(search, 300);
@@ -97,13 +101,16 @@ export function PlayersPage() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['players', debouncedSearch, positionFilter, statusFilter, page],
+    queryKey: ['players', debouncedSearch, positionFilter, statusFilter, guestFilter, ordering, page],
     queryFn: () => playersService.list({
       search: debouncedSearch || undefined,
       main_position: positionFilter || undefined,
       status: statusFilter || undefined,
+      is_guest: guestFilter || undefined,
+      ordering: ordering || undefined,
       page,
       page_size: PAGE_SIZE,
+      include_guests: 'true' // Para a rota listar convidados quando não tem filtro
     }),
     placeholderData: (prev) => prev, // Mantém dados anteriores durante carregamento
   });
@@ -112,6 +119,15 @@ export function PlayersPage() {
     mutationFn: (id: number) => playersService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['players'] }),
   });
+
+  const handleDeleteRequest = useCallback((p: Player) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Remover Jogador',
+      desc: `Remover ${p.display_name}?`,
+      onConfirm: () => deleteMutation.mutate(p.id)
+    });
+  }, [deleteMutation]);
 
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
   const players = data?.results || [];
@@ -149,65 +165,118 @@ export function PlayersPage() {
         )}
       </div>
 
-      {/* Filters */}
+      {/* Filters & Search */}
       <div className="card p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input
-              type="text"
-              placeholder="Buscar por nome ou apelido..."
-              value={search}
-              onChange={handleSearchChange}
-              className="input w-full pl-9"
-            />
+        <div className="flex flex-col md:flex-row gap-3">
+          
+          {/* Top row: Search + Mobile Filter Toggle + View Mode */}
+          <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input
+                type="text"
+                placeholder="Buscar atleta..."
+                value={search}
+                onChange={handleSearchChange}
+                className="input w-full pl-9 h-10"
+              />
+            </div>
+            <button 
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="btn-secondary h-10 px-3 md:hidden flex items-center justify-center gap-2"
+            >
+              <Filter size={16} className={showMobileFilters ? "text-red" : ""} />
+            </button>
+            <div className="hidden md:flex items-center gap-1 bg-surface rounded-lg p-1 border border-border h-10">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn('p-1.5 rounded transition-all', viewMode === 'grid' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+              >
+                <Grid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn('p-1.5 rounded transition-all', viewMode === 'list' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+              >
+                <List size={16} />
+              </button>
+            </div>
           </div>
 
-          {/* Position filter */}
-          <select
-            value={positionFilter}
-            onChange={handleFilterChange(setPositionFilter)}
-            className="input sm:w-44"
-          >
-            <option value="">Todas posições</option>
-            {POSITIONS.map(([val, label]) => (
-              <option key={val} value={val}>{label}</option>
-            ))}
-          </select>
-
-          {/* Status filter */}
-          <select
-            value={statusFilter}
-            onChange={handleFilterChange(setStatusFilter)}
-            className="input sm:w-36"
-          >
-            <option value="">Todos status</option>
-            {STATUSES.map(([val, label]) => (
-              <option key={val} value={val}>{label}</option>
-            ))}
-          </select>
-
-          {/* View toggle */}
-          <div className="flex items-center gap-1 bg-surface rounded-lg p-1 border border-border">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={cn('p-2 rounded transition-all', viewMode === 'grid' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+          {/* Filters Row (Collapsible on Mobile) */}
+          <div className={cn("grid grid-cols-2 sm:grid-cols-4 md:flex md:flex-row gap-2 w-full md:w-auto", showMobileFilters ? "flex" : "hidden md:flex")}>
+            
+            {/* Sorting */}
+            <select
+              value={ordering}
+              onChange={handleFilterChange(setOrdering)}
+              className="input h-10 text-xs sm:text-sm"
             >
-              <Grid size={14} />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn('p-2 rounded transition-all', viewMode === 'list' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+              <option value="name">Ordem Alfabética</option>
+              <option value="-annotated_overall">Maior Overall</option>
+              <option value="main_position">Posição</option>
+            </select>
+
+            <select
+              value={guestFilter}
+              onChange={handleFilterChange(setGuestFilter)}
+              className="input h-10 text-xs sm:text-sm"
             >
-              <List size={14} />
-            </button>
+              <option value="">Todos (Ofic. + Conv.)</option>
+              <option value="false">Apenas Oficiais</option>
+              <option value="true">Apenas Convidados</option>
+            </select>
+
+            <select
+              value={positionFilter}
+              onChange={handleFilterChange(setPositionFilter)}
+              className="input h-10 text-xs sm:text-sm"
+            >
+              <option value="">Todas Posições</option>
+              <option value="outside">Ponteiro</option>
+              <option value="setter">Levantador</option>
+              <option value="middle">Central</option>
+              <option value="opposite">Oposto</option>
+              <option value="libero">Líbero</option>
+              <option value="universal">Universal</option>
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={handleFilterChange(setStatusFilter)}
+              className="input h-10 text-xs sm:text-sm"
+            >
+              <option value="">Todos Status</option>
+              <option value="active">Ativos</option>
+              <option value="inactive">Inativos</option>
+              <option value="injured">Lesionados</option>
+              <option value="suspended">Suspensos</option>
+            </select>
+
+            {/* View Mode Mobile Only */}
+            <div className="flex md:hidden items-center justify-between col-span-2 mt-2 gap-2">
+              <span className="text-xs text-text-muted">Modo de visualização:</span>
+              <div className="flex items-center gap-1 bg-surface rounded-lg p-1 border border-border h-10">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={cn('p-1.5 rounded transition-all', viewMode === 'grid' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+                >
+                  <Grid size={16} />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn('p-1.5 rounded transition-all', viewMode === 'list' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+                >
+                  <List size={16} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Results count */}
         {data && (
-          <p className="text-text-muted text-xs mt-3">
+          <p className="text-text-muted text-[11px] mt-3">
             {data.count} atleta{data.count !== 1 ? 's' : ''} encontrado{data.count !== 1 ? 's' : ''}
           </p>
         )}
@@ -230,14 +299,7 @@ export function PlayersPage() {
               idx={idx}
               canEdit={canEdit}
               winRank={player.stats?.win_rank}
-              onDelete={() => {
-                setConfirmDialog({
-                  isOpen: true,
-                  title: 'Remover Jogador',
-                  desc: `Remover ${player.display_name}?`,
-                  onConfirm: () => deleteMutation.mutate(player.id)
-                });
-              }}
+              onDelete={handleDeleteRequest}
             />
           ))}
         </div>
@@ -294,14 +356,7 @@ export function PlayersPage() {
                             <Edit size={14} />
                           </Link>
                           <button
-                            onClick={() => {
-                              setConfirmDialog({
-                                isOpen: true,
-                                title: 'Remover Jogador',
-                                desc: `Remover ${player.display_name}?`,
-                                onConfirm: () => deleteMutation.mutate(player.id)
-                              });
-                            }}
+                            onClick={() => handleDeleteRequest(player)}
                             className="btn-ghost p-1.5 hover:text-red"
                           >
                             <Trash2 size={14} />
