@@ -92,8 +92,10 @@ export function CheckinPage() {
   const presentPlayers = filteredPlayers.filter((p: any) => p.present);
   const absentPlayers = filteredPlayers.filter((p: any) => !p.present);
 
-  const pricePerPlayer = gameday.court_price && gameday.total_present > 0 
-    ? (Number(gameday.court_price) / gameday.total_present).toFixed(2) 
+  const safeCourtPrice = gameday.court_price ? Number(String(gameday.court_price).replace(',', '.')) : 0;
+
+  const pricePerPlayer = safeCourtPrice > 0 && gameday.total_present > 0 
+    ? (safeCourtPrice / gameday.total_present).toFixed(2) 
     : '0.00';
 
   return (
@@ -116,7 +118,7 @@ export function CheckinPage() {
               {gameday.total_present} / {gameday.max_players || '∞'} confirmados
             </span>
 
-            {Number(gameday.court_price) > 0 && (
+            {safeCourtPrice > 0 && (
               <div className="bg-card-gradient border border-green-500/30 text-green-500 p-4 rounded-xl w-full flex flex-col items-center justify-center gap-3 shadow-card mt-2">
                 {gameday.total_present > 0 ? (
                   <>
