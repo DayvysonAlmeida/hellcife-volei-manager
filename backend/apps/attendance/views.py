@@ -202,7 +202,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'id': p.id,
                 'name': p.display_name,
                 'present': p.id in present_ids,
-                'is_guest': p.is_guest
+                'is_guest': p.is_guest,
+                'avatar_url': request.build_absolute_uri(p.avatar.url) if p.avatar else None
             })
             
         return Response({
