@@ -280,7 +280,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
 
       {/* Admin Actions Overlay (External bottom) */}
       {canEdit && (
-        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 z-50 flex flex-row gap-3 pointer-events-none md:translate-y-2 md:group-hover:translate-y-0">
+        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 z-30 flex flex-row gap-3 pointer-events-none md:translate-y-2 md:group-hover:translate-y-0">
           <button 
             onClick={(e) => { e.preventDefault(); navigate(`/players/${player.id}/edit`); }} 
             className="p-2 sm:p-2.5 rounded-full bg-zinc-900 text-yellow-500 shadow-[0_4px_12px_rgba(0,0,0,0.8)] border border-yellow-500/50 hover:bg-zinc-800 pointer-events-auto hover:scale-110 transition-transform"
