@@ -116,7 +116,7 @@ export function CheckinPage() {
               {gameday.total_present} / {gameday.max_players || '∞'} confirmados
             </span>
 
-            {gameday.court_price && Number(gameday.court_price) > 0 && (
+            {Number(gameday.court_price) > 0 && (
               <div className="bg-card-gradient border border-green-500/30 text-green-500 p-4 rounded-xl w-full flex flex-col items-center justify-center gap-3 shadow-card mt-2">
                 {gameday.total_present > 0 ? (
                   <>
