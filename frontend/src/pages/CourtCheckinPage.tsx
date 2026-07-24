@@ -84,6 +84,19 @@ export function CourtCheckinPage() {
     onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDayId] }),
   });
 
+  const bulkMutation = useMutation({
+    mutationFn: (actionType: 'check_all' | 'uncheck_all') => {
+      // Pega todos os IDs da lista atual (respeita a busca, ou pega todos se não tiver busca)
+      const allIds = playersList.map(p => p.player);
+      return attendanceService.bulkCourtCheckin(selectedGameDayId!, allIds, actionType);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDayId] });
+      toast.success('Ação em lote aplicada com sucesso!');
+    },
+    onError: () => toast.error('Erro ao executar ação em lote.')
+  });
+
   const { playersList, arrivedCount } = useMemo(() => {
     if (!gameDayDetail) return { playersList: [], arrivedCount: 0 };
     
@@ -179,20 +192,42 @@ export function CourtCheckinPage() {
         {/* Lado Direito: Lista de Jogadores Confirmados */}
         <div className="lg:col-span-3">
           <div className="card p-0 overflow-hidden">
-            <div className="p-4 border-b border-border bg-surface-hover flex flex-col sm:flex-row gap-4 justify-between items-center">
+            <div className="p-4 border-b border-border bg-surface-hover flex flex-col lg:flex-row gap-4 justify-between items-center">
               <h2 className="font-display text-base tracking-wider text-text-primary flex items-center gap-2">
                 <CalendarCheck size={16} className="text-red" />
                 LISTA DE CHAMADA
               </h2>
-              <div className="relative w-full sm:w-64">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-                <input
-                  type="text"
-                  placeholder="Buscar atleta..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="input w-full pl-9 py-1.5 text-sm"
-                />
+              
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                {gameDayDetail && !gameDayDetail.is_closed && (
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button 
+                      onClick={() => bulkMutation.mutate('check_all')}
+                      disabled={bulkMutation.isPending || playersList.length === 0}
+                      className="btn-secondary w-full sm:w-auto text-xs px-3 py-1.5 h-auto border-green-500/30 text-green-500 hover:bg-green-500/10 hover:border-green-500 whitespace-nowrap"
+                    >
+                      Marcar Todos
+                    </button>
+                    <button 
+                      onClick={() => bulkMutation.mutate('uncheck_all')}
+                      disabled={bulkMutation.isPending || playersList.length === 0}
+                      className="btn-secondary w-full sm:w-auto text-xs px-3 py-1.5 h-auto border-red/30 text-red hover:bg-red/10 hover:border-red whitespace-nowrap"
+                    >
+                      Desmarcar Todos
+                    </button>
+                  </div>
+                )}
+                
+                <div className="relative w-full sm:w-64 flex-shrink-0">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <input
+                    type="text"
+                    placeholder="Buscar atleta..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="input w-full pl-9 py-1.5 text-sm"
+                  />
+                </div>
               </div>
             </div>
 

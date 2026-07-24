@@ -3,7 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+// Tipagem para o evento de Instalação do PWA
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: "accepted" | "dismissed";
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
+}
+
+declare global {
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
+  }
+}
 
 const navItems = [
   { to: '/dashboard', icon: Home, label: 'Dashboard' },
@@ -33,6 +49,28 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  // Escuta o evento do navegador que avisa que o PWA está pronto para ser instalado
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
   };
 
   // Travar o scroll da página quando o menu mobile estiver aberto
@@ -138,6 +176,38 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               </AnimatePresence>
             </NavLink>
           ))}
+
+          {/* Botão de Instalar App (PWA) - Só aparece se o navegador permitir a instalação */}
+          {deferredPrompt && (
+            <button
+              onClick={handleInstallClick}
+              title={collapsed ? "Instalar App" : undefined}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 w-full text-left mt-4',
+                'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.2)]',
+                collapsed && 'justify-center'
+              )}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 animate-bounce">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <AnimatePresence>
+                {!collapsed && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="whitespace-nowrap text-sm font-bold"
+                  >
+                    Instalar App
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </button>
+          )}
 
           </nav>
 

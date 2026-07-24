@@ -46,9 +46,27 @@ class PlayerListSerializer(serializers.ModelSerializer):
     def get_stats(self, obj):
         if hasattr(obj, 'total_matches'):
             win_rate = (obj.wins / obj.total_matches * 100) if obj.total_matches > 0 else 0
+            
+            # Calcular win_streak a partir dos match_appearances prefetchados
+            streak = 0
+            if hasattr(obj, '_prefetched_objects_cache') and 'match_appearances' in obj._prefetched_objects_cache:
+                appearances = list(obj.match_appearances.all())
+                # Filtra apenas os que tem match_team e match associados, e ordena por data decrescente
+                valid_apps = [app for app in appearances if app.match_team and app.match_team.match]
+                valid_apps.sort(key=lambda a: a.match_team.match.date, reverse=True)
+                
+                for app in valid_apps:
+                    if app.match_team.winner:
+                        streak += 1
+                    else:
+                        break
+
             return {
                 'matches': obj.total_matches,
                 'win_rate': round(win_rate, 1),
+                'wins': obj.wins,
+                'win_rank': self.context.get('global_win_ranks', {}).get(obj.id, None),
+                'win_streak': streak,
                 'mvp': obj.mvps,
                 'best_attacker': obj.best_attackers,
                 'best_server': obj.best_servers,

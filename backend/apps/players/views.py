@@ -43,7 +43,6 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(is_guest=False)
 
             # Na listagem, anotar o overall mais recente via subquery para eliminar N+1.
-            # O serializer usa a annotation quando disponível, evitando 1 query por jogador.
             qs = qs.annotate(
                 annotated_overall=latest_overall_subquery(),
                 total_matches=Count('match_appearances', distinct=True),
@@ -53,6 +52,11 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 best_defenders=Count('match_appearances', filter=Q(match_appearances__best_defender=True), distinct=True),
                 wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
             )
+            
+            # Substituindo Window() por rank calculado via context, pois 
+            # os filtros do Django quebram o OVER() particionando o rank pelas buscas.
+            qs = qs.prefetch_related('match_appearances__match_team__match')
+            qs = qs.prefetch_related('match_appearances__match_team__match')
         else:
             # Para outras actions, prefetch para uso em PlayerDetailSerializer
             qs = qs.prefetch_related('evaluations')
@@ -65,6 +69,25 @@ class PlayerViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update']:
             return PlayerWriteSerializer
         return PlayerDetailSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action == 'list':
+            # Calcula o rank global absoluto imune a paginação e filtros (DenseRank)
+            global_qs = Player.objects.annotate(
+                w=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True)
+            ).filter(w__gt=0).values('id', 'w').order_by('-w')
+            
+            ranks = {}
+            current_rank = 1
+            last_w = None
+            for p in global_qs:
+                if last_w is not None and p['w'] < last_w:
+                    current_rank += 1
+                ranks[p['id']] = current_rank
+                last_w = p['w']
+            context['global_win_ranks'] = ranks
+        return context
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'update_stars']:

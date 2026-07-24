@@ -297,3 +297,26 @@ class CourtCheckinViewSet(viewsets.ModelViewSet):
         else:
             CourtCheckin.objects.create(gameday_id=gameday_id, player_id=player_id)
             return Response({'arrived': True, 'player_id': player_id})
+
+    @action(detail=False, methods=['post'], url_path='bulk-toggle')
+    def bulk_toggle(self, request):
+        """Toggle em lote para Tiragem de Falta (Marcar Todos / Desmarcar Todos)"""
+        gameday_id = request.data.get('gameday_id')
+        player_ids = request.data.get('player_ids', [])
+        action_type = request.data.get('action_type') # 'check_all' ou 'uncheck_all'
+
+        if not gameday_id:
+            return Response({'detail': 'Faltando gameday_id.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if action_type == 'uncheck_all':
+            CourtCheckin.objects.filter(gameday_id=gameday_id).delete()
+        elif action_type == 'check_all':
+            existing = set(CourtCheckin.objects.filter(gameday_id=gameday_id).values_list('player_id', flat=True))
+            new_checkins = [
+                CourtCheckin(gameday_id=gameday_id, player_id=pid)
+                for pid in player_ids if pid not in existing
+            ]
+            if new_checkins:
+                CourtCheckin.objects.bulk_create(new_checkins)
+                
+        return Response({'detail': 'Operação em lote concluída com sucesso!'})

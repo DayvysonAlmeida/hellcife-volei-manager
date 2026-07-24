@@ -107,6 +107,16 @@ export function AttendancePage() {
     onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
   });
 
+  const bulkMutation = useMutation({
+    mutationFn: ({ gamedayId, presentPlayerIds }: { gamedayId: number, presentPlayerIds: number[] }) =>
+      attendanceService.bulkAttendance(gamedayId, presentPlayerIds),
+    onSuccess: (_, { gamedayId }) => {
+      qc.invalidateQueries({ queryKey: ['gameday', gamedayId] });
+      toast.success('Lista atualizada com sucesso!');
+    },
+    onError: () => toast.error('Erro ao processar atualização em lote.')
+  });
+
   const togglePaymentMutation = useMutation({
     mutationFn: ({ gamedayId, playerId }: { gamedayId: number; playerId: number }) =>
       attendanceService.togglePayment(gamedayId, playerId),
@@ -420,6 +430,18 @@ export function AttendancePage() {
                 onTogglePayment={(playerId) => togglePaymentMutation.mutate({ gamedayId: gameDayDetail.id, playerId })}
                 isTogglingPresence={(playerId) => toggleMutation.isPending && toggleMutation.variables?.playerId === playerId}
                 isTogglingPayment={(playerId) => togglePaymentMutation.isPending && togglePaymentMutation.variables?.playerId === playerId}
+                onCheckAll={() => {
+                  if (gameDayDetail) {
+                    const allIds = gameDayDetail.attendances.map((a: any) => a.player);
+                    bulkMutation.mutate({ gamedayId: gameDayDetail.id, presentPlayerIds: allIds });
+                  }
+                }}
+                onUncheckAll={() => {
+                  if (gameDayDetail) {
+                    bulkMutation.mutate({ gamedayId: gameDayDetail.id, presentPlayerIds: [] });
+                  }
+                }}
+                isBulkLoading={bulkMutation.isPending}
               />
             </div>
           ) : null}

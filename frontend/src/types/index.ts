@@ -84,6 +84,9 @@ export interface Player {
   stats?: {
     matches: number;
     win_rate: number;
+    wins?: number;
+    win_rank?: number;
+    win_streak?: number;
     mvp: number;
     best_attacker: number;
     best_server: number;

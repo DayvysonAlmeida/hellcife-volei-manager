@@ -9,6 +9,7 @@ import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
+import { PlayerCard } from '@/components/players/PlayerCard';
 import { playersService } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
 import { useDebounce } from '@/lib/useDebounce';
@@ -228,6 +229,7 @@ export function PlayersPage() {
               player={player}
               idx={idx}
               canEdit={canEdit}
+              winRank={player.stats?.win_rank}
               onDelete={() => {
                 setConfirmDialog({
                   isOpen: true,
@@ -511,183 +513,4 @@ export function PlayersPage() {
   );
 }
 
-function PlayerCard({ player, idx, canEdit, onDelete }: {
-  player: Player;
-  idx: number;
-  canEdit: boolean;
-  onDelete: () => void;
-}) {
-  const navigate = useNavigate();
 
-  const getCardStyle = (overall?: number) => {
-    if (!overall) return 'from-zinc-700 via-zinc-800 to-zinc-900 border-zinc-600 text-zinc-100';
-    if (overall >= 8.5) return 'from-yellow-500 via-yellow-600 to-yellow-800 border-yellow-400 text-white';
-    if (overall >= 7.0) return 'from-zinc-200 via-zinc-400 to-zinc-500 border-zinc-100 text-zinc-900';
-    return 'from-amber-700 via-orange-800 to-amber-900 border-amber-600 text-orange-50';
-  };
-
-  const cardStyle = getCardStyle(player.latest_overall);
-  const isInactive = player.status === 'inactive' || player.status === 'suspended';
-  const hasAbsenceRisk = player.consecutive_absences >= 8 && player.status === 'active';
-
-  const getPositionColor = (pos: string) => {
-    switch (pos) {
-      case 'libero': return 'text-cyan-300 drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]';
-      case 'setter': return 'text-purple-300 drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]';
-      case 'opposite': return 'text-red-300 drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]';
-      case 'outside': return 'text-green-300 drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]';
-      case 'middle': return 'text-yellow-300 drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]';
-      case 'universal': return 'text-orange-300 drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]';
-      default: return 'text-white';
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: idx * 0.03 }}
-      className={`relative w-full max-w-[240px] mx-auto group ${isInactive ? 'opacity-60 grayscale-[0.8]' : ''} mb-6`}
-    >
-      {/* Alertas Externos no Topo */}
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 z-20 w-max pointer-events-none">
-         {player.is_guest && (
-            <span className="text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded shadow-md uppercase font-bold tracking-wider">Convidado</span>
-         )}
-         {hasAbsenceRisk && (
-            <span className="text-[9px] bg-orange-600 text-white px-2 py-0.5 rounded shadow-md uppercase font-bold flex items-center gap-1 animate-pulse" title={`${player.consecutive_absences} faltas seguidas`}>
-               <AlertTriangle size={10} /> Risco
-            </span>
-         )}
-      </div>
-
-      <Link to={`/players/${player.id}`} className="block w-full">
-        {/* Usando aspect-ratio fixo para as cartas terem proporção perfeita 2:3 */}
-        <div className={`w-full aspect-[2/3] rounded-t-xl rounded-b-[2.5rem] border-[3px] flex flex-col p-3 bg-gradient-to-br shadow-xl relative overflow-hidden group-hover:-translate-y-2 group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] transition-all duration-300 ${cardStyle}`}>
-          
-          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 group-hover:translate-x-full transition-all duration-700 pointer-events-none -translate-x-full skew-x-12" />
-
-          {/* Top Left: Overall & Position */}
-          <div className="absolute top-4 left-4 flex flex-col items-center z-10 w-12 sm:w-14">
-            <span 
-              className="font-display text-4xl sm:text-5xl font-black leading-none drop-shadow-[0_0_4px_rgba(0,0,0,0.5)]"
-              style={{ color: player.latest_overall ? getOverallColor(player.latest_overall) : undefined }}
-            >
-              {player.latest_overall ? player.latest_overall.toFixed(1) : '-'}
-            </span>
-            <span className={`font-bold text-xs sm:text-sm uppercase tracking-widest mt-1 w-full text-center ${getPositionColor(player.main_position)}`}>
-              {POSITION_LABELS[player.main_position]?.substring(0, 3)}
-            </span>
-          </div>
-
-          {/* Top Right: Status & Star */}
-          <div className="absolute top-4 right-4 flex flex-col items-center gap-2 z-10">
-            {player.status === 'active' ? (
-              <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] border border-white/40" title="Ativo" />
-            ) : player.status === 'injured' ? (
-              <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-red-600 shadow-[0_0_8px_rgba(220,38,38,0.8)] border border-white/40" title="Lesionado" />
-            ) : (
-              <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-zinc-600 shadow-[0_0_8px_rgba(82,82,91,0.8)] border border-white/40" title="Inativo/Suspenso" />
-            )}
-            
-            {player.mini_stars > 0 && (
-              <div className="flex flex-col items-center mt-1">
-                <Star size={12} className="sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400 drop-shadow-md" />
-                <span className="text-[9px] font-bold mt-0.5">{player.mini_stars}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Avatar Centered */}
-          <div className={`absolute inset-x-0 top-6 sm:top-8 bottom-[35%] flex ${player.avatar_url?.toLowerCase().includes('.png') ? 'items-end' : 'items-start'} justify-center pointer-events-none z-0`}>
-            {player.avatar_url ? (
-              <img 
-                src={player.avatar_url} 
-                alt={player.name} 
-                className={`pointer-events-auto ${
-                  player.avatar_url.toLowerCase().includes('.png')
-                    ? 'h-[110%] w-[110%] object-contain object-bottom drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]'
-                    : 'h-[90%] aspect-square object-cover object-top rounded-full border-[3px] border-current/20 shadow-xl mt-2'
-                }`} 
-              />
-            ) : (
-              <div className="h-[80%] aspect-square rounded-full border-[3px] border-current/20 shadow-xl overflow-hidden flex items-center justify-center bg-black/10 pointer-events-auto mb-2">
-                 <Avatar name={player.display_name} size="xl" className="w-full h-full text-4xl sm:text-5xl opacity-80" />
-              </div>
-            )}
-          </div>
-
-          {/* Floating Stats Badges */}
-          {player.stats && (player.stats.matches > 0 || player.stats.mvp > 0 || player.stats.best_attacker > 0 || player.stats.best_defender > 0) && (
-            <div className="absolute inset-x-0 bottom-[35%] translate-y-3 flex flex-wrap justify-center gap-1 z-20 px-2 pointer-events-none">
-              {player.stats.matches > 0 && <span title="Partidas Jogadas" className="flex items-center gap-0.5 bg-black/60 text-white px-1.5 py-[2px] rounded border border-white/20 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><Activity size={10}/> {player.stats.matches}</span>}
-              {player.stats.win_rate > 0 && <span title="Taxa de Vitória" className="flex items-center gap-0.5 bg-green-900/60 text-green-300 px-1.5 py-[2px] rounded border border-green-500/40 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><TrendingUp size={10}/> {player.stats.win_rate}%</span>}
-              {player.stats.mvp > 0 && <span title="MVP" className="flex items-center gap-0.5 bg-yellow-900/60 text-yellow-300 px-1.5 py-[2px] rounded border border-yellow-500/40 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><Star size={10}/> {player.stats.mvp}</span>}
-              {player.stats.best_attacker > 0 && <span title="Melhor Ataque" className="flex items-center gap-0.5 bg-red-900/60 text-red-300 px-1.5 py-[2px] rounded border border-red-500/40 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><Swords size={10}/> {player.stats.best_attacker}</span>}
-              {player.stats.best_defender > 0 && <span title="Melhor Defesa" className="flex items-center gap-0.5 bg-green-900/60 text-green-300 px-1.5 py-[2px] rounded border border-green-500/40 text-[9px] backdrop-blur-sm pointer-events-auto shadow-sm"><Shield size={10}/> {player.stats.best_defender}</span>}
-            </div>
-          )}
-
-          {/* Spacer for Avatar */}
-          <div className="flex-1" />
-
-          {/* Divider */}
-          <div className="w-10/12 h-[1.5px] bg-current/40 mx-auto mb-1 sm:mb-2 z-10" />
-
-          {/* Name */}
-          <div className="text-center z-10 px-2 mb-1 sm:mb-2">
-            <h3 className="font-display text-base sm:text-xl font-bold uppercase tracking-widest drop-shadow-md truncate">
-              {player.display_name}
-            </h3>
-          </div>
-
-          {/* Stats Grid 2x2 */}
-          <div className="flex justify-center w-full z-10 mb-2 sm:mb-3 px-2">
-             <div className="grid grid-cols-2 gap-x-2 sm:gap-x-4 gap-y-1 text-[9px] sm:text-[11px] font-bold uppercase opacity-90 w-full max-w-[180px]">
-                {/* Col 1 */}
-                <div className="flex justify-between items-center pr-2 border-r border-current/30">
-                  <span className="opacity-70">ATQ</span>
-                  <span className="text-xs sm:text-sm">{player.attack_stars}</span>
-                </div>
-                {/* Col 2 */}
-                <div className="flex justify-between items-center pl-2">
-                  <span className="opacity-70">DEF</span>
-                  <span className="text-xs sm:text-sm">{player.defense_stars}</span>
-                </div>
-                {/* Col 1 */}
-                <div className="flex justify-between items-center pr-2 border-r border-current/30">
-                  <span className="opacity-70">MVP</span>
-                  <span className="text-xs sm:text-sm">{player.mvp_stars}</span>
-                </div>
-                {/* Col 2 */}
-                <div className="flex justify-between items-center pl-2">
-                  <span className="opacity-70">GLR</span>
-                  <span className="text-xs sm:text-sm">{player.big_stars}</span>
-                </div>
-             </div>
-          </div>
-        </div>
-      </Link>
-
-      {/* Admin Actions Overlay (External bottom) */}
-      {canEdit && (
-        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 z-20 flex flex-row gap-3 pointer-events-none md:translate-y-2 md:group-hover:translate-y-0">
-          <button 
-            onClick={(e) => { e.preventDefault(); navigate(`/players/${player.id}/edit`); }} 
-            className="p-2 sm:p-2.5 rounded-full bg-surface/95 text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.5)] border border-border hover:bg-surface pointer-events-auto hover:scale-110 transition-transform"
-            title="Editar Jogador"
-          >
-            <Edit size={14} className="sm:w-4 sm:h-4" />
-          </button>
-          <button 
-            onClick={(e) => { e.preventDefault(); onDelete(); }} 
-            className="p-2 sm:p-2.5 rounded-full bg-red-600/95 text-white shadow-[0_4px_12px_rgba(0,0,0,0.5)] border border-red-500 hover:bg-red pointer-events-auto hover:scale-110 transition-transform"
-            title="Deletar Jogador"
-          >
-            <Trash2 size={14} className="sm:w-4 sm:h-4" />
-          </button>
-        </div>
-      )}
-    </motion.div>
-  );
-}

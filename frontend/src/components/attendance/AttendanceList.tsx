@@ -16,6 +16,9 @@ interface AttendanceListProps {
   onTogglePayment: (playerId: number) => void;
   isTogglingPresence: (playerId: number) => boolean;
   isTogglingPayment: (playerId: number) => boolean;
+  onCheckAll: () => void;
+  onUncheckAll: () => void;
+  isBulkLoading: boolean;
 }
 
 export function AttendanceList({
@@ -32,6 +35,9 @@ export function AttendanceList({
   onTogglePayment,
   isTogglingPresence,
   isTogglingPayment,
+  onCheckAll,
+  onUncheckAll,
+  isBulkLoading,
 }: AttendanceListProps) {
   const renderAttendanceCard = (att: any) => {
     return (
@@ -143,6 +149,24 @@ export function AttendanceList({
               >
                 <Plus size={12} />
                 <span className="hidden sm:inline">Convidado</span>
+              </button>
+              <button
+                onClick={onCheckAll}
+                disabled={isBulkLoading}
+                className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-green-500 border-green-500/30 hover:bg-green-500/10"
+                title="Marcar Todos"
+              >
+                <span className="hidden sm:inline">Marcar Todos</span>
+                <span className="sm:hidden">Todos ✅</span>
+              </button>
+              <button
+                onClick={onUncheckAll}
+                disabled={isBulkLoading}
+                className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-red border-red/30 hover:bg-red/10"
+                title="Desmarcar Todos"
+              >
+                <span className="hidden sm:inline">Desmarcar Todos</span>
+                <span className="sm:hidden">Nenhum ❌</span>
               </button>
               <button
                 onClick={onRefreshClick}
