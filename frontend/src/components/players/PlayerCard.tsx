@@ -171,7 +171,7 @@ export function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCa
           <div className="absolute inset-x-0 top-[10%] bottom-[35%] flex justify-center items-center z-10 pointer-events-none">
             
             {/* Selo Win Streak (Foguinho) flutuando no topo da foto */}
-            {player.stats?.win_streak && player.stats.win_streak >= 2 && (
+            {(player.stats?.win_streak ?? 0) >= 2 && (
               <div className="absolute -top-2 z-50 flex items-center gap-0.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] animate-pulse" title={`${player.stats.win_streak} vitórias consecutivas`}>
                 <span className="text-sm font-black text-white">{player.stats.win_streak}</span>
                 <Flame size={18} className="text-yellow-300 fill-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
