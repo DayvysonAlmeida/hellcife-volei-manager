@@ -116,22 +116,31 @@ export function CheckinPage() {
               {gameday.total_present} / {gameday.max_players || '∞'} confirmados
             </span>
 
-            {gameday.court_price && (
+            {gameday.court_price && Number(gameday.court_price) > 0 && (
               <div className="bg-card-gradient border border-green-500/30 text-green-500 p-4 rounded-xl w-full flex flex-col items-center justify-center gap-3 shadow-card mt-2">
-                <div className="flex items-center gap-2 font-bold text-lg">
-                  <Wallet size={20} />
-                  Rateio: R$ {pricePerPlayer.replace('.', ',')}
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText('hellcifevolei@gmail.com');
-                    toast.success('Chave PIX copiada!');
-                  }}
-                  className="w-full bg-green-500/10 border border-green-500/40 hover:bg-green-500/20 hover:border-green-500 transition-colors text-green-500 font-bold rounded-lg py-2.5 flex items-center justify-center gap-2 text-sm shadow-[0_0_8px_rgba(22,163,74,0.2)]"
-                >
-                  <Copy size={16} />
-                  Copiar PIX (hellcifevolei@gmail.com)
-                </button>
+                {gameday.total_present > 0 ? (
+                  <>
+                    <div className="flex items-center gap-2 font-bold text-lg">
+                      <Wallet size={20} />
+                      Rateio: R$ {pricePerPlayer.replace('.', ',')}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('hellcifevolei@gmail.com');
+                        toast.success('Chave PIX copiada!');
+                      }}
+                      className="w-full bg-green-500/10 border border-green-500/40 hover:bg-green-500/20 hover:border-green-500 transition-colors text-green-500 font-bold rounded-lg py-2.5 flex items-center justify-center gap-2 text-sm shadow-[0_0_8px_rgba(22,163,74,0.2)]"
+                    >
+                      <Copy size={16} />
+                      Copiar PIX (hellcifevolei@gmail.com)
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-center text-sm font-medium text-green-500/80">
+                    <Wallet size={16} />
+                    Rateio exibido assim que houver confirmados
+                  </div>
+                )}
               </div>
             )}
           </div>
