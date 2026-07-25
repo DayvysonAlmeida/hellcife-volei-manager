@@ -405,10 +405,10 @@ export function TeamsPage() {
                           <X size={12} />
                         </button>
                       )}
-                      <span className="text-text-secondary font-medium text-xs truncate">
+                      <span className="text-text-secondary font-medium text-xs leading-tight">
                         {p.player_name}
                         {p.player_is_guest && (
-                          <span className="ml-1 text-[8px] bg-blue/20 text-blue px-1 py-0.5 rounded uppercase font-bold">
+                          <span className="ml-1 text-[8px] bg-blue/20 text-blue px-1 py-0.5 rounded uppercase font-bold inline-block">
                             Conv
                           </span>
                         )}
@@ -578,7 +578,7 @@ export function TeamsPage() {
                       {upcomingGameDays.map(gd => (
                         <option key={gd.id} value={gd.id}>
                           {gd.date === todayStr ? '[HOJE] ' : ''}
-                          {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''}
+                          {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} {gd.location ? `- ${gd.location}` : ''}
                         </option>
                       ))}
                     </optgroup>
@@ -588,7 +588,7 @@ export function TeamsPage() {
                     <optgroup label="🔒 Histórico (Encerradas)">
                       {pastGameDays.map(gd => (
                         <option key={gd.id} value={gd.id}>
-                          {formatDate(gd.date)}
+                          {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} {gd.location ? `- ${gd.location}` : ''}
                         </option>
                       ))}
                     </optgroup>
@@ -751,10 +751,10 @@ function TeamCard({ team, idx }: { team: GeneratedTeam; idx: number }) {
               <span className="text-text-muted text-[10px] w-3">{i + 1}</span>
               <Avatar name={player.display_name} src={player.avatar_url} size="sm" className="w-5 h-5 text-[8px]" />
               <div className="flex flex-col min-w-0">
-                <p className="text-text-primary text-[11px] font-medium truncate flex items-center gap-1">
+                <p className="text-text-primary text-[11px] font-medium leading-tight flex flex-wrap items-center gap-1">
                   {player.display_name}
                   {player.is_guest && (
-                    <span className="text-[7px] bg-blue/20 text-blue px-1 rounded uppercase font-bold">
+                    <span className="text-[7px] bg-blue/20 text-blue px-1 rounded uppercase font-bold inline-block">
                       Conv
                     </span>
                   )}

@@ -18,6 +18,7 @@ export function CourtCheckinPage() {
 
   const [selectedGameDayId, setSelectedGameDayId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'ativo' | 'historico'>('ativo');
 
   const { data: gameDaysData, isLoading: loadingGameDays } = useQuery({
     queryKey: ['gamedays'],
@@ -25,22 +26,29 @@ export function CourtCheckinPage() {
   });
   const gameDays = gameDaysData?.results || [];
 
-  const { openGameDays } = useMemo(() => {
-    return { openGameDays: gameDays.filter(gd => !gd.is_closed) };
+  const { openGameDays, closedGameDays } = useMemo(() => {
+    return { 
+      openGameDays: gameDays.filter((gd: any) => !gd.is_closed),
+      closedGameDays: gameDays.filter((gd: any) => gd.is_closed)
+    };
   }, [gameDays]);
 
-  // Auto-selecionar a última (mais recente) pelada aberta por padrão
+  // Auto-selecionar ao carregar ou trocar de aba
   useEffect(() => {
-    if (gameDays.length > 0 && selectedGameDayId === null) {
-      if (openGameDays.length > 0) {
-        // O array já vem ordenado do mais recente pro mais antigo pelo backend (-date)
-        // Então openGameDays[0] é a "última criada/mais recente" que está aberta.
+    if (activeTab === 'ativo') {
+      if (openGameDays.length > 0 && (!selectedGameDayId || closedGameDays.some((gd: any) => gd.id === selectedGameDayId))) {
         setSelectedGameDayId(openGameDays[0].id);
-      } else {
-        setSelectedGameDayId(gameDays[0].id);
+      } else if (openGameDays.length === 0) {
+        setSelectedGameDayId(null);
+      }
+    } else {
+      if (closedGameDays.length > 0 && (!selectedGameDayId || openGameDays.some((gd: any) => gd.id === selectedGameDayId))) {
+        setSelectedGameDayId(closedGameDays[0].id);
+      } else if (closedGameDays.length === 0) {
+        setSelectedGameDayId(null);
       }
     }
-  }, [gameDays, selectedGameDayId, openGameDays]);
+  }, [activeTab, openGameDays, closedGameDays, selectedGameDayId]);
 
   const handleSelectGameDay = (id: number | null) => {
     setSelectedGameDayId(id);
@@ -142,16 +150,39 @@ export function CourtCheckinPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="page-title">Tiragem de Falta (Quadra)</h1>
-        <p className="page-subtitle">Faça o check-in presencial de quem chegou para liberar a geração de times.</p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="page-title">Tiragem de Falta (Quadra)</h1>
+          <p className="page-subtitle">Faça o check-in presencial de quem chegou para liberar a geração de times.</p>
+        </div>
+        
+        <div className="flex bg-surface p-1 rounded-lg border border-border w-full md:w-auto">
+          <button
+            onClick={() => setActiveTab('ativo')}
+            className={`flex-1 md:flex-none px-6 py-2 rounded-md text-sm font-bold transition-colors ${
+              activeTab === 'ativo' ? 'bg-red text-white shadow-neon-red' : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
+            }`}
+          >
+            Tiragem Ativa
+          </button>
+          <button
+            onClick={() => setActiveTab('historico')}
+            className={`flex-1 md:flex-none px-6 py-2 rounded-md text-sm font-bold transition-colors ${
+              activeTab === 'historico' ? 'bg-surface-hover text-text-primary shadow-sm border border-border-subtle' : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
+            }`}
+          >
+            Histórico
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Lado Esquerdo: Seleção do Gameday e Status */}
         <div className="lg:col-span-1 space-y-4">
           <div className="card p-4">
-            <h2 className="font-display text-sm text-text-primary mb-3">SELECIONE O CIRCUITO</h2>
+            <h2 className="font-display text-sm text-text-primary mb-3">
+              {activeTab === 'ativo' ? 'CIRCUITOS ABERTOS' : 'CIRCUITOS ENCERRADOS'}
+            </h2>
             {loadingGameDays ? (
               <div className="flex justify-center p-4"><Loader2 className="animate-spin text-red" /></div>
             ) : (
@@ -161,7 +192,7 @@ export function CourtCheckinPage() {
                 onChange={(e) => handleSelectGameDay(Number(e.target.value) || null)}
               >
                 <option value="">Selecione o circuito...</option>
-                {gameDays.map(gd => (
+                {(activeTab === 'ativo' ? openGameDays : closedGameDays).map((gd: any) => (
                   <option key={gd.id} value={gd.id}>
                     {formatDate(gd.date)} {gd.location ? `- ${gd.location}` : ''}
                   </option>
