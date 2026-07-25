@@ -242,6 +242,8 @@ export interface Attendance {
   justification_text?: string;
   is_waitlist?: boolean;
   waitlist_joined_at?: string | null;
+  gameday_date?: string;
+  gameday_location?: string;
 }
 
 // ==================== Teams ====================

@@ -135,6 +135,9 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def bulk_attendance(self, request, pk=None):
         """Marca presença em bulk: recebe lista de player_ids presentes."""
         gameday = self.get_object()
+        if gameday.is_closed:
+            return Response({'detail': 'Circuito encerrado. Não é possível alterar a lista.'}, status=status.HTTP_400_BAD_REQUEST)
+            
         present_ids = request.data.get('present_player_ids', [])
 
         # Marca todos como ausente primeiro
@@ -183,6 +186,9 @@ class GameDayViewSet(viewsets.ModelViewSet):
         """Toggle de presença de um jogador específico."""
         from django.utils import timezone
         gameday = self.get_object()
+        if gameday.is_closed:
+            return Response({'detail': 'Circuito encerrado. Não é possível alterar a lista.'}, status=status.HTTP_400_BAD_REQUEST)
+            
         attendance, _ = Attendance.objects.get_or_create(
             gameday=gameday, player_id=player_id
         )
@@ -217,6 +223,9 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def toggle_payment(self, request, pk=None, player_id=None):
         """Toggle de pagamento de um jogador específico."""
         gameday = self.get_object()
+        if gameday.is_closed:
+            return Response({'detail': 'Circuito encerrado. Não é possível alterar a lista.'}, status=status.HTTP_400_BAD_REQUEST)
+            
         attendance, _ = Attendance.objects.get_or_create(
             gameday=gameday, player_id=player_id
         )
@@ -366,6 +375,10 @@ class CourtCheckinViewSet(viewsets.ModelViewSet):
         if not gameday_id or not player_id:
             return Response({'detail': 'Faltando gameday_id ou player_id.'}, status=status.HTTP_400_BAD_REQUEST)
             
+        gameday = GameDay.objects.filter(id=gameday_id).first()
+        if gameday and gameday.is_closed:
+            return Response({'detail': 'Circuito encerrado. Não é possível alterar a tiragem de falta.'}, status=status.HTTP_400_BAD_REQUEST)
+            
         checkin = CourtCheckin.objects.filter(gameday_id=gameday_id, player_id=player_id).first()
         
         if checkin:
@@ -384,6 +397,10 @@ class CourtCheckinViewSet(viewsets.ModelViewSet):
 
         if not gameday_id:
             return Response({'detail': 'Faltando gameday_id.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        gameday = GameDay.objects.filter(id=gameday_id).first()
+        if gameday and gameday.is_closed:
+            return Response({'detail': 'Circuito encerrado. Não é possível alterar a tiragem de falta.'}, status=status.HTTP_400_BAD_REQUEST)
             
         if action_type == 'uncheck_all':
             CourtCheckin.objects.filter(gameday_id=gameday_id).delete()

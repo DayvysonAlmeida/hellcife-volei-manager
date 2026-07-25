@@ -82,16 +82,16 @@ export function PlayerFormPage() {
       instagram: player.instagram || '',
       notes: player.notes || '',
       status: player.status || 'active',
-      mini_stars: player.mini_stars ?? 1,
-      big_stars: player.big_stars ?? 0,
+      mini_stars: player.mini_stars ?? ('' as any),
+      big_stars: player.big_stars ?? ('' as any),
     } : {
       main_position: 'outside',
       secondary_position: '',
       dominant_hand: 'right',
       gender: 'M',
       status: 'active',
-      mini_stars: 1,
-      big_stars: 0,
+      mini_stars: '' as any,
+      big_stars: '' as any,
     } as any,
   });
 

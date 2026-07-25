@@ -14,9 +14,9 @@ interface GameDayFormProps {
 export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
   const qc = useQueryClient();
 
-  const [newDate, setNewDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
-  const [newTime, setNewTime] = useState(initialData?.time ? initialData.time.slice(0, 5) : '19:30');
-  const [newTimeEnd, setNewTimeEnd] = useState(initialData?.time_end ? initialData.time_end.slice(0, 5) : '21:30');
+  const [newDate, setNewDate] = useState(initialData?.date || '');
+  const [newTime, setNewTime] = useState(initialData?.time ? initialData.time.slice(0, 5) : '');
+  const [newTimeEnd, setNewTimeEnd] = useState(initialData?.time_end ? initialData.time_end.slice(0, 5) : '');
   const [newLocation, setNewLocation] = useState(initialData?.location || '');
   const [newMaxPlayers, setNewMaxPlayers] = useState<number | ''>(initialData?.max_players || '');
   const [newCourtPrice, setNewCourtPrice] = useState<number | ''>(initialData?.court_price || '');
@@ -138,7 +138,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
         </button>
         <button
           onClick={() => saveMutation.mutate()}
-          disabled={!newDate || !newLocation || saveMutation.isPending}
+          disabled={!newDate || !newTime || !newLocation || saveMutation.isPending}
           className="btn-primary text-sm"
         >
           {saveMutation.isPending ? 'Salvando...' : 'Salvar'}

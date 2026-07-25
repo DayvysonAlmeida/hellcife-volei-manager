@@ -10,12 +10,15 @@ class AttendanceSerializer(serializers.ModelSerializer):
     player_shirt = serializers.IntegerField(source='player.shirt_number', read_only=True)
     player_status = serializers.CharField(source='player.status', read_only=True)
     player_is_guest = serializers.BooleanField(source='player.is_guest', read_only=True)
+    gameday_date = serializers.DateField(source='gameday.date', read_only=True)
+    gameday_location = serializers.CharField(source='gameday.location', read_only=True)
 
     class Meta:
         model = Attendance
         fields = ['id', 'gameday', 'player', 'player_name', 'player_avatar',
                   'player_position', 'player_shirt', 'player_status', 'player_is_guest', 'present', 'has_paid', 'checked_at',
-                  'was_no_show', 'is_justified', 'justification_text', 'is_waitlist', 'waitlist_joined_at']
+                  'was_no_show', 'is_justified', 'justification_text', 'is_waitlist', 'waitlist_joined_at',
+                  'gameday_date', 'gameday_location']
         read_only_fields = ['checked_at']
 
 

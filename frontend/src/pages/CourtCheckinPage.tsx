@@ -202,18 +202,18 @@ export function CourtCheckinPage() {
           </div>
 
           {gameDayDetail && (
-            <div className="card p-4 text-center">
-              <ClipboardList size={32} className="text-red mx-auto mb-2 opacity-80" />
-              <p className="text-text-muted text-xs uppercase tracking-wider mb-2">Status da Quadra</p>
-              <div className="flex justify-center items-center gap-4">
-                <div className="text-center">
-                  <p className="text-3xl font-display text-text-primary">{gameDayDetail.total_present}</p>
-                  <p className="text-[10px] text-text-muted uppercase">No Circuito</p>
+            <div className="card p-6 text-center shadow-lg border-red/10 bg-gradient-to-br from-surface to-red/5">
+              <ClipboardList size={32} className="text-red mx-auto mb-3 opacity-80" />
+              <p className="text-text-muted text-[10px] font-black uppercase tracking-widest mb-3">Status da Quadra</p>
+              <div className="flex justify-center items-center gap-6">
+                <div className="text-center group">
+                  <p className="text-4xl font-display text-text-primary group-hover:scale-110 transition-transform">{gameDayDetail.total_present}</p>
+                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mt-1">No Circuito</p>
                 </div>
-                <div className="h-8 w-px bg-border"></div>
-                <div className="text-center">
-                  <p className="text-3xl font-display text-green-500">{arrivedCount}</p>
-                  <p className="text-[10px] text-text-muted uppercase">Chegaram</p>
+                <div className="h-10 w-px bg-border/80"></div>
+                <div className="text-center group">
+                  <p className="text-4xl font-display text-green-500 group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">{arrivedCount}</p>
+                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mt-1">Chegaram</p>
                 </div>
               </div>
             </div>
@@ -276,38 +276,40 @@ export function CourtCheckinPage() {
             ) : playersList.length === 0 ? (
               <EmptyState message="Nenhum atleta confirmou presença no circuito ainda." icon="🤷" />
             ) : (
-              <div className="divide-y divide-border">
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {playersList.map((att) => (
-                  <div key={att.player} className={`flex items-center justify-between p-4 transition-colors ${att.arrived ? 'bg-green-500/5' : 'hover:bg-surface-hover'}`}>
+                  <div key={att.player} className={`flex items-center justify-between p-4 rounded-xl border shadow-sm transition-all duration-300 group ${att.arrived ? 'bg-green-500/10 border-green-500/40 hover:bg-green-500/20' : 'bg-surface hover:bg-surface-hover border-border'}`}>
                     <div className="flex items-center gap-3">
-                      <Avatar src={att.player_avatar} name={att.player_name} size="md" />
+                      <Avatar src={att.player_avatar} name={att.player_name} size="md" className={`ring-2 transition-all ${att.arrived ? 'ring-green-500/50' : 'ring-transparent'}`} />
                       <div>
-                        <p className="font-medium text-text-primary leading-tight flex items-center gap-2">
+                        <p className={`font-bold text-base leading-tight flex items-center gap-2 transition-colors ${att.arrived ? 'text-green-500' : 'text-text-primary'}`}>
                           {att.player_name}
                           {att.player_is_guest && (
-                            <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded font-bold uppercase">
+                            <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                               Convidado
                             </span>
                           )}
                         </p>
-                        <PositionBadge position={att.player_position} />
+                        <div className="mt-1">
+                          <PositionBadge position={att.player_position} />
+                        </div>
                       </div>
                     </div>
                     
                     <button
                       onClick={() => toggleMutation.mutate(att.player)}
                       disabled={toggleMutation.isPending || gameDayDetail.is_closed}
-                      className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all shadow-sm ${
+                      className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all shadow-sm flex-shrink-0 ${
                         att.arrived
-                          ? 'bg-green-500 border-green-500 text-white'
-                          : 'bg-background border-border-subtle hover:border-red hover:text-red text-text-muted'
+                          ? 'bg-green-500 border-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.3)] hover:scale-105'
+                          : 'bg-surface border-border-subtle hover:border-red hover:text-red text-text-muted hover:scale-105'
                       } ${gameDayDetail.is_closed ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                       title={gameDayDetail.is_closed ? 'Circuito encerrado' : (att.arrived ? 'Desmarcar presença' : 'Marcar presença na quadra')}
                     >
                       {toggleMutation.isPending && toggleMutation.variables === att.player ? (
-                        <Loader2 size={20} className="animate-spin" />
+                        <Loader2 size={22} className="animate-spin" />
                       ) : (
-                        <Check size={24} className={att.arrived ? 'text-white' : 'opacity-50'} />
+                        <Check size={24} className={att.arrived ? 'text-white' : 'opacity-50 group-hover:opacity-100'} />
                       )}
                     </button>
                   </div>

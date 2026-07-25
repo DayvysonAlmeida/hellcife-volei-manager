@@ -44,7 +44,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
       className={`relative w-full max-w-[240px] mx-auto group ${isInactive ? 'opacity-60 grayscale-[0.8]' : ''} mb-6`}
     >
       {/* Área Flutuante Superior (Sempre para cima do Card) */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-50 w-max pointer-events-none mb-1.5">
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-20 w-max pointer-events-none mb-1.5">
         
         {/* Selo Win Streak removido daqui */}
         {/* Selo Top Vitórias (Crown/Medal) */}
@@ -168,26 +168,22 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             )}
           </div>
 
-          {/* Top Mini Stars Row (Progress) */}
-          {(() => {
-            const stars = [];
-            for (let i = 0; i < (player.mvp_stars || 0); i++) stars.push({ type: 'mvp', color: 'fill-yellow-400 text-yellow-200 drop-shadow-[0_0_3px_rgba(250,204,21,0.8)]' });
-            for (let i = 0; i < (player.attack_stars || 0); i++) stars.push({ type: 'attack', color: 'fill-red-500 text-red-300 drop-shadow-[0_0_3px_rgba(239,68,68,0.8)]' });
-            for (let i = 0; i < (player.defense_stars || 0); i++) stars.push({ type: 'defense', color: 'fill-blue-500 text-blue-300 drop-shadow-[0_0_3px_rgba(59,130,246,0.8)]' });
-            for (let i = 0; i < (player.setter_stars || 0); i++) stars.push({ type: 'setter', color: 'fill-orange-500 text-orange-300 drop-shadow-[0_0_3px_rgba(249,115,22,0.8)]' });
-            for (let i = 0; i < (player.pass_stars || 0); i++) stars.push({ type: 'pass', color: 'fill-green-500 text-green-300 drop-shadow-[0_0_3px_rgba(34,197,94,0.8)]' });
-            for (let i = 0; i < (player.block_stars || 0); i++) stars.push({ type: 'block', color: 'fill-purple-500 text-purple-300 drop-shadow-[0_0_3px_rgba(168,85,247,0.8)]' });
-            
-            if (stars.length === 0) return null;
-
-            return (
-              <div className="absolute top-[2%] inset-x-0 px-[15%] flex flex-wrap justify-center gap-0.5 z-20 pointer-events-none" title="Progresso para Estrela Maior">
-                {stars.map((s, idx) => (
-                  <Star key={`mini-star-${idx}`} size={11} className={`${s.color}`} />
-                ))}
-              </div>
-            );
-          })()}
+          {/* Top Mini Stars Row (Yu-Gi-Oh Style) */}
+          <div className="absolute top-[3%] inset-x-0 px-[10%] flex flex-wrap justify-center gap-[2px] z-20 pointer-events-none" title={`${player.mini_stars || 0}/15 Estrelas`}>
+            {Array.from({ length: 15 }).map((_, idx) => {
+              const isLit = idx < (player.mini_stars || 0);
+              return (
+                <Star 
+                  key={`star-${idx}`} 
+                  size={9} 
+                  className={isLit 
+                    ? 'fill-yellow-400 text-yellow-200 drop-shadow-[0_0_3px_rgba(250,204,21,0.8)]' 
+                    : 'fill-black/40 text-white/10'
+                  } 
+                />
+              );
+            })}
+          </div>
 
           {/* Avatar Area */}
           <div className="absolute inset-x-0 top-[10%] bottom-[35%] flex justify-center items-center z-10 pointer-events-none">
