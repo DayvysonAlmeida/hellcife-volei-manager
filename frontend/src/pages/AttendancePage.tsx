@@ -50,8 +50,8 @@ export function AttendancePage() {
     return { activeGameDays: active, historyGameDays: history };
   }, [gameDays, todayStr]);
 
-  const { presentAttendances, absentAttendances, totalPaid } = useMemo(() => {
-    if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], totalPaid: 0 };
+  const { presentAttendances, absentAttendances, waitlistAttendances, totalPaid } = useMemo(() => {
+    if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0 };
     
     let filtered = gameDayDetail.attendances;
     if (searchTerm) {
@@ -63,10 +63,20 @@ export function AttendancePage() {
     filtered.sort((a, b) => a.player_name.localeCompare(b.player_name));
     
     const present = filtered.filter(a => a.present);
-    const absent = filtered.filter(a => !a.present);
+    const absent = filtered.filter(a => !a.present && !a.is_waitlist);
+    
+    // Fila de espera: ordenar por membro primeiro, depois por ordem de chegada
+    const waitlist = filtered.filter(a => !a.present && a.is_waitlist).sort((a: any, b: any) => {
+      if (a.player_is_guest !== b.player_is_guest) return a.player_is_guest ? 1 : -1;
+      if (a.waitlist_joined_at && b.waitlist_joined_at) {
+        return new Date(a.waitlist_joined_at).getTime() - new Date(b.waitlist_joined_at).getTime();
+      }
+      return 0;
+    });
+
     const totalPaid = gameDayDetail.attendances.filter(a => a.has_paid).length;
     
-    return { presentAttendances: present, absentAttendances: absent, totalPaid };
+    return { presentAttendances: present, absentAttendances: absent, waitlistAttendances: waitlist, totalPaid };
   }, [gameDayDetail, searchTerm]);
 
   const { courtPrice, rateio, totalCollected, remaining } = useMemo(() => {
@@ -150,6 +160,17 @@ export function AttendancePage() {
     },
     onError: () => {
       toast.error('Erro ao atualizar a lista de presença.');
+    }
+  });
+
+  const promoteWaitlistMutation = useMutation({
+    mutationFn: () => attendanceService.promoteWaitlist(selectedGameDay!.id),
+    onSuccess: (data: any) => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      toast.success(data.detail || 'Jogador promovido!');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.detail || 'Erro ao promover jogador da fila.');
     }
   });
 
@@ -416,12 +437,15 @@ export function AttendancePage() {
               <AttendanceList
                 presentAttendances={presentAttendances}
                 absentAttendances={absentAttendances}
+                waitlistAttendances={waitlistAttendances}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 showEditControls={showEditControls}
                 onAddGuestClick={() => setShowGuestModal(true)}
                 onRefreshClick={() => refreshMutation.mutate()}
                 isRefreshing={refreshMutation.isPending}
+                onPromoteWaitlist={() => promoteWaitlistMutation.mutate()}
+                isPromoting={promoteWaitlistMutation.isPending}
                 onSaveClick={() => {
                   toast.success('Lista de presença salva com sucesso!');
                   navigate('/teams');

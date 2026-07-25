@@ -18,7 +18,8 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'avatar_url', 'status', 'status_display', 'latest_overall',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
-            'created_at', 'is_guest', 'invited_by', 'consecutive_absences', 'stats'
+            'created_at', 'is_guest', 'invited_by', 'consecutive_absences', 'stats',
+            'gender'
         ]
 
     def get_latest_overall(self, obj):
@@ -82,6 +83,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
     secondary_position_display = serializers.CharField(source='get_secondary_position_display', read_only=True)
     dominant_hand_display = serializers.CharField(source='get_dominant_hand_display', read_only=True)
+    gender_display = serializers.CharField(source='get_gender_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     avatar_url = serializers.SerializerMethodField()
 
@@ -93,6 +95,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             'main_position', 'main_position_display',
             'secondary_position', 'secondary_position_display',
             'dominant_hand', 'dominant_hand_display',
+            'gender', 'gender_display',
             'phone', 'instagram', 'avatar', 'avatar_url', 'notes',
             'status', 'status_display',
             'user', 'latest_overall',
@@ -128,7 +131,7 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
         model = Player
         fields = [
             'id', 'name', 'nickname', 'shirt_number', 'age', 'height', 'weight',
-            'main_position', 'secondary_position', 'dominant_hand',
+            'main_position', 'secondary_position', 'dominant_hand', 'gender',
             'phone', 'instagram', 'avatar', 'notes', 'status', 'user',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',

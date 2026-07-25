@@ -68,14 +68,26 @@ class GameDayViewSet(viewsets.ModelViewSet):
         )
 
         # Create Attendance
-        Attendance.objects.create(
-            gameday=gameday,
-            player=guest_player,
-            present=True
-        )
+        from django.utils import timezone
+        if gameday.max_players and gameday.total_present >= gameday.max_players:
+            Attendance.objects.create(
+                gameday=gameday,
+                player=guest_player,
+                present=False,
+                is_waitlist=True,
+                waitlist_joined_at=timezone.now()
+            )
+            detail_msg = 'Convidado criado e adicionado à Fila de Espera (circuito lotado).'
+        else:
+            Attendance.objects.create(
+                gameday=gameday,
+                player=guest_player,
+                present=True
+            )
+            detail_msg = 'Convidado adicionado com sucesso!'
 
         gameday.refresh_from_db()
-        return Response({'detail': 'Convidado adicionado com sucesso!'})
+        return Response({'detail': detail_msg})
 
     def perform_create(self, serializer):
         gameday = serializer.save(created_by=self.request.user)
@@ -169,13 +181,37 @@ class GameDayViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'], url_path='toggle/(?P<player_id>[^/.]+)')
     def toggle_attendance(self, request, pk=None, player_id=None):
         """Toggle de presença de um jogador específico."""
+        from django.utils import timezone
         gameday = self.get_object()
         attendance, _ = Attendance.objects.get_or_create(
             gameday=gameday, player_id=player_id
         )
-        attendance.present = not attendance.present
-        attendance.save()
-        return Response({'present': attendance.present, 'player_id': player_id})
+        
+        if attendance.present:
+            # Estava confirmado, vai pra ausente
+            attendance.present = False
+            attendance.save()
+        elif attendance.is_waitlist:
+            # Estava na fila, vai pra ausente
+            attendance.is_waitlist = False
+            attendance.waitlist_joined_at = None
+            attendance.save()
+        else:
+            # Estava ausente, tenta confirmar
+            if gameday.max_players and gameday.total_present >= gameday.max_players:
+                # Lotado, vai pra fila de espera
+                attendance.is_waitlist = True
+                attendance.waitlist_joined_at = timezone.now()
+                attendance.present = False
+                attendance.save()
+            else:
+                # Tem vaga, confirma direto
+                attendance.present = True
+                attendance.is_waitlist = False
+                attendance.waitlist_joined_at = None
+                attendance.save()
+                
+        return Response({'present': attendance.present, 'is_waitlist': attendance.is_waitlist, 'player_id': player_id})
 
     @action(detail=True, methods=['patch'], url_path='toggle-payment/(?P<player_id>[^/.]+)')
     def toggle_payment(self, request, pk=None, player_id=None):
@@ -192,16 +228,20 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def checkin_info(self, request, pk=None):
         """Retorna informações resumidas para a tela pública de check-in."""
         gameday = self.get_object()
-        active_players = Player.objects.filter(status='active', is_guest=False).order_by('name')
+        active_players = Player.objects.filter(status='active').order_by('name')
         
-        present_ids = set(gameday.attendances.filter(present=True).values_list('player_id', flat=True))
+        attendances = gameday.attendances.all()
+        att_map = {a.player_id: a for a in attendances}
         
         players_data = []
         for p in active_players:
+            att = att_map.get(p.id)
             players_data.append({
                 'id': p.id,
                 'name': p.display_name,
-                'present': p.id in present_ids,
+                'present': att.present if att else False,
+                'is_waitlist': att.is_waitlist if att else False,
+                'waitlist_joined_at': att.waitlist_joined_at.isoformat() if att and att.waitlist_joined_at else None,
                 'is_guest': p.is_guest,
                 'avatar_url': request.build_absolute_uri(p.avatar.url) if p.avatar else None
             })
@@ -212,7 +252,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'date': gameday.date,
                 'location': gameday.location,
                 'description': gameday.description,
-                'total_present': len(present_ids),
+                'total_present': sum(1 for a in attendances if a.present),
                 'max_players': gameday.max_players,
                 'court_price': gameday.court_price,
                 'time': gameday.time,
@@ -224,6 +264,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='public-checkin')
     def public_checkin(self, request, pk=None):
         """Endpoint público para o próprio jogador fazer check-in."""
+        from django.utils import timezone
         gameday = self.get_object()
         player_id = request.data.get('player_id')
         
@@ -238,12 +279,47 @@ class GameDayViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Você já confirmou sua presença! Para cancelar, fale com a organização.'}, status=status.HTTP_400_BAD_REQUEST)
             
         if gameday.max_players and gameday.total_present >= gameday.max_players:
-            return Response({'detail': 'Lista de presença cheia!'}, status=status.HTTP_400_BAD_REQUEST)
+            if not attendance.is_waitlist:
+                attendance.is_waitlist = True
+                attendance.waitlist_joined_at = timezone.now()
+                attendance.save()
+            return Response({
+                'present': False, 
+                'is_waitlist': True, 
+                'player_id': player_id,
+                'detail': 'Lista de presença cheia! Você foi adicionado à Fila de Espera.'
+            })
                 
         attendance.present = True
+        attendance.is_waitlist = False
+        attendance.waitlist_joined_at = None
         attendance.save()
         
-        return Response({'present': attendance.present, 'player_id': player_id})
+        return Response({'present': attendance.present, 'is_waitlist': attendance.is_waitlist, 'player_id': player_id})
+
+    @action(detail=True, methods=['post'], url_path='promote-waitlist')
+    def promote_waitlist(self, request, pk=None):
+        """Promove o próximo da fila de espera para presença confirmada."""
+        gameday = self.get_object()
+        
+        if gameday.max_players and gameday.total_present >= gameday.max_players:
+            return Response({'detail': 'A lista principal está lotada! Alguém precisa sair ou o limite de jogadores aumentar para poder promover da fila.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Busca a fila de espera ordenada: Membros (is_guest=False) primeiro, depois por ordem de chegada
+        next_player_att = gameday.attendances.filter(is_waitlist=True).select_related('player').order_by('player__is_guest', 'waitlist_joined_at').first()
+        
+        if not next_player_att:
+            return Response({'detail': 'A fila de espera está vazia.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        next_player_att.is_waitlist = False
+        next_player_att.waitlist_joined_at = None
+        next_player_att.present = True
+        next_player_att.save()
+        
+        return Response({
+            'detail': f'{next_player_att.player.display_name} foi promovido para a lista principal!',
+            'player_id': next_player_att.player_id
+        })
 
 
 class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):

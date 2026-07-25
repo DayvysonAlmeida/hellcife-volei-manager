@@ -209,6 +209,12 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
                 player_id=player_id,
                 order_in_team=max_order
             )
+            
+            # Sincroniza com a Quadra: se ele foi adicionado no time manualmente, ele está na quadra
+            if generation.gameday_id:
+                from apps.attendance.models import CourtCheckin
+                CourtCheckin.objects.get_or_create(gameday_id=generation.gameday_id, player_id=player_id)
+                
             self._recalculate_generation_overalls(generation)
             return Response({'detail': 'Jogador adicionado com sucesso ao time.'})
         except Team.DoesNotExist:
@@ -277,7 +283,7 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Nenhum jogador na quadra aguardando alocação.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # 4. Usar a inteligência para pegar os overalls
-        from .algorithm import get_players_with_overall, snake_draft
+        from .algorithm import get_players_with_overall, smart_draft
         from django.db.models import Count
         from .models import TEAM_COLORS, TEAM_COLOR_HEX
         import string
@@ -294,7 +300,7 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Não foi possível buscar dados dos jogadores.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # 5. Distribuir em novos times
-        new_teams_draft = snake_draft(pool_players_data, generation.modality)
+        new_teams_draft = smart_draft(pool_players_data, generation.modality)
         
         # Limpar os times incompletos para reescrever
         TeamPlayer.objects.filter(team__in=incomplete_teams).delete()
@@ -350,7 +356,83 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         try:
             tp = TeamPlayer.objects.get(team__generation=generation, player_id=player_id)
             tp.delete()
+            
+            # Sincroniza com a Quadra: se foi removido do time, significa que foi embora ou não vai mais participar do sorteio
+            if generation.gameday_id:
+                from apps.attendance.models import CourtCheckin
+                CourtCheckin.objects.filter(gameday_id=generation.gameday_id, player_id=player_id).delete()
+                
             self._recalculate_generation_overalls(generation)
-            return Response({'detail': 'Jogador removido da pelada com sucesso.'})
+            return Response({'detail': 'Jogador removido do time e da quadra com sucesso.'})
         except TeamPlayer.DoesNotExist:
             return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'], url_path='shuffle')
+    def shuffle(self, request, pk=None):
+        """Pega todos os jogadores presentes na quadra e refaz o sorteio completo (Embaralhar)."""
+        generation = self.get_object()
+        if generation.is_locked:
+            return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not generation.gameday_id:
+            return Response({'detail': 'Geração não possui dia de jogo vinculado para verificar presentes.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Obter todos que fizeram court checkin
+        from apps.attendance.models import CourtCheckin
+        present_player_ids = list(CourtCheckin.objects.filter(gameday_id=generation.gameday_id).values_list('player_id', flat=True))
+
+        if not present_player_ids:
+            return Response({'detail': 'Nenhum jogador na quadra para embaralhar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. Obter dados dos jogadores
+        from .algorithm import get_players_with_overall, smart_draft
+        players_data = get_players_with_overall(player_ids=present_player_ids)
+
+        if not players_data:
+            return Response({'detail': 'Não foi possível buscar dados dos jogadores.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3. Distribuir em novos times
+        new_teams_draft = smart_draft(players_data, generation.modality)
+        
+        # 4. Limpar todos os vínculos atuais (TeamPlayer)
+        TeamPlayer.objects.filter(team__generation=generation).delete()
+        
+        # 5. Reescrever os times (reaproveitando existentes ou criando/deletando)
+        existing_teams = list(generation.teams.all().order_by('order'))
+        from .models import TEAM_COLORS, TEAM_COLOR_HEX
+        
+        for i, team_players in enumerate(new_teams_draft):
+            if not team_players:
+                continue
+            
+            if i < len(existing_teams):
+                team = existing_teams[i]
+                team.avg_overall = 0.0 # reset, will be recalculated
+                team.save(update_fields=['avg_overall'])
+            else:
+                # Create new team
+                name = f'Time {TEAM_COLORS[i % len(TEAM_COLORS)]}'
+                team = Team.objects.create(
+                    generation=generation,
+                    name=name,
+                    color=TEAM_COLORS[i % len(TEAM_COLORS)],
+                    color_hex=TEAM_COLOR_HEX[i % len(TEAM_COLOR_HEX)],
+                    avg_overall=0.0,
+                    order=i
+                )
+                
+            for j, p_data in enumerate(team_players):
+                TeamPlayer.objects.create(
+                    team=team,
+                    player_id=p_data['id'],
+                    order_in_team=j
+                )
+                
+        # Deletar times excedentes
+        if len(new_teams_draft) < len(existing_teams):
+            excess_teams = existing_teams[len(new_teams_draft):]
+            for ext in excess_teams:
+                ext.delete()
+            
+        self._recalculate_generation_overalls(generation)
+        return Response({'detail': f'{len(present_player_ids)} jogadores embaralhados com sucesso!'})

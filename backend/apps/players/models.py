@@ -21,6 +21,11 @@ class Player(models.Model):
         ('both', 'Ambidestro'),
     ]
 
+    GENDER_CHOICES = [
+        ('M', 'Masculino'),
+        ('F', 'Feminino'),
+    ]
+
     STATUS_CHOICES = [
         ('active', 'Ativo'),
         ('inactive', 'Inativo'),
@@ -42,6 +47,7 @@ class Player(models.Model):
         max_length=20, choices=POSITION_CHOICES, blank=True, null=True, verbose_name='Posição secundária'
     )
     dominant_hand = models.CharField(max_length=10, choices=HAND_CHOICES, default='right', verbose_name='Mão dominante')
+    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default='M', verbose_name='Sexo')
     phone = models.CharField(max_length=20, blank=True, null=True, verbose_name='Telefone')
     instagram = models.CharField(max_length=100, blank=True, null=True, verbose_name='Instagram')
     avatar = models.FileField(upload_to='avatars/', blank=True, null=True, verbose_name='Foto do Jogador')

@@ -5,12 +5,15 @@ import { PositionBadge } from '@/components/ui/Badges';
 interface AttendanceListProps {
   presentAttendances: any[];
   absentAttendances: any[];
+  waitlistAttendances: any[];
   searchTerm: string;
   setSearchTerm: (val: string) => void;
   showEditControls: boolean;
   onAddGuestClick: () => void;
   onRefreshClick: () => void;
   isRefreshing: boolean;
+  onPromoteWaitlist: () => void;
+  isPromoting: boolean;
   onSaveClick: () => void;
   onTogglePresence: (playerId: number) => void;
   onTogglePayment: (playerId: number) => void;
@@ -24,12 +27,15 @@ interface AttendanceListProps {
 export function AttendanceList({
   presentAttendances,
   absentAttendances,
+  waitlistAttendances,
   searchTerm,
   setSearchTerm,
   showEditControls,
   onAddGuestClick,
   onRefreshClick,
   isRefreshing,
+  onPromoteWaitlist,
+  isPromoting,
   onSaveClick,
   onTogglePresence,
   onTogglePayment,
@@ -39,7 +45,7 @@ export function AttendanceList({
   onUncheckAll,
   isBulkLoading,
 }: AttendanceListProps) {
-  const renderAttendanceCard = (att: any) => {
+  const renderAttendanceCard = (att: any, index?: number, isWaitlist?: boolean) => {
     return (
       <div
         key={att.id}
@@ -49,9 +55,16 @@ export function AttendanceList({
               ? 'bg-surface/50 border-border/30 opacity-70'
               : att.present
               ? 'bg-green-950/30 border-green-800/50'
+              : isWaitlist
+              ? 'bg-yellow-900/10 border-yellow-500/30'
               : 'bg-surface border-border hover:border-border-subtle'
           }`}
       >
+        {isWaitlist && index !== undefined && (
+          <div className="w-5 text-center font-black text-yellow-500 text-sm">
+            {index + 1}º
+          </div>
+        )}
         <Avatar name={att.player_name} src={att.player_avatar} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="text-text-primary text-sm font-medium truncate flex items-center gap-2">
@@ -197,6 +210,30 @@ export function AttendanceList({
         </div>
       )}
 
+      {/* Seção Fila de Espera */}
+      {waitlistAttendances.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+              Fila de Espera ({waitlistAttendances.length})
+            </h3>
+            {showEditControls && (
+              <button
+                onClick={onPromoteWaitlist}
+                disabled={isPromoting}
+                className="btn-secondary py-1 px-3 text-[10px] flex items-center gap-1 text-yellow-500 border-yellow-500/30 hover:bg-yellow-500/10"
+              >
+                Promover Próximo
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {waitlistAttendances.map((att, idx) => renderAttendanceCard(att, idx, true))}
+          </div>
+        </div>
+      )}
+
       {/* Seção Pendentes / Ausentes */}
       {absentAttendances.length > 0 && (
         <div>
@@ -209,7 +246,7 @@ export function AttendanceList({
         </div>
       )}
 
-      {presentAttendances.length === 0 && absentAttendances.length === 0 && (
+      {presentAttendances.length === 0 && absentAttendances.length === 0 && waitlistAttendances.length === 0 && (
         <p className="text-text-muted text-center py-8">
           {searchTerm
             ? `Nenhum jogador encontrado com "${searchTerm}".`

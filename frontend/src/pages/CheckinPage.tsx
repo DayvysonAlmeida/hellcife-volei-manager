@@ -13,6 +13,7 @@ export function CheckinPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'members' | 'guests'>('members');
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: number; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -24,45 +25,16 @@ export function CheckinPage() {
   const checkinMutation = useMutation({
     mutationFn: (playerId: number) => 
       api.post(`/attendance/gamedays/${id}/public-checkin/`, { player_id: playerId }).then(r => r.data),
-    onMutate: async (playerId) => {
-      await qc.cancelQueries({ queryKey: ['public-checkin', id] });
-      const previousData = qc.getQueryData(['public-checkin', id]);
-
-      qc.setQueryData(['public-checkin', id], (old: any) => {
-        if (!old) return old;
-        
-        let toggledPresent = false;
-        
-        const newPlayers = old.players.map((p: any) => {
-          if (p.id === playerId) {
-            toggledPresent = !p.present;
-            return { ...p, present: toggledPresent };
-          }
-          return p;
-        });
-        
-        const newTotalPresent = Math.max(0, old.gameday.total_present + (toggledPresent ? 1 : -1));
-
-        return {
-          ...old,
-          gameday: {
-            ...old.gameday,
-            total_present: newTotalPresent
-          },
-          players: newPlayers
-        };
-      });
-      return { previousData };
-    },
     onSuccess: (res) => {
       if (res.present) {
         toast.success('Presença confirmada!', { icon: '✅' });
+      } else if (res.is_waitlist) {
+        toast.success(res.detail || 'Você entrou na Fila de Espera!', { icon: '⏳', style: { border: '1px solid #eab308' } });
       } else {
         toast.success('Presença cancelada.', { icon: '❌' });
       }
     },
-    onError: (err: any, playerId, context) => {
-      qc.setQueryData(['public-checkin', id], context?.previousData);
+    onError: (err: any) => {
       toast.error(err.response?.data?.detail || 'Erro ao fazer check-in.');
     },
     onSettled: () => {
@@ -90,7 +62,17 @@ export function CheckinPage() {
   );
 
   const presentPlayers = filteredPlayers.filter((p: any) => p.present);
-  const absentPlayers = filteredPlayers.filter((p: any) => !p.present);
+  const waitlistPlayers = filteredPlayers.filter((p: any) => !p.present && p.is_waitlist).sort((a: any, b: any) => {
+    if (a.is_guest !== b.is_guest) return a.is_guest ? 1 : -1;
+    if (a.waitlist_joined_at && b.waitlist_joined_at) {
+      return new Date(a.waitlist_joined_at).getTime() - new Date(b.waitlist_joined_at).getTime();
+    }
+    return 0;
+  });
+  const absentPlayers = filteredPlayers.filter((p: any) => !p.present && !p.is_waitlist);
+  const absentMembers = absentPlayers.filter((p: any) => !p.is_guest);
+  const absentGuests = absentPlayers.filter((p: any) => p.is_guest);
+  const displayedAbsent = activeTab === 'members' ? absentMembers : absentGuests;
 
   const safeCourtPrice = gameday.court_price ? Number(String(gameday.court_price).replace(',', '.')) : 0;
 
@@ -156,6 +138,34 @@ export function CheckinPage() {
               className="w-full bg-surface-highlight border border-border/50 rounded-xl px-4 py-3.5 text-text-primary focus:outline-none focus:border-red focus:shadow-neon-red transition-all shadow-card"
             />
           </div>
+
+          {/* Botões Flutuantes de Filtro */}
+          {absentPlayers.length > 0 && (
+            <div className="mt-6 flex justify-center animate-fade-in-up">
+              <div className="inline-flex bg-surface/60 backdrop-blur-xl border border-border/40 p-1.5 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+                <button
+                  onClick={() => setActiveTab('members')}
+                  className={`px-5 py-2 text-[10px] uppercase tracking-wider font-black rounded-full transition-all duration-300 ${
+                    activeTab === 'members'
+                      ? 'bg-red text-white shadow-md shadow-red/30 scale-105'
+                      : 'text-text-muted hover:text-text-primary hover:bg-surface-highlight/50'
+                  }`}
+                >
+                  Membros ({absentMembers.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('guests')}
+                  className={`px-5 py-2 text-[10px] uppercase tracking-wider font-black rounded-full transition-all duration-300 ${
+                    activeTab === 'guests'
+                      ? 'bg-blue text-white shadow-md shadow-blue/30 scale-105'
+                      : 'text-text-muted hover:text-text-primary hover:bg-surface-highlight/50'
+                  }`}
+                >
+                  Convidados ({absentGuests.length})
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -197,23 +207,25 @@ export function CheckinPage() {
               </div>
             )}
 
-            {absentPlayers.length > 0 && (
+            {waitlistPlayers.length > 0 && (
               <div>
-                <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-3 ml-2 mt-6">
-                  Ainda não confirmaram ({absentPlayers.length})
+                <h3 className="text-xs font-bold text-yellow-500 uppercase tracking-wider mb-3 ml-2 mt-6 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                  Fila de Espera ({waitlistPlayers.length})
                 </h3>
                 <div className="space-y-3">
-                  {absentPlayers.map((player: any) => (
-                    <button
+                  {waitlistPlayers.map((player: any, idx: number) => (
+                    <div
                       key={player.id}
-                      onClick={() => setSelectedPlayer({ id: player.id, name: player.name })}
-                      disabled={checkinMutation.isPending}
-                      className="w-full flex items-center justify-between p-3 rounded-xl border border-border/50 transition-all bg-card-gradient shadow-card hover:border-red/50 hover:shadow-neon-red group"
+                      className="w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all bg-card-gradient border-yellow-500/40 shadow-[0_0_12px_rgba(234,179,8,0.15)] opacity-95"
                     >
                       <div className="flex items-center gap-3">
-                        <Avatar name={player.name} src={player.avatar_url} size="md" className="ring-1 ring-border opacity-70 group-hover:opacity-100 group-hover:ring-red/50 transition-all" />
+                        <div className="w-6 text-center font-black text-yellow-500 text-lg">
+                          {idx + 1}º
+                        </div>
+                        <Avatar name={player.name} src={player.avatar_url} size="md" className="ring-2 ring-yellow-500/50" />
                         <div className="flex flex-col items-start text-left">
-                          <span className="font-medium text-base text-text-primary group-hover:text-red transition-colors">
+                          <span className="font-bold text-base text-yellow-500 tracking-wide">
                             {player.name}
                           </span>
                           {player.is_guest && (
@@ -223,13 +235,51 @@ export function CheckinPage() {
                           )}
                         </div>
                       </div>
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-surface border-2 border-border-subtle group-hover:border-red/40 transition-colors">
-                        {checkinMutation.isPending && checkinMutation.variables === player.id ? (
-                          <Loader2 size={18} className="text-text-muted animate-spin" />
-                        ) : null}
+                      <div className="text-[10px] font-bold text-yellow-500/80 uppercase">
+                        Aguardando
                       </div>
-                    </button>
+                    </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {absentPlayers.length > 0 && (
+              <div>
+                <div className="space-y-3 mt-4">
+                  {displayedAbsent.length === 0 ? (
+                    <p className="text-center text-text-muted py-6 bg-surface-highlight rounded-xl border border-border/30">
+                      {activeTab === 'members' ? 'Nenhum membro pendente.' : 'Nenhum convidado pendente.'}
+                    </p>
+                  ) : (
+                    displayedAbsent.map((player: any) => (
+                      <button
+                        key={player.id}
+                        onClick={() => setSelectedPlayer({ id: player.id, name: player.name })}
+                        disabled={checkinMutation.isPending}
+                        className={`w-full flex items-center justify-between p-3 rounded-xl border border-border/50 transition-all bg-card-gradient shadow-card group hover:shadow-neon ${activeTab === 'guests' ? 'hover:border-blue/50 hover:shadow-neon-blue' : 'hover:border-red/50 hover:shadow-neon-red'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar name={player.name} src={player.avatar_url} size="md" className={`ring-1 ring-border opacity-70 group-hover:opacity-100 transition-all ${activeTab === 'guests' ? 'group-hover:ring-blue/50' : 'group-hover:ring-red/50'}`} />
+                          <div className="flex flex-col items-start text-left">
+                            <span className={`font-medium text-base text-text-primary transition-colors ${activeTab === 'guests' ? 'group-hover:text-blue' : 'group-hover:text-red'}`}>
+                              {player.name}
+                            </span>
+                            {player.is_guest && (
+                              <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5">
+                                Convidado
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-surface border-2 border-border-subtle transition-colors ${activeTab === 'guests' ? 'group-hover:border-blue/40' : 'group-hover:border-red/40'}`}>
+                          {checkinMutation.isPending && checkinMutation.variables === player.id ? (
+                            <Loader2 size={18} className="text-text-muted animate-spin" />
+                          ) : null}
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             )}

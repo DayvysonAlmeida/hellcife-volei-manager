@@ -23,6 +23,7 @@ const schema = z.object({
   main_position: z.enum(['libero', 'setter', 'opposite', 'outside', 'middle', 'universal']),
   secondary_position: z.enum(['libero', 'setter', 'opposite', 'outside', 'middle', 'universal', '']).optional(),
   dominant_hand: z.enum(['right', 'left', 'both']),
+  gender: z.enum(['M', 'F']),
   phone: z.string().optional(),
   instagram: z.string().optional(),
   avatar: z.any().optional(),
@@ -76,6 +77,7 @@ export function PlayerFormPage() {
       main_position: player.main_position,
       secondary_position: player.secondary_position || '',
       dominant_hand: player.dominant_hand || 'right',
+      gender: player.gender || 'M',
       phone: player.phone || '',
       instagram: player.instagram || '',
       notes: player.notes || '',
@@ -86,6 +88,7 @@ export function PlayerFormPage() {
       main_position: 'outside',
       secondary_position: '',
       dominant_hand: 'right',
+      gender: 'M',
       status: 'active',
       mini_stars: 1,
       big_stars: 0,
@@ -199,6 +202,12 @@ export function PlayerFormPage() {
               <option value="right">Destro</option>
               <option value="left">Canhoto</option>
               <option value="both">Ambidestro</option>
+            </select>
+          </Field>
+          <Field label="Gênero / Sexo">
+            <select {...register('gender')} className="input w-full">
+              <option value="M">Masculino</option>
+              <option value="F">Feminino</option>
             </select>
           </Field>
           <Field label="Status">

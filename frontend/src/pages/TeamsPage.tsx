@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History, Plus, X, UserCheck } from 'lucide-react';
+import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History, Plus, X, UserCheck, Loader2 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -28,6 +28,7 @@ export function TeamsPage() {
   const [modality, setModality] = useState<Modality>(6);
   const [selectedGameDayId, setSelectedGameDayId] = useState<number | null>(null);
   const [result, setResult] = useState<GenerateTeamsResult | null>(null);
+  const [activeTab, setActiveTab] = useState<'gerador' | 'historico'>('gerador');
   const [saving, setSaving] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
@@ -87,6 +88,14 @@ export function TeamsPage() {
     onSuccess: (res) => {
        qc.invalidateQueries({ queryKey: ['team-generations-history'] });
        toast.success(res.detail || 'Jogadores alocados com sucesso!');
+    }
+  });
+
+  const shuffleMutation = useMutation({
+    mutationFn: (genId: number) => teamsService.shuffle(genId),
+    onSuccess: (res) => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       toast.success(res.detail || 'Times embaralhados com sucesso!');
     }
   });
 
@@ -265,83 +274,110 @@ export function TeamsPage() {
           const isComplete = unassignedCount === 0;
 
           return (
-            <div className="mb-6 p-4 bg-surface-hover rounded-xl border border-border">
-              <div className="flex justify-between items-center mb-2">
+            <div className="mb-4 bg-surface border border-border rounded-lg overflow-hidden shadow-sm">
+              <div className="flex justify-between items-center p-2.5 bg-surface-hover border-b border-border-subtle">
                 <div className="flex items-center gap-2">
-                  <UserCheck size={16} className={isComplete ? "text-green-500" : "text-yellow-500"} />
-                  <span className="font-bold text-sm text-text-primary">Sincronização da Quadra</span>
+                  <UserCheck size={14} className={isComplete ? "text-green-500" : "text-yellow-500"} />
+                  <span className="font-bold text-xs text-text-primary">Sincronização Quadra</span>
                 </div>
-                <span className="text-xs font-bold text-text-muted">
-                  {playersInGen} / {checkinCount} jogadores alocados
-                </span>
-              </div>
-              
-              {/* Barra de Progresso */}
-              <div className="w-full bg-border h-2 rounded-full overflow-hidden flex mb-3">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(100, progress)}%` }}
-                  transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className={`h-full ${isComplete ? 'bg-green-500' : 'bg-yellow-500'}`}
-                />
-              </div>
-              
-              {!isComplete && !gen.is_locked && (
-                <div className="flex justify-between items-center bg-yellow-500/10 border border-yellow-500/20 p-2 rounded-lg">
-                  <span className="text-xs text-yellow-500 font-bold ml-2">
-                    {unassignedCount} jogadores confirmados aguardando time!
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
+                    {playersInGen} / {checkinCount}
                   </span>
-                  <button 
-                    onClick={() => autoAllocateMutation.mutate(gen.id)}
-                    disabled={autoAllocateMutation.isPending}
-                    className="text-[10px] bg-red text-white hover:bg-red/90 px-3 py-1.5 rounded-lg font-bold uppercase shadow-neon-red flex items-center gap-1 transition-all"
-                    title="Clique para alocar os jogadores em novos times via inteligência"
-                  >
-                    <Zap size={12} />
-                    Completar Vagas
-                  </button>
+                  <div className="w-16 sm:w-24 bg-border h-1.5 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, progress)}%` }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                      className={`h-full ${isComplete ? 'bg-green-500' : 'bg-yellow-500'}`}
+                    />
+                  </div>
                 </div>
-              )}
+              </div>
               
-              {isComplete && checkinCount > 0 && (
-                <span className="text-xs text-green-500 font-bold">✓ Todos os jogadores da quadra estão em times.</span>
+              {!gen.is_locked && (
+                <div className={`p-2 flex flex-col sm:flex-row justify-between items-center gap-2 ${!isComplete ? 'bg-yellow-500/10' : ''}`}>
+                  <div className="flex-1 text-center sm:text-left">
+                    {!isComplete ? (
+                      <span className="text-[10px] text-yellow-500 font-bold">
+                        ⚠️ {unassignedCount} jogadores aguardando
+                      </span>
+                    ) : checkinCount > 0 ? (
+                      <span className="text-[10px] text-green-500 font-bold">
+                        ✓ Todos alocados
+                      </span>
+                    ) : null}
+                  </div>
+                  
+                  <div className="flex w-full sm:w-auto items-center gap-2">
+                    {!isComplete && (
+                      <button 
+                        onClick={() => autoAllocateMutation.mutate(gen.id)}
+                        disabled={autoAllocateMutation.isPending || shuffleMutation.isPending}
+                        className="flex-1 sm:flex-none text-[10px] bg-red text-white hover:bg-red/90 px-3 py-1.5 rounded font-bold uppercase shadow-neon-red flex items-center justify-center gap-1.5 transition-all"
+                        title="Mantém os times atuais e apenas preenche as vagas vazias"
+                      >
+                        {autoAllocateMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+                        Completar
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => {
+                        setConfirmDialog({
+                          isOpen: true,
+                          title: 'Embaralhar Jogadores',
+                          desc: 'Tem certeza que deseja embaralhar TODOS os jogadores presentes na quadra?',
+                          onConfirm: () => shuffleMutation.mutate(gen.id)
+                        });
+                      }}
+                      disabled={shuffleMutation.isPending || autoAllocateMutation.isPending}
+                      className="flex-1 sm:flex-none text-[10px] bg-blue text-white hover:bg-blue/90 px-3 py-1.5 rounded font-bold uppercase shadow-neon-blue flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      {shuffleMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Shuffle size={12} />}
+                      Embaralhar
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           );
         })()}
         
         {/* Generated Teams Mini-grid */}
-        <div className="flex items-center justify-between mt-4 mb-2">
-          <h3 className="font-display text-sm text-text-muted">TIMES</h3>
+        <div className="flex items-center justify-between mt-2 mb-2">
+          <h3 className="font-display text-xs text-text-muted">TIMES GERADOS</h3>
           {canEdit && !gen.is_locked && (
             <button
               onClick={() => addTeamMutation.mutate(gen.id)}
               disabled={addTeamMutation.isPending}
-              className="btn-secondary py-1 px-3 text-xs flex items-center gap-2 rounded-lg border-border-subtle hover:border-red hover:text-red transition-all"
+              className="text-[10px] py-1 px-2 flex items-center gap-1 rounded bg-surface border border-border-subtle hover:border-red hover:text-red transition-all"
             >
-              <Plus size={12} />
-              Adicionar Time Vazio
+              <Plus size={10} />
+              Add Time
             </button>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {gen.teams.map((team: any) => (
-            <div key={team.id} className="bg-surface rounded-lg p-3 border border-border">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-display text-sm" style={{ color: team.color_hex }}>{team.name.toUpperCase()}</span>
+            <div key={team.id} className="bg-surface rounded-lg border border-border overflow-hidden">
+              <div className="flex justify-between items-center p-2 bg-surface-hover border-b border-border-subtle">
+                <span className="font-display text-xs" style={{ color: team.color_hex }}>{team.name.toUpperCase()}</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-xs" style={{ color: team.color_hex }}>{team.avg_overall.toFixed(1)}</span>
+                  <span className="font-bold text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: `${team.color_hex}20`, color: team.color_hex }}>
+                    OVR: {team.avg_overall.toFixed(1)}
+                  </span>
                   {canEdit && !gen.is_locked && team.team_players.length === 0 && (
                     <button
                       onClick={() => {
                         setConfirmDialog({
                           isOpen: true,
                           title: 'Excluir Time',
-                          desc: `Tem certeza que deseja excluir o ${team.name}?`,
+                          desc: `Excluir o ${team.name}?`,
                           onConfirm: () => removeTeamMutation.mutate({ genId: gen.id, teamId: team.id })
                         });
                       }}
-                      className="text-text-muted hover:text-red p-1 rounded transition-colors"
+                      className="text-text-muted hover:text-red transition-colors"
                       title="Excluir Time Vazio"
                     >
                       <Trash2 size={12} />
@@ -349,39 +385,41 @@ export function TeamsPage() {
                   )}
                 </div>
               </div>
-              <div className="space-y-1">
+              <div className="p-1.5 flex flex-col gap-0.5">
                 {team.team_players.map((p: any) => (
-                  <div key={p.id} className="flex justify-between items-center text-xs group">
-                    <span className="text-text-secondary truncate pr-2 flex items-center gap-1">
+                  <div key={p.id} className="flex justify-between items-center py-1 px-1 rounded hover:bg-surface-hover group transition-colors">
+                    <div className="flex items-center gap-1.5 overflow-hidden flex-1">
                       {canEdit && !gen.is_locked && (
                         <button
                           onClick={() => {
                             setConfirmDialog({
                               isOpen: true,
                               title: 'Remover Jogador',
-                              desc: `Remover ${p.player_name} da pelada?`,
+                              desc: `Remover ${p.player_name} da pelada? Se ele foi embora, ele não voltará no sorteio.`,
                               onConfirm: () => removePlayerMutation.mutate({ genId: gen.id, playerId: p.player })
                             });
                           }}
-                          className="text-text-muted hover:text-red p-0.5 rounded opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                          className="text-text-muted hover:text-red opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                           title="Remover Jogador"
                         >
                           <X size={12} />
                         </button>
                       )}
-                      {p.player_name}
-                      {p.player_is_guest && (
-                        <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold ml-1">
-                          Convidado
-                        </span>
-                      )}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-text-muted">{p.player_overall}</span>
+                      <span className="text-text-secondary font-medium text-xs truncate">
+                        {p.player_name}
+                        {p.player_is_guest && (
+                          <span className="ml-1 text-[8px] bg-blue/20 text-blue px-1 py-0.5 rounded uppercase font-bold">
+                            Conv
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-[10px] text-text-muted font-bold w-4 text-right">{p.player_overall}</span>
                       {canEdit && !gen.is_locked && (
                         <div className="relative">
                           <select 
-                            className="opacity-100 md:opacity-0 focus:opacity-100 md:group-hover:opacity-100 transition-opacity bg-surface border border-border rounded text-[10px] text-text-primary h-5 pr-4 pl-1 outline-none cursor-pointer appearance-none"
+                            className="opacity-100 md:opacity-0 focus:opacity-100 md:group-hover:opacity-100 transition-opacity bg-surface border border-border rounded text-[9px] text-text-primary h-4 pr-3 pl-1 outline-none cursor-pointer appearance-none"
                             onChange={(e) => {
                               if (e.target.value) {
                                 movePlayerMutation.mutate({ genId: gen.id, playerId: p.player, targetTeamId: Number(e.target.value) });
@@ -391,7 +429,7 @@ export function TeamsPage() {
                             disabled={movePlayerMutation.isPending}
                             title="Mover para outro time"
                           >
-                            <option value="">⇄ Mover</option>
+                            <option value="">⇄</option>
                             {gen.teams.filter((t: any) => t.id !== team.id).map((t: any) => (
                               <option key={t.id} value={t.id}>{t.name}</option>
                             ))}
@@ -407,9 +445,9 @@ export function TeamsPage() {
 
                 {/* Add Player Dropdown */}
                 {canEdit && !gen.is_locked && (
-                  <div className="pt-2 mt-2 border-t border-border-subtle">
+                  <div className="mt-1 pt-1 border-t border-border-subtle px-1">
                     <select
-                      className="w-full bg-surface border border-border rounded text-xs text-text-muted p-1 outline-none cursor-pointer"
+                      className="w-full bg-transparent text-[10px] text-text-muted outline-none cursor-pointer hover:text-text-primary transition-colors"
                       onChange={(e) => {
                         if (e.target.value) {
                           addPlayerMutation.mutate({ genId: gen.id, playerId: Number(e.target.value), teamId: team.id });
@@ -440,7 +478,7 @@ export function TeamsPage() {
               className={`px-6 py-3 flex items-center gap-2 w-full sm:w-auto justify-center ${gen.is_locked ? 'btn-secondary text-text-secondary border border-border bg-surface/50 hover:bg-surface' : 'btn-primary'}`}
             >
               {gen.is_locked ? <History size={18} /> : <Trophy size={18} />}
-              {gen.is_locked ? 'Ver Histórico da Pelada' : 'Abrir Placar / Chaveamento'}
+              {gen.is_locked ? 'Ver Histórico da Pelada' : 'Iniciar Partidas'}
             </Link>
           </div>
         )}
@@ -474,136 +512,133 @@ export function TeamsPage() {
         }} 
       />
 
-      {/* Config */}
-      <div className="card p-6">
-        <h2 className="font-display text-base tracking-wider text-text-primary mb-4">CONFIGURAÇÃO</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Modality */}
-          <div>
-            <label className="text-text-muted text-xs uppercase tracking-wider block mb-2">Modalidade</label>
-            <div className="flex gap-2 flex-wrap">
-              {MODALITIES.map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setModality(m)}
-                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all
-                    ${modality === m
-                      ? 'bg-red text-white shadow-neon-red'
-                      : 'bg-surface border border-border text-text-muted hover:border-border-subtle'
-                    }`}
-                >
-                  {m}v{m}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Game day */}
-          <div>
-            <label className="text-text-muted text-xs uppercase tracking-wider block mb-2">
-              Dia de jogo (filtra presentes)
-            </label>
-            <select
-              className="input w-full"
-              value={selectedGameDayId || ''}
-              onChange={(e) => setSelectedGameDayId(Number(e.target.value) || null)}
-            >
-              <option value="">Selecione uma pelada</option>
-              
-              {upcomingGameDays.length > 0 && (
-                <optgroup label="🔴 Peladas Abertas (Hoje/Futuro)">
-                  {upcomingGameDays.map(gd => (
-                    <option key={gd.id} value={gd.id}>
-                      {gd.date === todayStr ? '[ HOJE ] ' : ''}
-                      {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_court_checkins || 0} na quadra) {gd.location ? `- ${gd.location}` : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-
-              {pastGameDays.length > 0 && (
-                <optgroup label="🔒 Histórico (Encerradas)">
-                  {pastGameDays.map(gd => (
-                    <option key={gd.id} value={gd.id}>
-                      {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''} ({gd.total_court_checkins || 0} na quadra) {gd.location ? `- ${gd.location}` : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-            </select>
-          </div>
-        </div>
-
-        {/* Court Checkin Summary (Dynamic) */}
-        {selectedGameDayId && (() => {
-          const gd = gameDays.find((g: any) => g.id === selectedGameDayId);
-          if (!gd) return null;
-          const totalCheckins = gd.total_court_checkins || 0;
-          const expectedTeams = Math.max(1, Math.floor(totalCheckins / modality));
-          const leftovers = totalCheckins % modality;
-          
-          return (
-            <div className="mt-4 p-4 bg-surface border border-border rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-red/10 p-2 rounded-full">
-                  <UserCheck size={20} className="text-red" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-text-primary">Tiragem de Falta (Quadra)</p>
-                  <p className="text-xs text-text-muted">{totalCheckins} jogadores confirmados neste dia.</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-text-secondary font-medium">Previsão:</p>
-                <p className="text-xs text-text-muted font-bold">
-                  {expectedTeams} time(s) de {modality} {leftovers > 0 ? ` + 1 time de ${leftovers}` : ''}
-                </p>
-              </div>
-            </div>
-          );
-        })()}
-
-        <div className="flex gap-3 mt-6">
-          {selectedGameDayId && gameDays.find((g: any) => g.id === selectedGameDayId)?.is_closed ? (
-            <div className="flex items-center gap-2 text-red font-bold text-sm bg-red/10 px-4 py-2 rounded-lg border border-red/20 w-full sm:w-auto">
-              <Lock size={16} />
-              Circuito encerrado. Geração bloqueada.
-            </div>
-          ) : (
-            <button
-              onClick={handleGenerate}
-              disabled={generateMutation.isPending}
-              className="btn-primary flex items-center gap-2"
-            >
-              {generateMutation.isPending ? (
-                <RefreshCw size={16} className="animate-spin" />
-              ) : (
-                <Zap size={16} />
-              )}
-              {result ? 'Regerar times' : 'Gerar times'}
-            </button>
-          )}
-          {result && (
-            <>
-              <button
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-                className="btn-secondary flex items-center gap-2"
-              >
-                <Save size={16} />
-                Salvar times
-              </button>
-              <button
-                onClick={handleShareWhatsApp}
-                className="btn-ghost flex items-center gap-2"
-              >
-                <Send size={16} className="text-green-500" />
-                Compartilhar no WhatsApp
-              </button>
-            </>
-          )}
-        </div>
+      <div className="flex gap-2 p-1 bg-surface border border-border rounded-xl">
+        <button
+          onClick={() => setActiveTab('gerador')}
+          className={`flex-1 py-2 px-4 rounded-lg font-bold text-sm transition-all ${
+            activeTab === 'gerador'
+              ? 'bg-red text-white shadow-neon-red'
+              : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
+          }`}
+        >
+          Sorteio e Pelada Ativa
+        </button>
+        <button
+          onClick={() => setActiveTab('historico')}
+          className={`flex-1 py-2 px-4 rounded-lg font-bold text-sm transition-all ${
+            activeTab === 'historico'
+              ? 'bg-red text-white shadow-neon-red'
+              : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
+          }`}
+        >
+          Histórico
+        </button>
       </div>
+
+      {activeTab === 'gerador' && (
+        <div className="space-y-4">
+          {/* Config */}
+          <div className="card p-4 md:p-5">
+            <h2 className="font-display text-xs tracking-wider text-text-primary mb-3">CONFIGURAÇÃO DO SORTEIO</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Modality */}
+              <div>
+                <label className="text-text-muted text-[10px] uppercase tracking-wider block mb-1.5">Modalidade</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {MODALITIES.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setModality(m)}
+                      className={`px-3 py-1.5 rounded text-xs font-bold transition-all
+                        ${modality === m
+                          ? 'bg-red text-white shadow-neon-red'
+                          : 'bg-surface border border-border text-text-muted hover:border-border-subtle'
+                        }`}
+                    >
+                      {m}v{m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Game day */}
+              <div>
+                <label className="text-text-muted text-[10px] uppercase tracking-wider block mb-1.5">
+                  Dia de jogo (Filtra quem está na quadra)
+                </label>
+                <select
+                  className="input w-full text-xs py-1.5 px-3 h-auto"
+                  value={selectedGameDayId || ''}
+                  onChange={(e) => setSelectedGameDayId(Number(e.target.value) || null)}
+                >
+                  <option value="">Selecione a pelada</option>
+                  
+                  {upcomingGameDays.length > 0 && (
+                    <optgroup label="🔴 Peladas Abertas">
+                      {upcomingGameDays.map(gd => (
+                        <option key={gd.id} value={gd.id}>
+                          {gd.date === todayStr ? '[HOJE] ' : ''}
+                          {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {pastGameDays.length > 0 && (
+                    <optgroup label="🔒 Histórico (Encerradas)">
+                      {pastGameDays.map(gd => (
+                        <option key={gd.id} value={gd.id}>
+                          {formatDate(gd.date)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-4 flex-wrap">
+              {selectedGameDayId && gameDays.find((g: any) => g.id === selectedGameDayId)?.is_closed ? (
+                <div className="flex items-center gap-1.5 text-red font-bold text-xs bg-red/10 px-3 py-1.5 rounded border border-red/20 w-full sm:w-auto">
+                  <Lock size={14} />
+                  Geração bloqueada (Encerrada).
+                </div>
+              ) : (
+                <button
+                  onClick={handleGenerate}
+                  disabled={generateMutation.isPending}
+                  className="btn-primary text-xs px-4 py-2 flex-1 sm:flex-none flex items-center justify-center gap-2"
+                >
+                  {generateMutation.isPending ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <Zap size={14} />
+                  )}
+                  {result ? 'Regerar times' : 'Gerar times'}
+                </button>
+              )}
+              
+              {result && (
+                <>
+                  <button
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending}
+                    className="btn-secondary text-xs px-3 py-2 flex-1 sm:flex-none flex items-center justify-center gap-1.5"
+                  >
+                    <Save size={14} />
+                    Salvar Sorteio
+                  </button>
+                  <button
+                    onClick={handleShareWhatsApp}
+                    className="btn-ghost text-xs px-3 py-2 flex-1 sm:flex-none flex items-center justify-center gap-1.5"
+                  >
+                    <Send size={14} className="text-green-500" />
+                    <span className="hidden sm:inline">Compartilhar</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
 
       {/* Error */}
       {generateMutation.isError && (
@@ -655,24 +690,25 @@ export function TeamsPage() {
         )}
       </AnimatePresence>
       
-      {/* Active and History */}
-      {(history.length > 0) && (
-        <div className="mt-12 pt-8 border-t border-border">
-          {/* Active Generations */}
-          {history.filter(h => !h.is_locked).length > 0 && (
-            <div className="mb-12">
-              <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3 mb-6">
-                <Trophy className="text-yellow-400" size={24} />
-                Pelada Ativa (Jogando)
-              </h2>
-              <div className="space-y-6">
-                {history.filter(h => !h.is_locked).map(gen => renderGeneration(gen))}
-              </div>
-            </div>
-          )}
+      {history.filter(h => !h.is_locked).length > 0 && (
+        <div className="mt-8 pt-8 border-t border-border">
+          <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3 mb-6">
+            <Trophy className="text-yellow-400" size={24} />
+            Pelada Ativa (Jogando)
+          </h2>
+          <div className="space-y-6">
+            {history.filter(h => !h.is_locked).map(gen => renderGeneration(gen))}
+          </div>
+        </div>
+      )}
+        </div>
+      )}
 
+
+      {activeTab === 'historico' && (
+        <div className="space-y-6">
           {/* Past Generations */}
-          {history.filter(h => h.is_locked).length > 0 && (
+          {history.filter(h => h.is_locked).length > 0 ? (
             <div>
               <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3 mb-6">
                 <History className="text-red" size={24} />
@@ -681,6 +717,10 @@ export function TeamsPage() {
               <div className="space-y-6">
                 {history.filter(h => h.is_locked).map(gen => renderGeneration(gen))}
               </div>
+            </div>
+          ) : (
+            <div className="card p-8 text-center text-text-muted">
+              Nenhum histórico encontrado.
             </div>
           )}
         </div>
@@ -695,43 +735,42 @@ function TeamCard({ team, idx }: { team: GeneratedTeam; idx: number }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: idx * 0.1 }}
-      className="card overflow-hidden"
+      className="bg-surface rounded-lg border border-border overflow-hidden shadow-sm"
     >
-      {/* Color accent */}
-      <div className="h-1.5" style={{ backgroundColor: team.color_hex }} />
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-display text-lg tracking-wider" style={{ color: team.color_hex }}>
-            {team.name.toUpperCase()}
-          </h3>
-          <div className="text-right">
-            <p className="font-display text-xl font-bold" style={{ color: team.color_hex }}>
-              {team.avg_overall.toFixed(1)}
-            </p>
-            <p className="text-text-muted text-[10px] uppercase">Overall médio</p>
-          </div>
-        </div>
+      <div className="flex justify-between items-center p-2 bg-surface-hover border-b border-border-subtle">
+        <span className="font-display text-xs" style={{ color: team.color_hex }}>{team.name.toUpperCase()}</span>
+        <span className="font-bold text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: `${team.color_hex}20`, color: team.color_hex }}>
+          OVR: {team.avg_overall.toFixed(1)}
+        </span>
+      </div>
 
-        <div className="space-y-2">
-          {team.players.map((player, i) => (
-            <div key={player.id} className="flex items-center gap-2 p-2 rounded-lg bg-surface">
-              <span className="text-text-muted text-xs w-4">{i + 1}</span>
-              <Avatar name={player.display_name} src={player.avatar_url} size="sm" />
-              <div className="flex-1 min-w-0">
-                <p className="text-text-primary text-xs font-medium truncate flex items-center gap-1">
+      <div className="p-1.5 flex flex-col gap-0.5">
+        {team.players.map((player, i) => (
+          <div key={player.id} className="flex justify-between items-center py-1 px-1 rounded hover:bg-surface-hover transition-colors">
+            <div className="flex items-center gap-1.5 overflow-hidden flex-1">
+              <span className="text-text-muted text-[10px] w-3">{i + 1}</span>
+              <Avatar name={player.display_name} src={player.avatar_url} size="sm" className="w-5 h-5 text-[8px]" />
+              <div className="flex flex-col min-w-0">
+                <p className="text-text-primary text-[11px] font-medium truncate flex items-center gap-1">
                   {player.display_name}
                   {player.is_guest && (
-                    <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold">
-                      Convidado
+                    <span className="text-[7px] bg-blue/20 text-blue px-1 rounded uppercase font-bold">
+                      Conv
                     </span>
                   )}
                 </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="scale-75 origin-right">
                 <PositionBadge position={player.main_position} />
               </div>
-              <OverallBadge overall={player.overall} size="sm" />
+              <div className="scale-90 origin-right">
+                <OverallBadge overall={player.overall} size="sm" />
+              </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </motion.div>
   );

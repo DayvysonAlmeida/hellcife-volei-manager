@@ -49,6 +49,7 @@ def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id:
             'shirt_number': p.shirt_number,
             'avatar_url': p.avatar_url,
             'is_guest': p.is_guest,
+            'gender': p.gender,
             'overall': overall,
         })
 
@@ -56,18 +57,15 @@ def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id:
     return result
 
 
-def snake_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
+def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
     """
-    Distribui jogadores em times usando snake draft.
-    Round 1: time 0, 1, 2... N-1
-    Round 2: time N-1, N-2... 0
-    Round 3: time 0, 1... (repete)
+    Distribui jogadores em times usando um algoritmo guloso inteligente.
+    Garante separação de levantadores, mulheres e balanceia por overall.
     """
     n_teams = math.floor(len(players) / team_size)
     if n_teams < 1:
         n_teams = 1
 
-    # Apenas os primeiros (n_teams * team_size) jogadores entram no draft balanceado
     limit = n_teams * team_size
     if len(players) < team_size:
         limit = len(players)
@@ -76,16 +74,56 @@ def snake_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
     leftover_players = players[limit:]
 
     teams = [[] for _ in range(n_teams)]
-    for i, player in enumerate(draft_players):
-        round_idx = i // n_teams
-        pos_in_round = i % n_teams
+    
+    # Separar os grupos (do draft_players apenas)
+    setters = [p for p in draft_players if p['main_position'] == 'setter' or p['secondary_position'] == 'setter']
+    women = [p for p in draft_players if p.get('gender') == 'F' and p not in setters]
+    others = [p for p in draft_players if p not in setters and p not in women]
+    
+    # Ordenar todos por overall DESC
+    setters.sort(key=lambda x: x['overall'], reverse=True)
+    women.sort(key=lambda x: x['overall'], reverse=True)
+    others.sort(key=lambda x: x['overall'], reverse=True)
+
+    def assign_to_best_team(player, group_type):
+        best_team = None
+        best_score = float('inf')
         
-        if round_idx % 2 == 0:
-            team_idx = pos_in_round
-        else:
-            team_idx = (n_teams - 1) - pos_in_round
+        for team in teams:
+            count_in_team = len(team)
+            if count_in_team >= team_size:
+                continue
+                
+            avg_overall = sum(p['overall'] for p in team) / count_in_team if count_in_team > 0 else 0
+            penalty = 0
             
-        teams[team_idx].append(player)
+            if group_type == 'setter':
+                setter_count = sum(1 for p in team if p['main_position'] == 'setter' or p['secondary_position'] == 'setter')
+                penalty += setter_count * 1000
+            elif group_type == 'woman':
+                woman_count = sum(1 for p in team if p.get('gender') == 'F')
+                penalty += woman_count * 1000
+                
+            # Score: menor é melhor. Considera penalidade, tenta encher igualmente (count * 100), e desempata por avg_overall
+            score = penalty + (count_in_team * 100) + avg_overall
+            
+            if score < best_score:
+                best_score = score
+                best_team = team
+                
+        if best_team is None:
+            # Fallback se todos estiverem cheios (não deve acontecer devido ao limit, mas por segurança)
+            teams.sort(key=lambda t: (len(t), sum(p['overall'] for p in t) / len(t) if len(t) > 0 else 0))
+            best_team = teams[0]
+            
+        best_team.append(player)
+
+    for p in setters:
+        assign_to_best_team(p, 'setter')
+    for p in women:
+        assign_to_best_team(p, 'woman')
+    for p in others:
+        assign_to_best_team(p, 'other')
 
     # Cria times extras para quem sobrou (em blocos de team_size)
     if leftover_players:
@@ -132,14 +170,9 @@ def generate_teams(
             'error': f'Número insuficiente de jogadores. Mínimo necessário: {modality * 2}, disponíveis: {len(players)}'
         }
 
-    # Separar levantadores para distribuí-los primeiro no snake draft
-    setters = [p for p in players if p['main_position'] == 'setter' or p['secondary_position'] == 'setter']
-    others = [p for p in players if p not in setters]
-    
-    # A lista final vai ser: Levantadores (ordenados) + Outros (ordenados)
-    ordered_players = setters + others
-
-    teams_players = snake_draft(ordered_players, modality)
+    # O smart_draft fará toda a separação internamente.
+    # Garantimos apenas que players esteja ordenado por padrão
+    teams_players = smart_draft(players, modality)
     balance_score = calculate_balance_score(teams_players)
 
     teams_result = []

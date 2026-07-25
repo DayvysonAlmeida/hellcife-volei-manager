@@ -59,6 +59,10 @@ class Attendance(models.Model):
     is_justified = models.BooleanField(default=False, verbose_name='Justificada')
     justification_text = models.CharField(max_length=255, blank=True, null=True, verbose_name='Motivo da Justificativa')
 
+    # Fila de Espera
+    is_waitlist = models.BooleanField(default=False, verbose_name='Na Fila de Espera', db_index=True)
+    waitlist_joined_at = models.DateTimeField(null=True, blank=True, verbose_name='Entrou na Fila em')
+
     class Meta:
         verbose_name = 'Presença'
         verbose_name_plural = 'Presenças'

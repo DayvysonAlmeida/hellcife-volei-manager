@@ -50,6 +50,9 @@ export const attendanceService = {
   addGuest: (gamedayId: number, data: { name: string; main_position: string; invited_by?: string }) =>
     api.post(`/attendance/gamedays/${gamedayId}/add-guest/`, data).then(r => r.data),
 
+  promoteWaitlist: (gamedayId: number) =>
+    api.post(`/attendance/gamedays/${gamedayId}/promote-waitlist/`).then(r => r.data),
+
   bulkAttendance: (gamedayId: number, presentPlayerIds: number[]) =>
     api.post(`/attendance/gamedays/${gamedayId}/bulk-attendance/`, {
       present_player_ids: presentPlayerIds,
@@ -102,8 +105,15 @@ export const teamsService = {
   addTeam: (genId: number) =>
     api.post(`/teams/${genId}/add-team/`).then(r => r.data),
 
-  autoAllocate: (genId: number) =>
-    api.post(`/teams/${genId}/auto-allocate/`).then(r => r.data),
+  autoAllocate: async (genId: number): Promise<{ detail: string }> => {
+    const response = await api.post(`/teams/${genId}/auto-allocate/`);
+    return response.data;
+  },
+
+  shuffle: async (genId: number): Promise<{ detail: string }> => {
+    const response = await api.post(`/teams/${genId}/shuffle/`);
+    return response.data;
+  },
 
   removeTeam: (genId: number, teamId: number) =>
     api.delete(`/teams/${genId}/remove-team/${teamId}/`).then(r => r.data),

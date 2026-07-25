@@ -23,6 +23,7 @@ export interface LoginResponse {
 // ==================== Player ====================
 export type Position = 'libero' | 'setter' | 'opposite' | 'outside' | 'middle' | 'universal';
 export type DominantHand = 'right' | 'left' | 'both';
+export type Gender = 'M' | 'F';
 export type PlayerStatus = 'active' | 'inactive' | 'injured' | 'suspended';
 
 export const POSITION_LABELS: Record<Position, string> = {
@@ -38,6 +39,11 @@ export const HAND_LABELS: Record<DominantHand, string> = {
   right: 'Destro',
   left: 'Canhoto',
   both: 'Ambidestro',
+};
+
+export const GENDER_LABELS: Record<Gender, string> = {
+  M: 'Masculino',
+  F: 'Feminino',
 };
 
 export const STATUS_LABELS: Record<PlayerStatus, string> = {
@@ -62,6 +68,8 @@ export interface Player {
   secondary_position_display?: string;
   dominant_hand: DominantHand;
   dominant_hand_display: string;
+  gender: Gender;
+  gender_display: string;
   phone?: string;
   instagram?: string;
   avatar_url?: string;
@@ -107,6 +115,7 @@ export interface PlayerFormData {
   main_position: Position;
   secondary_position?: Position | '';
   dominant_hand: DominantHand;
+  gender: Gender;
   phone?: string;
   instagram?: string;
   avatar?: File;
@@ -231,6 +240,8 @@ export interface Attendance {
   was_no_show?: boolean;
   is_justified?: boolean;
   justification_text?: string;
+  is_waitlist?: boolean;
+  waitlist_joined_at?: string | null;
 }
 
 // ==================== Teams ====================
