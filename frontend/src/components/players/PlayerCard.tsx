@@ -168,6 +168,27 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             )}
           </div>
 
+          {/* Top Mini Stars Row (Progress) */}
+          {(() => {
+            const stars = [];
+            for (let i = 0; i < (player.mvp_stars || 0); i++) stars.push({ type: 'mvp', color: 'fill-yellow-400 text-yellow-200 drop-shadow-[0_0_3px_rgba(250,204,21,0.8)]' });
+            for (let i = 0; i < (player.attack_stars || 0); i++) stars.push({ type: 'attack', color: 'fill-red-500 text-red-300 drop-shadow-[0_0_3px_rgba(239,68,68,0.8)]' });
+            for (let i = 0; i < (player.defense_stars || 0); i++) stars.push({ type: 'defense', color: 'fill-blue-500 text-blue-300 drop-shadow-[0_0_3px_rgba(59,130,246,0.8)]' });
+            for (let i = 0; i < (player.setter_stars || 0); i++) stars.push({ type: 'setter', color: 'fill-orange-500 text-orange-300 drop-shadow-[0_0_3px_rgba(249,115,22,0.8)]' });
+            for (let i = 0; i < (player.pass_stars || 0); i++) stars.push({ type: 'pass', color: 'fill-green-500 text-green-300 drop-shadow-[0_0_3px_rgba(34,197,94,0.8)]' });
+            for (let i = 0; i < (player.block_stars || 0); i++) stars.push({ type: 'block', color: 'fill-purple-500 text-purple-300 drop-shadow-[0_0_3px_rgba(168,85,247,0.8)]' });
+            
+            if (stars.length === 0) return null;
+
+            return (
+              <div className="absolute top-[2%] inset-x-0 px-[15%] flex flex-wrap justify-center gap-0.5 z-20 pointer-events-none" title="Progresso para Estrela Maior">
+                {stars.map((s, idx) => (
+                  <Star key={`mini-star-${idx}`} size={11} className={`${s.color}`} />
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Avatar Area */}
           <div className="absolute inset-x-0 top-[10%] bottom-[35%] flex justify-center items-center z-10 pointer-events-none">
             
@@ -214,13 +235,13 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             <div className="relative w-full mb-1 flex items-end justify-center">
               {player.shirt_number && (
                 <div className="absolute left-1 bottom-0.5 pointer-events-none z-20" title={`Camisa ${player.shirt_number}`}>
-                  <span className="text-white/70 font-display font-black text-xl sm:text-2xl tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+                  <span className="text-white/70 font-display font-black text-lg sm:text-2xl tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
                     {player.shirt_number}
                   </span>
                 </div>
               )}
               
-              <h3 className="font-display text-lg sm:text-xl font-black uppercase tracking-wider text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] truncate z-10 px-8 w-full text-center">
+              <h3 className="font-display text-base sm:text-xl font-black uppercase tracking-wider text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] truncate z-10 px-4 sm:px-6 w-full text-center">
                 {player.display_name}
               </h3>
             </div>
@@ -243,41 +264,41 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
 
               {/* Mini Estrelas Separadas por Categoria */}
               {(player.attack_stars > 0 || player.defense_stars > 0 || player.mvp_stars > 0 || player.setter_stars > 0 || player.pass_stars > 0 || player.block_stars > 0) && (
-                <div className="flex flex-wrap justify-center gap-2 w-full bg-black/40 rounded-lg py-1 px-2 border border-white/10 shadow-inner">
+                <div className="flex flex-nowrap justify-center gap-1 sm:gap-1.5 w-full bg-black/40 rounded-lg py-1 px-1 sm:px-2 border border-white/10 shadow-inner overflow-hidden">
                   {player.mvp_stars > 0 && (
-                    <div className="flex items-center gap-1 text-yellow-400" title={`${player.mvp_stars} Estrelas MVP`}>
-                      <Star size={12} className="fill-yellow-400" />
-                      <span className="text-[11px] font-black">{player.mvp_stars}</span>
+                    <div className="flex items-center gap-0.5 sm:gap-1 text-yellow-400" title={`${player.mvp_stars} Estrelas MVP`}>
+                      <Star className="fill-yellow-400 w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="text-[9px] sm:text-[11px] font-black">{player.mvp_stars}</span>
                     </div>
                   )}
                   {player.attack_stars > 0 && (
-                    <div className="flex items-center gap-1 text-red-400" title={`${player.attack_stars} Estrelas de Ataque`}>
-                      <Swords size={12} />
-                      <span className="text-[11px] font-black">{player.attack_stars}</span>
+                    <div className="flex items-center gap-0.5 sm:gap-1 text-red-400" title={`${player.attack_stars} Estrelas de Ataque`}>
+                      <Swords className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="text-[9px] sm:text-[11px] font-black">{player.attack_stars}</span>
                     </div>
                   )}
                   {player.defense_stars > 0 && (
-                    <div className="flex items-center gap-1 text-blue-400" title={`${player.defense_stars} Estrelas de Defesa`}>
-                      <Shield size={12} />
-                      <span className="text-[11px] font-black">{player.defense_stars}</span>
+                    <div className="flex items-center gap-0.5 sm:gap-1 text-blue-400" title={`${player.defense_stars} Estrelas de Defesa`}>
+                      <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="text-[9px] sm:text-[11px] font-black">{player.defense_stars}</span>
                     </div>
                   )}
                   {player.setter_stars > 0 && (
-                    <div className="flex items-center gap-1 text-orange-400" title={`${player.setter_stars} Estrelas de Levantador`}>
-                      <Crosshair size={12} />
-                      <span className="text-[11px] font-black">{player.setter_stars}</span>
+                    <div className="flex items-center gap-0.5 sm:gap-1 text-orange-400" title={`${player.setter_stars} Estrelas de Levantador`}>
+                      <Crosshair className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="text-[9px] sm:text-[11px] font-black">{player.setter_stars}</span>
                     </div>
                   )}
                   {player.pass_stars > 0 && (
-                    <div className="flex items-center gap-1 text-green-400" title={`${player.pass_stars} Estrelas de Passe`}>
-                      <Activity size={12} />
-                      <span className="text-[11px] font-black">{player.pass_stars}</span>
+                    <div className="flex items-center gap-0.5 sm:gap-1 text-green-400" title={`${player.pass_stars} Estrelas de Passe`}>
+                      <Activity className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="text-[9px] sm:text-[11px] font-black">{player.pass_stars}</span>
                     </div>
                   )}
                   {player.block_stars > 0 && (
-                    <div className="flex items-center gap-1 text-purple-400" title={`${player.block_stars} Estrelas de Bloqueio`}>
-                      <Lock size={12} />
-                      <span className="text-[11px] font-black">{player.block_stars}</span>
+                    <div className="flex items-center gap-0.5 sm:gap-1 text-purple-400" title={`${player.block_stars} Estrelas de Bloqueio`}>
+                      <Lock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                      <span className="text-[9px] sm:text-[11px] font-black">{player.block_stars}</span>
                     </div>
                   )}
                 </div>
