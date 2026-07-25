@@ -49,15 +49,24 @@ class Player(models.Model):
 
     # Sistema de Estrelas — cada categoria tem 0–5 estrelas
     # Total (mvp + ataque + defesa) = mini_stars (0–15)
-    # Opção B: ao atingir 15, big_stars sobe e as categorias resetam
+    # Opção B: ao atingir 15, big_stars sobe através da soma de pontos baseadas no histórico vitalício.
     mvp_stars = models.PositiveSmallIntegerField(
-        default=0, validators=STAR_VALIDATORS, verbose_name='Estrelas MVP'
+        default=0, verbose_name='MVPs'
     )
     attack_stars = models.PositiveSmallIntegerField(
-        default=0, validators=STAR_VALIDATORS, verbose_name='Estrelas de Ataque'
+        default=0, verbose_name='Melhores Ataques'
     )
     defense_stars = models.PositiveSmallIntegerField(
-        default=0, validators=STAR_VALIDATORS, verbose_name='Estrelas de Defesa'
+        default=0, verbose_name='Melhores Defesas'
+    )
+    setter_stars = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Melhores Levantamentos'
+    )
+    pass_stars = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Melhores Passes'
+    )
+    block_stars = models.PositiveSmallIntegerField(
+        default=0, verbose_name='Melhores Bloqueios'
     )
     mini_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Total de Mini Estrelas')
     big_stars = models.PositiveSmallIntegerField(default=0, verbose_name='Estrelas Grandes')
@@ -95,19 +104,9 @@ class Player(models.Model):
 
     def promote_stars(self):
         """
-        Recalcula mini_stars a partir das 3 categorias.
-        Opção B: ao atingir 15, big_stars sobe e as 3 categorias resetam para 0.
-        Deve ser chamado ANTES de salvar (não chama save() internamente).
+        Recalcula mini_stars a partir das 6 categorias. (Desativado: gerenciado diretamente pela API para permitir zerar o troco)
         """
-        total = (self.mvp_stars or 0) + (self.attack_stars or 0) + (self.defense_stars or 0)
-        if total >= 15:
-            self.big_stars = (self.big_stars or 0) + 1
-            self.mvp_stars = 0
-            self.attack_stars = 0
-            self.defense_stars = 0
-            self.mini_stars = 0
-        else:
-            self.mini_stars = total
+        pass
 
     @property
     def latest_overall(self):
@@ -130,6 +129,9 @@ class StarHistory(models.Model):
         ('mvp', 'MVP'),
         ('attack', 'Ataque'),
         ('defense', 'Defesa'),
+        ('setter', 'Levantador'),
+        ('pass', 'Passe'),
+        ('block', 'Bloqueio'),
         ('promotion', 'Promoção (Grande Estrela)'),
     ]
 

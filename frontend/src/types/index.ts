@@ -74,6 +74,9 @@ export interface Player {
   mvp_stars: number;
   attack_stars: number;
   defense_stars: number;
+  setter_stars: number;
+  pass_stars: number;
+  block_stars: number;
   mini_stars: number;   // soma das 3 categorias (0–15, reseta ao virar big_star)
   big_stars: number;    // estrelas grandes conquistadas
   created_at: string;
@@ -437,6 +440,9 @@ export interface DashboardData {
     mvp_stars: number;
     attack_stars: number;
     defense_stars: number;
+    setter_stars: number;
+    pass_stars: number;
+    block_stars: number;
     mini_stars: number;
     big_stars: number;
   }>;
@@ -447,6 +453,9 @@ export interface DashboardData {
     mvp_stars: number;
     attack_stars: number;
     defense_stars: number;
+    setter_stars: number;
+    pass_stars: number;
+    block_stars: number;
     mini_stars: number;
     big_stars: number;
     top_category: 'mvp' | 'attack' | 'defense' | null;
@@ -474,6 +483,9 @@ export interface HighlightPlayer {
   mvp_stars: number;
   attack_stars: number;
   defense_stars: number;
+  setter_stars: number;
+  pass_stars: number;
+  block_stars: number;
   mini_stars: number;
   big_stars: number;
 }

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Shield, Trophy, Flame, Crown, Medal, CalendarDays, Sparkles, Zap } from 'lucide-react';
+import { Users, UserCheck, CalendarCheck, Star, TrendingUp, Award, Swords, Shield, Trophy, Flame, Crown, Medal, CalendarDays, Sparkles, Zap, Crosshair, Activity, Lock } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell,
@@ -253,18 +253,30 @@ export function DashboardPage() {
                     </div>
                     
                     {/* Barras Horizontais do 1º colocado */}
-                    <div className="grid grid-cols-3 gap-4 max-w-lg mt-3">
+                    <div className="grid grid-cols-3 gap-2 mt-3 w-full">
                        <div className="flex flex-col">
-                         <span className="text-[10px] text-yellow-400 font-bold uppercase mb-1 flex justify-between">MVP <span>{p1.mvp_stars}</span></span>
-                         <div className="h-1.5 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-yellow-400 rounded-full" style={{width: `${(p1.mvp_stars/5)*100}%`}}></div></div>
+                         <span className="text-[9px] text-yellow-400 font-bold uppercase mb-1 flex justify-between">MVP <span>{p1.mvp_stars}</span></span>
+                         <div className="h-1 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-yellow-400 rounded-full" style={{width: `${(p1.mvp_stars/5)*100}%`}}></div></div>
                        </div>
                        <div className="flex flex-col">
-                         <span className="text-[10px] text-red font-bold uppercase mb-1 flex justify-between">ATQ <span>{p1.attack_stars}</span></span>
-                         <div className="h-1.5 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-red rounded-full" style={{width: `${(p1.attack_stars/5)*100}%`}}></div></div>
+                         <span className="text-[9px] text-red font-bold uppercase mb-1 flex justify-between">ATQ <span>{p1.attack_stars}</span></span>
+                         <div className="h-1 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-red rounded-full" style={{width: `${(p1.attack_stars/5)*100}%`}}></div></div>
                        </div>
                        <div className="flex flex-col">
-                         <span className="text-[10px] text-blue font-bold uppercase mb-1 flex justify-between">DEF <span>{p1.defense_stars}</span></span>
-                         <div className="h-1.5 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-blue rounded-full" style={{width: `${(p1.defense_stars/5)*100}%`}}></div></div>
+                         <span className="text-[9px] text-blue font-bold uppercase mb-1 flex justify-between">DEF <span>{p1.defense_stars}</span></span>
+                         <div className="h-1 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-blue rounded-full" style={{width: `${(p1.defense_stars/5)*100}%`}}></div></div>
+                       </div>
+                       <div className="flex flex-col">
+                         <span className="text-[9px] text-orange-500 font-bold uppercase mb-1 flex justify-between">LEV <span>{p1.setter_stars}</span></span>
+                         <div className="h-1 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-orange-500 rounded-full" style={{width: `${(p1.setter_stars/5)*100}%`}}></div></div>
+                       </div>
+                       <div className="flex flex-col">
+                         <span className="text-[9px] text-green-500 font-bold uppercase mb-1 flex justify-between">PAS <span>{p1.pass_stars}</span></span>
+                         <div className="h-1 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full" style={{width: `${(p1.pass_stars/5)*100}%`}}></div></div>
+                       </div>
+                       <div className="flex flex-col">
+                         <span className="text-[9px] text-purple-500 font-bold uppercase mb-1 flex justify-between">BLO <span>{p1.block_stars}</span></span>
+                         <div className="h-1 bg-surface-highlight rounded-full overflow-hidden"><div className="h-full bg-purple-500 rounded-full" style={{width: `${(p1.block_stars/5)*100}%`}}></div></div>
                        </div>
                     </div>
                   </div>
@@ -314,6 +326,9 @@ export function DashboardPage() {
                         {player.mvp_stars > 0 && <span className="text-yellow-400">MVP {player.mvp_stars}</span>}
                         {player.attack_stars > 0 && <span className="text-red">ATQ {player.attack_stars}</span>}
                         {player.defense_stars > 0 && <span className="text-blue">DEF {player.defense_stars}</span>}
+                        {player.setter_stars > 0 && <span className="text-orange-500">LEV {player.setter_stars}</span>}
+                        {player.pass_stars > 0 && <span className="text-green-500">PAS {player.pass_stars}</span>}
+                        {player.block_stars > 0 && <span className="text-purple-500">BLO {player.block_stars}</span>}
                         {player.mini_stars === 0 && !hasBigStar && <span className="text-text-muted">Sem minis</span>}
                       </div>
                     </div>
@@ -378,6 +393,9 @@ export function DashboardPage() {
                   mvp: { label: 'MVP', icon: Trophy, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30 glow-yellow' },
                   attack: { label: 'Melhor Ataque', icon: Zap, color: 'text-red bg-red/10 border-red/30 glow-red' },
                   defense: { label: 'Melhor Defesa', icon: Shield, color: 'text-blue bg-blue/10 border-blue/30 glow-blue' },
+                  setter: { label: 'Melhor Levantador', icon: Crosshair, color: 'text-orange-500 bg-orange-500/10 border-orange-500/30 glow-orange' },
+                  pass: { label: 'Melhor Passe', icon: Activity, color: 'text-green-500 bg-green-500/10 border-green-500/30 glow-green' },
+                  block: { label: 'Melhor Bloqueio', icon: Lock, color: 'text-purple-500 bg-purple-500/10 border-purple-500/30 glow-purple' },
                 };
                 const cat = p0.top_category ? catConfig[p0.top_category] : null;
                 const CatIcon = cat?.icon || Star;
@@ -442,6 +460,9 @@ export function DashboardPage() {
                     mvp: { label: 'MVP', icon: Trophy, color: 'text-yellow-400 bg-yellow-500/10' },
                     attack: { label: 'ATQ', icon: Zap, color: 'text-red bg-red/10' },
                     defense: { label: 'DEF', icon: Shield, color: 'text-blue bg-blue/10' },
+                    setter: { label: 'LEV', icon: Crosshair, color: 'text-orange-500 bg-orange-500/10' },
+                    pass: { label: 'PAS', icon: Activity, color: 'text-green-500 bg-green-500/10' },
+                    block: { label: 'BLO', icon: Lock, color: 'text-purple-500 bg-purple-500/10' },
                   };
                   const cat = player.top_category ? catConfig[player.top_category] : null;
                   const CatIcon = cat?.icon || Star;

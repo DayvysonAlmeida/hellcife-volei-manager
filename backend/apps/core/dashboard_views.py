@@ -126,6 +126,9 @@ class DashboardView(APIView):
                 'mvp_stars': p.mvp_stars,
                 'attack_stars': p.attack_stars,
                 'defense_stars': p.defense_stars,
+                'setter_stars': p.setter_stars,
+                'pass_stars': p.pass_stars,
+                'block_stars': p.block_stars,
                 'mini_stars': p.mini_stars,
                 'big_stars': p.big_stars,
             })
@@ -146,6 +149,9 @@ class DashboardView(APIView):
                 'mvp': p.mvp_stars or 0,
                 'attack': p.attack_stars or 0,
                 'defense': p.defense_stars or 0,
+                'setter': p.setter_stars or 0,
+                'pass': p.pass_stars or 0,
+                'block': p.block_stars or 0,
             }
             top_cat = max(cats, key=lambda k: cats[k]) if any(cats.values()) else None
             new_stars.append({
@@ -155,6 +161,9 @@ class DashboardView(APIView):
                 'mvp_stars': p.mvp_stars,
                 'attack_stars': p.attack_stars,
                 'defense_stars': p.defense_stars,
+                'setter_stars': p.setter_stars,
+                'pass_stars': p.pass_stars,
+                'block_stars': p.block_stars,
                 'mini_stars': p.mini_stars,
                 'big_stars': p.big_stars,
                 'top_category': top_cat,

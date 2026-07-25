@@ -17,6 +17,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'main_position', 'main_position_display', 'secondary_position',
             'avatar_url', 'status', 'status_display', 'latest_overall',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
+            'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'is_guest', 'invited_by', 'consecutive_absences', 'stats'
         ]
 
@@ -96,6 +97,8 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             'status', 'status_display',
             'user', 'latest_overall',
             'mini_stars', 'big_stars',
+            'mvp_stars', 'attack_stars', 'defense_stars',
+            'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'updated_at',
             'is_guest', 'invited_by', 'consecutive_absences'
         ]
@@ -128,6 +131,7 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
             'main_position', 'secondary_position', 'dominant_hand',
             'phone', 'instagram', 'avatar', 'notes', 'status', 'user',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
+            'setter_stars', 'pass_stars', 'block_stars',
             'is_guest',
         ]
         read_only_fields = ['id']

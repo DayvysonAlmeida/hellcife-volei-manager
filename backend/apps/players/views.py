@@ -97,25 +97,29 @@ class PlayerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'], url_path='update_stars')
     def update_stars(self, request, pk=None):
         """
-        Atualiza as estrelas por categoria de um atleta.
-        Aceita: { mvp_stars, attack_stars, defense_stars } (0–5 cada)
-        Aplica a lógica Opção B: ao atingir 15, big_stars sobe e categorias resetam.
+        Atualiza os prêmios vitais de um atleta.
         """
         player = self.get_object()
 
         old_mvp = player.mvp_stars or 0
         old_attack = player.attack_stars or 0
         old_defense = player.defense_stars or 0
+        old_setter = player.setter_stars or 0
+        old_pass = player.pass_stars or 0
+        old_block = player.block_stars or 0
 
         mvp = int(request.data.get('mvp_stars', old_mvp))
         attack = int(request.data.get('attack_stars', old_attack))
         defense = int(request.data.get('defense_stars', old_defense))
+        setter = int(request.data.get('setter_stars', old_setter))
+        pass_ = int(request.data.get('pass_stars', old_pass))
+        block = int(request.data.get('block_stars', old_block))
 
-        # Validação de range
-        for name, val in [('mvp_stars', mvp), ('attack_stars', attack), ('defense_stars', defense)]:
-            if not (0 <= val <= 5):
+        # Validação de range mínimo
+        for name, val in [('mvp_stars', mvp), ('attack_stars', attack), ('defense_stars', defense), ('setter_stars', setter), ('pass_stars', pass_), ('block_stars', block)]:
+            if val < 0:
                 return Response(
-                    {name: f'Deve ser entre 0 e 5. Recebido: {val}'},
+                    {name: f'Deve ser maior ou igual a 0. Recebido: {val}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -123,35 +127,64 @@ class PlayerViewSet(viewsets.ModelViewSet):
         diff_mvp = mvp - old_mvp
         diff_attack = attack - old_attack
         diff_defense = defense - old_defense
-
-        player.total_mvp += max(0, diff_mvp)
-        player.total_attack += max(0, diff_attack)
-        player.total_defense += max(0, diff_defense)
+        diff_setter = setter - old_setter
+        diff_pass = pass_ - old_pass
+        diff_block = block - old_block
 
         player.mvp_stars = mvp
         player.attack_stars = attack
         player.defense_stars = defense
+        player.setter_stars = setter
+        player.pass_stars = pass_
+        player.block_stars = block
 
         prev_big_stars = player.big_stars or 0
-        player.promote_stars()
+        diff_points = (diff_mvp * 6) + diff_attack + diff_defense + diff_setter + diff_pass + diff_block
+        
+        new_mini = (player.mini_stars or 0) + diff_points
+        if new_mini >= 15:
+            player.big_stars = prev_big_stars + 1
+            player.mini_stars = 0
+            player.mvp_stars = 0
+            player.attack_stars = 0
+            player.defense_stars = 0
+            player.setter_stars = 0
+            player.pass_stars = 0
+            player.block_stars = 0
+        else:
+            player.mini_stars = max(0, new_mini)
+
         new_big_stars = player.big_stars or 0
 
-        # Salva as alterações
-        player.save(update_fields=[
+        # Atualiza totais se existirem para compatibilidade legada
+        if hasattr(player, 'total_mvp'):
+            player.total_mvp += max(0, diff_mvp)
+            player.total_attack += max(0, diff_attack)
+            player.total_defense += max(0, diff_defense)
+
+        update_fields = [
             'mvp_stars', 'attack_stars', 'defense_stars',
-            'mini_stars', 'big_stars', 'updated_at',
-            'total_mvp', 'total_attack', 'total_defense'
-        ])
+            'setter_stars', 'pass_stars', 'block_stars',
+            'mini_stars', 'big_stars', 'updated_at'
+        ]
+        if hasattr(player, 'total_mvp'):
+            update_fields.extend(['total_mvp', 'total_attack', 'total_defense'])
+
+        # Salva as alterações
+        player.save(update_fields=update_fields)
 
         # Cria os registros de histórico de estrelas
         history_to_create = []
-        if diff_mvp != 0:
-            history_to_create.append(StarHistory(player=player, category='mvp', action='add' if diff_mvp > 0 else 'remove', count=abs(diff_mvp)))
-        if diff_attack != 0:
-            history_to_create.append(StarHistory(player=player, category='attack', action='add' if diff_attack > 0 else 'remove', count=abs(diff_attack)))
-        if diff_defense != 0:
-            history_to_create.append(StarHistory(player=player, category='defense', action='add' if diff_defense > 0 else 'remove', count=abs(diff_defense)))
-            
+        for diff, cat in [
+            (diff_mvp, 'mvp'), (diff_attack, 'attack'), (diff_defense, 'defense'),
+            (diff_setter, 'setter'), (diff_pass, 'pass'), (diff_block, 'block')
+        ]:
+            if diff != 0:
+                history_to_create.append(StarHistory(
+                    player=player, category=cat, 
+                    action='add' if diff > 0 else 'remove', count=abs(diff)
+                ))
+
         if new_big_stars > prev_big_stars:
             history_to_create.append(StarHistory(player=player, category='promotion', action='promote', count=new_big_stars - prev_big_stars))
 
@@ -167,6 +200,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'mvp_stars': player.mvp_stars,
             'attack_stars': player.attack_stars,
             'defense_stars': player.defense_stars,
+            'setter_stars': player.setter_stars,
+            'pass_stars': player.pass_stars,
+            'block_stars': player.block_stars,
             'mini_stars': player.mini_stars,
             'big_stars': player.big_stars,
         })

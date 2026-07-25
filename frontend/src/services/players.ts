@@ -5,6 +5,9 @@ export interface StarsPayload {
   mvp_stars: number;
   attack_stars: number;
   defense_stars: number;
+  setter_stars: number;
+  pass_stars: number;
+  block_stars: number;
 }
 
 export const playersService = {
@@ -24,7 +27,7 @@ export const playersService = {
     api.delete(`/players/${id}/`),
 
   updateStars: (id: number, payload: StarsPayload) =>
-    api.patch<Pick<Player, 'id' | 'mvp_stars' | 'attack_stars' | 'defense_stars' | 'mini_stars' | 'big_stars'>>(
+    api.patch<Pick<Player, 'id' | 'mvp_stars' | 'attack_stars' | 'defense_stars' | 'setter_stars' | 'pass_stars' | 'block_stars' | 'mini_stars' | 'big_stars'>>(
       `/players/${id}/update_stars/`, payload
     ).then(r => r.data),
 

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Star, Search, Trophy, Zap, Shield, History } from 'lucide-react';
+import { Star, Search, Trophy, Zap, Shield, History, Crosshair, Activity, Lock, Plus, Minus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDateTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/Avatar';
@@ -15,86 +15,121 @@ import { useDebounce } from '@/lib/useDebounce';
 import toast from 'react-hot-toast';
 import type { Player } from '@/types';
 
-// Configuração das 3 categorias de estrelas
+// Configuração das 6 categorias de estrelas (Prêmios)
 const STAR_CATEGORIES = [
   {
     key: 'mvp_stars' as keyof StarsPayload,
     label: 'MVP',
     icon: Trophy,
     color: 'text-yellow-400',
-    fillColor: '#FACC15',
-    glowClass: 'drop-shadow-[0_0_4px_rgba(250,204,21,0.8)]',
+    bgClass: 'bg-yellow-400/10',
+    borderHover: 'group-hover:border-yellow-400/50',
+    points: 6,
   },
   {
     key: 'attack_stars' as keyof StarsPayload,
     label: 'ATAQUE',
     icon: Zap,
     color: 'text-red',
-    fillColor: '#D90429',
-    glowClass: 'shadow-neon-red-sm',
+    bgClass: 'bg-[#D90429]/10',
+    borderHover: 'group-hover:border-red/50',
+    points: 1,
   },
   {
     key: 'defense_stars' as keyof StarsPayload,
     label: 'DEFESA',
     icon: Shield,
     color: 'text-blue',
-    fillColor: '#2563EB',
-    glowClass: 'shadow-neon-blue-sm',
+    bgClass: 'bg-[#2563EB]/10',
+    borderHover: 'group-hover:border-blue/50',
+    points: 1,
+  },
+  {
+    key: 'setter_stars' as keyof StarsPayload,
+    label: 'LEVANTADOR',
+    icon: Crosshair,
+    color: 'text-orange-500',
+    bgClass: 'bg-orange-500/10',
+    borderHover: 'group-hover:border-orange-500/50',
+    points: 1,
+  },
+  {
+    key: 'pass_stars' as keyof StarsPayload,
+    label: 'PASSE',
+    icon: Activity,
+    color: 'text-green-500',
+    bgClass: 'bg-green-500/10',
+    borderHover: 'group-hover:border-green-500/50',
+    points: 1,
+  },
+  {
+    key: 'block_stars' as keyof StarsPayload,
+    label: 'BLOQUEIO',
+    icon: Lock,
+    color: 'text-purple-500',
+    bgClass: 'bg-purple-500/10',
+    borderHover: 'group-hover:border-purple-500/50',
+    points: 1,
   },
 ] as const;
 
-// Componente de 5 estrelas clicáveis por categoria
-function StarRow({
+// Componente de Contador Incremental para os prêmios da vida toda
+function CounterRow({
   label,
   value,
-  fillColor,
-  glowClass,
   icon: Icon,
   color,
+  bgClass,
+  borderHover,
+  points,
   canEdit,
   onChange,
 }: {
   label: string;
   value: number;
-  fillColor: string;
-  glowClass: string;
-  icon: typeof Trophy;
+  icon: any;
   color: string;
+  bgClass: string;
+  borderHover: string;
+  points: number;
   canEdit: boolean;
   onChange: (val: number) => void;
 }) {
-  const [hovered, setHovered] = useState<number | null>(null);
-  const display = hovered !== null ? hovered : value;
-
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className={`flex items-center gap-1.5 min-w-[68px]`}>
-        <Icon size={12} className={color} />
+    <div className={`flex items-center justify-between gap-2 bg-surface/30 px-3 py-2 rounded-xl border border-border/40 ${borderHover} transition-all duration-300 group`}>
+      <div className="flex items-center gap-2">
+        <div className={`p-1.5 rounded-lg ${bgClass} transition-colors`}>
+          <Icon size={14} className={color} />
+        </div>
         <span className={`text-[10px] font-bold tracking-widest uppercase ${color}`}>{label}</span>
       </div>
-      <div className="flex items-center gap-1">
-        {Array.from({ length: 5 }, (_, i) => {
-          const starVal = i + 1;
-          const filled = display >= starVal;
-          return (
+      <div className="flex items-center gap-3">
+        {points > 1 && <span className="text-[9px] text-text-muted font-mono hidden sm:inline-block">(x{points} pts)</span>}
+        
+        {canEdit ? (
+          <div className="flex items-center gap-2">
             <button
-              key={i}
               type="button"
-              disabled={!canEdit}
-              onClick={() => canEdit && onChange(value === starVal ? starVal - 1 : starVal)}
-              onMouseEnter={() => canEdit && setHovered(starVal)}
-              onMouseLeave={() => canEdit && setHovered(null)}
-              className={`transition-transform ${canEdit ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
-              aria-label={`${label} ${starVal} estrela(s)`}
+              disabled={value <= 0}
+              onClick={() => value > 0 && onChange(value - 1)}
+              className="w-7 h-7 flex items-center justify-center rounded-full border border-border/50 bg-background hover:bg-surface-highlight disabled:opacity-30 transition-all text-text-muted hover:border-red-500/50 hover:text-red-400 hover:shadow-[0_0_8px_rgba(239,68,68,0.2)]"
             >
-              <Star
-                size={18}
-                style={filled ? { color: fillColor, fill: fillColor } : undefined}
-                className={`${filled ? glowClass : 'text-text-muted/30'} transition-all duration-150`}
-              />
+              <Minus size={12} strokeWidth={3} />
             </button>
-          );
-        })}
+            <div className="min-w-[20px] text-center text-sm font-bold text-text-primary drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]">
+              {value}
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange(value + 1)}
+              className="w-7 h-7 flex items-center justify-center rounded-full border border-border/50 bg-background hover:bg-surface-highlight transition-all text-text-primary hover:border-green-500/50 hover:text-green-400 hover:shadow-[0_0_8px_rgba(34,197,94,0.3)]"
+            >
+              <Plus size={12} strokeWidth={3} />
+            </button>
+          </div>
+        ) : (
+          <span className="font-bold text-sm px-2 text-text-primary drop-shadow-md">{value}</span>
+        )}
       </div>
     </div>
   );
@@ -112,26 +147,56 @@ function PlayerStarCard({
   onUpdate: (id: number, payload: StarsPayload) => void;
   isPending: boolean;
 }) {
-  // Estado local para edição otimista (sem aguardar server)
-  const [localStars, setLocalStars] = useState<StarsPayload>({
+  // Estado local para edição otimista
+  const [localStars, setLocalStars] = useState<StarsPayload & { mini_stars: number; big_stars: number }>({
     mvp_stars: player.mvp_stars ?? 0,
     attack_stars: player.attack_stars ?? 0,
     defense_stars: player.defense_stars ?? 0,
+    setter_stars: player.setter_stars ?? 0,
+    pass_stars: player.pass_stars ?? 0,
+    block_stars: player.block_stars ?? 0,
+    mini_stars: player.mini_stars ?? 0,
+    big_stars: player.big_stars ?? 0,
   });
 
   const handleChange = useCallback(
     (key: keyof StarsPayload, val: number) => {
       if (!canEdit) return;
-      const updated = { ...localStars, [key]: val };
-      setLocalStars(updated);
-      onUpdate(player.id, updated);
+      
+      const oldVal = localStars[key];
+      let diffPoints = (key === 'mvp_stars') ? (val - oldVal) * 6 : (val - oldVal);
+
+      let newMini = localStars.mini_stars + diffPoints;
+      let newBig = localStars.big_stars;
+
+      const rawUpdated = { ...localStars, [key]: val };
+      const optimisticUpdated = { ...rawUpdated };
+
+      if (newMini >= 15) {
+        newBig += 1;
+        newMini = 0;
+        optimisticUpdated.mvp_stars = 0;
+        optimisticUpdated.attack_stars = 0;
+        optimisticUpdated.defense_stars = 0;
+        optimisticUpdated.setter_stars = 0;
+        optimisticUpdated.pass_stars = 0;
+        optimisticUpdated.block_stars = 0;
+      } else if (newMini < 0) {
+        newMini = 0;
+      }
+
+      optimisticUpdated.mini_stars = newMini;
+      optimisticUpdated.big_stars = newBig;
+
+      setLocalStars(optimisticUpdated as any);
+      onUpdate(player.id, rawUpdated as any);
     },
     [localStars, canEdit, onUpdate, player.id]
   );
 
-  const mini = (localStars.mvp_stars + localStars.attack_stars + localStars.defense_stars);
+  const mini = localStars.mini_stars;
   const progressPct = Math.min(100, (mini / 15) * 100);
-  const bigStars = player.big_stars ?? 0;
+  const bigStars = localStars.big_stars;
 
   return (
     <div className="card p-4 flex flex-col gap-3 border-border hover:border-yellow-500/30 transition-colors duration-300 relative overflow-hidden group">
@@ -178,17 +243,18 @@ function PlayerStarCard({
       {/* Divider */}
       <div className="h-px bg-border" />
 
-      {/* Linhas de estrelas por categoria */}
-      <div className="flex flex-col gap-2.5">
+      {/* Linhas de Contadores por categoria */}
+      <div className="flex flex-col gap-2">
         {STAR_CATEGORIES.map((cat) => (
-          <StarRow
+          <CounterRow
             key={cat.key}
             label={cat.label}
             value={localStars[cat.key]}
-            fillColor={cat.fillColor}
-            glowClass={cat.glowClass}
             icon={cat.icon}
             color={cat.color}
+            bgClass={cat.bgClass}
+            borderHover={cat.borderHover}
+            points={cat.points}
             canEdit={canEdit}
             onChange={(val) => handleChange(cat.key, val)}
           />
@@ -196,9 +262,9 @@ function PlayerStarCard({
       </div>
 
       {/* Barra de progresso mini-estrelas */}
-      <div className="space-y-1">
+      <div className="space-y-1 mt-2">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-text-muted uppercase tracking-widest">Mini Estrelas</span>
+          <span className="text-[10px] text-text-muted uppercase tracking-widest">Mini Estrelas (Progresso)</span>
           <span className="text-[11px] font-bold text-yellow-400 font-mono">{mini}/15</span>
         </div>
         <div className="w-full h-1.5 bg-surface-highlight rounded-full overflow-hidden">
@@ -232,7 +298,7 @@ function StarHistoryTimeline() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h2 className="font-display text-xl text-text-primary tracking-wider flex items-center gap-2">
           <History size={20} className="text-yellow-500" />
-          LINHA DO TEMPO (HISTÓRICO DE ESTRELAS)
+          LINHA DO TEMPO (HISTÓRICO DE PRÊMIOS)
         </h2>
         {history && history.length > 0 && (
           <div className="flex items-center gap-2">
@@ -253,32 +319,42 @@ function StarHistoryTimeline() {
         {(!history || history.length === 0) ? (
           <div className="text-center py-8 text-text-muted">
             <Star className="mx-auto mb-3 text-text-muted/30" size={32} />
-            <p>Nenhuma estrela foi distribuída ainda.</p>
+            <p>Nenhum prêmio foi distribuído ainda.</p>
             <p className="text-xs mt-1">O histórico aparecerá aqui automaticamente.</p>
           </div>
         ) : (
           <div className="relative border-l-2 border-border/50 ml-4 space-y-6">
           {currentItems.map((item: any) => {
-            const isPromo = item.category === 'promotion';
-            const isMvp = item.category === 'mvp';
-            const isAttack = item.category === 'attack';
-            
             let color = 'text-yellow-400';
             let icon = '🌟';
-            let label = 'Estrela';
+            let label = 'Prêmio';
             
-            if (isPromo) {
-               icon = '👑'; label = 'Grande Estrela'; color = 'text-yellow-500';
-            } else if (isMvp) {
-               icon = '🏆'; label = 'Estrela MVP'; color = 'text-yellow-400';
-            } else if (isAttack) {
-               icon = '⚡'; label = 'Melhor Ataque'; color = 'text-red';
-            } else {
-               icon = '🛡️'; label = 'Melhor Defesa'; color = 'text-blue';
+            switch (item.category) {
+              case 'promotion':
+                icon = '👑'; label = 'Grande Estrela'; color = 'text-yellow-500';
+                break;
+              case 'mvp':
+                icon = '🏆'; label = 'MVP'; color = 'text-yellow-400';
+                break;
+              case 'attack':
+                icon = '⚡'; label = 'Ataque'; color = 'text-red';
+                break;
+              case 'defense':
+                icon = '🛡️'; label = 'Defesa'; color = 'text-blue';
+                break;
+              case 'setter':
+                icon = '🎯'; label = 'Levantador'; color = 'text-orange-500';
+                break;
+              case 'pass':
+                icon = '🏐'; label = 'Passe'; color = 'text-green-500';
+                break;
+              case 'block':
+                icon = '🧱'; label = 'Bloqueio'; color = 'text-purple-500';
+                break;
             }
 
             const actionText = item.action === 'add' ? 'Ganhou' : item.action === 'remove' ? 'Perdeu' : 'Conquistou';
-            const countText = item.count > 1 ? `${item.count} ` : '';
+            const countText = item.count > 1 ? `${item.count}x ` : '';
 
             return (
               <div key={item.id} className="relative pl-6 sm:pl-8">
@@ -353,7 +429,7 @@ export function StarsSystemPage() {
       queryClient.invalidateQueries({ queryKey: ['players'] });
     },
     onError: () => {
-      toast.error('Erro ao salvar estrelas. Tente novamente.');
+      toast.error('Erro ao salvar prêmios. Tente novamente.');
     },
   });
 
@@ -386,22 +462,22 @@ export function StarsSystemPage() {
           SISTEMA DE ESTRELAS
         </h1>
         <p className="page-subtitle">
-          Classificação dos atletas por MVP, Ataque e Defesa. Ao completar 15 mini-estrelas, o atleta conquista uma Estrela Grande.
+          Classificação dos atletas por prêmios vitais (MVP, Ataque, Defesa, Levantador, Passe e Bloqueio). Acumule pontos e conquiste Estrelas Grandes.
         </p>
       </div>
 
       {/* Legenda rápida */}
-      <div className="flex flex-wrap gap-3 text-xs">
+      <div className="flex flex-wrap gap-2 text-[11px]">
         {STAR_CATEGORIES.map((cat) => (
-          <div key={cat.key} className="flex items-center gap-1.5 bg-surface px-3 py-1.5 rounded-full border border-border">
+          <div key={cat.key} className="flex items-center gap-1 bg-surface px-2.5 py-1 rounded-md border border-border/60">
             <cat.icon size={12} className={cat.color} />
             <span className={`font-bold tracking-wider uppercase ${cat.color}`}>{cat.label}</span>
-            <span className="text-text-muted">— até 5 estrelas</span>
+            <span className="text-text-muted ml-1 font-mono">({cat.points} pt)</span>
           </div>
         ))}
-        <div className="flex items-center gap-1.5 bg-surface px-3 py-1.5 rounded-full border border-border">
+        <div className="flex items-center gap-1.5 bg-surface px-3 py-1 rounded-md border border-border/60 ml-auto">
           <span>🌟</span>
-          <span className="text-text-muted">— Estrela Grande (a cada 15)</span>
+          <span className="text-text-muted font-bold">— Estrela Grande (a cada 15 pt)</span>
         </div>
       </div>
 
