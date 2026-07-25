@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarCheck, ChevronRight, ChevronLeft, Plus, DollarSign, Share2, Trash2, Edit2, Lock, Swords } from 'lucide-react';
+import { CalendarCheck, ChevronRight, ChevronLeft, Plus, DollarSign, Share2, Trash2, Edit2, Lock, Swords, RefreshCw } from 'lucide-react';
 
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -229,10 +229,34 @@ export function AttendancePage() {
           <p className="page-subtitle">Registro de presença por dia de circuito.</p>
         </div>
         {canEdit && (
-          <button onClick={() => setShowNewForm(!showNewForm)} className="btn-primary flex items-center gap-2">
-            <Plus size={16} />
-            Novo Circuito
-          </button>
+          <div className="flex gap-2 flex-col sm:flex-row">
+            <button
+              onClick={() => {
+                setConfirmDialog({
+                  isOpen: true,
+                  title: 'Recalcular Faltas',
+                  desc: 'Isso vai analisar todos os circuitos antigos encerrados e recalcular as faltas (no-shows) de todo mundo na base de dados. Tem certeza?',
+                  onConfirm: () => {
+                    const promise = attendanceService.processPastAbsences().then(() => qc.invalidateQueries({ queryKey: ['gamedays'] }));
+                    toast.promise(promise, {
+                      loading: 'Processando...',
+                      success: (data: any) => data.detail || 'Faltas recalculadas!',
+                      error: 'Erro ao processar faltas.',
+                    });
+                  }
+                });
+              }}
+              className="btn-secondary flex items-center justify-center gap-2"
+              title="Sincronizar faltas retroativas"
+            >
+              <RefreshCw size={16} />
+              Sincronizar Faltas
+            </button>
+            <button onClick={() => setShowNewForm(!showNewForm)} className="btn-primary flex items-center justify-center gap-2">
+              <Plus size={16} />
+              Novo Circuito
+            </button>
+          </div>
         )}
       </div>
 

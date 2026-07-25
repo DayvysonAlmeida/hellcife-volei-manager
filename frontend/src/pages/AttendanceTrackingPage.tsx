@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldAlert, AlertTriangle, History, X, UserX, ChevronDown, ChevronUp, Calendar, MapPin } from "lucide-react";
+import { ShieldAlert, AlertTriangle, History, X, UserX, ChevronDown, ChevronUp, Calendar, MapPin, RefreshCw } from "lucide-react";
 import { playersService } from "@/services/players";
 import api from "@/lib/api";
 import { PageLoading, ErrorState, EmptyState } from "@/components/ui/Loading";
@@ -74,9 +74,26 @@ export function AttendanceTrackingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black text-text-primary uppercase tracking-tight">Frequências e Faltas</h1>
-        <p className="text-text-secondary mt-1">Gerencie faltas consecutivas e "No-shows" (nome na lista, mas não compareceu).</p>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-text-primary uppercase tracking-tight">Frequências e Faltas</h1>
+          <p className="text-text-secondary mt-1">Gerencie faltas consecutivas e "No-shows" (nome na lista, mas não compareceu).</p>
+        </div>
+        <button
+          onClick={() => {
+            const promise = api.post('/attendance/gamedays/process-past-absences/').then(r => r.data).then(() => qc.invalidateQueries());
+            toast.promise(promise, {
+              loading: 'Recalculando faltas...',
+              success: (data: any) => data?.detail || 'Faltas recalculadas!',
+              error: 'Erro ao processar faltas.',
+            });
+          }}
+          className="btn-secondary py-2 px-4 text-sm font-bold flex items-center justify-center gap-2 shrink-0"
+          title="Recalcular todas as faltas retroativas"
+        >
+          <RefreshCw size={16} />
+          Sincronizar Faltas
+        </button>
       </div>
 
       <div className="flex gap-2 p-1 bg-surface-highlight rounded-lg w-full md:w-max flex-wrap">

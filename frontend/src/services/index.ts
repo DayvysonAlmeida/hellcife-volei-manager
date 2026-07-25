@@ -53,6 +53,9 @@ export const attendanceService = {
   promoteWaitlist: (gamedayId: number) =>
     api.post(`/attendance/gamedays/${gamedayId}/promote-waitlist/`).then(r => r.data),
 
+  processPastAbsences: () =>
+    api.post('/attendance/gamedays/process-past-absences/').then(r => r.data),
+
   bulkAttendance: (gamedayId: number, presentPlayerIds: number[]) =>
     api.post(`/attendance/gamedays/${gamedayId}/bulk-attendance/`, {
       present_player_ids: presentPlayerIds,
