@@ -39,13 +39,14 @@ function HighlightColumn({ title, icon: Icon, colorClass, bgClass, data }: { tit
   const third = data[2];
 
   return (
-    <div className="bg-surface rounded-xl p-4 border border-border flex flex-col items-center text-center">
-      <div className={`w-10 h-10 rounded-full ${bgClass} ${colorClass} flex items-center justify-center mb-3`}>
-        <Icon size={20} className={colorClass.includes('fill') ? colorClass : ''} />
+    <div className="bg-surface/50 rounded-2xl p-5 border border-border/50 hover:border-border/80 transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden group hover:shadow-xl">
+      <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+      <div className={`w-12 h-12 rounded-xl ${bgClass} ${colorClass} flex items-center justify-center mb-4 relative z-10 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3`}>
+        <Icon size={24} className={colorClass.includes('fill') ? colorClass : ''} />
       </div>
-      <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4">{title}</h3>
+      <h3 className="text-xs font-black text-text-primary uppercase tracking-widest mb-5 relative z-10 drop-shadow-sm">{title}</h3>
       {data && data.length > 0 ? (
-        <div className="flex flex-col items-center w-full relative pt-4 pb-2">
+        <div className="flex flex-col items-center w-full relative pt-2 pb-2 z-10">
           {/* PÓDIO */}
           <div className="flex items-end justify-center gap-2 w-full h-36 mb-4 relative mt-4">
             {/* 2º Lugar */}
@@ -504,13 +505,16 @@ export function DashboardPage() {
           className="card p-6"
         >
           <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-2">
-            <Trophy size={20} className="text-red" />
-            A CORRIDA PELAS ESTATUETAS (LÍDERES DAS PARTIDAS)
+            <Trophy size={20} className="text-yellow-500" />
+            A CORRIDA PELAS ESTATUETAS (LÍDERES HISTÓRICOS)
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <HighlightColumn title="Mais vezes MVP" icon={Star} colorClass="text-yellow-500 fill-yellow-500" bgClass="bg-yellow-500/20" data={data.highlights.mvp || []} />
-            <HighlightColumn title="Melhor Ataque" icon={Swords} colorClass="text-red" bgClass="bg-red/20" data={data.highlights.best_attacker || []} />
-            <HighlightColumn title="Melhor Defesa" icon={Shield} colorClass="text-blue" bgClass="bg-blue/20" data={data.highlights.best_defender || []} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <HighlightColumn title="Mais vezes MVP" icon={Star} colorClass="text-yellow-500 fill-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" bgClass="bg-yellow-500/10 border border-yellow-500/20" data={data.highlights.mvp || []} />
+            <HighlightColumn title="Melhor Ataque" icon={Swords} colorClass="text-red drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" bgClass="bg-red/10 border border-red/20" data={data.highlights.best_attacker || []} />
+            <HighlightColumn title="Melhor Defesa" icon={Shield} colorClass="text-blue drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" bgClass="bg-blue/10 border border-blue/20" data={data.highlights.best_defender || []} />
+            <HighlightColumn title="Melhor Levantador" icon={Crosshair} colorClass="text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" bgClass="bg-orange-500/10 border border-orange-500/20" data={data.highlights.best_setter || []} />
+            <HighlightColumn title="Melhor Passe" icon={Activity} colorClass="text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" bgClass="bg-green-500/10 border border-green-500/20" data={data.highlights.best_passer || []} />
+            <HighlightColumn title="Melhor Bloqueio" icon={Lock} colorClass="text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]" bgClass="bg-purple-500/10 border border-purple-500/20" data={data.highlights.best_blocker || []} />
           </div>
         </motion.div>
       )}

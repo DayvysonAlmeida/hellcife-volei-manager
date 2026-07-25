@@ -68,6 +68,9 @@ class DashboardView(APIView):
             'mvp': 'total_mvp',
             'best_attacker': 'total_attack',
             'best_defender': 'total_defense',
+            'best_setter': 'total_setter',
+            'best_passer': 'total_pass',
+            'best_blocker': 'total_block',
         }
 
         highlights = {}

@@ -82,6 +82,9 @@ class Player(models.Model):
     total_mvp = models.PositiveIntegerField(default=0, verbose_name='Total MVP')
     total_attack = models.PositiveIntegerField(default=0, verbose_name='Total Ataque')
     total_defense = models.PositiveIntegerField(default=0, verbose_name='Total Defesa')
+    total_setter = models.PositiveIntegerField(default=0, verbose_name='Total Levantamento')
+    total_pass = models.PositiveIntegerField(default=0, verbose_name='Total Passe')
+    total_block = models.PositiveIntegerField(default=0, verbose_name='Total Bloqueio')
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Status', db_index=True)
     user = models.OneToOneField(

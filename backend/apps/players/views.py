@@ -161,6 +161,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
             player.total_mvp += max(0, diff_mvp)
             player.total_attack += max(0, diff_attack)
             player.total_defense += max(0, diff_defense)
+            player.total_setter += max(0, diff_setter)
+            player.total_pass += max(0, diff_pass)
+            player.total_block += max(0, diff_block)
 
         update_fields = [
             'mvp_stars', 'attack_stars', 'defense_stars',
@@ -168,7 +171,10 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'mini_stars', 'big_stars', 'updated_at'
         ]
         if hasattr(player, 'total_mvp'):
-            update_fields.extend(['total_mvp', 'total_attack', 'total_defense'])
+            update_fields.extend([
+                'total_mvp', 'total_attack', 'total_defense',
+                'total_setter', 'total_pass', 'total_block'
+            ])
 
         # Salva as alterações
         player.save(update_fields=update_fields)
