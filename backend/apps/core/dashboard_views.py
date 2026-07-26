@@ -1,6 +1,6 @@
 from django.utils import timezone
 from datetime import date
-from django.db.models import Count, Q, Max
+from django.db.models import Count, Q, Max, F
 from django.core.cache import cache
 
 from rest_framework.views import APIView
@@ -143,7 +143,7 @@ class DashboardView(APIView):
             is_guest=False
         ).annotate(
             latest_star_date=Max('star_history__created_at')
-        ).order_by('-latest_star_date')[:5]
+        ).order_by(F('latest_star_date').desc(nulls_last=True))[:5]
 
         new_stars = []
         for p in new_stars_qs:
