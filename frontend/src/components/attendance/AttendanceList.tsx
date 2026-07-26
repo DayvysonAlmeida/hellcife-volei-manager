@@ -1,4 +1,4 @@
-import { Search, Plus, RefreshCw, Check, Users, DollarSign } from 'lucide-react';
+import { Search, Plus, RefreshCw, Check, Users, DollarSign, X } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 
@@ -101,13 +101,15 @@ export function AttendanceList({
               onClick={() => onTogglePresence(att.player)}
               disabled={isTogglingPresence(att.player)}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
-                att.present
+                att.is_waitlist
+                  ? 'bg-surface border-2 border-red text-red hover:bg-red hover:text-white'
+                  : att.present
                   ? 'bg-red text-white shadow-lg shadow-red/20'
                   : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-red hover:text-red'
               }`}
-              title="Alternar Presença"
+              title={att.is_waitlist ? "Remover da Fila" : "Alternar Presença"}
             >
-              <Check size={16} />
+              {att.is_waitlist ? <X size={16} /> : <Check size={16} />}
             </button>
           </div>
         ) : (

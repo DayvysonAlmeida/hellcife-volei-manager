@@ -213,7 +213,6 @@ export function GuestModal({
               const availableGuests = existingGuests.filter((guest: Player) => {
                 const alreadyInGame =
                   presentAttendances.some((a) => a.player === guest.id) ||
-                  absentAttendances.some((a) => a.player === guest.id) ||
                   waitlistAttendances?.some((a) => a.player === guest.id);
                 return !alreadyInGame;
               });
