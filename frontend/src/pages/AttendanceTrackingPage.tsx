@@ -166,6 +166,8 @@ export function AttendanceTrackingPage() {
                         playerId={entry.player_id}
                         playerName={entry.player_name}
                         playerAvatar={entry.player_avatar}
+                        isGuest={entry.absences[0]?.player_is_guest}
+                        invitedBy={entry.absences[0]?.player_invited_by}
                         absences={entry.absences}
                         consecutiveAbsences={consecutiveAbsences}
                         totalJustified={totalJustified}
@@ -190,7 +192,14 @@ function PlayerRow({ player, warning, error }: { player: Player; warning?: boole
       <div className="flex items-center gap-3">
         <Avatar name={player.display_name} src={player.avatar_url} size="sm" />
         <div>
-          <p className="text-text-primary font-bold text-sm">{player.display_name}</p>
+          <p className="text-text-primary font-bold text-sm flex items-center gap-2">
+            {player.display_name}
+            {player.is_guest && (
+              <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
+              </span>
+            )}
+          </p>
           <p className="text-text-muted text-xs">Posição: {player.main_position_display}</p>
         </div>
       </div>
@@ -214,7 +223,14 @@ function NoShowRow({ attendance, onJustify }: { attendance: Attendance; onJustif
         <div className="flex items-start gap-3">
           <Avatar name={attendance.player_name} src={attendance.player_avatar} size="md" className="border-2 border-surface" />
           <div>
-            <p className="text-text-primary font-black text-base">{attendance.player_name}</p>
+            <p className="text-text-primary font-black text-base flex items-center gap-2">
+              {attendance.player_name}
+              {attendance.player_is_guest && (
+                <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                  Convidado {attendance.player_invited_by ? `por: ${attendance.player_invited_by}` : ''}
+                </span>
+              )}
+            </p>
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1">
               <span className="text-text-muted text-xs flex items-center gap-1">
                 <span className="font-bold text-text-secondary">#{attendance.gameday}</span>
@@ -272,11 +288,12 @@ function NoShowRow({ attendance, onJustify }: { attendance: Attendance; onJustif
 
 interface PlayerAbsenceRowProps {
   playerId: number; playerName: string; playerAvatar?: string; absences: Attendance[];
+  isGuest?: boolean; invitedBy?: string;
   consecutiveAbsences: number; totalJustified: number; totalUnjustified: number;
   onJustify: (id: number, text: string) => void;
 }
 
-function PlayerAbsenceRow({ playerId, playerName, playerAvatar, absences, consecutiveAbsences, totalJustified, totalUnjustified, onJustify }: PlayerAbsenceRowProps) {
+function PlayerAbsenceRow({ playerId, playerName, playerAvatar, absences, isGuest, invitedBy, consecutiveAbsences, totalJustified, totalUnjustified, onJustify }: PlayerAbsenceRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [justifyingId, setJustifyingId] = useState<number | null>(null);
   const [justifyText, setJustifyText] = useState("");
@@ -291,7 +308,14 @@ function PlayerAbsenceRow({ playerId, playerName, playerAvatar, absences, consec
         <div className="flex items-center gap-4 min-w-0">
           <Avatar name={playerName} src={playerAvatar} size="md" className="border-2 border-surface" />
           <div className="min-w-0">
-            <p className="text-text-primary font-black text-base truncate">{playerName}</p>
+            <p className="text-text-primary font-black text-base truncate flex items-center gap-2">
+              {playerName}
+              {isGuest && (
+                <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                  Convidado {invitedBy ? `por: ${invitedBy}` : ''}
+                </span>
+              )}
+            </p>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               {consecutiveAbsences > 0 && (
                 <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${isInactive ? "bg-red/20 text-red" : isAtRisk ? "bg-orange-500/20 text-orange-400" : "bg-surface-hover text-text-muted"}`}>

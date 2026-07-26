@@ -17,6 +17,7 @@ interface GuestModalProps {
   gameDayId: number;
   presentAttendances: Attendance[];
   absentAttendances: Attendance[];
+  waitlistAttendances?: Attendance[];
   setConfirmDialog: (dialog: any) => void;
 }
 
@@ -26,6 +27,7 @@ export function GuestModal({
   gameDayId,
   presentAttendances,
   absentAttendances,
+  waitlistAttendances,
   setConfirmDialog,
 }: GuestModalProps) {
   const { user } = useAuth();
@@ -207,14 +209,26 @@ export function GuestModal({
                   Cadastrar o primeiro convidado
                 </button>
               </div>
-            ) : (
-              <div className="space-y-2 overflow-y-auto pr-2 pb-2">
-                {existingGuests.map((guest: Player) => {
-                  const alreadyInGame =
-                    presentAttendances.some((a) => a.player === guest.id) ||
-                    absentAttendances.some((a) => a.player === guest.id);
+            ) : (() => {
+              const availableGuests = existingGuests.filter((guest: Player) => {
+                const alreadyInGame =
+                  presentAttendances.some((a) => a.player === guest.id) ||
+                  absentAttendances.some((a) => a.player === guest.id) ||
+                  waitlistAttendances?.some((a) => a.player === guest.id);
+                return !alreadyInGame;
+              });
 
-                  return (
+              if (availableGuests.length === 0) {
+                return (
+                  <div className="py-12 text-center text-text-muted">
+                    <p>Todos os convidados salvos já estão neste circuito.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-2 overflow-y-auto pr-2 pb-2">
+                  {availableGuests.map((guest: Player) => (
                     <div
                       key={guest.id}
                       className="flex items-center justify-between bg-surface/50 p-3 rounded-xl border border-border"
@@ -271,25 +285,19 @@ export function GuestModal({
                             toggleMutation.mutate({ gamedayId: gameDayId, playerId: guest.id });
                             toast.success(`${guest.name} adicionado à pelada!`);
                           }}
-                          disabled={alreadyInGame || toggleMutation.isPending}
-                          className={`p-1.5 rounded-md transition-colors flex items-center gap-1 px-2 text-xs font-bold ${
-                            alreadyInGame
-                              ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
-                              : 'bg-red text-white hover:bg-red-500 shadow-md shadow-red/20'
-                          }`}
-                          title={alreadyInGame ? 'Já está na pelada' : 'Adicionar à pelada atual'}
+                          disabled={toggleMutation.isPending}
+                          className="p-1.5 rounded-md transition-colors flex items-center gap-1 px-2 text-xs font-bold bg-red text-white hover:bg-red-500 shadow-md shadow-red/20"
+                          title="Adicionar à pelada atual"
                         >
-                          {alreadyInGame ? <Check size={14} /> : <Plus size={14} />}
-                          <span className="hidden sm:inline">
-                            {alreadyInGame ? 'Add' : 'Add'}
-                          </span>
+                          <Plus size={14} />
+                          <span className="hidden sm:inline">Add</span>
                         </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
       </motion.div>

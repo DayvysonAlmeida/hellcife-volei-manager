@@ -28,10 +28,11 @@ class CourtCheckinSerializer(serializers.ModelSerializer):
     player_avatar = serializers.CharField(source='player.avatar_url', read_only=True)
     player_position = serializers.CharField(source='player.main_position', read_only=True)
     player_is_guest = serializers.BooleanField(source='player.is_guest', read_only=True)
+    player_invited_by = serializers.CharField(source='player.invited_by', read_only=True)
 
     class Meta:
         model = CourtCheckin
-        fields = ['id', 'gameday', 'player', 'player_name', 'player_avatar', 'player_position', 'player_is_guest', 'arrived_at']
+        fields = ['id', 'gameday', 'player', 'player_name', 'player_avatar', 'player_position', 'player_is_guest', 'player_invited_by', 'arrived_at']
         read_only_fields = ['arrived_at']
 
 

@@ -505,6 +505,7 @@ export function AttendancePage() {
         gameDayId={selectedGameDay?.id || 0}
         presentAttendances={presentAttendances}
         absentAttendances={absentAttendances}
+        waitlistAttendances={waitlistAttendances}
         setConfirmDialog={setConfirmDialog}
       />
     </div>

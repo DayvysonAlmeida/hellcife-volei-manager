@@ -201,6 +201,7 @@ export interface CourtCheckin {
   player_avatar: string | null;
   player_position: string;
   player_is_guest: boolean;
+  player_invited_by?: string;
   arrived_at: string;
 }
 
@@ -234,6 +235,7 @@ export interface Attendance {
   player_shirt?: number;
   player_status?: string;
   player_is_guest?: boolean;
+  player_invited_by?: string;
   present: boolean;
   has_paid: boolean;
   checked_at: string;
@@ -387,6 +389,8 @@ export interface MatchPlayer {
   player_avatar?: string;
   player_shirt?: number;
   player_position?: string;
+  player_is_guest?: boolean;
+  player_invited_by?: string;
   match_team?: number;
   mvp: boolean;
   best_attacker: boolean;

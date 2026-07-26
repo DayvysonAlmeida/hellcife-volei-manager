@@ -69,7 +69,9 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
         {(player.is_guest || hasAbsenceRisk) && (
           <div className="flex items-center gap-1">
              {player.is_guest && (
-                <span className="text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded shadow-md uppercase font-bold tracking-wider">Convidado</span>
+                <span className="text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded shadow-md uppercase font-bold tracking-wider max-w-[120px] truncate text-center">
+                  Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
+                </span>
              )}
              {hasAbsenceRisk && (
                 <span className="text-[9px] bg-orange-600 text-white px-2 py-0.5 rounded shadow-md uppercase font-bold flex items-center gap-1 animate-pulse" title={`${player.consecutive_absences} faltas seguidas`}>

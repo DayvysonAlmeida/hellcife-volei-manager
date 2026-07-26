@@ -260,7 +260,7 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
                                   {mp.player_name}
                                   {mp.player_is_guest && (
                                     <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold hidden sm:inline-block">
-                                      Convidado
+                                      Convidado {mp.player_invited_by ? `por: ${mp.player_invited_by}` : ''}
                                     </span>
                                   )}
                                 </span>
