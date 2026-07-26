@@ -143,20 +143,25 @@ class DashboardView(APIView):
             is_guest=False
         ).annotate(
             latest_star_date=Max('star_history__created_at')
-        ).order_by(F('latest_star_date').desc(nulls_last=True))[:5]
+        ).prefetch_related('star_history').order_by(F('latest_star_date').desc(nulls_last=True))[:6]
 
         new_stars = []
         for p in new_stars_qs:
-            # Descobrir qual categoria tem mais estrelas (a principal conquista)
-            cats = {
-                'mvp': p.mvp_stars or 0,
-                'attack': p.attack_stars or 0,
-                'defense': p.defense_stars or 0,
-                'setter': p.setter_stars or 0,
-                'pass': p.pass_stars or 0,
-                'block': p.block_stars or 0,
-            }
-            top_cat = max(cats, key=lambda k: cats[k]) if any(cats.values()) else None
+            # Tentar pegar a categoria do prêmio mais recente recebido
+            latest_history = p.star_history.filter(action='add').exclude(category='promotion').order_by('-created_at').first()
+            if latest_history:
+                top_cat = latest_history.category
+            else:
+                # Fallback para o legado caso o histórico seja vazio
+                cats = {
+                    'mvp': p.mvp_stars or 0,
+                    'attack': p.attack_stars or 0,
+                    'defense': p.defense_stars or 0,
+                    'setter': p.setter_stars or 0,
+                    'pass': p.pass_stars or 0,
+                    'block': p.block_stars or 0,
+                }
+                top_cat = max(cats, key=lambda k: cats[k]) if any(cats.values()) else None
             new_stars.append({
                 'id': p.id,
                 'name': p.display_name,

@@ -386,110 +386,128 @@ export function DashboardPage() {
         </h2>
         
         {data.new_stars && data.new_stars.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Heroes (Os 2 Mais Recentes) */}
-            <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-              {data.new_stars.slice(0, 2).map((p0, idx) => {
-                const catConfig = {
-                  mvp: { label: 'MVP', icon: Trophy, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30 glow-yellow' },
-                  attack: { label: 'Melhor Ataque', icon: Zap, color: 'text-red bg-red/10 border-red/30 glow-red' },
-                  defense: { label: 'Melhor Defesa', icon: Shield, color: 'text-blue bg-blue/10 border-blue/30 glow-blue' },
-                  setter: { label: 'Melhor Levantador', icon: Crosshair, color: 'text-orange-500 bg-orange-500/10 border-orange-500/30 glow-orange' },
-                  pass: { label: 'Melhor Passe', icon: Activity, color: 'text-green-500 bg-green-500/10 border-green-500/30 glow-green' },
-                  block: { label: 'Melhor Bloqueio', icon: Lock, color: 'text-purple-500 bg-purple-500/10 border-purple-500/30 glow-purple' },
-                };
+          <div className="flex flex-col gap-6">
+            {(() => {
+              const mvpIndex = data.new_stars.findIndex(p => p.top_category === 'mvp');
+              const mvpPlayer = mvpIndex >= 0 ? data.new_stars[mvpIndex] : null;
+              const otherPlayers = data.new_stars.filter((_, idx) => idx !== mvpIndex);
+              
+              const catConfig: Record<string, { label: string, icon: any, color: string }> = {
+                mvp: { label: 'MVP', icon: Trophy, color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30 glow-yellow' },
+                attack: { label: 'Melhor Ataque', icon: Zap, color: 'text-red bg-red/10 border-red/30 glow-red' },
+                defense: { label: 'Melhor Defesa', icon: Shield, color: 'text-blue bg-blue/10 border-blue/30 glow-blue' },
+                setter: { label: 'Melhor Levantador', icon: Crosshair, color: 'text-orange-500 bg-orange-500/10 border-orange-500/30 glow-orange' },
+                pass: { label: 'Melhor Passe', icon: Activity, color: 'text-green-500 bg-green-500/10 border-green-500/30 glow-green' },
+                block: { label: 'Melhor Bloqueio', icon: Lock, color: 'text-purple-500 bg-purple-500/10 border-purple-500/30 glow-purple' },
+              };
+
+              // MVP Card Rendering
+              const renderMVP = (p0: any) => {
                 const cat = p0.top_category ? catConfig[p0.top_category] : null;
+                const CatIcon = cat?.icon || Star;
+                const heroColor = cat ? cat.color.split(' ')[0] : 'text-yellow-500';
+
+                return (
+                  <Link
+                    key={`hero-${p0.id}`}
+                    to={`/players/${p0.id}`}
+                    className="block bg-surface border border-border rounded-2xl overflow-hidden group hover:border-yellow-500/50 transition-all w-full"
+                  >
+                    <div className="h-32 w-full bg-gradient-to-r from-yellow-500/20 via-surface to-surface relative">
+                      <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-surface/80 backdrop-blur-sm px-3 py-1 rounded-full border border-border">
+                        <span className="text-xs font-black uppercase tracking-widest text-yellow-500">
+                          {cat?.label || 'Destaque'}
+                        </span>
+                        <Sparkles size={14} className={heroColor} />
+                      </div>
+                    </div>
+                    <div className="px-6 pb-6 relative -mt-16 flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
+                      <Avatar name={p0.name} src={p0.avatar_url} size="xl" className="w-32 h-32 ring-4 ring-surface shadow-2xl" />
+                      <div className="flex-1 flex flex-col md:flex-row items-center md:items-center justify-between w-full">
+                        <div>
+                          <h3 className="font-display text-3xl text-text-primary group-hover:text-yellow-400 transition-colors">{p0.name}</h3>
+                          {cat && (
+                            <div className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full border ${cat.color} font-bold text-xs uppercase tracking-widest`}>
+                              <CatIcon size={12} />
+                              Rei do Circuito
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 mt-4 md:mt-0 bg-surface-highlight p-3 rounded-xl border border-border">
+                          {p0.big_stars > 0 && (
+                            <div className="flex flex-col items-center justify-center min-w-[70px]">
+                              <span className="text-xl font-black text-yellow-500">{p0.big_stars}</span>
+                              <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Grandes</span>
+                            </div>
+                          )}
+                          {p0.big_stars > 0 && <div className="w-px h-8 bg-border" />}
+                          <div className="flex flex-col items-center justify-center min-w-[70px]">
+                            <span className="text-xl font-black text-yellow-500/80">{p0.mini_stars}/15</span>
+                            <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Minis</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              };
+
+              // Secondary Cards Rendering
+              const renderSecondary = (player: any) => {
+                const cat = player.top_category ? catConfig[player.top_category] : null;
                 const CatIcon = cat?.icon || Star;
                 const heroColor = cat ? cat.color.split(' ')[0] : 'text-yellow-500';
                 
                 return (
                   <Link
-                    key={`hero-${p0.id}`}
-                    to={`/players/${p0.id}`}
-                    className="block bg-surface border border-border rounded-2xl overflow-hidden group hover:border-yellow-500/50 transition-all h-full"
+                    key={`coroado-${player.id}`}
+                    to={`/players/${player.id}`}
+                    className="flex flex-col bg-surface border border-border hover:border-text-muted/50 rounded-2xl overflow-hidden transition-all group h-full"
                   >
-                    {/* Header bg */}
-                    <div className={`h-24 w-full bg-gradient-to-r ${
-                      p0.top_category === 'mvp' ? 'from-yellow-500/20 to-surface' :
-                      p0.top_category === 'attack' ? 'from-red/20 to-surface' :
-                      p0.top_category === 'defense' ? 'from-blue/20 to-surface' :
-                      'from-yellow-500/20 to-surface'
-                    } relative`}>
-                      <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-surface/80 backdrop-blur-sm px-3 py-1 rounded-full border border-border">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-primary">
-                          {idx === 0 ? 'Último Destaque' : 'Penúltimo Destaque'}
-                        </span>
-                        <Sparkles size={12} className={heroColor} />
+                    <div className={`h-16 w-full bg-gradient-to-b ${cat ? cat.color.split(' ')[1].replace('/10', '/20') : 'from-surface'} to-surface relative flex justify-center`}>
+                      <div className="absolute top-2 right-2">
+                        {cat && <CatIcon size={16} className={heroColor} opacity={0.5} />}
                       </div>
                     </div>
-                    
-                    <div className="px-6 pb-6 relative -mt-12 flex flex-col items-center text-center gap-4">
-                      <Avatar name={p0.name} src={p0.avatar_url} size="xl" className="w-24 h-24 ring-4 ring-surface shadow-xl" />
-                      
-                      <div className="w-full flex flex-col items-center">
-                        <h3 className="font-display text-2xl text-text-primary group-hover:text-yellow-400 transition-colors">{p0.name}</h3>
-                        
+                    <div className="px-4 pb-4 relative -mt-8 flex flex-col items-center text-center gap-2 flex-1">
+                      <Avatar name={player.name} src={player.avatar_url} size="md" className="w-16 h-16 ring-4 ring-surface shadow-lg" />
+                      <div className="flex-1 flex flex-col items-center w-full">
+                        <p className="font-bold text-sm text-text-primary group-hover:text-text-primary transition-colors line-clamp-1 w-full">{player.name}</p>
                         {cat && (
-                          <div className={`inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full border ${cat.color} font-bold text-xs uppercase tracking-widest`}>
-                            <CatIcon size={12} />
-                            Ganhou como {cat.label}
+                          <div className={`mt-1 text-[9px] font-black uppercase tracking-widest ${heroColor} bg-surface-highlight px-2 py-0.5 rounded-full border border-border w-full truncate`}>
+                            {cat.label}
                           </div>
                         )}
-                        
-                        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-border/50 w-full">
-                          {p0.big_stars > 0 && (
-                            <span className="text-sm font-bold text-yellow-500 flex items-center gap-1">
-                              🌟 {p0.big_stars} Grandes
+                        <div className="mt-auto pt-3 flex items-center justify-center gap-2 w-full">
+                          {player.big_stars > 0 && (
+                            <span className="text-[10px] font-bold text-yellow-500 flex items-center">
+                              🌟 {player.big_stars}
                             </span>
                           )}
-                          <span className="text-sm font-bold text-yellow-500/70 flex items-center gap-1">
-                            ✦ {p0.mini_stars}/15 Minis
+                          <span className="text-[10px] font-bold text-text-muted flex items-center">
+                            ✦ {player.mini_stars}/15
                           </span>
                         </div>
                       </div>
                     </div>
                   </Link>
                 );
-              })}
-            </div>
+              };
 
-            {/* Outros na lateral */}
-            {data.new_stars.length > 2 && (
-              <div className="lg:col-span-1 flex flex-col gap-3">
-                {data.new_stars.slice(2).map(player => {
-                  const catConfig = {
-                    mvp: { label: 'MVP', icon: Trophy, color: 'text-yellow-400 bg-yellow-500/10' },
-                    attack: { label: 'ATQ', icon: Zap, color: 'text-red bg-red/10' },
-                    defense: { label: 'DEF', icon: Shield, color: 'text-blue bg-blue/10' },
-                    setter: { label: 'LEV', icon: Crosshair, color: 'text-orange-500 bg-orange-500/10' },
-                    pass: { label: 'PAS', icon: Activity, color: 'text-green-500 bg-green-500/10' },
-                    block: { label: 'BLO', icon: Lock, color: 'text-purple-500 bg-purple-500/10' },
-                  };
-                  const cat = player.top_category ? catConfig[player.top_category] : null;
-                  const CatIcon = cat?.icon || Star;
+              return (
+                <>
+                  {/* Destaque Principal (MVP) */}
+                  {mvpPlayer && renderMVP(mvpPlayer)}
                   
-                  return (
-                    <Link
-                      key={`coroado-${player.id}`}
-                      to={`/players/${player.id}`}
-                      className="flex items-center gap-3 bg-surface/50 border border-border hover:border-yellow-500/30 p-3 rounded-xl transition-all group"
-                    >
-                      <Avatar name={player.name} src={player.avatar_url} size="sm" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-text-primary truncate group-hover:text-yellow-400 transition-colors">{player.name}</p>
-                        <p className="text-[10px] text-text-muted mt-0.5 uppercase">{player.big_stars > 0 ? `🌟 ${player.big_stars} | ` : ''}✦ {player.mini_stars}/15</p>
-                      </div>
-                      {cat && (
-                        <div className={`flex flex-col items-center justify-center w-10 h-10 rounded-lg border border-border/50 ${cat.color}`}>
-                          <CatIcon size={12} className="mb-0.5" />
-                          <span className="text-[8px] font-bold tracking-widest">{cat.label}</span>
-                        </div>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+                  {/* Outros Destaques */}
+                  {otherPlayers.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                      {otherPlayers.map(renderSecondary)}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         ) : (
           <p className="text-text-muted">Aguardando que atletas recebam estrelas para aparecerem aqui...</p>
