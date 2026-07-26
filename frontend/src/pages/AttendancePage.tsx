@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { GameDayForm } from '@/components/attendance/GameDayForm';
 import { GuestModal } from '@/components/attendance/GuestModal';
 import { AttendanceList } from '@/components/attendance/AttendanceList';
+import { GameDayListSidebar } from '@/components/attendance/GameDayListSidebar';
 
 import { attendanceService } from '@/services';
 import { formatDate } from '@/lib/utils';
@@ -120,9 +121,9 @@ export function AttendancePage() {
     onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
   });
 
-  const bulkMutation = useMutation({
-    mutationFn: ({ gamedayId, presentPlayerIds }: { gamedayId: number, presentPlayerIds: number[] }) =>
-      attendanceService.bulkAttendance(gamedayId, presentPlayerIds),
+  const bulkPaymentMutation = useMutation({
+    mutationFn: ({ gamedayId, actionType }: { gamedayId: number, actionType: 'check_all' | 'uncheck_all' }) =>
+      attendanceService.bulkPayment(gamedayId, actionType),
     onSuccess: (_, { gamedayId }) => {
       qc.invalidateQueries({ queryKey: ['gameday', gamedayId] });
       toast.success('Lista atualizada com sucesso!');
@@ -228,8 +229,8 @@ export function AttendancePage() {
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="page-title">Circuito Hellcife</h1>
-          <p className="page-subtitle">Registro de presença por dia de circuito.</p>
+          <h1 className="page-title">Criação de Circuitos</h1>
+          <p className="page-subtitle max-w-3xl">Aqui é onde criamos o circuito e lançamos quem vai participar de acordo com a quantidade de vagas. As pessoas confirmam presença no link público e os administradores gerenciam a lista (incluindo convidados e pagamentos).</p>
         </div>
         {canEdit && (
           <div className="flex gap-2 flex-col sm:flex-row">
@@ -267,87 +268,27 @@ export function AttendancePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Game days list */}
-        <div className={`card p-4 ${selectedGameDay ? 'hidden lg:block' : 'block'}`}>
-          <div className="flex items-center gap-4 mb-4 border-b border-border">
-            <button
-              onClick={() => setCircuitTab('active')}
-              className={`pb-2 px-1 text-sm font-bold border-b-2 transition-colors ${circuitTab === 'active' ? 'border-red text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-            >
-              Abertos ({activeGameDays.length})
-            </button>
-            <button
-              onClick={() => setCircuitTab('history')}
-              className={`pb-2 px-1 text-sm font-bold border-b-2 transition-colors ${circuitTab === 'history' ? 'border-red text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}
-            >
-              Histórico ({historyGameDays.length})
-            </button>
-          </div>
-          {isLoading ? (
-            <PageLoading />
-          ) : gameDays.length === 0 ? (
-            <EmptyState message="Nenhum dia de jogo cadastrado." icon="📅" />
-          ) : (circuitTab === 'active' ? activeGameDays : historyGameDays).length === 0 ? (
-            <EmptyState message={`Nenhum circuito ${circuitTab === 'active' ? 'aberto' : 'no histórico'}.`} icon="📅" />
-          ) : (
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
-              {(circuitTab === 'active' ? activeGameDays : historyGameDays).map((gd) => (
-                <div key={gd.id} className="relative">
-                  <div
-                    onClick={() => setSelectedGameDay(gd)}
-                    role="button"
-                    tabIndex={0}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all text-left cursor-pointer
-                      ${selectedGameDay?.id === gd.id ? 'bg-red/10 border border-red/30' : 'hover:bg-surface border border-transparent'}`}
-                  >
-                    <div>
-                      <p className="text-text-primary text-sm font-medium">
-                        {formatDate(gd.date)} {gd.time ? `- ${gd.time.slice(0, 5)}` : ''}
-                      </p>
-                      {gd.location && <p className="text-text-muted text-xs">{gd.location}</p>}
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <div className="flex items-center gap-1 bg-surface-hover px-1.5 py-0.5 rounded border border-border">
-                          <span className={`w-1.5 h-1.5 rounded-full ${gd.max_players && gd.total_present >= gd.max_players ? 'bg-red' : 'bg-green-500'}`} />
-                          <span className="text-[10px] text-text-muted font-medium">
-                            {gd.total_present}/{gd.max_players ? gd.max_players : gd.total_players}
-                            {gd.max_players && gd.total_present >= gd.max_players ? ' (LOTADO)' : ''}
-                          </span>
-                        </div>
-                        {gd.total_paid !== undefined && (
-                          <div className="flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded">
-                            <DollarSign size={10} className="text-green-500" />
-                            <span className="text-[10px] text-green-500 font-medium">
-                              {gd.total_paid}/{gd.total_present}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {canEdit && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmDialog({
-                              isOpen: true,
-                              title: 'Excluir Pelada',
-                              desc: 'Tem certeza que deseja excluir esta pelada? Todos os dados de presença serão perdidos.',
-                              onConfirm: () => deleteGameDayMutation.mutate(gd.id)
-                            });
-                          }}
-                          disabled={deleteGameDayMutation.isPending}
-                          className="p-1.5 text-text-muted hover:text-red hover:bg-red/10 rounded-md transition-colors"
-                          title="Excluir Dia de Jogo"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                      <ChevronRight size={16} className={selectedGameDay?.id === gd.id ? 'text-red' : 'text-border'} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className={`lg:col-span-1 ${selectedGameDay ? 'hidden lg:block' : 'block'}`}>
+          <GameDayListSidebar
+            isLoading={isLoading}
+            gameDays={gameDays}
+            activeGameDays={activeGameDays}
+            historyGameDays={historyGameDays}
+            selectedGameDayId={selectedGameDay?.id || null}
+            onSelectGameDay={(gd) => setSelectedGameDay(gd)}
+            circuitTab={circuitTab}
+            setCircuitTab={setCircuitTab}
+            canEdit={canEdit}
+            onDeleteGameDay={(id) => {
+              setConfirmDialog({
+                isOpen: true,
+                title: 'Excluir Circuito',
+                desc: 'Tem certeza que deseja excluir este circuito? Todos os dados de presença serão perdidos.',
+                onConfirm: () => deleteGameDayMutation.mutate(id)
+              });
+            }}
+            isDeleting={deleteGameDayMutation.isPending}
+          />
         </div>
 
         {/* Attendance detail */}
@@ -483,16 +424,15 @@ export function AttendancePage() {
                 isTogglingPayment={(playerId) => togglePaymentMutation.isPending && togglePaymentMutation.variables?.playerId === playerId}
                 onCheckAll={() => {
                   if (gameDayDetail) {
-                    const allIds = gameDayDetail.attendances.map((a: any) => a.player);
-                    bulkMutation.mutate({ gamedayId: gameDayDetail.id, presentPlayerIds: allIds });
+                    bulkPaymentMutation.mutate({ gamedayId: gameDayDetail.id, actionType: 'check_all' });
                   }
                 }}
                 onUncheckAll={() => {
                   if (gameDayDetail) {
-                    bulkMutation.mutate({ gamedayId: gameDayDetail.id, presentPlayerIds: [] });
+                    bulkPaymentMutation.mutate({ gamedayId: gameDayDetail.id, actionType: 'uncheck_all' });
                   }
                 }}
-                isBulkLoading={bulkMutation.isPending}
+                isBulkLoading={bulkPaymentMutation.isPending}
               />
             </div>
           ) : null}

@@ -169,19 +169,21 @@ export function AttendanceList({
                 onClick={onCheckAll}
                 disabled={isBulkLoading}
                 className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-green-500 border-green-500/30 hover:bg-green-500/10"
-                title="Marcar Todos"
+                title="Marcar Todos como Pago"
               >
-                <span className="hidden sm:inline">Marcar Todos</span>
-                <span className="sm:hidden">Todos ✅</span>
+                <DollarSign size={12} />
+                <span className="hidden sm:inline">Todos Pagos</span>
+                <span className="sm:hidden">$$ ✅</span>
               </button>
               <button
                 onClick={onUncheckAll}
                 disabled={isBulkLoading}
-                className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-red border-red/30 hover:bg-red/10"
-                title="Desmarcar Todos"
+                className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-text-muted border-border hover:bg-surface-hover"
+                title="Desmarcar Pagamentos"
               >
-                <span className="hidden sm:inline">Desmarcar Todos</span>
-                <span className="sm:hidden">Nenhum ❌</span>
+                <DollarSign size={12} />
+                <span className="hidden sm:inline">Zerar Pagos</span>
+                <span className="sm:hidden">$$ ❌</span>
               </button>
               <button
                 onClick={onRefreshClick}

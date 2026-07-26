@@ -5,7 +5,7 @@ import { Swords, Plus, Calendar, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { matchesService } from '@/services';
+import { matchesService, attendanceService } from '@/services';
 import { formatDate } from '@/lib/utils';
 import type { Match } from '@/types';
 import { useAuth } from '@/store/AuthContext';
@@ -38,29 +38,41 @@ export function MatchesPage() {
     onError: () => toast.error('Erro ao excluir a partida.'),
   });
 
+  const { data: gamedaysData, isLoading: loadingGamedays } = useQuery({
+    queryKey: ['gamedays'],
+    queryFn: () => attendanceService.listGameDays(),
+  });
+  const gamedays = gamedaysData?.results || [];
+
   const matches = data?.results || [];
 
-  // Agrupar partidas por data (YYYY-MM-DD)
+  // Agrupar partidas por circuito (gameday) ou por data (se avulsa)
   const groupedMatches = useMemo(() => {
     return matches.reduce((acc: Record<string, Match[]>, match: Match) => {
-      const d = match.date;
-      if (!acc[d]) acc[d] = [];
-      acc[d].push(match);
+      const key = match.gameday ? `gd-${match.gameday}` : `date-${match.date}`;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(match);
       return acc;
     }, {});
   }, [matches]);
 
-  const sortedDates = useMemo(() => {
-    return Object.keys(groupedMatches).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  const sortedKeys = useMemo(() => {
+    return Object.keys(groupedMatches).sort((a, b) => {
+      const matchA = groupedMatches[a][0];
+      const matchB = groupedMatches[b][0];
+      const dateA = new Date(matchA.created_at || matchA.date).getTime();
+      const dateB = new Date(matchB.created_at || matchB.date).getTime();
+      return dateB - dateA;
+    });
   }, [groupedMatches]);
 
-  // Expandir a data mais recente por padrão, apenas 1 vez
+  // Expandir o grupo mais recente por padrão, apenas 1 vez
   useEffect(() => {
-    if (sortedDates.length > 0 && !hasAutoExpanded) {
-      setExpandedDate(sortedDates[0]);
+    if (sortedKeys.length > 0 && !hasAutoExpanded) {
+      setExpandedDate(sortedKeys[0]);
       setHasAutoExpanded(true);
     }
-  }, [sortedDates, hasAutoExpanded]);
+  }, [sortedKeys, hasAutoExpanded]);
 
   return (
     <div className="space-y-6">
@@ -72,54 +84,102 @@ export function MatchesPage() {
         onConfirm={confirmDialog.onConfirm}
       />
 
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="page-title">Histórico de Jogos</h1>
-          <p className="page-subtitle">Resultados, times e destaques de todas as peladas.</p>
+          <p className="page-subtitle">Acompanhe os resultados das partidas, agrupadas por circuito.</p>
         </div>
         {canEdit && (
-          <Link to="/matches/new" className="btn-primary flex items-center gap-2 text-sm">
+          <Link to="/matches/new" className="btn-primary flex items-center justify-center gap-2">
             <Plus size={16} />
-            <span className="hidden sm:inline">Nova partida</span>
-            <span className="sm:hidden">Nova</span>
+            Nova Partida
           </Link>
         )}
       </div>
 
-      {isLoading ? (
+      {(isLoading || loadingGamedays) ? (
         <PageLoading />
       ) : matches.length === 0 ? (
         <EmptyState message="Nenhuma partida registrada ainda." icon="🏐" />
       ) : (
         <div className="space-y-6">
-          {sortedDates.map((date) => {
-            const dayMatches = groupedMatches[date];
-            const isExpanded = expandedDate === date;
+          {sortedKeys.map((key) => {
+            const dayMatches = groupedMatches[key];
+            const isExpanded = expandedDate === key;
+            const gamedayId = key.startsWith('gd-') ? parseInt(key.replace('gd-', '')) : null;
+            const gameday = gamedayId ? gamedays.find((g: any) => g.id === gamedayId) : null;
+            const groupDate = dayMatches[0]?.date;
 
             return (
-              <div key={date} className="card overflow-hidden">
-                {/* Header do Agrupamento (Dia) */}
+              <div key={key} className={`card overflow-hidden transition-all duration-300 ${isExpanded ? 'shadow-lg border-red/20' : 'border-border'}`}>
+                {/* Header do Agrupamento (Dia/Circuito) Premium */}
                 <button
-                  onClick={() => setExpandedDate(isExpanded ? null : date)}
-                  className="w-full flex items-center justify-between p-4 md:p-5 bg-surface hover:bg-surface/80 transition-colors"
+                  onClick={() => setExpandedDate(isExpanded ? null : key)}
+                  className={`w-full flex items-center justify-between p-4 md:p-5 transition-colors relative overflow-hidden group ${
+                    isExpanded ? 'bg-surface-hover/80' : 'bg-surface hover:bg-surface-hover/50'
+                  }`}
                 >
-                  <div className="flex items-center gap-3 md:gap-4">
-                    <div className="w-10 h-10 rounded-full bg-red/10 text-red flex items-center justify-center flex-shrink-0">
-                      <Calendar size={20} />
-                    </div>
+                  {/* Sutil gradiente se expandido */}
+                  {isExpanded && <div className="absolute inset-0 bg-gradient-to-r from-red/5 to-transparent pointer-events-none" />}
+                  
+                  <div className="flex items-center gap-3 relative z-10">
                     <div className="text-left">
-                      <h2 className="font-display text-lg md:text-xl text-text-primary tracking-wider">
-                        {formatDate(date)}
-                      </h2>
-                      <p className="text-xs text-text-muted mt-0.5">
-                        {dayMatches.length} {dayMatches.length === 1 ? 'partida realizada' : 'partidas realizadas'}
-                      </p>
+                      {gameday ? (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] uppercase font-bold tracking-widest text-red bg-red/10 px-2 py-0.5 rounded border border-red/20">
+                              Circuito de Vôlei
+                            </span>
+                            {gameday.is_closed && (
+                              <span className="text-[9px] uppercase font-bold tracking-widest text-text-muted bg-surface-hover px-2 py-0.5 rounded border border-border">
+                                Encerrado
+                              </span>
+                            )}
+                          </div>
+                          <h2 className="text-text-primary text-base font-bold mt-1">
+                            {formatDate(gameday.date)}
+                          </h2>
+                          <div className="flex items-center gap-3 text-xs text-text-muted mt-0.5 font-medium">
+                            {gameday.time && (
+                              <span className="flex items-center gap-1">
+                                🕒 {gameday.time.slice(0, 5)}
+                              </span>
+                            )}
+                            {gameday.location && (
+                              <span className="flex items-center gap-1">
+                                📍 {gameday.location}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] uppercase font-bold tracking-widest text-blue bg-blue/10 px-2 py-0.5 rounded border border-blue/20 self-start">
+                            Partidas Avulsas
+                          </span>
+                          <h2 className="text-text-primary text-base font-bold">
+                            {formatDate(groupDate)}
+                          </h2>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 bg-background px-2 py-1 rounded-md border border-border">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-neon-green" />
+                          <span className="text-[10px] text-text-secondary font-bold uppercase tracking-wider">
+                            {dayMatches.length} {dayMatches.length === 1 ? 'Jogo finalizado' : 'Jogos finalizados'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <ChevronDown
-                    size={20}
-                    className={`text-text-muted transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
-                  />
+                  
+                  <div className={`p-2 rounded-full transition-colors ${isExpanded ? 'bg-red/10 text-red' : 'bg-surface-hover text-text-muted group-hover:text-text-primary group-hover:bg-border'}`}>
+                    <ChevronDown
+                      size={20}
+                      className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+                    />
+                  </div>
                 </button>
 
                 {/* Lista de Jogos do Dia */}
@@ -132,7 +192,7 @@ export function MatchesPage() {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-4 md:p-5 border-t border-border space-y-4 bg-background/30">
+                      <div className="p-4 md:p-5 border-t border-border space-y-4 bg-background/50">
                         {dayMatches.map((match: Match, idx: number) => (
                           <MatchCard
                             key={match.id}

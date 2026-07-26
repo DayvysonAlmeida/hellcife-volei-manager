@@ -61,6 +61,9 @@ export const attendanceService = {
       present_player_ids: presentPlayerIds,
     }).then(r => r.data),
 
+  bulkPayment: (gamedayId: number, actionType: 'check_all' | 'uncheck_all') =>
+    api.post(`/attendance/gamedays/${gamedayId}/bulk-payment/`, { action_type: actionType }).then(r => r.data),
+
   toggleAttendance: (gamedayId: number, playerId: number) =>
     api.patch(`/attendance/gamedays/${gamedayId}/toggle/${playerId}/`).then(r => r.data),
 

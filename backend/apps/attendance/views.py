@@ -155,6 +155,22 @@ class GameDayViewSet(viewsets.ModelViewSet):
             'total_present': gameday.total_present,
         })
 
+    @action(detail=True, methods=['post'], url_path='bulk-payment')
+    def bulk_payment(self, request, pk=None):
+        """Marca pagamento em bulk para todos os presentes na lista."""
+        gameday = self.get_object()
+        if gameday.is_closed:
+            return Response({'detail': 'Circuito encerrado. Não é possível alterar a lista.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        action_type = request.data.get('action_type') # 'check_all' ou 'uncheck_all'
+        
+        if action_type == 'check_all':
+            Attendance.objects.filter(gameday=gameday, present=True).update(has_paid=True)
+        elif action_type == 'uncheck_all':
+            Attendance.objects.filter(gameday=gameday, present=True).update(has_paid=False)
+            
+        return Response({'detail': 'Pagamentos atualizados em lote com sucesso.'})
+
     @action(detail=False, methods=['post'], url_path='process-past-absences')
     def process_past_absences(self, request):
         """Processa as faltas retroativamente para todos os circuitos já encerrados."""
@@ -164,6 +180,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         # Reseta as faltas de todo mundo
         Player.objects.all().update(consecutive_absences=0)
+        Attendance.objects.all().update(was_no_show=False)
         
         for gameday in closed_gamedays:
             # Pega quem compareceu na quadra

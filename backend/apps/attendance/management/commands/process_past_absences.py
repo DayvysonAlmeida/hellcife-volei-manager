@@ -12,6 +12,8 @@ class Command(BaseCommand):
         
         # Reseta as faltas de todo mundo
         Player.objects.all().update(consecutive_absences=0)
+        from apps.attendance.models import Attendance
+        Attendance.objects.all().update(was_no_show=False)
         
         for gameday in closed_gamedays:
             self.stdout.write(f"Processando circuito do dia {gameday.date}...")

@@ -181,7 +181,7 @@ export function TeamsPage() {
   if (!canEdit) {
     return (
       <div className="space-y-4">
-        <h1 className="page-title">Gerador de Times</h1>
+        <h1 className="page-title">Geração de Times (Pelada)</h1>
         <div className="card p-8 text-center">
           <Shuffle size={48} className="text-red mx-auto mb-4 opacity-50" />
           <p className="text-text-muted">Apenas administradores e moderadores podem gerar times.</p>
@@ -498,8 +498,8 @@ export function TeamsPage() {
 
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="page-title">Peladas</h1>
-          <p className="page-subtitle">Sorteio e histórico de times da sua pelada.</p>
+          <h1 className="page-title">Geração de Times (Pelada)</h1>
+          <p className="page-subtitle">Aqui você sorteia os times com base na presença (balanceando Overall, Posição e Sexo), e pode ir preenchendo as vagas livremente de acordo com quem vai chegando para adaptar o jogo atual.</p>
         </div>
       </div>
       

@@ -10,6 +10,7 @@ import { PositionBadge } from '@/components/ui/Badges';
 import { attendanceService } from '@/services';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/store/AuthContext';
+import { GameDayListSidebar } from '@/components/attendance/GameDayListSidebar';
 
 export function CourtCheckinPage() {
   const { user } = useAuth();
@@ -155,51 +156,23 @@ export function CourtCheckinPage() {
           <h1 className="page-title">Tiragem de Falta (Quadra)</h1>
           <p className="page-subtitle">Faça o check-in presencial de quem chegou para liberar a geração de times.</p>
         </div>
-        
-        <div className="flex bg-surface p-1 rounded-lg border border-border w-full md:w-auto">
-          <button
-            onClick={() => setActiveTab('ativo')}
-            className={`flex-1 md:flex-none px-6 py-2 rounded-md text-sm font-bold transition-colors ${
-              activeTab === 'ativo' ? 'bg-red text-white shadow-neon-red' : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
-            }`}
-          >
-            Tiragem Ativa
-          </button>
-          <button
-            onClick={() => setActiveTab('historico')}
-            className={`flex-1 md:flex-none px-6 py-2 rounded-md text-sm font-bold transition-colors ${
-              activeTab === 'historico' ? 'bg-surface-hover text-text-primary shadow-sm border border-border-subtle' : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
-            }`}
-          >
-            Histórico
-          </button>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Lado Esquerdo: Seleção do Gameday e Status */}
         <div className="lg:col-span-1 space-y-4">
-          <div className="card p-4">
-            <h2 className="font-display text-sm text-text-primary mb-3">
-              {activeTab === 'ativo' ? 'CIRCUITOS ABERTOS' : 'CIRCUITOS ENCERRADOS'}
-            </h2>
-            {loadingGameDays ? (
-              <div className="flex justify-center p-4"><Loader2 className="animate-spin text-red" /></div>
-            ) : (
-              <select
-                className="input w-full"
-                value={selectedGameDayId || ''}
-                onChange={(e) => handleSelectGameDay(Number(e.target.value) || null)}
-              >
-                <option value="">Selecione o circuito...</option>
-                {(activeTab === 'ativo' ? openGameDays : closedGameDays).map((gd: any) => (
-                  <option key={gd.id} value={gd.id}>
-                    {formatDate(gd.date)} {gd.location ? `- ${gd.location}` : ''}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          <GameDayListSidebar
+            isLoading={loadingGameDays}
+            gameDays={gameDays}
+            activeGameDays={openGameDays}
+            historyGameDays={closedGameDays}
+            selectedGameDayId={selectedGameDayId}
+            onSelectGameDay={(gd) => handleSelectGameDay(gd.id)}
+            circuitTab={activeTab === 'ativo' ? 'active' : 'history'}
+            setCircuitTab={(tab) => setActiveTab(tab === 'active' ? 'ativo' : 'historico')}
+            canEdit={false}
+            fullText="COMPLETO"
+          />
 
           {gameDayDetail && (
             <div className="card p-6 text-center shadow-lg border-red/10 bg-gradient-to-br from-surface to-red/5">
@@ -216,6 +189,13 @@ export function CourtCheckinPage() {
                   <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mt-1">Chegaram</p>
                 </div>
               </div>
+              {gameDayDetail.total_present > 0 && arrivedCount === gameDayDetail.total_present && (
+                <div className="mt-4 pt-3 border-t border-border/50 animate-in fade-in zoom-in duration-300">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/20 text-green-500 text-xs font-black uppercase tracking-widest shadow-[0_0_10px_rgba(34,197,94,0.2)]">
+                    <Check size={14} /> QUADRA COMPLETA
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
