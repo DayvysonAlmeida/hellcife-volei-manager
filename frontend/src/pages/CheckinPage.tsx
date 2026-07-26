@@ -58,7 +58,8 @@ export function CheckinPage() {
 
   const { gameday, players } = data;
   const filteredPlayers = players.filter((p: any) => 
-    p.name.toLowerCase().includes(search.toLowerCase())
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.invited_by && p.invited_by.toLowerCase().includes(search.toLowerCase()))
   );
 
   const presentPlayers = filteredPlayers.filter((p: any) => p.present);
@@ -193,7 +194,7 @@ export function CheckinPage() {
                           </span>
                           {player.is_guest && (
                             <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5">
-                              Convidado
+                              Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
                             </span>
                           )}
                         </div>
@@ -230,7 +231,7 @@ export function CheckinPage() {
                           </span>
                           {player.is_guest && (
                             <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5">
-                              Convidado
+                              Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
                             </span>
                           )}
                         </div>
@@ -267,7 +268,7 @@ export function CheckinPage() {
                             </span>
                             {player.is_guest && (
                               <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5">
-                                Convidado
+                                Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
                               </span>
                             )}
                           </div>

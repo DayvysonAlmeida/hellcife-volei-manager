@@ -56,7 +56,10 @@ export function AttendancePage() {
     let filtered = gameDayDetail.attendances;
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(a => a.player_name.toLowerCase().includes(lower));
+      filtered = filtered.filter(a => 
+        a.player_name.toLowerCase().includes(lower) || 
+        (a.player_invited_by && a.player_invited_by.toLowerCase().includes(lower))
+      );
     }
     
     // Sort present by name, absent by name

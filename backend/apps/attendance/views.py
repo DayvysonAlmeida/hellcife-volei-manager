@@ -67,24 +67,16 @@ class GameDayViewSet(viewsets.ModelViewSet):
             status='active'
         )
 
-        # Create Attendance
+        # Create Attendance (Convidados vão SEMPRE para a fila de espera)
         from django.utils import timezone
-        if gameday.max_players and gameday.total_present >= gameday.max_players:
-            Attendance.objects.create(
-                gameday=gameday,
-                player=guest_player,
-                present=False,
-                is_waitlist=True,
-                waitlist_joined_at=timezone.now()
-            )
-            detail_msg = 'Convidado criado e adicionado à Fila de Espera (circuito lotado).'
-        else:
-            Attendance.objects.create(
-                gameday=gameday,
-                player=guest_player,
-                present=True
-            )
-            detail_msg = 'Convidado adicionado com sucesso!'
+        Attendance.objects.create(
+            gameday=gameday,
+            player=guest_player,
+            present=False,
+            is_waitlist=True,
+            waitlist_joined_at=timezone.now()
+        )
+        detail_msg = 'Convidado adicionado com sucesso!'
 
         gameday.refresh_from_db()
         return Response({'detail': detail_msg})
@@ -243,7 +235,13 @@ class GameDayViewSet(viewsets.ModelViewSet):
             attendance.save()
         else:
             # Estava ausente, tenta confirmar
-            if gameday.max_players and gameday.total_present >= gameday.max_players:
+            if attendance.player.is_guest:
+                # Convidados vão SEMPRE para a fila de espera primeiro
+                attendance.is_waitlist = True
+                attendance.waitlist_joined_at = timezone.now()
+                attendance.present = False
+                attendance.save()
+            elif gameday.max_players and gameday.total_present >= gameday.max_players:
                 # Lotado, vai pra fila de espera
                 attendance.is_waitlist = True
                 attendance.waitlist_joined_at = timezone.now()
@@ -291,6 +289,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'is_waitlist': att.is_waitlist if att else False,
                 'waitlist_joined_at': att.waitlist_joined_at.isoformat() if att and att.waitlist_joined_at else None,
                 'is_guest': p.is_guest,
+                'invited_by': p.invited_by,
                 'avatar_url': request.build_absolute_uri(p.avatar.url) if p.avatar else None
             })
             
@@ -325,6 +324,18 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
         if attendance.present:
             return Response({'detail': 'Você já confirmou sua presença! Para cancelar, fale com a organização.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if attendance.player.is_guest:
+            if not attendance.is_waitlist:
+                attendance.is_waitlist = True
+                attendance.waitlist_joined_at = timezone.now()
+                attendance.save()
+            return Response({
+                'present': False, 
+                'is_waitlist': True, 
+                'player_id': player_id,
+                'detail': 'Como convidado, você foi para a Fila de Espera (Prioridade dos membros).'
+            })
             
         if gameday.max_players and gameday.total_present >= gameday.max_players:
             if not attendance.is_waitlist:

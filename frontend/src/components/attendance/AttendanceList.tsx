@@ -71,7 +71,7 @@ export function AttendanceList({
             {att.player_name}
             {att.player_is_guest && (
               <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">
-                Convidado
+                Convidado {att.player_invited_by ? `por: ${att.player_invited_by}` : ''}
               </span>
             )}
             {att.player_status !== 'active' && (
