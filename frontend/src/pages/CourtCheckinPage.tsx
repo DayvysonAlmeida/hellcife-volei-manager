@@ -90,7 +90,10 @@ export function CourtCheckinPage() {
       qc.setQueryData(['gameday', selectedGameDayId], context?.previousGameday);
       toast.error('Erro ao marcar presença na quadra.');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDayId] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDayId] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+    },
   });
 
   const bulkMutation = useMutation({
@@ -101,6 +104,7 @@ export function CourtCheckinPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gameday', selectedGameDayId] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
       toast.success('Ação em lote aplicada com sucesso!');
     },
     onError: () => toast.error('Erro ao executar ação em lote.')
@@ -172,6 +176,7 @@ export function CourtCheckinPage() {
             setCircuitTab={(tab) => setActiveTab(tab === 'active' ? 'ativo' : 'historico')}
             canEdit={false}
             fullText="COMPLETO"
+            countType="court"
           />
 
           {gameDayDetail && (

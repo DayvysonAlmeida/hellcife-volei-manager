@@ -128,6 +128,10 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             # Tranca outras gerações do mesmo circuito
             generation.gameday.team_generations.filter(is_locked=False).update(is_locked=True)
             
+            # Sincroniza faltas usando a fonte da verdade única
+            from apps.attendance.views import sync_absences_logic
+            sync_absences_logic()
+            
         return Response({'detail': 'Pelada e Circuito encerrados com sucesso.'})
 
     def _recalculate_generation_overalls(self, generation):
@@ -357,13 +361,11 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             tp = TeamPlayer.objects.get(team__generation=generation, player_id=player_id)
             tp.delete()
             
-            # Sincroniza com a Quadra: se foi removido do time, significa que foi embora ou não vai mais participar do sorteio
-            if generation.gameday_id:
-                from apps.attendance.models import CourtCheckin
-                CourtCheckin.objects.filter(gameday_id=generation.gameday_id, player_id=player_id).delete()
+            # NOTA: Não removemos o CourtCheckin pois o jogador foi para a quadra.
+            # A presença física é permanente. O time se adaptará com os jogadores restantes.
                 
             self._recalculate_generation_overalls(generation)
-            return Response({'detail': 'Jogador removido do time e da quadra com sucesso.'})
+            return Response({'detail': 'Jogador removido do time. Presença na quadra mantida.'})
         except TeamPlayer.DoesNotExist:
             return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=status.HTTP_404_NOT_FOUND)
 

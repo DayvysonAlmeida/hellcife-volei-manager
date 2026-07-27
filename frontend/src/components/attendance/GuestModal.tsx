@@ -52,6 +52,7 @@ export function GuestModal({
       attendanceService.addGuest(gameDayId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gameday', gameDayId] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
       onClose();
       setGuestName('');
       toast.success('Convidado adicionado à pelada!');
@@ -67,6 +68,7 @@ export function GuestModal({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['guests'] });
       qc.invalidateQueries({ queryKey: ['gameday', gameDayId] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
       toast.success('Convidado excluído com sucesso!');
     },
   });
@@ -83,7 +85,10 @@ export function GuestModal({
   const toggleMutation = useMutation({
     mutationFn: ({ gamedayId, playerId }: { gamedayId: number; playerId: number }) =>
       attendanceService.toggleAttendance(gamedayId, playerId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['gameday', gameDayId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['gameday', gameDayId] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+    },
   });
 
   if (!isOpen) return null;

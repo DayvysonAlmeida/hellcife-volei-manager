@@ -83,45 +83,16 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         gameday = serializer.save(created_by=self.request.user)
-        # Cria registros de presença para todos os jogadores (exceto convidados de outras peladas)
-        base_players = Player.objects.filter(is_guest=False)
+        # Cria registros de presença apenas para jogadores ATIVOS (inativos não entram na lista automática)
+        base_players = Player.objects.filter(is_guest=False, status='active')
         Attendance.objects.bulk_create([
             Attendance(gameday=gameday, player=p, present=False)
             for p in base_players
         ])
 
     def perform_update(self, serializer):
-        instance = self.get_object()
-        was_closed = instance.is_closed
         gameday = serializer.save()
-
-        if not was_closed and gameday.is_closed:
-            self._process_attendance_and_absences(gameday)
-
-    def _process_attendance_and_absences(self, gameday):
-        # 1. Faltas (No-shows): Quem estava na lista (present=True) mas não fez CourtCheckin
-        court_checkins_pids = set(gameday.court_checkins.values_list('player_id', flat=True))
-        
-        attendances = gameday.attendances.filter(present=True)
-        for att in attendances:
-            if att.player_id not in court_checkins_pids:
-                att.was_no_show = True
-                att.save()
-
-        # 2. Frequência (Ausência Prolongada)
-        active_players = Player.objects.filter(status='active', is_guest=False)
-        for p in active_players:
-            # Se o jogador foi criado DEPOIS da data do gameday, ignoramos
-            if p.created_at.date() > gameday.date:
-                continue
-                
-            if p.id in court_checkins_pids:
-                p.consecutive_absences = 0
-            else:
-                p.consecutive_absences += 1
-                if p.consecutive_absences >= 10:
-                    p.status = 'inactive'
-            p.save()
+        # Removido o _process_attendance_and_absences para usar apenas o sync_absences_logic() via Sincronizar Faltas ou Lock.
 
     @action(detail=True, methods=['post'], url_path='bulk-attendance')
     def bulk_attendance(self, request, pk=None):
@@ -173,49 +144,72 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='process-past-absences')
     def process_past_absences(self, request):
-        """Processa as faltas retroativamente para todos os circuitos já encerrados."""
-        from django.db.models import Count, Q
+        """Processa as faltas retroativamente agrupando por DIA. Zera se o jogador foi a qualquer circuito no dia."""
+        days_count = sync_absences_logic()
+        return Response({'detail': f'Processamento concluído! {days_count} dias analisados.'})
+
+    @action(detail=False, methods=['get'], url_path='general-stats')
+    def general_stats(self, request):
+        """Retorna estatísticas gerais de frequência (estilo planilha) para os atletas."""
+        from django.db.models import Count
+        from django.utils import timezone
         
-        closed_gamedays = GameDay.objects.filter(is_closed=True).order_by('date')
+        # Obter todos os GameDays finalizados (agrupados por data para não duplicar circuitos do mesmo dia)
+        finished_gamedays = GameDay.objects.filter(is_closed=True).values('date').distinct()
+        finished_dates = sorted([g['date'] for g in finished_gamedays])
         
-        # Reseta as faltas de todo mundo
-        Player.objects.all().update(consecutive_absences=0)
-        Attendance.objects.all().update(was_no_show=False)
+        players_qs = Player.objects.filter(is_guest=False, status__in=['active', 'inactive'])
         
-        for gameday in closed_gamedays:
-            # Pega quem compareceu na quadra
-            court_checkins_pids = set(gameday.court_checkins.values_list('player_id', flat=True))
+        # Puxar todos os check-ins na quadra e no-shows para não fazer queries em loop
+        court_checkins = CourtCheckin.objects.filter(gameday__is_closed=True).values('player_id', 'gameday__date')
+        checkins_by_player = {}
+        for c in court_checkins:
+            pid = c['player_id']
+            date = c['gameday__date']
+            if pid not in checkins_by_player:
+                checkins_by_player[pid] = set()
+            checkins_by_player[pid].add(date)
             
-            # Pega quem estava na lista (confirmados)
-            attendances = gameday.attendances.filter(present=True)
-            for att in attendances:
-                # Se estava confirmado e NÃO fez check-in, é no-show
-                if att.player_id not in court_checkins_pids:
-                    att.was_no_show = True
-                    att.save(update_fields=['was_no_show'])
-                    
-            # Calcula faltas consecutivas (Ausência prolongada)
-            active_players = Player.objects.filter(status__in=['active', 'inactive'], is_guest=False)
-            for p in active_players:
-                # Ignora se o jogador entrou no sistema DEPOIS desse circuito
-                if p.created_at.date() > gameday.date:
-                    continue
-                    
-                if p.id in court_checkins_pids:
-                    p.consecutive_absences = 0
-                else:
-                    p.consecutive_absences += 1
-                    if p.consecutive_absences >= 10:
-                        p.status = 'inactive'
-                p.save(update_fields=['consecutive_absences', 'status'])
-                
-        return Response({'detail': f'Processamento concluído! {closed_gamedays.count()} circuitos analisados.'})
+        no_shows = Attendance.objects.filter(was_no_show=True).values('player_id').annotate(count=Count('id'))
+        no_shows_map = {n['player_id']: n['count'] for n in no_shows}
+        
+        stats = []
+        for p in players_qs:
+            # Quantos dias de jogo ocorreram DESDE que o jogador entrou no sistema?
+            player_possible_dates = [d for d in finished_dates if d >= p.created_at.date()]
+            total_possible = len(player_possible_dates)
+            
+            presences = len(checkins_by_player.get(p.id, set()))
+            player_no_shows = no_shows_map.get(p.id, 0)
+            
+            rate = int((presences / total_possible) * 100) if total_possible > 0 else 0
+            
+            # Request para pegar URL absoluta da foto
+            avatar_url = p.avatar.url if p.avatar else None
+            if avatar_url and request is not None:
+                avatar_url = request.build_absolute_uri(avatar_url)
+            
+            stats.append({
+                'id': p.id,
+                'name': p.display_name,
+                'status': p.status,
+                'avatar_url': avatar_url,
+                'total_gamedays': total_possible,
+                'presences': presences,
+                'no_shows': player_no_shows,
+                'attendance_rate': rate,
+                'consecutive_absences': p.consecutive_absences
+            })
+            
+        # Ordenar por taxa de assiduidade (maior para menor) e depois por total de presenças
+        stats.sort(key=lambda x: (x['attendance_rate'], x['presences']), reverse=True)
+        return Response(stats)
 
     @action(detail=True, methods=['post'], url_path='refresh-list')
     def refresh_list(self, request, pk=None):
-        """Atualiza a lista de presença com novos jogadores cadastrados (incluindo inativos, excluindo convidados de outros dias)."""
+        """Atualiza a lista de presença com novos jogadores cadastrados (apenas ativos, excluindo convidados de outros dias)."""
         gameday = self.get_object()
-        base_players = Player.objects.filter(is_guest=False)
+        base_players = Player.objects.filter(is_guest=False, status='active')
         existing_attendances = set(gameday.attendances.values_list('player_id', flat=True))
         
         new_attendances = []
@@ -242,30 +236,24 @@ class GameDayViewSet(viewsets.ModelViewSet):
         )
         
         if attendance.present:
-            # Estava confirmado, vai pra ausente
             attendance.present = False
             attendance.save()
         elif attendance.is_waitlist:
-            # Estava na fila, vai pra ausente
             attendance.is_waitlist = False
             attendance.waitlist_joined_at = None
             attendance.save()
         else:
-            # Estava ausente, tenta confirmar
             if attendance.player.is_guest:
-                # Convidados vão SEMPRE para a fila de espera primeiro
                 attendance.is_waitlist = True
                 attendance.waitlist_joined_at = timezone.now()
                 attendance.present = False
                 attendance.save()
             elif gameday.max_players and gameday.total_present >= gameday.max_players:
-                # Lotado, vai pra fila de espera
                 attendance.is_waitlist = True
                 attendance.waitlist_joined_at = timezone.now()
                 attendance.present = False
                 attendance.save()
             else:
-                # Tem vaga, confirma direto
                 attendance.present = True
                 attendance.is_waitlist = False
                 attendance.waitlist_joined_at = None
@@ -381,7 +369,6 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if gameday.max_players and gameday.total_present >= gameday.max_players:
             return Response({'detail': 'A lista principal está lotada! Alguém precisa sair ou o limite de jogadores aumentar para poder promover da fila.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Busca a fila de espera ordenada: Membros (is_guest=False) primeiro, depois por ordem de chegada
         next_player_att = gameday.attendances.filter(is_waitlist=True).select_related('player').order_by('player__is_guest', 'waitlist_joined_at').first()
         
         if not next_player_att:
@@ -396,6 +383,72 @@ class GameDayViewSet(viewsets.ModelViewSet):
             'detail': f'{next_player_att.player.display_name} foi promovido para a lista principal!',
             'player_id': next_player_att.player_id
         })
+
+
+def sync_absences_logic():
+    """Função central para processar faltas e no-shows (Agrupado por Dia)."""
+    from django.db.models import Count, Q
+    from django.utils import timezone
+    
+    all_gamedays = GameDay.objects.prefetch_related('court_checkins', 'attendances').order_by('date')
+    today = timezone.now().date()
+    
+    players_qs = list(Player.objects.filter(status__in=['active', 'inactive'], is_guest=False))
+    
+    for p in players_qs:
+        p.consecutive_absences = 0
+        
+    Attendance.objects.all().update(was_no_show=False)
+    attendances_to_update = []
+    
+    # Agrupar circuitos por data
+    gamedays_by_date = {}
+    for g in all_gamedays:
+        if g.date not in gamedays_by_date:
+            gamedays_by_date[g.date] = []
+        gamedays_by_date[g.date].append(g)
+        
+    for date, gamedays in gamedays_by_date.items():
+        # Um dia só "encerrou" se TODOS os circuitos do dia estão encerrados ou a data já passou
+        # Mas para ser justo, se a data já passou, consideramos finalizado.
+        # Se for hoje, só consideramos circuitos que já foram fechados. Se não tem nenhum fechado, não conta falta.
+        finished_gamedays = [g for g in gamedays if g.is_closed or g.date < today]
+        if not finished_gamedays:
+            continue
+            
+        # Quem foi na quadra hoje (apenas em circuitos já encerrados/verificados)
+        daily_checkin_pids = set()
+        for g in finished_gamedays:
+            daily_checkin_pids.update(c.player_id for c in g.court_checkins.all())
+            
+        # Gerar No-shows para circuitos fechados/passados
+        for g in finished_gamedays:
+            g_checkin_pids = set(c.player_id for c in g.court_checkins.all())
+            for att in g.attendances.all():
+                if att.present and att.player_id not in g_checkin_pids:
+                    att.was_no_show = True
+                    attendances_to_update.append(att)
+                    
+        # Atualizar faltas dos jogadores para este dia
+        for p in players_qs:
+            if p.created_at.date() > date:
+                continue
+                
+            if p.id in daily_checkin_pids:
+                # Foi na quadra. Zera!
+                p.consecutive_absences = 0
+            elif finished_gamedays:
+                # Não foi na quadra (ou não se inscreveu ou deu no-show)
+                p.consecutive_absences += 1
+                if p.consecutive_absences >= 10:
+                    p.status = 'inactive'
+                    
+    if attendances_to_update:
+        Attendance.objects.bulk_update(attendances_to_update, ['was_no_show'])
+        
+    Player.objects.bulk_update(players_qs, ['consecutive_absences', 'status'])
+    return len(gamedays_by_date)
+
 
 
 class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):

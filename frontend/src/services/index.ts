@@ -47,6 +47,9 @@ export const attendanceService = {
   refreshList: (id: number) =>
     api.post(`/attendance/gamedays/${id}/refresh-list/`).then(r => r.data),
 
+  getGeneralStats: () =>
+    api.get<any[]>('/attendance/gamedays/general-stats/').then(r => r.data),
+
   addGuest: (gamedayId: number, data: { name: string; main_position: string; invited_by?: string }) =>
     api.post(`/attendance/gamedays/${gamedayId}/add-guest/`, data).then(r => r.data),
 

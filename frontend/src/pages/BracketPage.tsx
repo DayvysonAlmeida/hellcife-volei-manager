@@ -174,8 +174,11 @@ export function BracketPage() {
             changed = true;
             return null; // Time foi excluído
           }
-          // Preservar jogadores emprestados
-          const borrowed = t.team_players.filter(p => p.is_borrowed);
+          // Preservar jogadores emprestados, mas remover excessos se o time foi completado manualmente
+          let borrowed = t.team_players.filter(p => p.is_borrowed);
+          const needed = Math.max(0, generation.modality - freshTeam.team_players.length);
+          borrowed = borrowed.slice(0, needed);
+          
           const newPlayers = [...freshTeam.team_players.map((p: any) => ({ ...p, is_borrowed: false })), ...borrowed];
           
           if (JSON.stringify(newPlayers) !== JSON.stringify(t.team_players)) {
@@ -279,6 +282,35 @@ export function BracketPage() {
     }));
   };
 
+  const cancelMatch = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Cancelar Jogo Atual?',
+      desc: 'Os times voltarão para o topo da fila e a pontuação atual será apagada. Tem certeza?',
+      onConfirm: () => {
+        setState(prev => {
+          const q = [...prev.queue];
+          // Restaura os times originais, sem os empréstimos (se não salvarmos o resultado, o jogo não aconteceu)
+          const originalCourtB = generation!.teams.find((t: any) => t.id === prev.courtB?.id) || prev.courtB;
+          const originalCourtA = generation!.teams.find((t: any) => t.id === prev.courtA?.id) || prev.courtA;
+          
+          if (originalCourtB) q.unshift(originalCourtB as any);
+          if (originalCourtA) q.unshift(originalCourtA as any);
+          
+          return {
+            ...prev,
+            isStarted: false,
+            courtA: null,
+            courtB: null,
+            scoreA: 0,
+            scoreB: 0,
+            queue: q,
+          };
+        });
+      }
+    });
+  };
+
   const saveMutation = useMutation({
     mutationFn: (data: QuickMatchData) => matchesService.quickCreate(data),
     onSuccess: () => {
@@ -298,7 +330,7 @@ export function BracketPage() {
 
     const data: QuickMatchData = {
       match: {
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toLocaleDateString('en-CA'),
         modality: generation!.modality as Modality,
         team_generation: generation!.id,
         gameday: generation!.gameday,
@@ -761,10 +793,18 @@ export function BracketPage() {
 
       </div>
 
-      <div className="flex justify-center mt-6">
+      <div className="flex flex-col-reverse md:flex-row justify-center items-center mt-6 gap-4">
+        <button 
+          onClick={cancelMatch}
+          className="btn-secondary w-full md:w-auto px-6 py-4 text-sm md:text-base font-bold flex items-center justify-center gap-2 border-border hover:border-red hover:text-red transition-all"
+        >
+          <RotateCcw size={20} />
+          Cancelar Jogo
+        </button>
+
         <button 
           onClick={() => setState(s => ({ ...s, showSaveModal: true }))}
-          className="btn-primary w-full md:w-auto md:px-32 py-6 text-xl md:text-3xl font-bold flex items-center justify-center gap-4 shadow-neon-red shadow-red/20"
+          className="btn-primary w-full md:w-auto md:px-24 py-5 md:py-6 text-xl md:text-3xl font-bold flex items-center justify-center gap-4 shadow-neon-red shadow-red/20"
         >
           <Trophy size={32} />
           Confirmar Resultado
@@ -780,36 +820,69 @@ export function BracketPage() {
             </h3>
             
             {/* Botão de Auto-alocar (Vem da Quadra) */}
-            {(() => {
-              if (!generation?.gameday) return null;
-              
-              const checkinCount = gamedayData?.total_court_checkins || 0;
-              const playersInGen = generation.teams.reduce((acc: number, t: any) => acc + t.team_players.length, 0);
-              const unassignedCount = Math.max(0, checkinCount - playersInGen);
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button onClick={shuffleQueue} className="btn-ghost flex items-center gap-2 text-xs py-2 px-3 border border-border hover:bg-surface rounded-lg">
+                <RotateCcw size={14} /> Embaralhar Fila
+              </button>
+              {(() => {
+                if (!generation?.gameday) return null;
+                
+                const checkinCount = gamedayData?.total_court_checkins || 0;
+                const playersInGen = generation.teams.reduce((acc: number, t: any) => acc + t.team_players.length, 0);
+                const unassignedCount = Math.max(0, checkinCount - playersInGen);
 
-              if (unassignedCount > 0 && !generation.is_locked) {
-                return (
-                  <button 
-                    onClick={() => autoAllocateMutation.mutate(generation.id)}
-                    disabled={autoAllocateMutation.isPending}
-                    className="text-xs bg-red text-white hover:bg-red/90 px-3 py-2 rounded-lg font-bold uppercase shadow-neon-red flex items-center gap-2 transition-all w-full sm:w-auto justify-center"
-                    title="Alocar jogadores na fila"
-                  >
-                    <Zap size={14} />
-                    Completar Vagas ({unassignedCount} aguardando)
-                  </button>
-                );
-              }
-              return null;
-            })()}
+                if (unassignedCount > 0 && !generation.is_locked) {
+                  return (
+                    <button 
+                      onClick={() => autoAllocateMutation.mutate(generation.id)}
+                      disabled={autoAllocateMutation.isPending}
+                      className="text-xs bg-red text-white hover:bg-red/90 px-3 py-2 rounded-lg font-bold uppercase shadow-neon-red flex items-center gap-2 transition-all w-full sm:w-auto justify-center"
+                      title="Alocar jogadores na fila"
+                    >
+                      <Zap size={14} />
+                      Completar Vagas ({unassignedCount} aguardando)
+                    </button>
+                  );
+                }
+                return null;
+              })()}
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {state.queue.map((team, idx) => (
-              <div key={team.id} className="flex flex-col justify-center bg-surface border border-border rounded-xl px-4 py-3">
-                <div className="flex items-center gap-2 md:gap-3 mb-2">
-                  <span className="text-text-muted font-bold text-sm md:text-base">{idx + 1}°</span>
-                  <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: team.color_hex }} />
-                  <span className="text-sm md:text-lg font-bold truncate" style={{ color: team.color_hex }}>{team.name}</span>
+              <div key={team.id} className="flex flex-col justify-center bg-surface border border-border rounded-xl px-4 py-3 relative group">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <span className="text-text-muted font-bold text-sm md:text-base">{idx + 1}°</span>
+                    <div className="w-4 h-4 rounded-full shadow-sm flex-shrink-0" style={{ backgroundColor: team.color_hex }} />
+                    <span className="text-sm md:text-lg font-bold truncate" style={{ color: team.color_hex }}>{team.name}</span>
+                  </div>
+                  
+                  {/* Botões de movimentação */}
+                  <div className="flex gap-1 bg-background/50 border border-border rounded-lg p-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => moveInQueue(idx, 'top')} 
+                        disabled={idx === 0}
+                        className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-red disabled:opacity-20 transition-colors"
+                        title="Mover para o topo"
+                      >
+                         <ChevronsUp size={14} />
+                      </button>
+                      <button 
+                        onClick={() => moveInQueue(idx, 'up')} 
+                        disabled={idx === 0}
+                        className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-20 transition-colors"
+                      >
+                         <ArrowUp size={14} />
+                      </button>
+                      <button 
+                        onClick={() => moveInQueue(idx, 'down')} 
+                        disabled={idx === state.queue.length - 1}
+                        className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-20 transition-colors"
+                      >
+                         <ArrowDown size={14} />
+                      </button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {team.team_players.map((p: any) => (

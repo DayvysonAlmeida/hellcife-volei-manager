@@ -21,7 +21,7 @@ export function AttendancePage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleDateString('en-CA');
 
   const [selectedGameDay, setSelectedGameDay] = useState<GameDay | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
@@ -118,7 +118,10 @@ export function AttendancePage() {
       qc.setQueryData(['gameday', selectedGameDay?.id], context?.previousGameday);
       toast.error('Erro ao marcar presença.');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+    },
   });
 
   const bulkPaymentMutation = useMutation({
@@ -126,6 +129,7 @@ export function AttendancePage() {
       attendanceService.bulkPayment(gamedayId, actionType),
     onSuccess: (_, { gamedayId }) => {
       qc.invalidateQueries({ queryKey: ['gameday', gamedayId] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
       toast.success('Lista atualizada com sucesso!');
     },
     onError: () => toast.error('Erro ao processar atualização em lote.')
@@ -153,13 +157,17 @@ export function AttendancePage() {
       qc.setQueryData(['gameday', selectedGameDay?.id], context?.previousGameday);
       toast.error('Erro ao registrar pagamento.');
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+    },
   });
 
   const refreshMutation = useMutation({
     mutationFn: () => attendanceService.refreshList(selectedGameDay!.id),
     onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
       toast.success(data.detail || 'Lista atualizada com novos jogadores!');
     },
     onError: () => {
@@ -171,6 +179,7 @@ export function AttendancePage() {
     mutationFn: () => attendanceService.promoteWaitlist(selectedGameDay!.id),
     onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
       toast.success(data.detail || 'Jogador promovido!');
     },
     onError: (err: any) => {

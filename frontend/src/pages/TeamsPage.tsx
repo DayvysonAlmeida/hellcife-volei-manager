@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History, Plus, X, UserCheck, Loader2 } from 'lucide-react';
+import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History, Plus, X, UserCheck, Loader2, Swords } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -477,8 +477,16 @@ export function TeamsPage() {
               to={`/bracket/${gen.id}`}
               className={`px-6 py-3 flex items-center gap-2 w-full sm:w-auto justify-center ${gen.is_locked ? 'btn-secondary text-text-secondary border border-border bg-surface/50 hover:bg-surface' : 'btn-primary'}`}
             >
-              {gen.is_locked ? <History size={18} /> : <Trophy size={18} />}
-              {gen.is_locked ? 'Ver Histórico da Pelada' : 'Iniciar Partidas'}
+              {(() => {
+                if (gen.is_locked) return <><History size={18} /> Ver Histórico da Pelada</>;
+                const isStarted = localStorage.getItem(`hellcife_bracket_${gen.id}`)?.includes('"isStarted":true');
+                return (
+                  <>
+                    {isStarted ? <Swords size={18} /> : <Trophy size={18} />}
+                    {isStarted ? 'Voltar para o Jogo (Placar)' : 'Fila e Partidas'}
+                  </>
+                );
+              })()}
             </Link>
           </div>
         )}

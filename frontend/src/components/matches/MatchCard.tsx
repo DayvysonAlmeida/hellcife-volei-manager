@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Calendar, MapPin, Trophy, Star, Shield, ChevronDown, Users, Trash2 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -56,18 +57,30 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
             </div>
           )}
         </div>
-        {/* Botão excluir — área de toque generosa no mobile */}
-        {isAdmin && (
-          <button
-            onClick={() => onDelete(match.id)}
-            disabled={isDeleting}
-            className="min-w-[40px] min-h-[40px] flex items-center justify-center text-text-muted hover:text-red hover:bg-red/10 rounded-xl transition-colors flex-shrink-0"
-            title="Excluir partida"
-            aria-label="Excluir partida"
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {match.team_generation && (
+            <Link
+              to={`/bracket/${match.team_generation}`}
+              className="min-w-[40px] min-h-[40px] flex items-center justify-center text-text-muted hover:text-red hover:bg-red/10 rounded-xl transition-colors"
+              title="Ir para a Fila / Circuito"
+              aria-label="Ir para a Fila / Circuito"
+            >
+              <Trophy size={16} />
+            </Link>
+          )}
+          {/* Botão excluir — área de toque generosa no mobile */}
+          {isAdmin && (
+            <button
+              onClick={() => onDelete(match.id)}
+              disabled={isDeleting}
+              className="min-w-[40px] min-h-[40px] flex items-center justify-center text-text-muted hover:text-red hover:bg-red/10 rounded-xl transition-colors"
+              title="Excluir partida"
+              aria-label="Excluir partida"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Placar — Duelo visual */}

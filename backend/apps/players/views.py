@@ -56,7 +56,6 @@ class PlayerViewSet(viewsets.ModelViewSet):
             # Substituindo Window() por rank calculado via context, pois 
             # os filtros do Django quebram o OVER() particionando o rank pelas buscas.
             qs = qs.prefetch_related('match_appearances__match_team__match')
-            qs = qs.prefetch_related('match_appearances__match_team__match')
         else:
             # Para outras actions, prefetch para uso em PlayerDetailSerializer
             qs = qs.prefetch_related('evaluations')
@@ -93,6 +92,18 @@ class PlayerViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'update_stars']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
+
+    def perform_update(self, serializer):
+        """Ao reativar um jogador (inactive → active), zera as faltas consecutivas automaticamente."""
+        instance = self.get_object()
+        old_status = instance.status
+        new_status = serializer.validated_data.get('status', old_status)
+
+        extra_fields = {}
+        if old_status != 'active' and new_status == 'active':
+            extra_fields['consecutive_absences'] = 0
+
+        serializer.save(**extra_fields)
 
     @action(detail=True, methods=['patch'], url_path='update_stars')
     def update_stars(self, request, pk=None):
@@ -308,7 +319,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
         win_rate = round(wins / total_matches * 100, 1) if total_matches > 0 else 0
 
         # Presença (2 queries simples)
-        total_gamedays = GameDay.objects.count()
+        total_gamedays = GameDay.objects.filter(date__gte=player.created_at.date()).count()
         attended = Attendance.objects.filter(player=player, present=True).count()
         attendance_rate = round(attended / total_gamedays * 100, 1) if total_gamedays > 0 else 0
 

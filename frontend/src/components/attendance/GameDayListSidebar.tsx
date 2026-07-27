@@ -17,6 +17,7 @@ interface GameDayListSidebarProps {
   onDeleteGameDay?: (id: number) => void;
   isDeleting?: boolean;
   fullText?: string;
+  countType?: 'circuit' | 'court';
 }
 
 export function GameDayListSidebar({
@@ -32,6 +33,7 @@ export function GameDayListSidebar({
   onDeleteGameDay,
   isDeleting = false,
   fullText = 'LOTADO',
+  countType = 'circuit',
 }: GameDayListSidebarProps) {
   const currentList = circuitTab === 'active' ? activeGameDays : historyGameDays;
 
@@ -80,11 +82,22 @@ export function GameDayListSidebar({
                   {gd.location && <p className="text-text-muted text-xs">{gd.location}</p>}
                   <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <div className="flex items-center gap-1 bg-surface-hover px-1.5 py-0.5 rounded border border-border">
-                      <span className={`w-1.5 h-1.5 rounded-full ${gd.max_players && gd.total_present >= gd.max_players ? 'bg-red' : 'bg-green-500'}`} />
-                      <span className="text-[10px] text-text-muted font-medium">
-                        {gd.total_present}/{gd.max_players ? gd.max_players : gd.total_players}
-                        {gd.max_players && gd.total_present >= gd.max_players ? ` (${fullText})` : ''}
-                      </span>
+                      {countType === 'court' ? (
+                        <>
+                          <span className={`w-1.5 h-1.5 rounded-full ${gd.total_court_checkins !== undefined && gd.total_court_checkins >= gd.total_present && gd.total_present > 0 ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                          <span className="text-[10px] text-text-muted font-medium">
+                            {gd.total_court_checkins || 0}/{gd.total_present} na quadra
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className={`w-1.5 h-1.5 rounded-full ${gd.max_players && gd.total_present >= gd.max_players ? 'bg-red' : 'bg-green-500'}`} />
+                          <span className="text-[10px] text-text-muted font-medium">
+                            {gd.total_present}/{gd.max_players ? gd.max_players : gd.total_players}
+                            {gd.max_players && gd.total_present >= gd.max_players ? ` (${fullText})` : ''}
+                          </span>
+                        </>
+                      )}
                     </div>
                     {gd.total_paid !== undefined && (
                       <div className="flex items-center gap-1 bg-green-500/10 px-1.5 py-0.5 rounded">

@@ -46,13 +46,15 @@ class MatchViewSet(viewsets.ModelViewSet):
         MatchPlayer.objects.filter(match=match).delete()
 
         max_score = max((t.get('score', 0) for t in teams_data), default=0)
+        scores = [t.get('score', 0) for t in teams_data]
+        is_draw = scores.count(max_score) > 1  # Empate: mais de 1 time com a pontuação máxima
         for team_data in teams_data:
             mt = MatchTeam.objects.create(
                 match=match,
                 team_name=team_data.get('team_name', ''),
                 color_hex=team_data.get('color_hex', ''),
                 score=team_data.get('score', 0),
-                winner=team_data.get('score', 0) == max_score,
+                winner=not is_draw and team_data.get('score', 0) == max_score,
                 team_id=team_data.get('team_id'),
             )
             # Adiciona jogadores ao time usando bulk_create (super rápido)
@@ -94,13 +96,15 @@ class MatchViewSet(viewsets.ModelViewSet):
 
         # 2. Cria os times e resultados
         max_score = max((t.get('score', 0) for t in teams_data), default=0)
+        scores = [t.get('score', 0) for t in teams_data]
+        is_draw = scores.count(max_score) > 1  # Empate: mais de 1 time com a pontuação máxima
         for team_data in teams_data:
             mt = MatchTeam.objects.create(
                 match=match,
                 team_name=team_data.get('team_name', ''),
                 color_hex=team_data.get('color_hex', ''),
                 score=team_data.get('score', 0),
-                winner=team_data.get('score', 0) == max_score,
+                winner=not is_draw and team_data.get('score', 0) == max_score,
                 team_id=team_data.get('team_id'),
             )
             # Adiciona jogadores ao time usando bulk_create (super rápido)

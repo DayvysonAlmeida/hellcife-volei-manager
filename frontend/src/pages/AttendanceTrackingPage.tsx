@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldAlert, AlertTriangle, History, X, UserX, ChevronDown, ChevronUp, Calendar, MapPin, RefreshCw } from "lucide-react";
+import { ShieldAlert, AlertTriangle, History, X, UserX, ChevronDown, ChevronUp, Calendar, MapPin, RefreshCw, BarChart3 } from "lucide-react";
 import { playersService } from "@/services/players";
+import { attendanceService } from "@/services";
 import api from "@/lib/api";
 import { PageLoading, ErrorState, EmptyState } from "@/components/ui/Loading";
 import { Avatar } from "@/components/ui/Avatar";
@@ -12,7 +13,7 @@ import { Link } from "react-router-dom";
 import { formatDate } from "@/lib/utils";
 
 export function AttendanceTrackingPage() {
-  const [activeTab, setActiveTab] = useState<"frequency" | "noshows" | "byplayer">("frequency");
+  const [activeTab, setActiveTab] = useState<"frequency" | "noshows" | "byplayer" | "general">("frequency");
   const qc = useQueryClient();
 
   const { data: playersData, isLoading: isPlayersLoading, error: playersError } = useQuery({
@@ -29,6 +30,11 @@ export function AttendanceTrackingPage() {
     },
   });
   const noShows: Attendance[] = Array.isArray(noShowsData) ? noShowsData : (noShowsData?.results || []);
+
+  const { data: generalStats, isLoading: isGeneralStatsLoading } = useQuery({
+    queryKey: ["attendance", "general-stats"],
+    queryFn: () => attendanceService.getGeneralStats(),
+  });
 
   const justifyMutation = useMutation({
     mutationFn: async ({ id, text }: { id: number; text: string }) => {
@@ -62,14 +68,14 @@ export function AttendanceTrackingPage() {
   if (isPlayersLoading || isNoShowsLoading) return <PageLoading />;
   if (playersError || noShowsError) return <ErrorState onRetry={() => qc.invalidateQueries()} />;
 
-  const atRiskPlayers = players.filter(p => p.consecutive_absences >= 8 && p.status === "active").sort((a, b) => b.consecutive_absences - a.consecutive_absences);
-  const inactiveDueToAbsence = players.filter(p => p.status === "inactive" && p.consecutive_absences >= 10).sort((a, b) => b.consecutive_absences - a.consecutive_absences);
-  const otherPlayers = players.filter(p => p.consecutive_absences < 8 && p.status === "active").sort((a, b) => b.consecutive_absences - a.consecutive_absences);
+  const allTrackedPlayers = [...players].sort((a, b) => b.consecutive_absences - a.consecutive_absences).filter(p => p.consecutive_absences > 0 || p.status === 'inactive');
+  const safePlayers = players.filter(p => p.consecutive_absences === 0 && p.status === 'active');
 
   const tabs = [
-    { key: "frequency" as const, label: "Risco de Inativação" },
-    { key: "noshows" as const, label: "Faltas (No-shows)" },
-    { key: "byplayer" as const, label: "Por Atleta" },
+    { key: "frequency" as const, label: "Monitoramento (Inativação)" },
+    { key: "noshows" as const, label: "Advertências (No-shows)" },
+    { key: "byplayer" as const, label: "Furos por Atleta" },
+    { key: "general" as const, label: "Frequência Geral" },
   ];
 
   return (
@@ -111,18 +117,81 @@ export function AttendanceTrackingPage() {
       <AnimatePresence mode="wait">
         {activeTab === "frequency" ? (
           <motion.div key="frequency" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-            <div className="card p-4">
-              <h2 className="text-lg font-bold text-orange-500 flex items-center gap-2 mb-4"><AlertTriangle size={20} /> Em Risco de Inativação (8+ faltas seguidas)</h2>
-              {atRiskPlayers.length === 0 ? <p className="text-text-muted text-sm">Nenhum jogador em risco no momento.</p> : <div className="space-y-3">{atRiskPlayers.map(p => <PlayerRow key={p.id} player={p} warning />)}</div>}
+            <div className="card p-6 bg-gradient-to-br from-surface to-surface-hover/50 border border-border/50 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-red/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div className="max-w-2xl">
+                  <h2 className="text-xl font-display font-black text-text-primary flex items-center gap-2 mb-2">
+                    <AlertTriangle size={24} className="text-orange-500" />
+                    Monitoramento de Frequência (Ausências)
+                  </h2>
+                  <p className="text-text-secondary text-sm leading-relaxed">
+                    A cada dia de circuito que o jogador <strong className="text-red">NÃO</strong> marca presença física na quadra, ele recebe <strong className="text-text-primary">1 ausência consecutiva</strong> (isso inclui quem sequer se inscreveu e quem se inscreveu mas não foi). 
+                    Ao participar presencialmente de um jogo, essa contagem <strong className="text-green-500">zera imediatamente</strong>.
+                  </p>
+                  <div className="flex items-center gap-4 mt-4">
+                    <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-orange-500 bg-orange-500/10 px-2.5 py-1 rounded-md border border-orange-500/20">
+                      8 Ausências = Alerta
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red bg-red/10 px-2.5 py-1 rounded-md border border-red/20">
+                      10 Ausências = Inativação
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="bg-surface p-4 rounded-xl border border-border min-w-[200px] text-center shadow-inner">
+                  <p className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Jogadores em Risco (8+)</p>
+                  <p className="text-4xl font-display text-orange-500">
+                    {players.filter(p => p.consecutive_absences >= 8 && p.status === 'active').length}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="card p-4 opacity-75">
-              <h2 className="text-lg font-bold text-red flex items-center gap-2 mb-4"><ShieldAlert size={20} /> Inativados por Falta (10+ faltas seguidas)</h2>
-              {inactiveDueToAbsence.length === 0 ? <p className="text-text-muted text-sm">Nenhum jogador inativado por falta.</p> : <div className="space-y-3">{inactiveDueToAbsence.map(p => <PlayerRow key={p.id} player={p} error />)}</div>}
+
+            <div className="card p-0 overflow-hidden shadow-md border-border/60">
+              <div className="p-4 border-b border-border bg-surface/50 flex justify-between items-center">
+                <h3 className="font-bold text-text-primary">Atletas com Faltas Consecutivas</h3>
+                <span className="text-xs text-text-muted font-medium">{allTrackedPlayers.length} atletas acumulando faltas</span>
+              </div>
+              
+              {allTrackedPlayers.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-text-muted">Todos os jogadores estão com a frequência em dia! 🎉</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border/50 max-h-[600px] overflow-y-auto custom-scrollbar">
+                  {allTrackedPlayers.map(p => (
+                    <PlayerFrequencyRow key={p.id} player={p} />
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="card p-4">
-              <h2 className="text-lg font-bold text-text-primary flex items-center gap-2 mb-4"><History size={20} /> Outros Jogadores Ativos</h2>
-              {otherPlayers.length === 0 ? <p className="text-text-muted text-sm">Sem outros jogadores.</p> : <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">{otherPlayers.map(p => <PlayerRow key={p.id} player={p} />)}</div>}
-            </div>
+
+            {safePlayers.length > 0 && (
+              <div className="card p-4">
+                <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => {
+                  const el = document.getElementById('safe-players');
+                  if (el) el.classList.toggle('hidden');
+                }}>
+                  <h3 className="font-bold text-green-500 flex items-center gap-2">
+                    <ShieldAlert size={18} /> 
+                    Frequentes – Em Dia ({safePlayers.length} atletas)
+                  </h3>
+                  <p className="text-xs text-text-muted hover:text-text-primary transition-colors">Ver lista</p>
+                </div>
+                <div id="safe-players" className="hidden">
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {safePlayers.map(p => (
+                      <div key={p.id} className="flex items-center gap-2 bg-surface-hover px-2.5 py-1.5 rounded-lg border border-border/50">
+                        <Avatar name={p.display_name} src={p.avatar_url} size="sm" />
+                        <span className="text-xs font-medium text-text-primary">{p.display_name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         ) : activeTab === "noshows" ? (
           <motion.div key="noshows" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card p-4">
@@ -134,7 +203,7 @@ export function AttendanceTrackingPage() {
               </div>
             )}
           </motion.div>
-        ) : (
+        ) : activeTab === "byplayer" ? (
           <motion.div key="byplayer" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div className="card p-4 text-center">
@@ -180,35 +249,120 @@ export function AttendanceTrackingPage() {
               )}
             </div>
           </motion.div>
+        ) : (
+          <motion.div key="general" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="card p-0 overflow-hidden shadow-md">
+            <div className="p-4 border-b border-border bg-surface/50">
+              <h2 className="text-lg font-bold text-text-primary flex items-center gap-2 mb-1"><BarChart3 size={20} className="text-primary" /> Frequência Geral (Histórico Completo)</h2>
+              <p className="text-text-muted text-sm">Resumo da participação física, furos e ausências de todos os atletas desde que entraram no sistema.</p>
+            </div>
+            
+            {isGeneralStatsLoading ? <PageLoading /> : (
+              <div className="overflow-x-auto custom-scrollbar max-h-[600px]">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-surface-hover text-text-secondary sticky top-0 z-10 shadow-sm">
+                    <tr>
+                      <th className="py-3 px-4 font-bold">Atleta</th>
+                      <th className="py-3 px-4 font-bold text-center">Dias de Jogo</th>
+                      <th className="py-3 px-4 font-bold text-center">Presenças</th>
+                      <th className="py-3 px-4 font-bold text-center">Furos (No-shows)</th>
+                      <th className="py-3 px-4 font-bold text-center">Assiduidade (%)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {generalStats?.map((stat: any) => (
+                      <tr key={stat.id} className="hover:bg-surface-hover/30 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={stat.name} src={stat.avatar_url} size="sm" />
+                            <div>
+                              <p className="font-bold text-text-primary">{stat.name}</p>
+                              {stat.status === 'inactive' && <span className="text-[10px] uppercase font-bold text-red bg-red/10 px-1.5 py-0.5 rounded">Inativo</span>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-center font-medium">{stat.total_gamedays}</td>
+                        <td className="py-3 px-4 text-center font-bold text-green-500">{stat.presences}</td>
+                        <td className="py-3 px-4 text-center font-bold text-orange-500">{stat.no_shows}</td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="font-bold w-8">{stat.attendance_rate}%</span>
+                            <div className="w-20 h-2 bg-surface-highlight rounded-full overflow-hidden">
+                              <div className="h-full bg-primary" style={{ width: `${stat.attendance_rate}%` }} />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
 }
 
-function PlayerRow({ player, warning, error }: { player: Player; warning?: boolean; error?: boolean }) {
+function PlayerFrequencyRow({ player }: { player: Player }) {
+  const absences = player.consecutive_absences;
+  const isWarning = absences >= 8 && absences < 10;
+  const isDanger = absences >= 10;
+  
+  // Create an array of 10 blocks for the visual tracker
+  const blocks = Array.from({ length: 10 }, (_, i) => i + 1);
+
   return (
-    <div className={`flex items-center justify-between p-3 rounded-lg border ${warning ? "border-orange-500/30 bg-orange-500/5" : error ? "border-red/30 bg-red/5" : "border-border bg-surface"}`}>
-      <div className="flex items-center gap-3">
-        <Avatar name={player.display_name} src={player.avatar_url} size="sm" />
+    <div className={`flex flex-col md:flex-row md:items-center justify-between p-4 gap-4 transition-colors hover:bg-surface-highlight ${isDanger ? 'bg-red/5' : isWarning ? 'bg-orange-500/5' : ''}`}>
+      <div className="flex items-center gap-4 min-w-[200px]">
+        <Avatar name={player.display_name} src={player.avatar_url} size="sm" className={isDanger ? 'border border-red/50 opacity-75' : ''} />
         <div>
-          <p className="text-text-primary font-bold text-sm flex items-center gap-2">
+          <p className={`font-bold text-sm flex items-center gap-2 ${isDanger ? 'text-red line-through opacity-75' : 'text-text-primary'}`}>
             {player.display_name}
             {player.is_guest && (
-              <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
+              <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                Convidado
               </span>
             )}
           </p>
-          <p className="text-text-muted text-xs">Posição: {player.main_position_display}</p>
+          <p className="text-text-muted text-xs">{player.main_position_display}</p>
         </div>
       </div>
-      <div className="flex items-center gap-4">
-        <div className="text-right">
-          <p className={`font-black text-lg leading-none ${warning ? "text-orange-500" : error ? "text-red" : "text-text-secondary"}`}>{player.consecutive_absences}</p>
-          <p className="text-[10px] text-text-muted uppercase tracking-wider">Faltas seguidas</p>
+
+      <div className="flex-1 flex flex-col items-start md:items-center justify-center max-w-md w-full">
+        <div className="flex items-center justify-between w-full mb-1.5 px-1">
+          <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
+            {isDanger ? 'Inativado (10+)' : isWarning ? 'Em Risco (8+)' : 'Contagem'}
+          </span>
+          <span className={`text-xs font-black ${isDanger ? 'text-red' : isWarning ? 'text-orange-500' : 'text-text-primary'}`}>
+            {absences} / 10
+          </span>
         </div>
-        <Link to={`/players/${player.id}`} className="btn-secondary py-1 px-3 text-xs">Ver Perfil</Link>
+        
+        <div className="flex w-full h-2.5 gap-1">
+          {blocks.map(num => {
+            const isFilled = num <= absences;
+            let bgColor = "bg-surface-hover border-border/50";
+            
+            if (isFilled) {
+              if (num >= 10) bgColor = "bg-red border-red shadow-[0_0_8px_rgba(239,68,68,0.5)]";
+              else if (num >= 8) bgColor = "bg-orange-500 border-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]";
+              else bgColor = "bg-primary border-primary/80";
+            }
+            
+            return (
+              <div 
+                key={num} 
+                className={`flex-1 rounded-sm border ${bgColor} transition-all duration-300`}
+                title={`${num}ª falta`}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end min-w-[100px]">
+        <Link to={`/players/${player.id}`} className="btn-secondary py-1.5 px-3 text-xs w-full text-center">Ver Perfil</Link>
       </div>
     </div>
   );
