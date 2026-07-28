@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarCheck, ChevronRight, ChevronLeft, Plus, DollarSign, Share2, Trash2, Edit2, Lock, Swords, RefreshCw } from 'lucide-react';
+import { CalendarCheck, ChevronRight, ChevronLeft, Plus, DollarSign, Share2, Trash2, Edit2, Lock, Swords, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -11,7 +11,7 @@ import { AttendanceList } from '@/components/attendance/AttendanceList';
 import { GameDayListSidebar } from '@/components/attendance/GameDayListSidebar';
 
 import { attendanceService } from '@/services';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
 import type { GameDay } from '@/types';
 import { useAuth } from '@/store/AuthContext';
 import toast from 'react-hot-toast';
@@ -211,6 +211,18 @@ export function AttendancePage() {
     }
   });
 
+  const publishMutation = useMutation({
+    mutationFn: (is_published: boolean) => attendanceService.updateGameDay(selectedGameDay!.id, { is_published }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+      toast.success(data.is_published ? 'Circuito publicado! Agora os atletas podem vê-lo.' : 'Circuito ocultado. Apenas admins podem vê-lo.');
+    },
+    onError: () => {
+      toast.error('Erro ao alterar visibilidade.');
+    }
+  });
+
   const handleEditLimit = () => {
     if (!gameDayDetail) return;
     const currentLimit = gameDayDetail.max_players || 0;
@@ -357,6 +369,21 @@ export function AttendancePage() {
                       <Share2 size={12} />
                       Copiar link público de check-in
                     </button>
+                    {showEditControls && (
+                      <button
+                        onClick={() => publishMutation.mutate(!gameDayDetail.is_published)}
+                        disabled={publishMutation.isPending}
+                        className={cn(
+                          "mt-2 text-xs flex items-center gap-1 font-medium px-2 py-1 rounded-md transition-colors",
+                          gameDayDetail.is_published 
+                            ? "bg-green-500/10 text-green-500 hover:bg-green-500/20" 
+                            : "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20"
+                        )}
+                      >
+                        {gameDayDetail.is_published ? <Eye size={12} /> : <EyeOff size={12} />}
+                        {gameDayDetail.is_published ? 'Circuito Publicado' : 'Publicar Circuito (invisível)'}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-6 self-center sm:self-start">

@@ -14,6 +14,7 @@ from apps.core.permissions import IsAdminOrModerator
 class GameDayViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['is_closed', 'is_published']
     ordering = ['-date']
 
     def get_queryset(self):

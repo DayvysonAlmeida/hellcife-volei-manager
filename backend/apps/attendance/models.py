@@ -10,6 +10,7 @@ class GameDay(models.Model):
     location = models.CharField(max_length=200, blank=True, null=True, verbose_name='Local')
     max_players = models.PositiveSmallIntegerField(default=0, verbose_name='Limite de Jogadores')
     is_closed = models.BooleanField(default=False, verbose_name='Encerrado', help_text='Se verdadeiro, o circuito e todas as suas peladas estão encerrados')
+    is_published = models.BooleanField(default=False, verbose_name='Publicado', help_text='Se verdadeiro, o circuito fica visível para os atletas')
     created_by = models.ForeignKey(
         'core.User', on_delete=models.SET_NULL, null=True,
         verbose_name='Criado por'

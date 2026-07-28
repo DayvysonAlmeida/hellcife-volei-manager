@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Volleyball, Check, Clock, UserCheck, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy } from 'lucide-react';
@@ -310,6 +311,9 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
 }
 
 export function AthleteCheckinPage() {
+  const [searchParams] = useSearchParams();
+  const circuitId = searchParams.get('circuitId');
+
   const { data: myPlayer } = useQuery({
     queryKey: ['athlete-me'],
     queryFn: () => api.get('/players/me/').then(r => r.data),
@@ -318,14 +322,19 @@ export function AthleteCheckinPage() {
   const { data: openCircuits, isLoading } = useQuery({
     queryKey: ['athlete-open-circuits'],
     queryFn: async () => {
-      const res = await api.get(`/attendance/gamedays/?is_closed=false&ordering=date`);
+      const res = await api.get(`/attendance/gamedays/?is_closed=false&is_published=true&ordering=date`);
       return res.data.results || res.data;
     },
   });
 
   if (isLoading) return <PageLoading />;
 
-  if (!openCircuits || openCircuits.length === 0) {
+  let circuitsToDisplay = openCircuits || [];
+  if (circuitId) {
+    circuitsToDisplay = circuitsToDisplay.filter((c: any) => c.id === Number(circuitId));
+  }
+
+  if (!circuitsToDisplay || circuitsToDisplay.length === 0) {
     return (
       <div className="space-y-6">
         <div className="card p-12 text-center">
@@ -346,7 +355,7 @@ export function AthleteCheckinPage() {
 
   return (
     <div>
-      {openCircuits.map((circuit: any) => (
+      {circuitsToDisplay.map((circuit: any) => (
         <CircuitCheckinCard key={circuit.id} circuit={circuit} myPlayer={myPlayer} />
       ))}
     </div>

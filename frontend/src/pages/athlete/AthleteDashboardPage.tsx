@@ -58,7 +58,7 @@ function DashboardCircuitCard({ circuit, myPlayer }: { circuit: any, myPlayer: a
         </div>
       </div>
       <Link
-        to="/athlete/checkin"
+        to={`/athlete/checkin?circuitId=${circuit.id}`}
         className={cn(
           "btn-primary w-full flex items-center justify-center gap-2 mt-2",
           (amPresent || amWaitlist) ? "bg-green-600 hover:bg-green-700 text-white" : ""
@@ -87,7 +87,7 @@ export function AthleteDashboardPage() {
 
   const { data: openCircuits } = useQuery({
     queryKey: ['athlete-open-circuits'],
-    queryFn: () => api.get('/attendance/gamedays/?is_closed=false&ordering=date').then(r => r.data.results || r.data),
+    queryFn: () => api.get('/attendance/gamedays/?is_closed=false&is_published=true&ordering=date').then(r => r.data.results || r.data),
   });
 
   const { data: recentMatches } = useQuery({

@@ -220,6 +220,7 @@ export interface GameDay {
   total_players: number;
   total_court_checkins?: number;
   is_closed?: boolean;
+  is_published?: boolean;
   attendances: Attendance[];
   court_checkins: CourtCheckin[];
   created_at: string;
