@@ -67,204 +67,187 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
     : null;
 
   return (
-    <div className="space-y-6 mb-10">
-      {/* ── Info do Circuito ── */}
+    <div className="space-y-4 mb-6">
+      {/* ── Info do Circuito e Minha Presença ── */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden card p-6 border-l-4 border-l-green-500"
+        className="relative overflow-hidden card p-4 border-l-4 border-l-green-500 shadow-lg"
       >
         <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-red/5 blur-2xl pointer-events-none" />
-        <div className="flex items-start justify-between gap-4">
+        
+        {/* Info Cabeçalho */}
+        <div className="flex items-start justify-between gap-3 border-b border-border/30 pb-3 mb-3">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-1.5 mb-1">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-green-400 text-xs font-medium uppercase tracking-wider">Circuito Aberto</span>
+              <span className="text-green-400 text-[10px] font-bold uppercase tracking-wider">Aberto</span>
             </div>
-            <h1 className="font-display text-2xl text-text-primary tracking-wider">
+            <h1 className="font-display text-xl text-text-primary tracking-wider leading-none mb-1">
               {circuit.location || 'PELADA'}
             </h1>
-            <p className="text-text-muted text-sm mt-1">{formatDate(circuit.date)}</p>
+            <p className="text-text-muted text-xs font-medium">{formatDate(circuit.date)}</p>
             {(circuit.time || circuit.time_end) && (
-              <p className="text-text-muted text-sm flex items-center gap-1 mt-0.5">
-                <Clock size={13} />
+              <p className="text-text-muted text-[10px] flex items-center gap-1 mt-0.5">
+                <Clock size={11} />
                 {circuit.time}{circuit.time_end && ` – ${circuit.time_end}`}
               </p>
             )}
           </div>
-          <div className="text-right flex-shrink-0">
-            <p className="font-display text-3xl text-text-primary">{circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0}</p>
-            <p className="text-text-muted text-xs uppercase tracking-wider">Confirmados</p>
+          <div className="text-right flex-shrink-0 bg-surface-highlight/30 px-3 py-1.5 rounded-xl border border-border/50">
+            <p className="font-display text-2xl text-text-primary leading-none">{circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0}</p>
+            <p className="text-text-muted text-[9px] uppercase tracking-wider mt-0.5">Confirmados</p>
             {circuit.max_players && (
-              <p className="text-text-muted/60 text-xs mt-0.5">/ {circuit.max_players} vagas</p>
+              <p className="text-text-muted/60 text-[9px]">/ {circuit.max_players} vagas</p>
             )}
           </div>
         </div>
-        {pricePerPlayer && (
-          <div className="mt-3 pt-3 border-t border-border/50 flex items-center gap-2 text-text-muted text-sm">
-            <span>💰</span>
-            <span>Valor estimado por jogador: <strong className="text-text-primary">R$ {pricePerPlayer}</strong></span>
-          </div>
-        )}
 
-        {/* Botão PIX */}
+        {/* PIX Opcional */}
         {safePrice > 0 && (
-          <div className="mt-3 pt-3 border-t border-border/50">
+          <div className="mb-3">
             {circuitDetail?.gameday?.total_present > 0 ? (
-              <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4 flex flex-col items-center gap-3">
-                <div className="flex items-center gap-2 text-green-400 font-bold text-sm">
-                  <Wallet size={16} />
-                  Rateio: R$ {pricePerPlayer}
+              <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-2.5 flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2 text-green-400 font-bold text-xs">
+                  <Wallet size={14} /> Rateio: R$ {pricePerPlayer}
                 </div>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText('hellcifevolei@gmail.com');
                     toast.success('Chave PIX copiada! 💸');
                   }}
-                  className="w-full bg-green-500/10 border border-green-500/40 hover:bg-green-500/20 hover:border-green-500 transition-colors text-green-400 font-bold rounded-lg py-2.5 flex items-center justify-center gap-2 text-sm"
+                  className="w-full bg-green-500/10 border border-green-500/30 hover:bg-green-500/20 text-green-400 font-bold rounded flex items-center justify-center gap-2 py-1.5 text-xs transition-colors"
                 >
-                  <Copy size={15} />
-                  Copiar PIX — hellcifevolei@gmail.com
+                  <Copy size={13} /> Copiar PIX (hellcifevolei@gmail.com)
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-green-400/70 text-xs">
-                <Wallet size={13} />
-                <span>Rateio exibido quando houver confirmados</span>
+              <div className="flex items-center justify-center gap-2 text-green-400/70 text-[10px] bg-green-500/5 border border-green-500/10 rounded p-2">
+                <Wallet size={12} /> Rateio exibido quando houver confirmados
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Minha Presença Compacta */}
+        {myPlayer && (
+          <div className="bg-surface-highlight/40 rounded-xl p-3 border border-border/30 mt-3">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <Avatar name={myPlayer.display_name} src={myPlayer.avatar_url} size="sm" />
+                <div>
+                  <p className="text-text-primary text-sm font-medium leading-none">{myPlayer.display_name}</p>
+                  <p className="text-text-muted text-[10px] mt-0.5">{myPlayer.main_position_display}</p>
+                </div>
+              </div>
+              <div>
+                {amPresent ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                    <Check size={12} /> Conf.
+                  </span>
+                ) : amWaitlist ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                    <Clock size={12} /> Fila
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-black/20 text-text-muted border border-border">
+                    Ausente
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {!amPresent && !amWaitlist && (
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={() => checkinMutation.mutate(myPlayer.id)}
+                disabled={checkinMutation.isPending}
+                className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm font-bold"
+              >
+                {checkinMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <CalendarCheck size={16} />
+                )}
+                Confirmar Minha Presença
+              </motion.button>
+            )}
+
+            {amPresent && (
+              <div className="text-center bg-green-500/10 text-green-400 rounded py-1.5 text-xs font-medium border border-green-500/20">
+                ✅ Presença garantida! Nos vemos na quadra!
+              </div>
+            )}
+
+            {amWaitlist && (
+              <div className="text-center bg-yellow-500/10 text-yellow-400 rounded py-1.5 text-xs font-medium border border-yellow-500/20">
+                ⏳ Você está na fila de espera. Aguarde!
               </div>
             )}
           </div>
         )}
       </motion.div>
 
-      {/* ── Minha Presença ── */}
-      {myPlayer && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="card p-6"
-        >
-          <h2 className="font-display text-lg text-text-primary tracking-wider mb-4">MINHA PRESENÇA</h2>
-
-          <div className="flex items-center gap-4 mb-5">
-            <Avatar name={myPlayer.display_name} src={myPlayer.avatar_url} size="md" />
-            <div className="flex-1">
-              <p className="text-text-primary font-medium">{myPlayer.display_name}</p>
-              <p className="text-text-muted text-sm">{myPlayer.main_position_display}</p>
-            </div>
-            <div>
-              {amPresent ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-                  <Check size={14} /> Confirmado
-                </span>
-              ) : amWaitlist ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
-                  <Clock size={14} /> Fila de Espera
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-surface-highlight text-text-muted border border-border">
-                  Ausente
-                </span>
-              )}
-            </div>
-          </div>
-
-          {!amPresent && !amWaitlist && (
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => checkinMutation.mutate(myPlayer.id)}
-              disabled={checkinMutation.isPending}
-              className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-base"
-            >
-              {checkinMutation.isPending ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <CalendarCheck size={18} />
-              )}
-              Confirmar Minha Presença
-            </motion.button>
-          )}
-
-          {amPresent && (
-            <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4 text-center">
-              <p className="text-green-400 font-medium text-sm">✅ Você está confirmado! Nos vemos na quadra!</p>
-            </div>
-          )}
-
-          {amWaitlist && (
-            <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4 text-center">
-              <p className="text-yellow-400 font-medium text-sm">⏳ Você está na fila de espera. Aguarde uma vaga!</p>
-            </div>
-          )}
-        </motion.div>
-      )}
-
       {/* ── Adicionar Convidado ── */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="card p-6"
+        className="card p-4"
       >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-blue/10 flex items-center justify-center text-blue-400">
-            <UserPlus size={18} />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-blue/10 flex items-center justify-center text-blue-400">
+            <UserPlus size={16} />
           </div>
           <div>
-            <h2 className="font-display text-lg text-text-primary tracking-wider">CONVIDADOS</h2>
-            <p className="text-text-muted text-xs">Convidados que estão na lista deste circuito</p>
+            <h2 className="font-display text-base text-text-primary tracking-wider leading-none">CONVIDADOS</h2>
+            <p className="text-text-muted text-[10px] mt-0.5">Buscar convidados na lista</p>
           </div>
         </div>
 
-        <div className="relative mb-4">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+        <div className="relative mb-3">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             value={guestSearch}
             onChange={e => setGuestSearch(e.target.value)}
-            placeholder="Buscar convidado..."
-            className="input w-full pl-9"
+            placeholder="Buscar..."
+            className="input w-full pl-8 py-1.5 text-sm"
           />
         </div>
 
         {availableGuests.length > 0 ? (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {availableGuests.map((guest: any) => (
               <motion.div
                 key={guest.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center gap-3 p-3 bg-surface-highlight rounded-xl border border-border/30"
+                className="flex items-center gap-2 p-2 bg-surface-highlight/50 rounded-lg border border-border/30"
               >
                 <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-text-primary text-sm font-medium truncate">{guest.name}</p>
+                  <p className="text-text-primary text-xs font-bold truncate">{guest.name}</p>
                   {guest.invited_by && (
-                    <p className="text-text-muted text-xs">Convidado por {guest.invited_by}</p>
+                    <p className="text-text-muted text-[9px] truncate">Por {guest.invited_by}</p>
                   )}
                 </div>
                 <button
                   onClick={() => guestCheckinMutation.mutate(guest.id)}
                   disabled={guestCheckinMutation.isPending}
-                  className={cn(
-                    'btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5',
-                  )}
+                  className="btn-primary text-[10px] px-2.5 py-1 flex items-center gap-1 rounded"
                 >
-                  {guestCheckinMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={13} />}
-                  Adicionar
+                  {guestCheckinMutation.isPending ? <Loader2 size={10} className="animate-spin" /> : <UserCheck size={10} />}
+                  Add
                 </button>
               </motion.div>
             ))}
           </div>
         ) : (
-          <div className="text-center py-6">
-            <UserPlus size={36} className="text-text-muted/20 mx-auto mb-2" />
-            <p className="text-text-muted text-sm">
-              {guestSearch ? 'Nenhum convidado encontrado.' : 'Nenhum convidado na lista deste circuito.'}
-            </p>
-            <p className="text-text-muted/50 text-xs mt-1">
-              Peça ao administrador para adicionar convidados.
+          <div className="text-center py-4 bg-black/10 rounded-lg border border-border/10">
+            <UserPlus size={20} className="text-text-muted/30 mx-auto mb-1" />
+            <p className="text-text-muted text-[10px] px-4">
+              {guestSearch ? 'Não encontrado.' : 'Nenhum convidado na lista aguardando check-in.'}
             </p>
           </div>
         )}
@@ -276,33 +259,70 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="card p-6"
+          className="card p-4"
         >
-          <h2 className="font-display text-lg text-text-primary tracking-wider mb-4">
-            CONFIRMADOS ({circuitDetail.players.filter((p: any) => p.present).length})
-          </h2>
-          <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-3 border-b border-border/30 pb-2">
+            <Check size={16} className="text-green-400" />
+            <h2 className="font-display text-base text-text-primary tracking-wider">
+              CONFIRMADOS ({circuitDetail.players.filter((p: any) => p.present).length})
+            </h2>
+          </div>
+          <div className="space-y-1">
             {circuitDetail.players
               .filter((p: any) => p.present)
               .map((p: any, i: number) => (
-                <div key={p.id} className="flex items-center gap-3 py-2 border-b border-border/30 last:border-0">
-                  <span className="text-text-muted/50 text-xs w-5 text-right flex-shrink-0">{i + 1}</span>
-                  <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                  <span className={cn('text-sm flex-1', p.id === myPlayer?.id ? 'text-red font-medium' : 'text-text-primary')}>
+                <div key={p.id} className="flex items-center gap-2 py-1.5 border-b border-border/10 last:border-0 hover:bg-surface-highlight/30 px-1 rounded transition-colors">
+                  <span className="text-text-muted/40 text-[10px] w-4 text-right flex-shrink-0 font-bold">{i + 1}</span>
+                  <Avatar name={p.name} src={p.avatar_url} size="sm" className="w-6 h-6 text-[10px]" />
+                  <span className={cn('text-xs flex-1 truncate', p.id === myPlayer?.id ? 'text-red font-bold' : 'text-text-primary font-medium')}>
                     {p.name}
-                    {p.id === myPlayer?.id && ' (você)'}
                   </span>
                   {p.is_guest && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20">
                       Convidado
                     </span>
                   )}
-                  <Check size={14} className="text-green-400 flex-shrink-0" />
+                  <Check size={12} className="text-green-400 flex-shrink-0 ml-auto" />
                 </div>
               ))}
             {circuitDetail.players.filter((p: any) => p.present).length === 0 && (
-              <p className="text-text-muted text-sm text-center py-4">Nenhum confirmado ainda. Seja o primeiro!</p>
+              <p className="text-text-muted text-xs text-center py-4 bg-black/10 rounded-lg">Nenhum confirmado ainda.</p>
             )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── Lista da Fila de Espera ── */}
+      {circuitDetail?.players && circuitDetail.players.filter((p: any) => p.is_waitlist).length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="card p-4 border-l-4 border-l-yellow-500"
+        >
+          <div className="flex items-center gap-2 mb-3 border-b border-border/30 pb-2">
+            <Clock size={16} className="text-yellow-400" />
+            <h2 className="font-display text-base text-text-primary tracking-wider">
+              FILA DE ESPERA ({circuitDetail.players.filter((p: any) => p.is_waitlist).length})
+            </h2>
+          </div>
+          <div className="space-y-1">
+            {circuitDetail.players
+              .filter((p: any) => p.is_waitlist)
+              .map((p: any, i: number) => (
+                <div key={p.id} className="flex items-center gap-2 py-1.5 border-b border-border/10 last:border-0 hover:bg-surface-highlight/30 px-1 rounded transition-colors">
+                  <span className="text-text-muted/40 text-[10px] w-4 text-right flex-shrink-0 font-bold">{i + 1}</span>
+                  <Avatar name={p.name} src={p.avatar_url} size="sm" className="w-6 h-6 text-[10px]" />
+                  <span className={cn('text-xs flex-1 truncate', p.id === myPlayer?.id ? 'text-yellow-500 font-bold' : 'text-text-primary font-medium')}>
+                    {p.name}
+                  </span>
+                  {p.is_guest && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20">
+                      Convidado
+                    </span>
+                  )}
+                </div>
+              ))}
           </div>
         </motion.div>
       )}
