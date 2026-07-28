@@ -23,12 +23,9 @@ export function AthleteDashboardPage() {
     enabled: !!player?.id,
   });
 
-  const { data: todayCircuit } = useQuery({
-    queryKey: ['athlete-today-circuit'],
-    queryFn: () => api.get('/attendance/gamedays/?is_closed=false&ordering=-date').then(r => {
-      const list = r.data.results || r.data;
-      return list[0] || null;
-    }),
+  const { data: openCircuits } = useQuery({
+    queryKey: ['athlete-open-circuits'],
+    queryFn: () => api.get('/attendance/gamedays/?is_closed=false&ordering=date').then(r => r.data.results || r.data),
   });
 
   const { data: recentMatches } = useQuery({
@@ -141,42 +138,46 @@ export function AthleteDashboardPage() {
             <h2 className="font-display text-lg text-text-primary tracking-wider">CIRCUITO ABERTO</h2>
           </div>
 
-          {todayCircuit ? (
-            <div className="space-y-3">
-              <div className="bg-surface-highlight rounded-xl p-4 border border-border/50">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-text-primary">{todayCircuit.location || 'Quadra principal'}</p>
-                    <p className="text-text-muted text-sm mt-0.5">
-                      {todayCircuit.time && <span>{todayCircuit.time}</span>}
-                      {todayCircuit.time_end && <span> – {todayCircuit.time_end}</span>}
-                    </p>
-                    <p className="text-text-muted text-xs mt-1">{formatDate(todayCircuit.date)}</p>
+          {openCircuits && openCircuits.length > 0 ? (
+            <div className="space-y-4">
+              {openCircuits.map((circuit: any) => (
+                <div key={circuit.id} className="space-y-3 pb-4 border-b border-border/30 last:border-0 last:pb-0">
+                  <div className="bg-surface-highlight rounded-xl p-4 border border-border/50">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium text-text-primary">{circuit.location || 'Quadra principal'}</p>
+                        <p className="text-text-muted text-sm mt-0.5">
+                          {circuit.time && <span>{circuit.time}</span>}
+                          {circuit.time_end && <span> – {circuit.time_end}</span>}
+                        </p>
+                        <p className="text-text-muted text-xs mt-1">{formatDate(circuit.date)}</p>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 whitespace-nowrap">
+                        Aberto
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 text-sm text-text-muted">
+                      <UserCheck size={14} />
+                      <span>{circuit.total_present ?? 0} confirmados</span>
+                      {circuit.max_players && (
+                        <span className="text-text-muted/50">/ {circuit.max_players} vagas</span>
+                      )}
+                    </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 whitespace-nowrap">
-                    Aberto
-                  </span>
+                  <Link
+                    to="/athlete/checkin"
+                    className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
+                  >
+                    <CalendarCheck size={16} />
+                    Acessar Circuito
+                  </Link>
                 </div>
-                <div className="mt-3 flex items-center gap-2 text-sm text-text-muted">
-                  <UserCheck size={14} />
-                  <span>{todayCircuit.total_present ?? 0} confirmados</span>
-                  {todayCircuit.max_players && (
-                    <span className="text-text-muted/50">/ {todayCircuit.max_players} vagas</span>
-                  )}
-                </div>
-              </div>
-              <Link
-                to="/athlete/checkin"
-                className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
-              >
-                <CalendarCheck size={16} />
-                Confirmar Presença
-              </Link>
+              ))}
             </div>
           ) : (
             <div className="text-center py-8">
               <Volleyball size={40} className="text-text-muted/30 mx-auto mb-3" />
-              <p className="text-text-muted text-sm">Nenhum circuito aberto hoje.</p>
+              <p className="text-text-muted text-sm">Nenhum circuito aberto no momento.</p>
               <p className="text-text-muted/60 text-xs mt-1">Fique de olho para o próximo!</p>
             </div>
           )}

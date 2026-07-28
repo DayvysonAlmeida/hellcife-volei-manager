@@ -10,36 +10,16 @@ import { Avatar } from '@/components/ui/Avatar';
 import { formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-export function AthleteCheckinPage() {
-  const { user } = useAuth();
+function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any }) {
   const qc = useQueryClient();
   const [guestSearch, setGuestSearch] = useState('');
 
-  // Busca o player do atleta logado
-  const { data: myPlayer } = useQuery({
-    queryKey: ['athlete-me'],
-    queryFn: () => api.get('/players/me/').then(r => r.data),
-  });
-
-  // Busca o circuito aberto hoje
-  const { data: circuit, isLoading } = useQuery({
-    queryKey: ['athlete-today-circuit'],
-    queryFn: async () => {
-      const res = await api.get(`/attendance/gamedays/?is_closed=false&ordering=-date`);
-      const list = res.data.results || res.data;
-      // Retorna o circuito mais recente que está aberto
-      return list[0] || null;
-    },
-  });
-
-  // Detalhes do circuito com a lista completa
   const { data: circuitDetail } = useQuery({
-    queryKey: ['athlete-circuit-detail', circuit?.id],
+    queryKey: ['athlete-circuit-detail', circuit.id],
     queryFn: () => api.get(`/attendance/gamedays/${circuit.id}/checkin-info/`).then(r => r.data),
-    enabled: !!circuit?.id,
+    refetchInterval: 10000, // atualiza auto a cada 10s
   });
 
-  // Mutation: o próprio atleta confirma presença
   const checkinMutation = useMutation({
     mutationFn: (playerId: number) =>
       api.post(`/attendance/gamedays/${circuit.id}/public-checkin/`, { player_id: playerId }).then(r => r.data),
@@ -49,28 +29,26 @@ export function AthleteCheckinPage() {
       } else if (res.is_waitlist) {
         toast('Você entrou na Fila de Espera!', { icon: '⏳' });
       }
-      qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit?.id] });
-      qc.invalidateQueries({ queryKey: ['athlete-today-circuit'] });
+      qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit.id] });
+      qc.invalidateQueries({ queryKey: ['athlete-open-circuits'] });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.detail || 'Erro ao confirmar presença.');
     },
   });
 
-  // Busca convidados existentes na lista do circuito
   const availableGuests = circuitDetail?.players?.filter((p: any) =>
     p.is_guest && !p.present && !p.is_waitlist &&
     (guestSearch === '' || p.name.toLowerCase().includes(guestSearch.toLowerCase()))
   ) || [];
 
-  // Mutation: confirma presença de um convidado
   const guestCheckinMutation = useMutation({
     mutationFn: (guestId: number) =>
       api.post(`/attendance/gamedays/${circuit.id}/public-checkin/`, { player_id: guestId }).then(r => r.data),
     onSuccess: (res, guestId) => {
       const guest = circuitDetail?.players?.find((p: any) => p.id === guestId);
       toast.success(`${guest?.name || 'Convidado'} adicionado à lista! ${res.is_waitlist ? '(Fila de espera)' : '✅'}`, { duration: 4000 });
-      qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit?.id] });
+      qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit.id] });
       setGuestSearch('');
     },
     onError: (err: any) => {
@@ -78,31 +56,9 @@ export function AthleteCheckinPage() {
     },
   });
 
-  if (isLoading) return <PageLoading />;
-
-  // Meu status no circuito
   const myAttendance = myPlayer && circuitDetail?.players?.find((p: any) => p.id === myPlayer.id);
   const amPresent = myAttendance?.present;
   const amWaitlist = myAttendance?.is_waitlist;
-
-  if (!circuit) {
-    return (
-      <div className="space-y-6">
-        <div className="card p-12 text-center">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200 }}
-          >
-            <Volleyball size={64} className="text-text-muted/20 mx-auto mb-4" />
-          </motion.div>
-          <h2 className="font-display text-2xl text-text-primary tracking-wider mb-2">SEM CIRCUITO HOJE</h2>
-          <p className="text-text-muted text-sm">Não há nenhum circuito aberto para hoje.</p>
-          <p className="text-text-muted/60 text-xs mt-1">Fique ligado no grupo para as próximas datas!</p>
-        </div>
-      </div>
-    );
-  }
 
   const safePrice = circuit.court_price ? Number(String(circuit.court_price).replace(',', '.')) : 0;
   const pricePerPlayer = safePrice > 0 && circuitDetail?.gameday?.total_present > 0
@@ -110,12 +66,12 @@ export function AthleteCheckinPage() {
     : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mb-10">
       {/* ── Info do Circuito ── */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden card p-6"
+        className="relative overflow-hidden card p-6 border-l-4 border-l-green-500"
       >
         <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-red/5 blur-2xl pointer-events-none" />
         <div className="flex items-start justify-between gap-4">
@@ -136,7 +92,7 @@ export function AthleteCheckinPage() {
             )}
           </div>
           <div className="text-right flex-shrink-0">
-            <p className="font-display text-3xl text-text-primary">{circuitDetail?.gameday?.total_present ?? 0}</p>
+            <p className="font-display text-3xl text-text-primary">{circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0}</p>
             <p className="text-text-muted text-xs uppercase tracking-wider">Confirmados</p>
             {circuit.max_players && (
               <p className="text-text-muted/60 text-xs mt-0.5">/ {circuit.max_players} vagas</p>
@@ -178,7 +134,6 @@ export function AthleteCheckinPage() {
             )}
           </div>
         )}
-
       </motion.div>
 
       {/* ── Minha Presença ── */}
@@ -257,7 +212,7 @@ export function AthleteCheckinPage() {
           </div>
           <div>
             <h2 className="font-display text-lg text-text-primary tracking-wider">CONVIDADOS</h2>
-            <p className="text-text-muted text-xs">Convidados que estão na lista de hoje</p>
+            <p className="text-text-muted text-xs">Convidados que estão na lista deste circuito</p>
           </div>
         </div>
 
@@ -305,10 +260,10 @@ export function AthleteCheckinPage() {
           <div className="text-center py-6">
             <UserPlus size={36} className="text-text-muted/20 mx-auto mb-2" />
             <p className="text-text-muted text-sm">
-              {guestSearch ? 'Nenhum convidado encontrado.' : 'Nenhum convidado na lista de hoje.'}
+              {guestSearch ? 'Nenhum convidado encontrado.' : 'Nenhum convidado na lista deste circuito.'}
             </p>
             <p className="text-text-muted/50 text-xs mt-1">
-              Peça ao administrador para adicionar convidados ao circuito.
+              Peça ao administrador para adicionar convidados.
             </p>
           </div>
         )}
@@ -350,6 +305,50 @@ export function AthleteCheckinPage() {
           </div>
         </motion.div>
       )}
+    </div>
+  );
+}
+
+export function AthleteCheckinPage() {
+  const { data: myPlayer } = useQuery({
+    queryKey: ['athlete-me'],
+    queryFn: () => api.get('/players/me/').then(r => r.data),
+  });
+
+  const { data: openCircuits, isLoading } = useQuery({
+    queryKey: ['athlete-open-circuits'],
+    queryFn: async () => {
+      const res = await api.get(`/attendance/gamedays/?is_closed=false&ordering=date`);
+      return res.data.results || res.data;
+    },
+  });
+
+  if (isLoading) return <PageLoading />;
+
+  if (!openCircuits || openCircuits.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="card p-12 text-center">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200 }}
+          >
+            <Volleyball size={64} className="text-text-muted/20 mx-auto mb-4" />
+          </motion.div>
+          <h2 className="font-display text-2xl text-text-primary tracking-wider mb-2">SEM CIRCUITO ABERTO</h2>
+          <p className="text-text-muted text-sm">Não há nenhum circuito aberto no momento.</p>
+          <p className="text-text-muted/60 text-xs mt-1">Fique ligado no grupo para as próximas datas!</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {openCircuits.map((circuit: any) => (
+        <CircuitCheckinCard key={circuit.id} circuit={circuit} myPlayer={myPlayer} />
+      ))}
     </div>
   );
 }
