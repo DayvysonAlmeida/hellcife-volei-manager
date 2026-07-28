@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Edit, Phone, Link as LinkIcon, Ruler, Weight, Calendar, Trophy, CalendarCheck, Swords } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Edit, Phone, Link as LinkIcon, Ruler, Weight, Calendar, Trophy, CalendarCheck, Swords, KeyRound, UserCog, Trash2, Copy, Loader2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
@@ -12,16 +13,59 @@ import { evaluationsService } from '@/services';
 import { SKILL_LABELS, HAND_LABELS } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/store/AuthContext';
+import api from '@/lib/api';
+import toast from 'react-hot-toast';
 
 export function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const qc = useQueryClient();
   const playerId = Number(id);
+
+  // Access management state
+  const [accessEmail, setAccessEmail] = useState('');
+  const [accessPassword, setAccessPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [newCreds, setNewCreds] = useState<{ email: string; password: string; player_name: string } | null>(null);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
 
   const { data: player, isLoading, error } = useQuery({
     queryKey: ['player', playerId],
     queryFn: () => playersService.get(playerId),
     enabled: !isNaN(playerId),
+  });
+
+  // Access management mutations (admin only)
+  const createAccessMutation = useMutation({
+    mutationFn: () => api.post(`/players/${playerId}/create-access/`, { email: accessEmail, password: accessPassword }).then(r => r.data),
+    onSuccess: (data) => {
+      setNewCreds(data);
+      setAccessEmail('');
+      setAccessPassword('');
+      qc.invalidateQueries({ queryKey: ['player', playerId] });
+      toast.success('Acesso criado com sucesso!');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao criar acesso.'),
+  });
+
+  const revokeAccessMutation = useMutation({
+    mutationFn: () => api.post(`/players/${playerId}/revoke-access/`).then(r => r.data),
+    onSuccess: () => {
+      setShowRevokeConfirm(false);
+      qc.invalidateQueries({ queryKey: ['player', playerId] });
+      toast.success('Acesso revogado.');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao revogar acesso.'),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: () => api.post(`/players/${playerId}/reset-password/`, { password: accessPassword }).then(r => r.data),
+    onSuccess: (data) => {
+      setNewCreds(data);
+      setAccessPassword('');
+      toast.success('Senha redefinida!');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao redefinir senha.'),
   });
 
   const { data: radarData } = useQuery({
@@ -249,6 +293,170 @@ export function PlayerDetailPage() {
               />
             </LineChart>
           </ResponsiveContainer>
+        </motion.div>
+      )}
+      {/* ── Gerenciamento de Acesso (Admin only) ── */}
+      {canEdit && !player.is_guest && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="card p-6"
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-9 h-9 rounded-xl bg-red/10 flex items-center justify-center text-red">
+              <UserCog size={18} />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-display text-lg text-text-primary tracking-wider">ACESSO DO ATLETA</h2>
+              <p className="text-text-muted text-xs">Gerencie o acesso ao portal do atleta</p>
+            </div>
+            {player.user ? (
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+                ✅ Com acesso
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-highlight text-text-muted border border-border">
+                ○ Sem acesso
+              </span>
+            )}
+          </div>
+
+          {/* Popup de credenciais criadas */}
+          <AnimatePresence>
+            {newCreds && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="mb-5 p-4 rounded-xl bg-green-500/5 border border-green-500/20"
+              >
+                <p className="text-green-400 font-medium text-sm mb-3">✅ Acesso pronto! Envie as credenciais:</p>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex items-center justify-between bg-surface rounded-lg p-2">
+                    <span className="text-text-muted text-xs">Usuário:</span>
+                    <span className="text-text-primary font-mono">{newCreds.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-surface rounded-lg p-2">
+                    <span className="text-text-muted text-xs">Senha:</span>
+                    <span className="text-text-primary font-mono">{newCreds.password}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `Seu acesso ao Hellcife Vôlei Manager está pronto! 🏐\nAcesse o app e faça login:\nUsuário: ${newCreds.email}\nSenha: ${newCreds.password}\nBem-vindo(a)! 💪`
+                      );
+                      toast.success('Mensagem copiada!');
+                    }}
+                    className="btn-primary flex-1 flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Copy size={14} /> Copiar para WhatsApp
+                  </button>
+                  <button onClick={() => setNewCreds(null)} className="btn-ghost px-3 text-sm">Fechar</button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!player.user ? (
+            /* ── Criar Acesso ── */
+            <div className="space-y-3">
+              <div>
+                <label className="block text-text-secondary text-xs font-medium mb-1">E-mail do atleta</label>
+                <input
+                  type="email"
+                  value={accessEmail}
+                  onChange={e => setAccessEmail(e.target.value)}
+                  placeholder="atletaX@email.com"
+                  className="input w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-text-secondary text-xs font-medium mb-1">Senha inicial</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={accessPassword}
+                    onChange={e => setAccessPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="input w-full pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => createAccessMutation.mutate()}
+                disabled={createAccessMutation.isPending || !accessEmail || !accessPassword}
+                className="btn-primary w-full flex items-center justify-center gap-2"
+              >
+                {createAccessMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
+                Criar Acesso
+              </button>
+            </div>
+          ) : (
+            /* ── Gerenciar Acesso Existente ── */
+            <div className="space-y-3">
+              <div>
+                <label className="block text-text-secondary text-xs font-medium mb-1">Nova senha (para redefinir)</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={accessPassword}
+                    onChange={e => setAccessPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="input w-full pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => resetPasswordMutation.mutate()}
+                  disabled={resetPasswordMutation.isPending || !accessPassword}
+                  className="btn-secondary flex-1 flex items-center justify-center gap-2 text-sm"
+                >
+                  {resetPasswordMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                  Redefinir Senha
+                </button>
+                <button
+                  onClick={() => setShowRevokeConfirm(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-red/80 hover:text-red hover:bg-red/10 border border-red/20 transition-all"
+                >
+                  <Trash2 size={14} /> Revogar
+                </button>
+              </div>
+              {showRevokeConfirm && (
+                <div className="p-4 rounded-xl bg-red/5 border border-red/20">
+                  <p className="text-text-primary text-sm font-medium mb-3">⚠️ Tem certeza? O atleta perderá o acesso imediatamente.</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => revokeAccessMutation.mutate()}
+                      disabled={revokeAccessMutation.isPending}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red text-white rounded-lg text-sm font-medium hover:bg-red/80 transition-colors"
+                    >
+                      {revokeAccessMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                      Confirmar Revogação
+                    </button>
+                    <button onClick={() => setShowRevokeConfirm(false)} className="btn-ghost px-4 text-sm">Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
       )}
     </div>

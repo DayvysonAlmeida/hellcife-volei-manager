@@ -63,11 +63,13 @@ class MatchListSerializer(serializers.ModelSerializer):
     modality_display = serializers.CharField(source='get_modality_display', read_only=True)
     match_teams = MatchListTeamSerializer(many=True, read_only=True)
     created_by_name = serializers.CharField(source='created_by.name', read_only=True)
+    gameday_location = serializers.CharField(source='gameday.location', read_only=True)
+    gameday_date = serializers.DateField(source='gameday.date', read_only=True)
 
     class Meta:
         model = Match
         fields = ['id', 'date', 'location', 'modality', 'modality_display',
-                  'gameday', 'notes', 'created_by_name', 'match_teams', 'created_at']
+                  'gameday', 'gameday_location', 'gameday_date', 'notes', 'created_by_name', 'match_teams', 'created_at']
 
 
 class MatchWriteSerializer(serializers.ModelSerializer):

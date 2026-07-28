@@ -5,7 +5,7 @@ import { AuthProvider } from '@/store/AuthContext';
 import { ThemeProvider } from '@/store/ThemeContext';
 import { queryClient } from '@/lib/queryClient';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { ProtectedRoute, PublicRoute } from '@/routes/guards';
+import { AdminRoute, PlayerRoute, PublicRoute, ProtectedRoute } from '@/routes/guards';
 import { Toaster } from 'react-hot-toast';
 import { PageLoading } from '@/components/ui/Loading';
 
@@ -28,6 +28,12 @@ const RegulationPage = lazy(() => import('@/pages/RegulationPage').then(m => ({ 
 const CheckinPage = lazy(() => import('@/pages/CheckinPage').then(m => ({ default: m.CheckinPage })));
 const BracketPage = lazy(() => import('@/pages/BracketPage').then(m => ({ default: m.BracketPage })));
 
+// Portal do Atleta
+const AthleteDashboardPage = lazy(() => import('@/pages/athlete/AthleteDashboardPage').then(m => ({ default: m.AthleteDashboardPage })));
+const MyProfilePage = lazy(() => import('@/pages/athlete/MyProfilePage').then(m => ({ default: m.MyProfilePage })));
+const AthleteCheckinPage = lazy(() => import('@/pages/athlete/AthleteCheckinPage').then(m => ({ default: m.AthleteCheckinPage })));
+const AthleteMatchesPage = lazy(() => import('@/pages/athlete/AthleteMatchesPage').then(m => ({ default: m.AthleteMatchesPage })));
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -48,13 +54,29 @@ function App() {
             
             <Route path="/checkin/:id" element={<CheckinPage />} />
 
-            {/* Protected routes */}
+            {/* ── Portal do Atleta ────────────────────────────────── */}
+            <Route
+              path="/athlete"
+              element={
+                <PlayerRoute>
+                  <AppLayout />
+                </PlayerRoute>
+              }
+            >
+              <Route index element={<AthleteDashboardPage />} />
+              <Route path="profile" element={<MyProfilePage />} />
+              <Route path="checkin" element={<AthleteCheckinPage />} />
+              <Route path="matches" element={<AthleteMatchesPage />} />
+              <Route path="regulation" element={<RegulationPage />} />
+            </Route>
+
+            {/* ── Painel Admin / Moderador ────────────────────────── */}
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AppLayout />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
@@ -105,4 +127,3 @@ function App() {
 }
 
 export default App;
-

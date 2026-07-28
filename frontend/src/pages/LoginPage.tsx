@@ -31,11 +31,19 @@ export function LoginPage() {
     setError('');
     try {
       await login(data.email, data.password);
-      navigate('/dashboard');
+      // Redireciona baseado no perfil
+      const stored = localStorage.getItem('user');
+      const userData = stored ? JSON.parse(stored) : null;
+      if (userData?.profile === 'player') {
+        navigate('/athlete');
+      } else {
+        navigate('/dashboard');
+      }
     } catch {
       setError('E-mail ou senha incorretos. Tente novamente.');
     }
   };
+
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden">

@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-const navItems = [
+const adminNavItems = [
   { to: '/dashboard', icon: Home, label: 'Dashboard' },
   { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
   { to: '/players', icon: Users, label: 'Atletas' },
@@ -35,6 +35,14 @@ const navItems = [
   { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
 ];
 
+const playerNavItems = [
+  { to: '/athlete', icon: Home, label: 'Início' },
+  { to: '/athlete/profile', icon: CircleUser, label: 'Meu Perfil' },
+  { to: '/athlete/checkin', icon: Volleyball, label: 'Circuito' },
+  { to: '/athlete/matches', icon: Swords, label: 'Jogos' },
+  { to: '/athlete/regulation', icon: ScrollText, label: 'Regulamento' },
+];
+
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -45,6 +53,8 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isPlayer = user?.profile === 'player';
+  const navItems = isPlayer ? playerNavItems : adminNavItems;
 
   const handleLogout = () => {
     logout();

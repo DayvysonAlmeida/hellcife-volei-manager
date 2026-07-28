@@ -23,6 +23,13 @@ class MatchViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date', 'created_at']
     ordering = ['-created_at']
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        player_id = self.request.query_params.get('player_id')
+        if player_id:
+            qs = qs.filter(match_teams__match_players__player_id=player_id).distinct()
+        return qs
+
     def get_serializer_class(self):
         if self.action == 'list':
             return MatchListSerializer

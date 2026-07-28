@@ -339,3 +339,98 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'attendance_rate': attendance_rate,
             'overall_history': list(evaluations),
         })
+
+    @action(detail=False, methods=['get'], url_path='me', permission_classes=[IsAuthenticated])
+    def me(self, request):
+        """Retorna o Player vinculado ao usuário logado (para portal do atleta)."""
+        player = Player.objects.filter(user=request.user).select_related('user').prefetch_related('evaluations').first()
+        if not player:
+            return Response({'detail': 'Nenhum perfil de atleta vinculado a este usuário.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PlayerDetailSerializer(player, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='create-access')
+    def create_access(self, request, pk=None):
+        """Cria um usuário (profile=player) e vincula ao Player. Apenas admin/moderador."""
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        player = self.get_object()
+
+        if player.user:
+            return Response({'detail': 'Este atleta já possui um acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = request.data.get('email', '').strip().lower()
+        password = request.data.get('password', '').strip()
+
+        if not email:
+            return Response({'detail': 'E-mail é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not password or len(password) < 6:
+            return Response({'detail': 'A senha deve ter pelo menos 6 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from apps.core.models import User
+        if User.objects.filter(email=email).exists():
+            return Response({'detail': 'Já existe um usuário com este e-mail.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            name=player.display_name,
+            profile='player',
+        )
+        player.user = user
+        player.save(update_fields=['user'])
+
+        return Response({
+            'detail': 'Acesso criado com sucesso!',
+            'email': email,
+            'password': password,
+            'player_name': player.display_name,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='revoke-access')
+    def revoke_access(self, request, pk=None):
+        """Remove o usuário vinculado ao Player. Apenas admin/moderador."""
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        player = self.get_object()
+
+        if not player.user:
+            return Response({'detail': 'Este atleta não possui acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = player.user
+        player.user = None
+        player.save(update_fields=['user'])
+        user.delete()
+
+        return Response({'detail': 'Acesso revogado com sucesso.'})
+
+    @action(detail=True, methods=['post'], url_path='reset-password')
+    def reset_password(self, request, pk=None):
+        """Redefine a senha do usuário vinculado ao Player. Apenas admin/moderador."""
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        player = self.get_object()
+
+        if not player.user:
+            return Response({'detail': 'Este atleta não possui acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        new_password = request.data.get('password', '').strip()
+        if not new_password or len(new_password) < 6:
+            return Response({'detail': 'A nova senha deve ter pelo menos 6 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        player.user.set_password(new_password)
+        player.user.save()
+
+        return Response({
+            'detail': 'Senha redefinida com sucesso!',
+            'email': player.user.email,
+            'password': new_password,
+            'player_name': player.display_name,
+        })
+
