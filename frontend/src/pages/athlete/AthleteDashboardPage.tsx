@@ -1,13 +1,75 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Swords, CalendarCheck, Trophy, Flame, Star, ChevronRight, Volleyball, UserCheck, TrendingUp } from 'lucide-react';
+import { Swords, CalendarCheck, Trophy, Flame, Star, ChevronRight, Volleyball, UserCheck, TrendingUp, Check, Clock } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading } from '@/components/ui/Loading';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import api from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
+
+function DashboardCircuitCard({ circuit, myPlayer }: { circuit: any, myPlayer: any }) {
+  const { data: circuitDetail } = useQuery({
+    queryKey: ['athlete-circuit-detail', circuit.id],
+    queryFn: () => api.get(`/attendance/gamedays/${circuit.id}/checkin-info/`).then(r => r.data),
+    enabled: !!circuit?.id,
+    refetchInterval: 10000,
+  });
+
+  const myAttendance = myPlayer && circuitDetail?.players?.find((p: any) => p.id === myPlayer.id);
+  const amPresent = myAttendance?.present;
+  const amWaitlist = myAttendance?.is_waitlist;
+
+  return (
+    <div className="space-y-3 pb-4 border-b border-border/30 last:border-0 last:pb-0">
+      <div className="bg-surface-highlight rounded-xl p-4 border border-border/50">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="font-medium text-text-primary">{circuit.location || 'Quadra principal'}</p>
+            <p className="text-text-muted text-sm mt-0.5">
+              {circuit.time && <span>{circuit.time}</span>}
+              {circuit.time_end && <span> – {circuit.time_end}</span>}
+            </p>
+            <p className="text-text-muted text-xs mt-1">{formatDate(circuit.date)}</p>
+          </div>
+          <div>
+            {amPresent ? (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 whitespace-nowrap flex items-center gap-1">
+                <Check size={12} /> Confirmado
+              </span>
+            ) : amWaitlist ? (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 whitespace-nowrap flex items-center gap-1">
+                <Clock size={12} /> Espera
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">
+                Aberto
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-sm text-text-muted">
+          <UserCheck size={14} />
+          <span>{circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0} confirmados</span>
+          {circuit.max_players && (
+            <span className="text-text-muted/50">/ {circuit.max_players} vagas</span>
+          )}
+        </div>
+      </div>
+      <Link
+        to="/athlete/checkin"
+        className={cn(
+          "btn-primary w-full flex items-center justify-center gap-2 mt-2",
+          (amPresent || amWaitlist) ? "bg-green-600 hover:bg-green-700 text-white" : ""
+        )}
+      >
+        <CalendarCheck size={16} />
+        {(amPresent || amWaitlist) ? "Acessar Circuito" : "Confirmar Presença"}
+      </Link>
+    </div>
+  );
+}
 
 export function AthleteDashboardPage() {
   const { user } = useAuth();
@@ -141,37 +203,7 @@ export function AthleteDashboardPage() {
           {openCircuits && openCircuits.length > 0 ? (
             <div className="space-y-4">
               {openCircuits.map((circuit: any) => (
-                <div key={circuit.id} className="space-y-3 pb-4 border-b border-border/30 last:border-0 last:pb-0">
-                  <div className="bg-surface-highlight rounded-xl p-4 border border-border/50">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-text-primary">{circuit.location || 'Quadra principal'}</p>
-                        <p className="text-text-muted text-sm mt-0.5">
-                          {circuit.time && <span>{circuit.time}</span>}
-                          {circuit.time_end && <span> – {circuit.time_end}</span>}
-                        </p>
-                        <p className="text-text-muted text-xs mt-1">{formatDate(circuit.date)}</p>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 whitespace-nowrap">
-                        Aberto
-                      </span>
-                    </div>
-                    <div className="mt-3 flex items-center gap-2 text-sm text-text-muted">
-                      <UserCheck size={14} />
-                      <span>{circuit.total_present ?? 0} confirmados</span>
-                      {circuit.max_players && (
-                        <span className="text-text-muted/50">/ {circuit.max_players} vagas</span>
-                      )}
-                    </div>
-                  </div>
-                  <Link
-                    to="/athlete/checkin"
-                    className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
-                  >
-                    <CalendarCheck size={16} />
-                    Acessar Circuito
-                  </Link>
-                </div>
+                <DashboardCircuitCard key={circuit.id} circuit={circuit} myPlayer={player} />
               ))}
             </div>
           ) : (
