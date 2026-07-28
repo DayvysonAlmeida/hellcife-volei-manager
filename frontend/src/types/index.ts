@@ -249,6 +249,43 @@ export interface Attendance {
   gameday_location?: string;
 }
 
+// ==================== Dashboard ====================
+export interface DashboardTopPlayer {
+  id: number;
+  name: string;
+  avatar_url: string | null;
+  wins?: number;
+  total_matches?: number;
+  win_rate?: number;
+  big_stars?: number;
+  mini_stars?: number;
+}
+
+export interface DashboardRecentStar {
+  id: number;
+  player_id: number;
+  player_name: string;
+  avatar_url: string | null;
+  category: string;
+  action: string;
+  count: number;
+  created_at: string;
+}
+
+export interface DashboardCategoryWinner {
+  player_id: number;
+  player_name: string;
+  avatar_url: string | null;
+  created_at: string;
+}
+
+export interface DashboardStats {
+  top_wins: DashboardTopPlayer[];
+  top_stars: DashboardTopPlayer[];
+  recent_stars: DashboardRecentStar[];
+  last_category_winners: Record<string, DashboardCategoryWinner>;
+}
+
 // ==================== Teams ====================
 export type Modality = 2 | 3 | 4 | 5 | 6;
 

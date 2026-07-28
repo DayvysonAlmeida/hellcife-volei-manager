@@ -224,6 +224,69 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'big_stars': player.big_stars,
         })
 
+    @action(detail=False, methods=['get'], url_path='dashboard-stats')
+    def dashboard_stats(self, request):
+        qs_wins = Player.objects.filter(is_guest=False).annotate(
+            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
+            total_matches=Count('match_appearances', distinct=True),
+        ).filter(total_matches__gte=1).order_by('-wins', '-total_matches')[:10]
+        
+        top_wins = []
+        for p in qs_wins:
+            win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
+            top_wins.append({
+                'id': p.id,
+                'name': p.display_name,
+                'avatar_url': p.avatar_url,
+                'wins': p.wins,
+                'total_matches': p.total_matches,
+                'win_rate': round(win_rate, 1)
+            })
+
+        qs_stars = Player.objects.filter(is_guest=False).exclude(big_stars=0, mini_stars=0).order_by('-big_stars', '-mini_stars')[:10]
+        top_stars = []
+        for p in qs_stars:
+            top_stars.append({
+                'id': p.id,
+                'name': p.display_name,
+                'avatar_url': p.avatar_url,
+                'big_stars': p.big_stars,
+                'mini_stars': p.mini_stars
+            })
+
+        qs_recent = StarHistory.objects.filter(action__in=['add', 'promote']).select_related('player').order_by('-created_at')[:10]
+        recent_stars = []
+        for h in qs_recent:
+            recent_stars.append({
+                'id': h.id,
+                'player_id': h.player_id,
+                'player_name': h.player.display_name,
+                'avatar_url': h.player.avatar_url,
+                'category': h.category,
+                'action': h.action,
+                'count': h.count,
+                'created_at': h.created_at.isoformat(),
+            })
+
+        categories = ['mvp', 'attack', 'defense', 'setter', 'pass', 'block']
+        last_category_winners = {}
+        for cat in categories:
+            last = StarHistory.objects.filter(category=cat, action='add').select_related('player').order_by('-created_at').first()
+            if last:
+                last_category_winners[cat] = {
+                    'player_id': last.player_id,
+                    'player_name': last.player.display_name,
+                    'avatar_url': last.player.avatar_url,
+                    'created_at': last.created_at.isoformat()
+                }
+
+        return Response({
+            'top_wins': top_wins,
+            'top_stars': top_stars,
+            'recent_stars': recent_stars,
+            'last_category_winners': last_category_winners
+        })
+
     @action(detail=False, methods=['get'], url_path='stars-history')
     def stars_history(self, request):
         qs = StarHistory.objects.select_related('player').order_by('-created_at')[:50]
