@@ -26,8 +26,8 @@ export function AthleteDashboardPage() {
   const { data: todayCircuit } = useQuery({
     queryKey: ['athlete-today-circuit'],
     queryFn: () => api.get('/attendance/gamedays/?is_closed=false&ordering=-date').then(r => {
-      const today = new Date().toISOString().split('T')[0];
-      return (r.data.results || r.data).find((g: any) => g.date === today) || null;
+      const list = r.data.results || r.data;
+      return list[0] || null;
     }),
   });
 
@@ -138,7 +138,7 @@ export function AthleteDashboardPage() {
             <div className="w-9 h-9 rounded-xl bg-red/10 flex items-center justify-center text-red">
               <Volleyball size={18} />
             </div>
-            <h2 className="font-display text-lg text-text-primary tracking-wider">CIRCUITO DE HOJE</h2>
+            <h2 className="font-display text-lg text-text-primary tracking-wider">CIRCUITO ABERTO</h2>
           </div>
 
           {todayCircuit ? (

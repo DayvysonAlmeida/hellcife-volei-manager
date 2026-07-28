@@ -25,11 +25,10 @@ export function AthleteCheckinPage() {
   const { data: circuit, isLoading } = useQuery({
     queryKey: ['athlete-today-circuit'],
     queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
       const res = await api.get(`/attendance/gamedays/?is_closed=false&ordering=-date`);
       const list = res.data.results || res.data;
-      // Pega o primeiro circuito aberto de hoje
-      return list.find((g: any) => g.date === today) || null;
+      // Retorna o circuito mais recente que está aberto
+      return list[0] || null;
     },
   });
 
