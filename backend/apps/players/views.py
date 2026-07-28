@@ -251,7 +251,13 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 'name': p.display_name,
                 'avatar_url': p.avatar_url,
                 'big_stars': p.big_stars,
-                'mini_stars': p.mini_stars
+                'mini_stars': p.mini_stars,
+                'mvp_stars': p.mvp_stars,
+                'attack_stars': p.attack_stars,
+                'defense_stars': p.defense_stars,
+                'setter_stars': p.setter_stars,
+                'pass_stars': p.pass_stars,
+                'block_stars': p.block_stars,
             })
 
         qs_recent = StarHistory.objects.filter(action__in=['add', 'promote']).select_related('player').order_by('-created_at')[:10]

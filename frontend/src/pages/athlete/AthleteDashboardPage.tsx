@@ -188,17 +188,26 @@ export function AthleteDashboardPage() {
                                 p.id === player?.id ? 'text-red font-bold' : 'text-text-primary';
 
               return (
-                <div key={p.id} className={cn("flex items-center gap-4 p-3 rounded-2xl transition-all border", bgClass, isTop3 ? "shadow-lg scale-[1.02] my-1" : "")}>
-                  <div className={cn("w-8 text-center font-display", isTop3 ? "text-2xl" : "text-lg text-text-muted")}>
-                    {isFirst ? '🥇' : isSecond ? '🥈' : isThird ? '🥉' : `${i + 1}º`}
-                  </div>
-                  <Avatar name={p.name} src={p.avatar_url || undefined} size={isTop3 ? "md" : "sm"} className={isFirst ? "ring-2 ring-yellow-400" : ""} />
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-base truncate tracking-wide", textClass)}>{p.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={cn("font-display leading-none", isTop3 ? "text-2xl text-white" : "text-xl text-text-primary")}>{p.wins}</p>
-                    <p className="text-[10px] text-text-muted uppercase tracking-widest font-medium mt-1">{p.win_rate}% Win</p>
+                <div key={p.id} className={cn("relative overflow-hidden flex items-center gap-4 p-3 rounded-2xl transition-all border", bgClass, isTop3 ? "shadow-lg scale-[1.02] my-1" : "")}>
+                  
+                  {/* Gráfico de Barra (Win Rate) no background */}
+                  <div 
+                    className={cn("absolute inset-y-0 left-0 z-0 opacity-20", isFirst ? "bg-yellow-500" : isSecond ? "bg-gray-400" : isThird ? "bg-amber-600" : "bg-green-500")}
+                    style={{ width: `${p.win_rate || 0}%` }}
+                  />
+                  
+                  <div className="relative z-10 flex items-center gap-4 w-full">
+                    <div className={cn("w-8 text-center font-display", isTop3 ? "text-2xl" : "text-lg text-text-muted")}>
+                      {isFirst ? '🥇' : isSecond ? '🥈' : isThird ? '🥉' : `${i + 1}º`}
+                    </div>
+                    <Avatar name={p.name} src={p.avatar_url || undefined} size={isTop3 ? "md" : "sm"} className={isFirst ? "ring-2 ring-yellow-400" : ""} />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-base truncate tracking-wide", textClass)}>{p.name}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className={cn("font-display leading-none", isTop3 ? "text-2xl text-white" : "text-xl text-text-primary")}>{p.wins}</p>
+                      <p className="text-[10px] text-text-muted uppercase tracking-widest font-medium mt-1">{p.win_rate}% Win</p>
+                    </div>
                   </div>
                 </div>
               );
@@ -239,34 +248,72 @@ export function AthleteDashboardPage() {
                                 p.id === player?.id ? 'text-red font-bold' : 'text-text-primary';
 
               return (
-                <div key={p.id} className={cn("flex items-start gap-4 p-3 rounded-2xl transition-all border", bgClass, isTop3 ? "shadow-lg scale-[1.02] my-1" : "")}>
-                  <div className={cn("w-8 text-center font-display mt-1", isTop3 ? "text-2xl" : "text-lg text-text-muted")}>
-                    {isFirst ? '👑' : isSecond ? '⭐' : isThird ? '⭐' : `${i + 1}º`}
-                  </div>
-                  <Avatar name={p.name} src={p.avatar_url || undefined} size={isTop3 ? "md" : "sm"} className={cn("mt-1", isFirst ? "ring-2 ring-yellow-400" : "")} />
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-base truncate tracking-wide", textClass)}>{p.name}</p>
-                    
-                    {/* Estrelas Visuais */}
-                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                      {p.big_stars! > 0 && Array.from({ length: p.big_stars! }).map((_, idx) => (
-                        <span key={`big-${idx}`} className={cn("leading-none drop-shadow-md", isTop3 ? "text-lg" : "text-base")} title="Grande Estrela">🌟</span>
-                      ))}
-                      {p.mini_stars! > 0 && Array.from({ length: p.mini_stars! }).map((_, idx) => (
-                        <span key={`mini-${idx}`} className={cn("leading-none opacity-80", isTop3 ? "text-base" : "text-sm")} title="Mini Estrela">⭐</span>
-                      ))}
+                <div key={p.id} className={cn("relative overflow-hidden flex items-start gap-4 p-3 rounded-2xl transition-all border", bgClass, isTop3 ? "shadow-lg scale-[1.02] my-1" : "")}>
+                  
+                  {/* Gráfico de Barra (Mini Stars / 15) no background */}
+                  <div 
+                    className={cn("absolute inset-y-0 left-0 z-0 opacity-10", isFirst ? "bg-yellow-500" : isSecond ? "bg-gray-400" : isThird ? "bg-amber-600" : "bg-blue-500")}
+                    style={{ width: `${Math.min(((p.mini_stars || 0) / 15) * 100, 100)}%` }}
+                  />
+
+                  <div className="relative z-10 flex items-start gap-4 w-full">
+                    <div className={cn("w-8 text-center font-display mt-1", isTop3 ? "text-2xl" : "text-lg text-text-muted")}>
+                      {isFirst ? '👑' : isSecond ? '⭐' : isThird ? '⭐' : `${i + 1}º`}
                     </div>
-                  </div>
-                  <div className="text-right flex items-center gap-4 mt-1">
-                    {p.big_stars! > 0 && (
-                      <div className="flex flex-col items-center">
-                        <span className={cn("font-display text-yellow-500 leading-none", isTop3 ? "text-2xl" : "text-lg")}>{p.big_stars}</span>
-                        <span className="text-[9px] text-text-muted uppercase tracking-widest mt-1">Big</span>
+                    <Avatar name={p.name} src={p.avatar_url || undefined} size={isTop3 ? "md" : "sm"} className={cn("mt-1", isFirst ? "ring-2 ring-yellow-400" : "")} />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("text-base truncate tracking-wide", textClass)}>{p.name}</p>
+                      
+                      {/* Estrelas Visuais Específicas */}
+                      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                        {p.big_stars! > 0 && (
+                          <span className="flex items-center gap-1 bg-yellow-500/20 text-yellow-500 text-[10px] px-1.5 py-0.5 rounded border border-yellow-500/30">
+                            🌟 {p.big_stars}
+                          </span>
+                        )}
+                        {p.mvp_stars! > 0 && (
+                          <span className="flex items-center gap-1 bg-purple-500/20 text-purple-400 text-[10px] px-1.5 py-0.5 rounded border border-purple-500/30" title="MVP">
+                            🥇 {p.mvp_stars}
+                          </span>
+                        )}
+                        {p.attack_stars! > 0 && (
+                          <span className="flex items-center gap-1 bg-red-500/20 text-red-400 text-[10px] px-1.5 py-0.5 rounded border border-red-500/30" title="Ataque">
+                            ⚔️ {p.attack_stars}
+                          </span>
+                        )}
+                        {p.defense_stars! > 0 && (
+                          <span className="flex items-center gap-1 bg-blue-500/20 text-blue-400 text-[10px] px-1.5 py-0.5 rounded border border-blue-500/30" title="Defesa">
+                            🛡️ {p.defense_stars}
+                          </span>
+                        )}
+                        {p.setter_stars! > 0 && (
+                          <span className="flex items-center gap-1 bg-green-500/20 text-green-400 text-[10px] px-1.5 py-0.5 rounded border border-green-500/30" title="Levantamento">
+                            🎯 {p.setter_stars}
+                          </span>
+                        )}
+                        {p.pass_stars! > 0 && (
+                          <span className="flex items-center gap-1 bg-cyan-500/20 text-cyan-400 text-[10px] px-1.5 py-0.5 rounded border border-cyan-500/30" title="Passe">
+                            🦅 {p.pass_stars}
+                          </span>
+                        )}
+                        {p.block_stars! > 0 && (
+                          <span className="flex items-center gap-1 bg-orange-500/20 text-orange-400 text-[10px] px-1.5 py-0.5 rounded border border-orange-500/30" title="Bloqueio">
+                            🧱 {p.block_stars}
+                          </span>
+                        )}
                       </div>
-                    )}
-                    <div className="flex flex-col items-center">
-                      <span className={cn("font-display text-orange-400 leading-none", isTop3 ? "text-2xl" : "text-lg")}>{p.mini_stars}</span>
-                      <span className="text-[9px] text-text-muted uppercase tracking-widest mt-1">Mini</span>
+                    </div>
+                    <div className="text-right flex items-center gap-4 mt-1">
+                      {p.big_stars! > 0 && (
+                        <div className="flex flex-col items-center">
+                          <span className={cn("font-display text-yellow-500 leading-none", isTop3 ? "text-2xl" : "text-lg")}>{p.big_stars}</span>
+                          <span className="text-[9px] text-text-muted uppercase tracking-widest mt-1">Big</span>
+                        </div>
+                      )}
+                      <div className="flex flex-col items-center">
+                        <span className={cn("font-display text-orange-400 leading-none", isTop3 ? "text-2xl" : "text-lg")}>{p.mini_stars}</span>
+                        <span className="text-[9px] text-text-muted uppercase tracking-widest mt-1">Mini</span>
+                      </div>
                     </div>
                   </div>
                 </div>

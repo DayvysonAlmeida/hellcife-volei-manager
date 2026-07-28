@@ -259,6 +259,12 @@ export interface DashboardTopPlayer {
   win_rate?: number;
   big_stars?: number;
   mini_stars?: number;
+  mvp_stars?: number;
+  attack_stars?: number;
+  defense_stars?: number;
+  setter_stars?: number;
+  pass_stars?: number;
+  block_stars?: number;
 }
 
 export interface DashboardRecentStar {
