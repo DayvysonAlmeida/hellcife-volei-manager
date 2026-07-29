@@ -164,7 +164,7 @@ export function RegulationPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-text-secondary">
             {[
               'Prainha ZS', 'Belo Gol', 'Arena São Miguel', 'Arena Deep',
-              "Arena Mago's", 'Quadra Lagoa do Araçá (Em Andamento)', 'Quadra Compaz Miguel Arraes (Em Andamento)'
+              "Arena Mago's", 'Quadra Lagoa do Araçá (Em Andamento)', 'Quadra Compaz Miguel Arraes', 'Compaz Ariano Suassuna'
             ].map((local) => (
               <div key={local} className="flex items-center gap-2 p-2 rounded-lg hover:bg-surface transition-colors">
                 <MapPin size={14} className="text-orange-500/50" />
