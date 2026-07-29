@@ -15,19 +15,28 @@ export function AppLayout() {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#050505] flex relative overflow-hidden text-gray-900 dark:text-white selection:bg-red/30 transition-colors duration-300">
+      
+      {/* Background ambient orbs globais (Adaptáveis ao tema) */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-red/5 dark:bg-red/10 rounded-full blur-[150px] animate-pulse" />
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue/5 dark:bg-blue/10 rounded-full blur-[150px] animate-pulse delay-700" />
+      </div>
+
       {/* Sidebar */}
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((c) => !c)}
-        mobileOpen={mobileMenuOpen}
-        onMobileClose={() => setMobileMenuOpen(false)}
-      />
+      <div className="relative z-50">
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((c) => !c)}
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
+        />
+      </div>
 
       {/* Main content */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out w-full",
+          "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out w-full relative z-10",
           sidebarCollapsed ? "md:ml-[72px]" : "md:ml-64"
         )}
       >

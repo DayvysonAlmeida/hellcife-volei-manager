@@ -8,6 +8,7 @@ import { PageLoading } from '@/components/ui/Loading';
 import { formatDate } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Avatar } from '@/components/ui/Avatar';
+import { LocationMapModal } from '@/components/ui/LocationMapModal';
 
 export function CheckinPage() {
   const { id } = useParams<{ id: string }>();
@@ -89,7 +90,15 @@ export function CheckinPage() {
             Check-in Hellcife
           </h1>
           <h2 className="text-lg font-medium text-text-primary">{formatDate(gameday.date)}</h2>
-          {gameday.location && <p className="text-text-muted text-sm mt-1">{gameday.location}</p>}
+          {gameday.location && (
+            <div className="flex justify-center mt-2 mb-1">
+              <LocationMapModal 
+                location={gameday.location} 
+                buttonText="Ver no Mapa" 
+                className="text-[10px] bg-red/10 text-red border border-red/20 px-3 py-1 rounded-full uppercase font-bold" 
+              />
+            </div>
+          )}
           {(gameday.time || gameday.time_end) && (
             <p className="text-text-muted text-sm font-medium mt-0.5">
               {gameday.time ? gameday.time.slice(0, 5) : ''} {gameday.time_end ? `às ${gameday.time_end.slice(0, 5)}` : ''}

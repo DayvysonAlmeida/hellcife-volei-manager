@@ -7,6 +7,7 @@ from django.db.models import Count, Q, Subquery, OuterRef, FloatField, Case, Whe
 from django.db.models.functions import Coalesce
 
 from .models import Player, StarHistory
+from apps.notifications.models import Notification
 from .serializers import PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer
 from .filters import PlayerFilter
 from apps.core.permissions import IsAdminOrModerator
@@ -208,9 +209,53 @@ class PlayerViewSet(viewsets.ModelViewSet):
         if history_to_create:
             StarHistory.objects.bulk_create(history_to_create)
 
+        # Envia notificação se o jogador tiver usuário vinculado
+        if player.user and hasattr(player, 'user'):
+            notifications_to_create = []
+            
+            # Notifica mini estrelas adicionadas (somente para o próprio atleta)
+            for diff, cat, label in [
+                (diff_mvp, 'mvp', 'MVP'), (diff_attack, 'attack', 'Ataque'), (diff_defense, 'defense', 'Defesa'),
+                (diff_setter, 'setter', 'Levantamento'), (diff_pass, 'pass', 'Passe'), (diff_block, 'block', 'Bloqueio')
+            ]:
+                if diff > 0:
+                    notifications_to_create.append(Notification(
+                        user=player.user,
+                        title='Mini Estrela Recebida! ⭐',
+                        message=f'Você recebeu {diff} mini estrela(s) de {label}. Continue mandando ver!',
+                        type='prize'
+                    ))
+
+            # Notifica forja da Estrela Maior
+            if new_big_stars > prev_big_stars:
+                # 1. Notifica o próprio jogador
+                notifications_to_create.append(Notification(
+                    user=player.user,
+                    title='ESTRELA FORJADA! 🌟',
+                    message=f'Parabéns! Suas 15 mini estrelas formaram uma nova Estrela Completa! Agora você possui {new_big_stars} estrela(s).',
+                    type='prize'
+                ))
+                
+                # 2. Notifica todos os outros jogadores (Broadcast)
+                from apps.core.models import User
+                other_users = User.objects.filter(profile='player', is_active=True).exclude(id=player.user.id)
+                for other_user in other_users:
+                    notifications_to_create.append(Notification(
+                        user=other_user,
+                        title='Estrela Forjada no Circuito! 🌟',
+                        message=f'O atleta {player.display_name} acabou de forjar uma nova Estrela Completa e chegou a {new_big_stars} estrela(s)!',
+                        type='circuit'
+                    ))
+
+            if notifications_to_create:
+                Notification.objects.bulk_create(notifications_to_create)
+
         # Invalida cache do dashboard para refletir nova pontuação
         from django.core.cache import cache
         cache.delete('dashboard_data')
+
+        from apps.core.utils.ranking_monitor import check_rank_changes
+        check_rank_changes()
 
         return Response({
             'id': player.id,

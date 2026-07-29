@@ -8,6 +8,7 @@ import api from '@/lib/api';
 import { useAuth } from '@/store/AuthContext';
 import { PageLoading } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
+import { LocationMapModal } from '@/components/ui/LocationMapModal';
 import { formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -83,9 +84,18 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               <span className="text-green-400 text-[10px] font-bold uppercase tracking-wider">Aberto</span>
             </div>
-            <h1 className="font-display text-xl text-text-primary tracking-wider leading-none mb-1">
-              {circuit.location || 'PELADA'}
-            </h1>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h1 className="font-display text-xl text-text-primary tracking-wider leading-none">
+                {circuit.location || 'PELADA'}
+              </h1>
+              {circuit.location && (
+                <LocationMapModal 
+                  location={circuit.location} 
+                  buttonText="Ver no Mapa" 
+                  className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded uppercase font-bold" 
+                />
+              )}
+            </div>
             <p className="text-text-muted text-xs font-medium">{formatDate(circuit.date)}</p>
             {(circuit.time || circuit.time_end) && (
               <p className="text-text-muted text-[10px] flex items-center gap-1 mt-0.5">

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Swords, Calendar, MapPin, Trophy, Star, Shield, ChevronDown, Users, Trash2 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
+import { LocationMapModal } from '@/components/ui/LocationMapModal';
 import { formatDate } from '@/lib/utils';
 import { MODALITY_LABELS } from '@/types';
 import type { Modality, Match, MatchPlayer } from '@/types';
@@ -52,8 +53,7 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
           </div>
           {match.location && (
             <div className="flex items-center gap-1 text-text-muted text-xs truncate max-w-[140px]">
-              <MapPin size={11} className="flex-shrink-0" />
-              <span className="truncate">{match.location}</span>
+              <LocationMapModal location={match.location} className="text-xs" />
             </div>
           )}
         </div>

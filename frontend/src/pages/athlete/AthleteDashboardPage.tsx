@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Trophy, Flame, Star, ChevronRight, TrendingUp, Medal, History, Crown, AlertTriangle, Swords, CalendarCheck } from 'lucide-react';
+import { Trophy, Flame, Star, ChevronRight, TrendingUp, Medal, History, Crown, AlertTriangle, Swords, CalendarCheck, Info } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading } from '@/components/ui/Loading';
@@ -67,15 +67,19 @@ export function AthleteDashboardPage() {
 
   return (
     <div className="space-y-8 pb-10">
-      {/* ── Header de Boas-vindas (Estilo Carta Premium) ── */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red/30 via-surface to-black border border-red/30 p-8 shadow-2xl shadow-red/10"
-      >
-        <div className="absolute top-0 right-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 pointer-events-none mix-blend-overlay" />
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-red/10 blur-[100px] pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full bg-blue/10 blur-[80px] pointer-events-none" />
+      {/* ── Header de Boas-vindas (Estilo Carta Premium Glassmorphism) ── */}
+      <div className="relative group/header">
+        {/* Animated Gradient Border Layer */}
+        <div className="absolute -inset-[2px] bg-gradient-to-br from-red/80 via-transparent to-blue/80 rounded-[34px] opacity-40 group-hover/header:opacity-100 transition-opacity duration-700 blur-sm pointer-events-none"></div>
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-[32px] bg-white/80 dark:bg-[#050505]/80 backdrop-blur-3xl border border-gray-200 dark:border-white/10 p-8 shadow-neon-red"
+        >
+          {/* Ambient inner glow */}
+          <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-red/60 to-transparent" />
+          <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-blue/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none opacity-50" />
         
         <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
           <div className="relative flex-shrink-0 group">
@@ -101,7 +105,7 @@ export function AthleteDashboardPage() {
                 </span>
               )}
             </div>
-            <h1 className="font-display text-4xl sm:text-5xl text-white tracking-wider truncate drop-shadow-md">
+            <h1 className="font-display text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-white/70 tracking-wider truncate drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]">
               {(player?.display_name || user?.name || '').toUpperCase()}
             </h1>
             {player?.shirt_number && (
@@ -137,6 +141,7 @@ export function AthleteDashboardPage() {
           </div>
         </div>
       </motion.div>
+      </div>
 
       {/* ── Stats Pessoais Grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -146,11 +151,12 @@ export function AthleteDashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * i }}
-            className="relative overflow-hidden rounded-2xl bg-surface-highlight/30 border border-border/30 p-4 text-center hover:bg-surface-highlight hover:border-border/60 transition-all duration-300 group"
+            className="relative overflow-hidden rounded-[24px] bg-gray-50/80 dark:bg-[#111]/60 backdrop-blur-xl border border-gray-200 dark:border-white/10 p-4 text-center hover:bg-white dark:hover:bg-black/80 hover:border-red/50 hover:shadow-neon-red transition-all duration-300 group"
           >
+            <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br ${s.color.replace('text-', 'from-').replace('-400', '-500/10')} to-transparent rounded-bl-full pointer-events-none`} />
             <s.icon size={24} className={`mx-auto mb-2 transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-1 ${s.color}`} />
-            <p className="font-display text-3xl text-white drop-shadow-sm">{s.value}</p>
+            <p className="font-display text-3xl text-gray-900 dark:text-white drop-shadow-sm">{s.value}</p>
             <p className="text-text-muted text-[10px] uppercase tracking-widest font-medium mt-1">{s.label}</p>
           </motion.div>
         ))}
@@ -163,14 +169,19 @@ export function AthleteDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-3xl border border-border/30 bg-surface overflow-hidden flex flex-col shadow-2xl"
+          className="rounded-[32px] border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-[#050505]/60 backdrop-blur-2xl overflow-hidden flex flex-col shadow-2xl"
         >
-          <div className="p-6 border-b border-border/20 flex items-center justify-center gap-3 bg-gradient-to-r from-surface-highlight via-surface to-surface-highlight relative overflow-hidden">
-            <div className="absolute inset-0 bg-yellow-500/5" />
-            <Trophy size={24} className="text-yellow-400 relative z-10" />
-            <h2 className="font-display text-xl tracking-[0.2em] text-white relative z-10">GLADIADORES</h2>
+          <div className="p-6 border-b border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-1 bg-gray-100/80 dark:bg-[#111]/80 backdrop-blur-md relative overflow-hidden text-center">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/10 to-transparent pointer-events-none" />
+            <div className="flex items-center gap-3 relative z-10">
+              <Trophy size={24} className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
+              <h2 className="font-display text-xl tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 font-bold">GLADIADORES</h2>
+            </div>
+            <p className="text-[11px] text-gray-400/80 font-medium relative z-10 max-w-sm mt-1 uppercase tracking-wider">
+              O RANKING DOS GUERREIROS COM MAIS VITÓRIAS <br className="hidden sm:block" />(A barra % reflete a taxa de vitórias sobre os jogos disputados)
+            </p>
           </div>
-          <div className="p-3 space-y-2 flex-1 bg-black/20">
+          <div className="p-3 space-y-2 flex-1 bg-white/40 dark:bg-black/40">
             {dashboard?.top_wins.map((p, i) => {
               const isFirst = i === 0;
               const isSecond = i === 1;
@@ -205,7 +216,7 @@ export function AthleteDashboardPage() {
                       <p className={cn("text-base truncate tracking-wide", textClass)}>{p.name}</p>
                     </div>
                     <div className="text-right">
-                      <p className={cn("font-display leading-none", isTop3 ? "text-2xl text-white" : "text-xl text-text-primary")}>{p.wins}</p>
+                      <p className={cn("font-display leading-none", isTop3 ? "text-2xl text-gray-900 dark:text-white" : "text-xl text-text-primary")}>{p.wins}</p>
                       <p className="text-[10px] text-text-muted uppercase tracking-widest font-medium mt-1">{p.win_rate}% Win</p>
                     </div>
                   </div>
@@ -223,14 +234,19 @@ export function AthleteDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="rounded-3xl border border-border/30 bg-surface overflow-hidden flex flex-col shadow-2xl"
+          className="rounded-[32px] border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-[#050505]/60 backdrop-blur-2xl overflow-hidden flex flex-col shadow-2xl"
         >
-          <div className="p-6 border-b border-border/20 flex items-center justify-center gap-3 bg-gradient-to-r from-surface-highlight via-surface to-surface-highlight relative overflow-hidden">
-            <div className="absolute inset-0 bg-blue-500/5" />
-            <Star size={24} className="text-blue-400 relative z-10" />
-            <h2 className="font-display text-xl tracking-[0.2em] text-white relative z-10">MURAL DAS ESTRELAS</h2>
+          <div className="p-6 border-b border-gray-200 dark:border-white/10 flex flex-col items-center justify-center gap-1 bg-gray-100/80 dark:bg-[#111]/80 backdrop-blur-md relative overflow-hidden text-center">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent pointer-events-none" />
+            <div className="flex items-center gap-3 relative z-10">
+              <Star size={24} className="text-blue-400 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+              <h2 className="font-display text-xl tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-blue-600 font-bold">MURAL DAS ESTRELAS</h2>
+            </div>
+            <p className="text-[11px] text-gray-400/80 font-medium relative z-10 max-w-sm mt-1 uppercase tracking-wider">
+              ACUMULE 15 MINI ESTRELAS PARA FORJAR UMA GRANDE ESTRELA DE PRESTÍGIO
+            </p>
           </div>
-          <div className="p-3 space-y-2 flex-1 bg-black/20">
+          <div className="p-3 space-y-2 flex-1 bg-white/40 dark:bg-black/40">
             {dashboard?.top_stars.map((p, i) => {
               const isFirst = i === 0;
               const isSecond = i === 1;
@@ -333,11 +349,11 @@ export function AthleteDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="lg:col-span-2 card overflow-hidden flex flex-col"
+          className="lg:col-span-2 rounded-[32px] border border-gray-200 dark:border-white/10 bg-white/60 dark:bg-[#050505]/60 backdrop-blur-2xl overflow-hidden flex flex-col shadow-2xl"
         >
-          <div className="p-4 border-b border-border/30 flex items-center gap-2 bg-surface-highlight/50">
-            <Medal size={18} className="text-purple-400" />
-            <h2 className="font-display tracking-wider text-text-primary">ATUAIS DONOS DO TÍTULO</h2>
+          <div className="p-4 border-b border-gray-200 dark:border-white/10 flex items-center gap-2 bg-gray-100/80 dark:bg-[#111]/80 backdrop-blur-md">
+            <Medal size={18} className="text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
+            <h2 className="font-display tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-white/70 font-bold">ATUAIS DONOS DO TÍTULO</h2>
           </div>
           <div className="p-4 flex-1">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -345,8 +361,8 @@ export function AthleteDashboardPage() {
                 const cat = CATEGORY_MAP[key];
                 const winner = dashboard?.last_category_winners?.[key];
                 return (
-                  <div key={key} className="bg-surface-highlight/30 border border-border/30 rounded-xl p-3 flex flex-col items-center text-center hover:border-red/20 transition-colors">
-                    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center mb-3", cat.color)}>
+                  <div key={key} className="bg-gray-50/80 dark:bg-[#111]/60 backdrop-blur-md border border-white/5 rounded-[24px] p-3 flex flex-col items-center text-center hover:bg-white dark:hover:bg-black/80 hover:border-red/30 hover:shadow-neon-red-sm transition-all duration-300">
+                    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center mb-3 drop-shadow-md", cat.color)}>
                       <cat.icon size={20} />
                     </div>
                     {winner ? (
@@ -374,19 +390,20 @@ export function AthleteDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="rounded-3xl border border-red/20 bg-surface overflow-hidden flex flex-col shadow-[0_0_30px_rgba(239,68,68,0.05)] max-h-[400px] lg:max-h-[500px]"
+          className="rounded-[32px] border border-red/30 bg-white/60 dark:bg-[#050505]/60 backdrop-blur-2xl overflow-hidden flex flex-col shadow-neon-red max-h-[400px] lg:max-h-[500px]"
         >
-          <div className="p-5 border-b border-red/20 flex items-center justify-between gap-2 bg-gradient-to-r from-red/10 via-surface to-red/5 relative overflow-hidden">
+          <div className="p-5 border-b border-red/30 flex items-center justify-between gap-2 bg-gray-100/80 dark:bg-[#111]/80 backdrop-blur-md relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-red/10 via-transparent to-transparent pointer-events-none" />
             <div className="flex items-center gap-3 relative z-10">
               <div className="relative flex items-center justify-center w-6 h-6">
-                <span className="absolute inline-flex h-full w-full rounded-full bg-red opacity-30 animate-ping"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red"></span>
+                <span className="absolute inline-flex h-full w-full rounded-full bg-red opacity-50 animate-ping"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red shadow-[0_0_10px_rgba(217,4,41,1)]"></span>
               </div>
-              <h2 className="font-display text-xl tracking-[0.2em] text-white">ÚLTIMOS DESTAQUES</h2>
+              <h2 className="font-display text-xl tracking-[0.2em] text-neon-red font-bold">ÚLTIMOS DESTAQUES</h2>
             </div>
-            <History size={18} className="text-red/50 relative z-10" />
+            <History size={18} className="text-red/80 relative z-10" />
           </div>
-          <div className="p-3 overflow-y-auto custom-scrollbar flex-1 bg-black/10 space-y-2">
+          <div className="p-3 overflow-y-auto custom-scrollbar flex-1 bg-gray-100 dark:bg-black/10 space-y-2">
             {dashboard?.recent_stars.map((star) => {
               const cat = CATEGORY_MAP[star.category];
               const isPromo = star.category === 'promotion';
@@ -431,7 +448,7 @@ export function AthleteDashboardPage() {
       >
         <Link
           to="/athlete/profile"
-          className="flex items-center justify-between p-4 card hover:border-red/30 hover:shadow-neon-red-sm transition-all duration-300 group"
+          className="flex items-center justify-between p-4 rounded-[24px] bg-gray-50/80 dark:bg-[#111]/60 backdrop-blur-xl border border-gray-200 dark:border-white/10 hover:border-red/50 hover:shadow-neon-red transition-all duration-300 group"
         >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-red/10 flex items-center justify-center text-red group-hover:scale-110 transition-transform">

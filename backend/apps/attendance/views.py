@@ -91,6 +91,22 @@ class GameDayViewSet(viewsets.ModelViewSet):
             for p in base_players
         ])
 
+        # Envia notificação global para os atletas
+        from apps.core.models import User
+        from apps.notifications.models import Notification
+        date_str = gameday.date.strftime('%d/%m/%Y')
+        users = User.objects.filter(profile='player', is_active=True)
+        notifications = [
+            Notification(
+                user=u,
+                title='Novo Circuito Aberto! 🏐',
+                message=f'A lista para o circuito do dia {date_str} já foi criada. Entre para confirmar sua presença ou tirar sua falta!',
+                type='circuit'
+            ) for u in users
+        ]
+        if notifications:
+            Notification.objects.bulk_create(notifications)
+
     def perform_update(self, serializer):
         gameday = serializer.save()
         # Removido o _process_attendance_and_absences para usar apenas o sync_absences_logic() via Sincronizar Faltas ou Lock.

@@ -1,7 +1,8 @@
 import { useLocation } from 'react-router-dom';
-import { Menu, Bell, Sun, Moon } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
+import { NotificationBell } from './NotificationBell';
 
 const routeLabels: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -39,7 +40,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="HellCife" className="w-6 h-6 rounded object-cover" />
+            <img src="/escudo-hellcife.png" alt="HellCife" className="w-8 h-8 object-contain drop-shadow-md" />
             <span className="text-red font-display text-base tracking-widest hidden sm:block">
               HELLCIFE VÔLEI
             </span>
@@ -55,9 +56,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface transition-all relative">
-            <Bell size={18} />
-          </button>
+          <NotificationBell />
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-red-gradient flex items-center justify-center text-white text-xs font-bold">
               {user?.name?.charAt(0).toUpperCase()}

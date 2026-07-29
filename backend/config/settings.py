@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'apps.teams',
     'apps.matches',
     'apps.halloffame',
+    'apps.notifications',
 ]
 
 MIDDLEWARE = [

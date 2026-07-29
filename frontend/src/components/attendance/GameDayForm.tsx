@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { LocationInputWithPreview } from '@/components/ui/LocationInputWithPreview';
 
 import { attendanceService } from '@/services';
 import type { GameDay } from '@/types';
@@ -107,12 +108,12 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
           />
         </div>
         <div className="sm:col-span-1">
-          <label className="text-text-muted text-xs uppercase tracking-wider">Local *</label>
-          <input
-            placeholder="Ex: Quadra HellCife"
+          <label className="text-text-muted text-xs uppercase tracking-wider">Endereço (Mapa) *</label>
+          <LocationInputWithPreview
+            placeholder="Ex: R. Santos Dumont, Recife"
             value={newLocation}
             onChange={(e) => setNewLocation(e.target.value)}
-            className="input w-full mt-1"
+            className="input mt-1"
           />
         </div>
         <div className="sm:col-span-1">

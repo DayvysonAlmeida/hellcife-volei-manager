@@ -19,4 +19,5 @@ urlpatterns = [
     path('api/matches/', include('apps.matches.urls')),
     path('api/hall-of-fame/', include('apps.halloffame.urls')),
     path('api/dashboard/', include('apps.core.dashboard_urls')),
+    path('api/', include('apps.notifications.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

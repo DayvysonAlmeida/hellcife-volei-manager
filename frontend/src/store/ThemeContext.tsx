@@ -19,8 +19,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const root = window.document.documentElement;
     if (theme === 'light') {
       root.classList.add('theme-light');
+      root.classList.remove('dark');
     } else {
       root.classList.remove('theme-light');
+      root.classList.add('dark');
     }
     localStorage.setItem('hellcife-theme', theme);
   }, [theme]);

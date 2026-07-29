@@ -12,6 +12,7 @@ import { playersService } from '@/services/players';
 import { PageLoading } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
+import { LocationInputWithPreview } from '@/components/ui/LocationInputWithPreview';
 import { cn, formatDate } from '@/lib/utils';
 import type { Player } from '@/types';
 
@@ -325,8 +326,8 @@ export function MatchFormPage() {
               <input type="date" {...register('date')} className={cn('input w-full', errors.date && 'border-red/50')} />
             </div>
             <div>
-              <label className="block text-text-secondary text-sm font-medium mb-1.5">Local</label>
-              <input type="text" {...register('location')} placeholder="Ex: Quadra 1" className="input w-full" />
+              <label className="block text-text-secondary text-sm font-medium mb-1.5">Endereço (Mapa)</label>
+              <LocationInputWithPreview {...register('location')} placeholder="Ex: R. Santos Dumont, Recife" className="input" />
             </div>
             <div>
               <label className="block text-text-secondary text-sm font-medium mb-1.5">Modalidade *</label>

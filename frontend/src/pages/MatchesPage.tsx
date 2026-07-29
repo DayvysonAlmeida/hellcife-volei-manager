@@ -11,6 +11,7 @@ import type { Match } from '@/types';
 import { useAuth } from '@/store/AuthContext';
 import toast from 'react-hot-toast';
 import { MatchCard } from '@/components/matches/MatchCard';
+import { LocationMapModal } from '@/components/ui/LocationMapModal';
 
 export function MatchesPage() {
   const { user } = useAuth();
@@ -147,7 +148,7 @@ export function MatchesPage() {
                             )}
                             {gameday.location && (
                               <span className="flex items-center gap-1">
-                                📍 {gameday.location}
+                                <LocationMapModal location={gameday.location} className="font-medium text-text-muted hover:text-text-primary" />
                               </span>
                             )}
                           </div>

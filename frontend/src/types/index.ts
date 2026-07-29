@@ -465,6 +465,7 @@ export const HALL_OF_FAME_LABELS: Record<HallOfFameCategory, string> = {
   best_opposite: 'Melhor Oposto',
 };
 
+export * from './notification';
 export interface HallOfFameEntry {
   id: number;
   category: HallOfFameCategory;

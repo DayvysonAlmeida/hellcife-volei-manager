@@ -85,6 +85,9 @@ class MatchViewSet(viewsets.ModelViewSet):
         # Invalidar cache do dashboard
         cache.delete('dashboard_data')
 
+        from apps.core.utils.ranking_monitor import check_rank_changes
+        check_rank_changes()
+
         return Response({'detail': 'Resultado registrado com sucesso.'})
 
     @action(detail=False, methods=['post'], url_path='quick')
@@ -134,5 +137,8 @@ class MatchViewSet(viewsets.ModelViewSet):
 
         # Invalidar cache do dashboard
         cache.delete('dashboard_data')
+
+        from apps.core.utils.ranking_monitor import check_rank_changes
+        check_rank_changes()
 
         return Response(MatchSerializer(match).data, status=status.HTTP_201_CREATED)
