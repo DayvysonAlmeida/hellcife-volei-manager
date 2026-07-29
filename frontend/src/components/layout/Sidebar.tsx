@@ -132,7 +132,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
           <img
             src="/escudo-hellcife.png"
             alt="HellCife"
-            className="w-10 h-10 rounded-lg object-cover flex-shrink-0 shadow-neon-red-sm"
+            className="w-12 h-auto max-h-12 object-contain flex-shrink-0 drop-shadow-md"
           />
           <AnimatePresence>
             {!collapsed && (

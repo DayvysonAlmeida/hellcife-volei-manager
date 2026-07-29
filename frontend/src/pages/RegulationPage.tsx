@@ -108,19 +108,44 @@ export function RegulationPage() {
             <Calendar className="text-green-500" />
             <h3 className="font-display text-xl tracking-wider text-text-primary">PROGRAMAÇÃO OFICIAL</h3>
           </div>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
-              { dia: 'Terça-Feira', hora: '19h às 22h', status: 'Em Andamento' },
-              { dia: 'Quinta-Feira', hora: '19h às 22h', status: 'Em Andamento' },
-              { dia: 'Sexta-feira', hora: '19h às 21h', status: '' },
-              { dia: 'Domingo', hora: '10h às 12h', status: '' },
+              { dia: 'Segunda-feira', hora: 'Vago', tipo: '', local: '' },
+              { dia: 'Terça-feira', hora: '20h às 21h', tipo: 'Areia', local: 'Arena Deep' },
+              { dia: 'Quarta-feira', hora: 'Vago', tipo: '', local: '' },
+              { dia: 'Quinta-feira', hora: '19:30 às 21:30', tipo: 'Poliesportiva', local: 'Compaz Ariano Suassuna' },
+              { dia: 'Sexta-feira', hora: '19:30 às 21:30', tipo: 'Areia', local: 'Arena Belo Gol/Prainha ZS' },
+              { dia: 'Sábado', hora: 'Vago', tipo: '', local: '' },
+              { dia: 'Domingo', hora: '10h às 12h', tipo: 'Areia', local: 'Compaz Miguel Arraes' },
             ].map((prog) => (
-              <div key={prog.dia} className="flex justify-between items-center p-3 rounded-lg bg-surface border border-border">
-                <span className="font-medium text-text-primary">{prog.dia}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-bold text-green-400">{prog.hora}</span>
-                  {prog.status && <span className="text-[10px] uppercase bg-green-900/40 text-green-400 px-2 py-0.5 rounded-full border border-green-800">{prog.status}</span>}
+              <div key={prog.dia} className="flex flex-col p-4 rounded-xl bg-surface border border-border shadow-sm hover:border-red/30 transition-colors">
+                <div className="flex justify-between items-center border-b border-border/50 pb-2 mb-3">
+                  <span className="font-bold text-text-primary uppercase tracking-wider text-sm">{prog.dia}</span>
+                  {prog.hora === 'Vago' ? (
+                    <span className="text-[10px] uppercase text-text-muted italic font-bold">Livre</span>
+                  ) : (
+                    <span className="text-[10px] uppercase bg-green-900/40 text-green-400 px-2 py-0.5 rounded-full border border-green-800 font-bold tracking-wider">
+                      {prog.tipo}
+                    </span>
+                  )}
                 </div>
+                
+                {prog.hora !== 'Vago' ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start gap-2 text-text-secondary">
+                      <MapPin size={14} className="text-orange-500 mt-0.5 flex-shrink-0" />
+                      <span className="text-xs font-medium leading-tight">{prog.local}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-text-primary">
+                      <Clock size={14} className="text-green-500 flex-shrink-0" />
+                      <span className="text-xs font-bold">{prog.hora}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[52px] text-text-muted opacity-50">
+                    <span className="text-xs italic">— Sem atividades —</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>

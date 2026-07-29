@@ -45,7 +45,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-[#050505] flex relative overflow-hidden text-gray-900 dark:text-white selection:bg-red/30 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 dark:bg-[#050505] flex relative overflow-x-hidden text-gray-900 dark:text-white selection:bg-red/30 transition-colors duration-300">
       
       {/* Theme Toggle Button */}
       <button
@@ -112,7 +112,7 @@ export function LoginPage() {
       {/* ---------------------------------------------------- */}
       {/* Right Side - Login Form (Centered on Mobile)         */}
       {/* ---------------------------------------------------- */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-center items-center p-6 sm:p-12 relative z-10 overflow-hidden">
+      <div className="w-full lg:w-[45%] flex flex-col justify-center items-center p-6 sm:p-12 relative z-10 overflow-x-hidden">
         
         {/* Animated Glowing Orbs Background (Vivid Red & Blue) */}
         <div className="absolute top-0 left-0 w-[400px] h-[400px] bg-red/30 rounded-full blur-[140px] animate-pulse pointer-events-none" />
