@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading } from '@/components/ui/Loading';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { PositionBadge } from '@/components/ui/Badges';
 import type { DashboardStats } from '@/types';
 
 const CATEGORY_MAP: Record<string, { label: string, color: string, icon: any }> = {
@@ -115,8 +116,8 @@ export function AthleteDashboardPage() {
                   <span className="text-red font-display text-xl leading-none">#{player.shirt_number}</span>
                 </div>
                 {player?.main_position_display && (
-                  <div className="bg-surface-highlight/50 border border-border/50 px-4 py-1.5 rounded-lg">
-                    <span className="text-text-muted text-xs uppercase tracking-wider">{player.main_position_display}</span>
+                  <div className="flex items-center gap-1 bg-surface-highlight/50 px-2 py-0.5 rounded-md border border-border/50">
+                    <PositionBadge position={player.main_position} />
                   </div>
                 )}
               </div>
@@ -274,7 +275,7 @@ export function AthleteDashboardPage() {
 
                   <div className="relative z-10 flex items-start gap-4 w-full">
                     <div className={cn("w-8 text-center font-display mt-1", isTop3 ? "text-2xl" : "text-lg text-text-muted")}>
-                      {isFirst ? '👑' : isSecond ? '⭐' : isThird ? '⭐' : `${i + 1}º`}
+                      {isFirst ? '👑' : isSecond ? '🥈' : isThird ? '🥉' : `${i + 1}º`}
                     </div>
                     <Avatar name={p.name} src={p.avatar_url || undefined} size={isTop3 ? "md" : "sm"} className={cn("mt-1", isFirst ? "ring-2 ring-yellow-400" : "")} />
                     <div className="flex-1 min-w-0">

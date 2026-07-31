@@ -950,14 +950,6 @@ export function BracketPage() {
                     <span className={`text-6xl md:text-7xl font-display font-bold ${state.scoreB >= state.scoreA ? 'text-yellow-400' : 'text-text-muted'}`}>{state.scoreB}</span>
                   </div>
                 </div>
-
-                <button 
-                  onClick={() => handleSaveResult()}
-                  disabled={saveMutation.isPending}
-                  className="btn-primary py-4 px-12 text-lg font-bold flex items-center gap-3 justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
-                >
-                  <Save size={22} /> {saveMutation.isPending ? 'Salvando...' : 'CONFIRMAR RESULTADO DA PARTIDA'}
-                </button>
               </div>
 
               <div className="p-4 md:p-6 border-t border-border bg-surface/50 flex gap-4">
@@ -969,12 +961,12 @@ export function BracketPage() {
                   Voltar
                 </button>
                 <button
-                  className="btn-primary flex-[2] flex items-center justify-center gap-2 py-4 text-lg font-bold"
+                  className="btn-primary flex-[2] flex items-center justify-center gap-2 py-4 text-lg font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
                   onClick={handleSaveResult}
                   disabled={saveMutation.isPending}
                 >
                   <Save size={20} />
-                  {saveMutation.isPending ? 'Salvando...' : 'Salvar & Avançar'}
+                  {saveMutation.isPending ? 'Salvando...' : 'Confirmar Resultado'}
                 </button>
               </div>
             </motion.div>

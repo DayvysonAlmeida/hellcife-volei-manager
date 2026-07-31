@@ -91,7 +91,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
             for p in base_players
         ])
 
-        # Envia notificação global para os atletas
+        if gameday.is_published:
+            self._send_publish_notification(gameday)
+
+    def _send_publish_notification(self, gameday):
         from apps.core.models import User
         from apps.notifications.models import Notification
         date_str = gameday.date.strftime('%d/%m/%Y')
@@ -99,16 +102,47 @@ class GameDayViewSet(viewsets.ModelViewSet):
         notifications = [
             Notification(
                 user=u,
-                title='Novo Circuito Aberto! 🏐',
-                message=f'A lista para o circuito do dia {date_str} já foi criada. Entre para confirmar sua presença ou tirar sua falta!',
+                title='Circuito Liberado! 🏐',
+                message=f'A lista para o circuito do dia {date_str} já foi aberta. Entre para confirmar sua presença ou tirar sua falta!',
                 type='circuit'
             ) for u in users
         ]
         if notifications:
             Notification.objects.bulk_create(notifications)
 
+    def _check_and_notify_full_circuit(self, gameday):
+        if gameday.max_players and not gameday.is_full_notified:
+            if gameday.total_present >= gameday.max_players:
+                from apps.notifications.models import Notification
+                gameday.is_full_notified = True
+                gameday.save(update_fields=['is_full_notified'])
+                
+                present_users = [
+                    att.player.user for att in gameday.attendances.filter(present=True).select_related('player__user')
+                    if getattr(att.player, 'user', None) and att.player.user.is_active
+                ]
+                
+                notifications = [
+                    Notification(
+                        user=u,
+                        title='Circuito Fechado! 🛑',
+                        message='O circuito fechou as vagas! Caso não tenha realizado o pagamento, faça agora para garantir a sua vaga.',
+                        type='circuit'
+                    ) for u in present_users
+                ]
+                if notifications:
+                    Notification.objects.bulk_create(notifications)
+
     def perform_update(self, serializer):
+        instance = self.get_object()
+        was_published = instance.is_published
+
         gameday = serializer.save()
+
+        # Envia notificação APENAS se o status is_published mudou de False para True
+        if not was_published and gameday.is_published:
+            self._send_publish_notification(gameday)
+
         # Removido o _process_attendance_and_absences para usar apenas o sync_absences_logic() via Sincronizar Faltas ou Lock.
 
     @action(detail=True, methods=['post'], url_path='bulk-attendance')
@@ -238,6 +272,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
             Attendance.objects.bulk_create(new_attendances)
             
         gameday.refresh_from_db()
+        self._check_and_notify_full_circuit(gameday)
         return Response({'detail': f'{len(new_attendances)} novos jogadores adicionados à lista.'})
 
     @action(detail=True, methods=['patch'], url_path='toggle/(?P<player_id>[^/.]+)')
@@ -275,6 +310,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 attendance.is_waitlist = False
                 attendance.waitlist_joined_at = None
                 attendance.save()
+                self._check_and_notify_full_circuit(gameday)
                 
         return Response({'present': attendance.present, 'is_waitlist': attendance.is_waitlist, 'player_id': player_id})
 
@@ -290,13 +326,27 @@ class GameDayViewSet(viewsets.ModelViewSet):
         )
         attendance.has_paid = not attendance.has_paid
         attendance.save()
+        
+        if attendance.has_paid and getattr(attendance.player, 'user', None) and attendance.player.user.is_active:
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                user=attendance.player.user,
+                title='Pagamento Confirmado! 💰',
+                message='Seu pagamento foi recebido com sucesso. Obrigado e vamos pro jogo! 🏐',
+                type='financial'
+            )
+            
         return Response({'has_paid': attendance.has_paid, 'player_id': player_id})
 
     @action(detail=True, methods=['get'], url_path='checkin-info')
     def checkin_info(self, request, pk=None):
         """Retorna informações resumidas para a tela pública de check-in."""
+        from apps.players.filters import _latest_overall_subquery
+        
         gameday = self.get_object()
-        active_players = Player.objects.filter(status='active').order_by('name')
+        active_players = Player.objects.filter(status='active').annotate(
+            annotated_overall=_latest_overall_subquery()
+        ).order_by('name')
         
         attendances = gameday.attendances.all()
         att_map = {a.player_id: a for a in attendances}
@@ -310,6 +360,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'present': att.present if att else False,
                 'is_waitlist': att.is_waitlist if att else False,
                 'waitlist_joined_at': att.waitlist_joined_at.isoformat() if att and att.waitlist_joined_at else None,
+                'latest_overall': round(p.annotated_overall, 2) if getattr(p, 'annotated_overall', None) else 0.0,
+                'has_paid': att.has_paid if att else False,
+                'payment_claimed': att.payment_claimed if att else False,
+                'main_position': p.main_position,
                 'is_guest': p.is_guest,
                 'invited_by': p.invited_by,
                 'avatar_url': request.build_absolute_uri(p.avatar.url) if p.avatar else None
@@ -375,8 +429,33 @@ class GameDayViewSet(viewsets.ModelViewSet):
         attendance.is_waitlist = False
         attendance.waitlist_joined_at = None
         attendance.save()
+        self._check_and_notify_full_circuit(gameday)
         
         return Response({'present': attendance.present, 'is_waitlist': attendance.is_waitlist, 'player_id': player_id})
+
+    @action(detail=True, methods=['post'], url_path='cancel-checkin')
+    def cancel_checkin(self, request, pk=None):
+        """Endpoint público para o atleta cancelar seu check-in."""
+        gameday = self.get_object()
+        player_id = request.data.get('player_id')
+        
+        if not player_id:
+            return Response({'detail': 'ID do jogador não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        attendance = Attendance.objects.filter(gameday=gameday, player_id=player_id).first()
+        
+        if not attendance:
+            return Response({'detail': 'Nenhuma inscrição encontrada para este jogador.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if gameday.court_price and gameday.court_price > 0 and attendance.present:
+            return Response({'detail': 'Este é um circuito pago. Para cancelar sua presença confirmada, fale com a organização.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        attendance.present = False
+        attendance.is_waitlist = False
+        attendance.waitlist_joined_at = None
+        attendance.save()
+        
+        return Response({'detail': 'Sua inscrição foi cancelada com sucesso.', 'player_id': player_id})
 
     @action(detail=True, methods=['post'], url_path='promote-waitlist')
     def promote_waitlist(self, request, pk=None):
@@ -395,11 +474,32 @@ class GameDayViewSet(viewsets.ModelViewSet):
         next_player_att.waitlist_joined_at = None
         next_player_att.present = True
         next_player_att.save()
+        self._check_and_notify_full_circuit(gameday)
         
         return Response({
             'detail': f'{next_player_att.player.display_name} foi promovido para a lista principal!',
             'player_id': next_player_att.player_id
         })
+
+    @action(detail=True, methods=['post'], url_path='claim-payment')
+    def claim_payment(self, request, pk=None):
+        """Atleta informa que pagou o rateio via PIX."""
+        gameday = self.get_object()
+        player_id = request.data.get('player_id')
+        
+        if not player_id:
+            return Response({'detail': 'ID do jogador não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            attendance = gameday.attendances.get(player_id=player_id)
+        except Attendance.DoesNotExist:
+            return Response({'detail': 'Você não está na lista deste circuito.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        attendance.payment_claimed = True
+        attendance.save()
+        
+        return Response({'detail': 'Aviso de pagamento enviado com sucesso! O administrador irá confirmar em breve.', 'payment_claimed': True})
+
 
 
 def sync_absences_logic():

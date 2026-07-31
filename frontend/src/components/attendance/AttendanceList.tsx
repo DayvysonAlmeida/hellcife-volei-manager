@@ -91,9 +91,11 @@ export function AttendanceList({
               className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
                 att.has_paid
                   ? 'bg-green-500 text-white shadow-lg shadow-green-500/20'
+                  : att.payment_claimed
+                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20 animate-pulse'
                   : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-green-500 hover:text-green-500'
               }`}
-              title="Alternar Pagamento"
+              title={att.payment_claimed ? "Atleta avisou que pagou. Clique para confirmar." : "Alternar Pagamento"}
             >
               <DollarSign size={16} />
             </button>
@@ -116,9 +118,10 @@ export function AttendanceList({
           <div className="flex items-center gap-2">
             <div
               className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
-              ${att.has_paid ? 'bg-green-500' : 'bg-border'}`}
+              ${att.has_paid ? 'bg-green-500' : att.payment_claimed ? 'bg-orange-500' : 'bg-border'}`}
+              title={att.payment_claimed ? 'Avisou que pagou' : ''}
             >
-              {att.has_paid && <DollarSign size={12} className="text-white" />}
+              {(att.has_paid || att.payment_claimed) && <DollarSign size={12} className="text-white" />}
             </div>
             <div
               className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0

@@ -32,16 +32,51 @@ class DashboardView(APIView):
         total_players = Player.objects.filter(is_guest=False).count()
         active_count = Player.objects.filter(status='active', is_guest=False).count()
 
-        # Presença de hoje
-        today = date.today()
-        today_stats = Attendance.objects.filter(
-            gameday__date=today
-        ).aggregate(
-            present_today=Count('id', filter=Q(present=True)),
-            paid_today=Count('id', filter=Q(present=True, has_paid=True)),
+        # Próximo Circuito (ou o atual aberto)
+        from apps.attendance.models import GameDay
+        next_gameday = GameDay.objects.filter(is_closed=False).order_by('date').first()
+        next_circuit = None
+        if next_gameday:
+            total_present = next_gameday.total_present
+            total_unpaid = next_gameday.attendances.filter(present=True, has_paid=False).count()
+            next_circuit = {
+                'id': next_gameday.id,
+                'date': next_gameday.date.isoformat(),
+                'description': next_gameday.description,
+                'location': next_gameday.location,
+                'max_players': next_gameday.max_players,
+                'total_present': total_present,
+                'court_price': float(next_gameday.court_price) if next_gameday.court_price else 0,
+                'total_unpaid': total_unpaid,
+            }
+
+        # Gráfico de Tendência de Presença (Últimos 6 circuitos)
+        last_gamedays = GameDay.objects.order_by('-date')[:6]
+        attendance_trend = []
+        for gd in reversed(last_gamedays):
+            pres = gd.total_present
+            rate = int((pres / gd.max_players) * 100) if gd.max_players and gd.max_players > 0 else 0
+            attendance_trend.append({
+                'date': gd.date.strftime('%d/%m'),
+                'rate': rate,
+                'present': pres,
+                'max': gd.max_players
+            })
+
+        # Top 5 Assíduos
+        top_attendees_qs = (
+            Player.objects.filter(status='active', is_guest=False)
+            .annotate(presence_count=Count('attendances', filter=Q(attendances__present=True)))
+            .order_by('-presence_count')[:5]
         )
-        present_today = today_stats['present_today'] or 0
-        paid_today = today_stats['paid_today'] or 0
+        top_attendees = [
+            {
+                'id': p.id,
+                'name': p.name,
+                'avatar_url': p.avatar_url,
+                'presence_count': p.presence_count
+            } for p in top_attendees_qs if p.presence_count > 0
+        ]
 
         # Maiores Vencedores (Jogadores com mais vitórias nas partidas)
         top_winners_qs = (
@@ -181,8 +216,9 @@ class DashboardView(APIView):
         return {
             'total_players': total_players,
             'active_players': active_count,
-            'present_today': present_today,
-            'paid_today': paid_today,
+            'next_circuit': next_circuit,
+            'attendance_trend': attendance_trend,
+            'top_attendees': top_attendees,
             'top_winners': top_winners,
             'position_distribution': formatted_distribution,
             'highlights': highlights,

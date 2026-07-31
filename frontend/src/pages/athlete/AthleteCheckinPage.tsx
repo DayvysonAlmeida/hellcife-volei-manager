@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Volleyball, Check, Clock, UserCheck, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy } from 'lucide-react';
+import { Volleyball, Check, Clock, UserCheck, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy, Zap, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuth } from '@/store/AuthContext';
 import { PageLoading } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
+import { PositionBadge } from '@/components/ui/Badges';
 import { LocationMapModal } from '@/components/ui/LocationMapModal';
 import { formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -58,6 +59,31 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
     },
   });
 
+  const claimPaymentMutation = useMutation({
+    mutationFn: (playerId: number) =>
+      api.post(`/attendance/gamedays/${circuit.id}/claim-payment/`, { player_id: playerId }).then(r => r.data),
+    onSuccess: () => {
+      toast.success('Aviso enviado! O administrador irá confirmar em breve. 💰');
+      qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit.id] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.detail || 'Erro ao avisar pagamento.');
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (playerId: number) =>
+      api.post(`/attendance/gamedays/${circuit.id}/cancel-checkin/`, { player_id: playerId }).then(r => r.data),
+    onSuccess: () => {
+      toast.success('Presença cancelada com sucesso.');
+      qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit.id] });
+      qc.invalidateQueries({ queryKey: ['athlete-open-circuits'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.detail || 'Erro ao cancelar presença.');
+    },
+  });
+
   const myAttendance = myPlayer && circuitDetail?.players?.find((p: any) => p.id === myPlayer.id);
   const amPresent = myAttendance?.present;
   const amWaitlist = myAttendance?.is_waitlist;
@@ -65,6 +91,12 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   const safePrice = circuit.court_price ? Number(String(circuit.court_price).replace(',', '.')) : 0;
   const pricePerPlayer = safePrice > 0 && circuitDetail?.gameday?.total_present > 0
     ? (safePrice / circuitDetail.gameday.total_present).toFixed(2)
+    : null;
+
+  const presentPlayers = circuitDetail?.players?.filter((p: any) => p.present) || [];
+  const validOveralls = presentPlayers.filter((p: any) => p.latest_overall > 0);
+  const avgOverall = validOveralls.length > 0
+    ? (validOveralls.reduce((sum: number, p: any) => sum + p.latest_overall, 0) / validOveralls.length).toFixed(1)
     : null;
 
   return (
@@ -104,17 +136,22 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               </p>
             )}
           </div>
-          <div className="text-right flex-shrink-0 bg-surface-highlight/30 px-3 py-1.5 rounded-xl border border-border/50">
+          <div className="text-right flex-shrink-0 bg-surface-highlight/30 px-3 py-1.5 rounded-xl border border-border/50 flex flex-col items-end">
             <p className="font-display text-2xl text-text-primary leading-none">{circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0}</p>
             <p className="text-text-muted text-[9px] uppercase tracking-wider mt-0.5">Confirmados</p>
             {circuit.max_players && (
               <p className="text-text-muted/60 text-[9px]">/ {circuit.max_players} vagas</p>
             )}
+            {avgOverall && (
+              <div className="mt-1.5 inline-flex items-center gap-1 bg-yellow-500/10 text-yellow-500 text-[9px] px-1.5 py-0.5 rounded border border-yellow-500/20 font-bold tracking-wider" title="Média de Overall dos confirmados">
+                <Zap size={10} className="fill-yellow-500/50" /> {avgOverall}
+              </div>
+            )}
           </div>
         </div>
 
         {/* PIX Opcional */}
-        {safePrice > 0 && (
+        {safePrice > 0 && (amPresent || amWaitlist) && (
           <div className="mb-3">
             {circuitDetail?.gameday?.total_present > 0 ? (
               <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-2.5 flex flex-col items-center gap-2">
@@ -123,12 +160,12 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                 </div>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText('hellcifevolei@gmail.com');
+                    navigator.clipboard.writeText(circuit.pix_key || 'hellcifevolei@gmail.com');
                     toast.success('Chave PIX copiada! 💸');
                   }}
                   className="w-full bg-green-500/10 border border-green-500/30 hover:bg-green-500/20 text-green-400 font-bold rounded flex items-center justify-center gap-2 py-1.5 text-xs transition-colors"
                 >
-                  <Copy size={13} /> Copiar PIX (hellcifevolei@gmail.com)
+                  <Copy size={13} /> Copiar PIX ({circuit.pix_key || 'hellcifevolei@gmail.com'})
                 </button>
               </div>
             ) : (
@@ -147,18 +184,32 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                 <Avatar name={myPlayer.display_name} src={myPlayer.avatar_url} size="sm" />
                 <div>
                   <p className="text-text-primary text-sm font-medium leading-none">{myPlayer.display_name}</p>
-                  <p className="text-text-muted text-[10px] mt-0.5">{myPlayer.main_position_display}</p>
+                  <div className="mt-1">
+                    <PositionBadge position={myPlayer.main_position} />
+                  </div>
                 </div>
               </div>
-              <div>
+              <div className="flex flex-col items-end gap-1.5">
                 {amPresent ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                    <Check size={12} /> Conf.
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                      <Check size={12} /> Conf.
+                    </span>
+                    {safePrice === 0 && (
+                      <button onClick={() => cancelMutation.mutate(myPlayer.id)} disabled={cancelMutation.isPending} className="p-1 text-red hover:bg-red/10 rounded" title="Cancelar Presença">
+                        {cancelMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                      </button>
+                    )}
+                  </div>
                 ) : amWaitlist ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                    <Clock size={12} /> Fila
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                      <Clock size={12} /> Fila
+                    </span>
+                    <button onClick={() => cancelMutation.mutate(myPlayer.id)} disabled={cancelMutation.isPending} className="p-1 text-red hover:bg-red/10 rounded" title="Sair da Fila">
+                      {cancelMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                    </button>
+                  </div>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-black/20 text-text-muted border border-border">
                     Ausente
@@ -183,15 +234,36 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               </motion.button>
             )}
 
-            {amPresent && (
-              <div className="text-center bg-green-500/10 text-green-400 rounded py-1.5 text-xs font-medium border border-green-500/20">
-                ✅ Presença garantida! Nos vemos na quadra!
+            {amPresent && !myAttendance?.has_paid && (
+              <div className="flex gap-2">
+                <div className="flex-1 text-center bg-green-500/10 text-green-400 rounded py-2 text-xs font-medium border border-green-500/20 flex items-center justify-center">
+                  ✅ Presença garantida!
+                </div>
+                {myAttendance?.payment_claimed ? (
+                  <div className="flex-1 text-center bg-orange-500/10 text-orange-400 rounded py-2 text-xs font-bold border border-orange-500/30 flex items-center justify-center animate-pulse">
+                    ⏳ Em Análise
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => claimPaymentMutation.mutate(myPlayer.id)}
+                    disabled={claimPaymentMutation.isPending}
+                    className="flex-1 btn-primary py-2 text-xs font-bold bg-yellow-500 text-yellow-950 hover:bg-yellow-400 border-none flex items-center justify-center gap-1"
+                  >
+                    {claimPaymentMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : '💰 Já Paguei'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {amPresent && myAttendance?.has_paid && (
+              <div className="text-center bg-green-500/20 text-green-400 rounded py-2 text-xs font-bold border border-green-500/40">
+                ✅ Pago e Confirmado!
               </div>
             )}
 
             {amWaitlist && (
-              <div className="text-center bg-yellow-500/10 text-yellow-400 rounded py-1.5 text-xs font-medium border border-yellow-500/20">
-                ⏳ Você está na fila de espera. Aguarde!
+              <div className="text-center bg-yellow-500/10 text-yellow-400 rounded py-2 text-xs font-medium border border-yellow-500/20 mt-2">
+                ⏳ Fila de espera
               </div>
             )}
           </div>
@@ -271,15 +343,46 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
           transition={{ delay: 0.3 }}
           className="card p-4"
         >
-          <div className="flex items-center gap-2 mb-3 border-b border-border/30 pb-2">
-            <Check size={16} className="text-green-400" />
-            <h2 className="font-display text-base text-text-primary tracking-wider">
-              CONFIRMADOS ({circuitDetail.players.filter((p: any) => p.present).length})
-            </h2>
+          <div className="mb-3 border-b border-border/30 pb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Check size={16} className="text-green-400" />
+              <h2 className="font-display text-base text-text-primary tracking-wider">
+                CONFIRMADOS ({presentPlayers.length})
+              </h2>
+            </div>
+            
+            {/* Resumo de Posições */}
+            {presentPlayers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {(['outside', 'setter', 'middle', 'opposite', 'libero', 'universal'] as const).map(pos => {
+                  const count = presentPlayers.filter((p: any) => p.main_position === pos).length;
+                  if (count === 0) return null;
+                  
+                  const colors: Record<string, string> = {
+                    outside: 'bg-red/10 text-red border-red/20',
+                    setter: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                    middle: 'bg-green-500/10 text-green-400 border-green-500/20',
+                    opposite: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+                    libero: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+                    universal: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                  };
+                  const labels: Record<string, string> = {
+                    outside: 'Ponteiros', setter: 'Levantadores', middle: 'Centrais', 
+                    opposite: 'Opostos', libero: 'Líberos', universal: 'Universais'
+                  };
+                  const color = colors[pos] || 'bg-gray-500/10 text-gray-400';
+                  
+                  return (
+                    <span key={pos} className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${color}`}>
+                      {count} {labels[pos] || pos}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="space-y-1">
-            {circuitDetail.players
-              .filter((p: any) => p.present)
+            {presentPlayers
               .map((p: any, i: number) => (
                 <div key={p.id} className="flex items-center gap-2 py-1.5 border-b border-border/10 last:border-0 hover:bg-surface-highlight/30 px-1 rounded transition-colors">
                   <span className="text-text-muted/40 text-[10px] w-4 text-right flex-shrink-0 font-bold">{i + 1}</span>
@@ -288,8 +391,8 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                     {p.name}
                   </span>
                   {p.is_guest && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20">
-                      Convidado
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20 truncate max-w-[100px]">
+                      {p.invited_by ? `Conv. por ${p.invited_by}` : 'Convidado'}
                     </span>
                   )}
                   <Check size={12} className="text-green-400 flex-shrink-0 ml-auto" />
@@ -327,8 +430,8 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                     {p.name}
                   </span>
                   {p.is_guest && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20">
-                      Convidado
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20 truncate max-w-[100px]">
+                      {p.invited_by ? `Conv. por ${p.invited_by}` : 'Convidado'}
                     </span>
                   )}
                 </div>

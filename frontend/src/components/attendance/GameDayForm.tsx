@@ -21,6 +21,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
   const [newLocation, setNewLocation] = useState(initialData?.location || '');
   const [newMaxPlayers, setNewMaxPlayers] = useState<number | ''>(initialData?.max_players || '');
   const [newCourtPrice, setNewCourtPrice] = useState<number | ''>(initialData?.court_price || '');
+  const [newPixKey, setNewPixKey] = useState(initialData?.pix_key || '');
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -31,6 +32,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
         location: newLocation,
         max_players: newMaxPlayers === '' ? undefined : newMaxPlayers,
         court_price: newCourtPrice === '' ? undefined : newCourtPrice,
+        pix_key: newPixKey || undefined,
       };
       
       if (initialData) {
@@ -129,6 +131,18 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
               setNewCourtPrice(e.target.value === '' ? '' : Number(e.target.value))
             }
             min={0}
+            className="input w-full mt-1"
+          />
+        </div>
+        <div className="sm:col-span-1">
+          <label className="text-text-muted text-xs uppercase tracking-wider">
+            Chave PIX (Opcional)
+          </label>
+          <input
+            type="text"
+            placeholder="Ex: CPF, E-mail ou Telefone"
+            value={newPixKey}
+            onChange={(e) => setNewPixKey(e.target.value)}
             className="input w-full mt-1"
           />
         </div>

@@ -214,6 +214,7 @@ export interface GameDay {
   description?: string;
   location?: string;
   max_players?: number;
+  pix_key?: string;
   created_by?: number;
   total_present: number;
   total_paid?: number;
@@ -239,6 +240,7 @@ export interface Attendance {
   player_invited_by?: string;
   present: boolean;
   has_paid: boolean;
+  payment_claimed?: boolean;
   checked_at: string;
   was_no_show?: boolean;
   is_justified?: boolean;
@@ -486,8 +488,28 @@ export interface HallOfFameEntry {
 export interface DashboardData {
   total_players: number;
   active_players: number;
-  present_today: number;
-  paid_today: number;
+  next_circuit: {
+    id: number;
+    date: string;
+    description: string | null;
+    location: string;
+    max_players: number;
+    total_present: number;
+    court_price: number;
+    total_unpaid: number;
+  } | null;
+  attendance_trend: Array<{
+    date: string;
+    rate: number;
+    present: number;
+    max: number;
+  }>;
+  top_attendees: Array<{
+    id: number;
+    name: string;
+    avatar_url: string;
+    presence_count: number;
+  }>;
   top_winners: TopWinner[];
   position_distribution: PositionDist[];
   highlights: Record<string, HighlightPlayer[]>;

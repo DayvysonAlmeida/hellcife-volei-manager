@@ -204,7 +204,7 @@ export function PlayersPage() {
           </div>
 
           {/* Filters Row (Collapsible on Mobile) */}
-          <div className={cn("grid grid-cols-2 sm:grid-cols-4 md:flex md:flex-row gap-2 w-full md:w-auto", showMobileFilters ? "flex" : "hidden md:flex")}>
+          <div className={cn("grid grid-cols-2 sm:grid-cols-4 md:flex md:flex-row flex-wrap gap-2 w-full md:w-auto", !showMobileFilters && "hidden md:flex")}>
             
             {/* Sorting */}
             <select

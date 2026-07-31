@@ -14,7 +14,7 @@ import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { SyncButton } from '@/components/ui/SyncButton';
 import { dashboardService } from '@/services';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, cn } from '@/lib/utils';
 import type { DashboardData } from '@/types';
 
 const CHART_COLORS = ['#D90429', '#2563EB', '#16A34A', '#CA8A04', '#7C3AED', '#EA580C'];
@@ -141,31 +141,66 @@ export function DashboardPage() {
 
       {/* Stat Cards - Desconstruídos */}
       <div className="flex flex-col lg:flex-row gap-4 mb-6">
-        {/* Card Principal de Presenças */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="flex-1 bg-gradient-to-br from-red/20 via-surface to-surface border-2 border-red/30 rounded-2xl p-6 relative overflow-hidden shadow-[0_0_30px_rgba(217,4,41,0.15)] flex items-center justify-between"
-        >
-          <div className="absolute -right-6 -top-6 text-red/5">
-            <Flame size={120} />
-          </div>
-          <div className="z-10 relative">
-            <div className="flex items-center gap-2 text-red/80 font-bold tracking-widest text-xs mb-2">
-              <CalendarCheck size={16} />
-              HOJE NA QUADRA
+        {/* Próximo Circuito */}
+        {data.next_circuit ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex-1 bg-gradient-to-br from-red/20 via-surface to-surface border-2 border-red/30 rounded-2xl p-6 relative overflow-hidden shadow-[0_0_30px_rgba(217,4,41,0.15)] flex flex-col justify-between"
+          >
+            <div className="absolute -right-6 -top-6 text-red/5">
+              <Flame size={120} />
             </div>
-            <div className="flex items-baseline gap-3">
-              <h2 className="font-display text-6xl text-text-primary leading-none">{data.present_today}</h2>
-              <span className="text-text-secondary text-sm">atletas presentes</span>
+            <div className="z-10 relative mb-4">
+              <div className="flex items-center gap-2 text-red/80 font-bold tracking-widest text-xs mb-2 uppercase truncate">
+                <CalendarCheck size={16} className="flex-shrink-0" />
+                <span className="truncate">
+                  {data.next_circuit.description || 'Circuito Aberto'} • {data.next_circuit.location || 'Sem local'} ({new Date(data.next_circuit.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })})
+                </span>
+              </div>
+              <div className="flex items-baseline gap-3">
+                <h2 className="font-display text-5xl text-text-primary leading-none">
+                  {data.next_circuit.total_present}
+                  <span className="text-2xl text-text-muted">/{data.next_circuit.max_players || '∞'}</span>
+                </h2>
+                <span className="text-text-secondary text-sm">confirmados</span>
+              </div>
             </div>
-            {data.paid_today > 0 && (
-              <div className="mt-3 inline-flex items-center gap-1.5 bg-green-500/10 text-green-500 text-xs font-bold px-3 py-1 rounded-full border border-green-500/20">
-                <span>💰</span> {data.paid_today} pagamentos confirmados
+
+            <div className="z-10 relative flex flex-col sm:flex-row gap-3">
+              {data.next_circuit.total_unpaid > 0 && data.next_circuit.court_price > 0 && (
+                <div className="inline-flex items-center gap-2 bg-red/10 text-red text-xs font-bold px-3 py-2 rounded-lg border border-red/20">
+                  <span className="animate-pulse">⚠️</span> {data.next_circuit.total_unpaid} aguardando pagamento
+                </div>
+              )}
+              {data.next_circuit.court_price > 0 && (
+                <div className="inline-flex items-center gap-2 bg-green-500/10 text-green-500 text-xs font-bold px-3 py-2 rounded-lg border border-green-500/20">
+                  <span>💰</span> R$ {data.next_circuit.court_price} (Quadra)
+                </div>
+              )}
+            </div>
+            
+            {/* Barra de progresso */}
+            {data.next_circuit.max_players > 0 && (
+              <div className="mt-4 w-full h-2 bg-surface-highlight rounded-full overflow-hidden z-10 relative">
+                <div 
+                  className={cn("h-full rounded-full transition-all duration-1000", data.next_circuit.total_present >= data.next_circuit.max_players ? "bg-red" : "bg-green-500")}
+                  style={{ width: `${Math.min((data.next_circuit.total_present / data.next_circuit.max_players) * 100, 100)}%` }}
+                />
               </div>
             )}
-          </div>
-        </motion.div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex-1 bg-surface border border-border rounded-2xl p-6 flex flex-col items-center justify-center text-center"
+          >
+            <CalendarDays size={48} className="text-text-muted mb-4 opacity-20" />
+            <h3 className="text-lg font-bold text-text-primary mb-1">Nenhum Circuito Aberto</h3>
+            <p className="text-sm text-text-muted">Crie um novo GameDay para iniciar as confirmações.</p>
+          </motion.div>
+        )}
 
         {/* Estatísticas Secundárias em Pills */}
         <div className="flex flex-col gap-3 justify-center lg:w-64 flex-shrink-0">
@@ -199,6 +234,58 @@ export function DashboardPage() {
             </div>
           </motion.div>
         </div>
+      </div>
+
+      {/* Operacional Secundário */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        {/* Gráfico de Frequência */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="card p-5"
+        >
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-4 flex items-center gap-2">
+            <TrendingUp size={14} className="text-blue" /> Taxa de Lotação (Últimos 6)
+          </h3>
+          <div className="h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.attendance_trend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272A" vertical={false} />
+                <XAxis dataKey="date" tick={{ fill: '#71717A', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#71717A', fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                <Tooltip content={<CustomTooltip />} />
+                <Line type="monotone" dataKey="rate" stroke="#2563EB" strokeWidth={3} dot={{ r: 4, fill: '#2563EB', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Lotação %" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Top Assíduos */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="card p-5"
+        >
+          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-4 flex items-center gap-2">
+            <Zap size={14} className="text-yellow-500" /> Os 5 Mais Assíduos
+          </h3>
+          <div className="flex flex-col gap-2">
+            {data.top_attendees?.length > 0 ? data.top_attendees.map((att, i) => (
+              <Link to={`/players/${att.id}`} key={att.id} className="flex items-center gap-3 bg-surface-highlight/30 p-2 rounded-lg hover:bg-surface-highlight/60 transition-colors">
+                <span className="text-text-muted text-[10px] font-bold w-4 text-center">{i + 1}º</span>
+                <Avatar name={att.name} src={att.avatar_url} size="sm" />
+                <span className="flex-1 text-sm font-medium text-text-primary truncate">{att.name}</span>
+                <span className="text-[10px] font-bold bg-surface px-2 py-1 rounded text-text-secondary border border-border">
+                  {att.presence_count} presenças
+                </span>
+              </Link>
+            )) : (
+              <p className="text-text-muted text-xs text-center py-4">Nenhum dado de presença.</p>
+            )}
+          </div>
+        </motion.div>
       </div>
 
       {/* Ranking de Méritos */}

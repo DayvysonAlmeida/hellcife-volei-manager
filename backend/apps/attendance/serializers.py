@@ -17,7 +17,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attendance
         fields = ['id', 'gameday', 'player', 'player_name', 'player_avatar',
-                  'player_position', 'player_shirt', 'player_status', 'player_is_guest', 'player_invited_by', 'present', 'has_paid', 'checked_at',
+                  'player_position', 'player_shirt', 'player_status', 'player_is_guest', 'player_invited_by', 'present', 'has_paid', 'payment_claimed', 'checked_at',
                   'was_no_show', 'is_justified', 'justification_text', 'is_waitlist', 'waitlist_joined_at',
                   'gameday_date', 'gameday_location']
         read_only_fields = ['checked_at']
@@ -44,7 +44,7 @@ class GameDaySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GameDay
-        fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'description', 'location', 'created_by',
+        fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'pix_key', 'description', 'location', 'created_by',
                   'total_present', 'total_players', 'attendances', 'court_checkins', 'created_at', 'is_closed', 'is_published']
         read_only_fields = ['created_by', 'created_at']
 
@@ -57,7 +57,7 @@ class GameDayListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GameDay
-        fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'description', 'location',
+        fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'pix_key', 'description', 'location',
                   'total_present', 'total_paid', 'total_players', 'total_court_checkins', 'created_at', 'is_closed', 'is_published']
 
 
