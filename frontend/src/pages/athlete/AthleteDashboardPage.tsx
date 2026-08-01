@@ -144,6 +144,83 @@ export function AthleteDashboardPage() {
       </motion.div>
       </div>
 
+      {/* ── FIRE SHARK RANKING (Top Win Rate) ── */}
+      {dashboard?.fire_sharks && dashboard.fire_sharks.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative rounded-[32px] overflow-hidden border-2 border-orange-500/30 shadow-[0_0_30px_rgba(249,115,22,0.15)] bg-[#0a0505] p-1 flex flex-col md:flex-row gap-4"
+        >
+          {/* Animated Background effects */}
+          <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 via-orange-500/5 to-transparent pointer-events-none" />
+          <div className="absolute -inset-[100%] animate-[spin_10s_linear_infinite] opacity-30" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #f97316 360deg)' }} />
+          <div className="absolute inset-[2px] bg-[#050202]/95 rounded-[30px] z-0" />
+          
+          {/* Rank 1 Highlight Card */}
+          {dashboard.fire_sharks[0] && (
+            <div className="relative z-10 w-full md:w-1/3 p-6 flex flex-col items-center text-center justify-center border-b md:border-b-0 md:border-r border-orange-500/20">
+              <div className="absolute top-4 left-4 bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_10px_rgba(220,38,38,0.5)] tracking-widest uppercase">
+                Mín. 5 jogos
+              </div>
+              <img src="/fireshark.png" alt="Fire Shark" className="w-24 h-24 object-contain mb-4 drop-shadow-[0_0_15px_rgba(249,115,22,0.8)] animate-pulse" />
+              <h2 className="font-display text-2xl tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-500 to-orange-400 font-bold mb-6">
+                FIRE SHARK
+              </h2>
+              
+              <div className="relative">
+                <div className="absolute -inset-4 bg-orange-500/20 blur-xl rounded-full" />
+                <Avatar name={dashboard.fire_sharks[0].name} src={dashboard.fire_sharks[0].avatar_url} size="xl" className="ring-4 ring-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.6)] w-32 h-32 relative z-10" />
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-orange-600 to-red-600 text-white font-black text-xl px-4 py-1 rounded-full shadow-lg border border-orange-400/50 z-20">
+                  1º
+                </div>
+              </div>
+              
+              <h3 className="text-xl font-bold text-white mt-8 mb-2 truncate w-full px-4">{dashboard.fire_sharks[0].name}</h3>
+              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3">
+                <div className="flex flex-col items-center px-3 border-r border-white/10">
+                  <span className="text-xs text-orange-400/70 uppercase tracking-widest font-bold">Win Rate</span>
+                  <span className="text-3xl font-display text-orange-400">{dashboard.fire_sharks[0].win_rate}%</span>
+                </div>
+                <div className="flex flex-col items-center px-3">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Vitórias</span>
+                  <span className="text-lg font-bold text-white">{dashboard.fire_sharks[0].wins}/{dashboard.fire_sharks[0].total_matches}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* List Rank 2-10 */}
+          <div className="relative z-10 w-full md:w-2/3 p-4 md:p-6 flex flex-col gap-2 max-h-[450px] overflow-y-auto custom-scrollbar">
+            <h3 className="text-xs font-bold text-orange-500/70 tracking-[0.2em] uppercase mb-2 pl-2">Top 10 - Tubarões da Quadra</h3>
+            {dashboard.fire_sharks.slice(1).map((shark, idx) => (
+              <Link to={`/players/${shark.id}`} key={shark.id} className={cn(
+                "flex items-center gap-3 md:gap-4 p-3 rounded-xl border transition-all duration-300 group",
+                player?.id === shark.id 
+                  ? "bg-orange-500/10 border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.15)]" 
+                  : "bg-white/5 border-white/5 hover:border-orange-500/20 hover:bg-white/10"
+              )}>
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-inner flex-shrink-0",
+                  idx === 0 ? "bg-gray-300 text-gray-800" :
+                  idx === 1 ? "bg-amber-700 text-amber-100" :
+                  "bg-black/50 text-gray-400"
+                )}>
+                  {idx + 2}
+                </div>
+                <Avatar name={shark.name} src={shark.avatar_url} size="sm" className="ring-2 ring-white/10 group-hover:ring-orange-500/30 transition-all" />
+                <div className="flex-1 min-w-0">
+                  <p className={cn("font-bold truncate", player?.id === shark.id ? "text-orange-400" : "text-gray-200 group-hover:text-white")}>{shark.name}</p>
+                  <p className="text-[10px] text-gray-500 font-medium">{shark.wins} vitórias em {shark.total_matches} jogos</p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-lg font-display text-orange-400">{shark.win_rate}%</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* ── Stats Pessoais Grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {statCards.map((s, i) => (

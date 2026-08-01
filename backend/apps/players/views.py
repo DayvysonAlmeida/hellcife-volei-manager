@@ -288,6 +288,26 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 'win_rate': round(win_rate, 1)
             })
 
+        qs_fire = Player.objects.filter(is_guest=False).annotate(
+            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
+            total_matches=Count('match_appearances', distinct=True),
+        ).filter(total_matches__gte=5)
+        
+        fire_list = []
+        for p in qs_fire:
+            win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
+            fire_list.append({
+                'id': p.id,
+                'name': p.display_name,
+                'avatar_url': p.avatar_url,
+                'wins': p.wins,
+                'total_matches': p.total_matches,
+                'win_rate': round(win_rate, 1)
+            })
+            
+        fire_list.sort(key=lambda x: (x['win_rate'], x['wins']), reverse=True)
+        fire_sharks = fire_list[:10]
+
         qs_stars = Player.objects.filter(is_guest=False).exclude(big_stars=0, mini_stars=0).order_by('-big_stars', '-mini_stars')[:10]
         top_stars = []
         for p in qs_stars:
@@ -335,7 +355,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'top_wins': top_wins,
             'top_stars': top_stars,
             'recent_stars': recent_stars,
-            'last_category_winners': last_category_winners
+            'last_category_winners': last_category_winners,
+            'fire_sharks': fire_sharks
         })
 
     @action(detail=False, methods=['get'], url_path='stars-history')

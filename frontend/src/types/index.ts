@@ -290,6 +290,14 @@ export interface DashboardCategoryWinner {
 export interface DashboardStats {
   top_wins: DashboardTopPlayer[];
   top_stars: DashboardTopPlayer[];
+  fire_sharks: Array<{
+    id: number;
+    name: string;
+    avatar_url: string;
+    win_rate: number;
+    wins: number;
+    total_matches: number;
+  }>;
   recent_stars: DashboardRecentStar[];
   last_category_winners: Record<string, DashboardCategoryWinner>;
 }
