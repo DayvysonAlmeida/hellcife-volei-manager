@@ -247,10 +247,14 @@ export function AthleteDashboardPage() {
                   <div className="absolute inset-0 m-auto w-[130px] sm:w-[170px] h-[130px] sm:h-[170px] rounded-full animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 180deg, #3b82f6 0deg 180deg, #f97316 180deg 360deg)' }} />
                   <div className="absolute inset-0 m-auto w-[122px] sm:w-[160px] h-[122px] sm:h-[160px] rounded-full bg-[#050202]" />
                   
-                  <div className="relative z-10 flex flex-col items-center w-[114px] sm:w-[150px] h-[114px] sm:h-[150px] rounded-full bg-green-900/40 border-[2px] sm:border-[3px] border-black shadow-inner justify-center p-2 overflow-hidden">
-                    <span className="text-yellow-500 font-bold text-[8px] sm:text-xs tracking-widest mb-1 z-10 drop-shadow-md">1º LUGAR</span>
-                    <span className="text-white font-display text-5xl sm:text-7xl z-10 drop-shadow-lg">{dashboard.fire_sharks[0].name.charAt(0).toUpperCase()}</span>
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 pointer-events-none" />
+                  <div className="relative z-10 flex flex-col items-center w-[114px] sm:w-[150px] h-[114px] sm:h-[150px] rounded-full bg-[#111] border-[2px] sm:border-[3px] border-black shadow-inner justify-center overflow-hidden">
+                    {dashboard.fire_sharks[0].avatar_url ? (
+                      <img src={dashboard.fire_sharks[0].avatar_url} alt={dashboard.fire_sharks[0].name} className="absolute inset-0 w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white font-display text-5xl sm:text-7xl z-10 drop-shadow-lg">{dashboard.fire_sharks[0].name.charAt(0).toUpperCase()}</span>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+                    <span className="absolute top-3 text-yellow-500 font-bold text-[8px] sm:text-[10px] tracking-widest z-10 drop-shadow-md">1º LUGAR</span>
                   </div>
 
                   <div className="absolute -bottom-4 sm:-bottom-5 left-1/2 -translate-x-1/2 w-20 sm:w-28 h-12 sm:h-16 bg-gradient-to-b from-orange-500 to-red-900 flex flex-col items-center justify-center z-20 shadow-[0_0_20px_rgba(249,115,22,0.6)]" style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}>
