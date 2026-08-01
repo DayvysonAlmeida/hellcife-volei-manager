@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Trophy, Flame, Star, ChevronRight, TrendingUp, Medal, History, Crown, AlertTriangle, Swords, CalendarCheck, Info } from 'lucide-react';
+import { Trophy, Flame, Star, ChevronRight, TrendingUp, Medal, History, Crown, AlertTriangle, Swords, CalendarCheck, Info, Zap, Target } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading } from '@/components/ui/Loading';
@@ -144,79 +144,200 @@ export function AthleteDashboardPage() {
       </motion.div>
       </div>
 
+      {stats && stats.total_matches < 10 && (
+        <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4 flex items-center justify-between text-orange-200 shadow-[0_0_15px_rgba(249,115,22,0.1)]">
+          <div className="flex items-center gap-3">
+            <div className="bg-orange-500/20 p-2 rounded-lg text-orange-400">
+              <Flame size={20} className="animate-pulse" />
+            </div>
+            <div>
+              <p className="font-bold text-sm tracking-widest uppercase text-orange-400">Tubarão em Avaliação</p>
+              <p className="text-xs text-orange-200/70 mt-0.5">Você tem {stats.total_matches} partida(s). Jogue no mínimo 10 para entrar no Ranking Fire Shark oficial!</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── FIRE SHARK RANKING (Top Win Rate) ── */}
       {dashboard?.fire_sharks && dashboard.fire_sharks.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative rounded-[32px] overflow-hidden border-2 border-orange-500/30 shadow-[0_0_30px_rgba(249,115,22,0.15)] bg-[#0a0505] p-1 flex flex-col md:flex-row gap-4"
+          className="relative rounded-[32px] overflow-hidden bg-[#050202] flex flex-col xl:flex-row gap-0 w-full max-w-full xl:max-w-6xl mx-auto border border-orange-500/30 neon-border"
         >
-          {/* Animated Background effects */}
-          <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 via-orange-500/5 to-transparent pointer-events-none" />
-          <div className="absolute -inset-[100%] animate-[spin_10s_linear_infinite] opacity-30" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #f97316 360deg)' }} />
-          <div className="absolute inset-[2px] bg-[#050202]/95 rounded-[30px] z-0" />
-          
-          {/* Rank 1 Highlight Card */}
-          {dashboard.fire_sharks[0] && (
-            <div className="relative z-10 w-full md:w-1/3 p-6 flex flex-col items-center text-center justify-center border-b md:border-b-0 md:border-r border-orange-500/20">
-              <div className="absolute top-4 left-4 bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_10px_rgba(220,38,38,0.5)] tracking-widest uppercase">
-                Mín. 5 jogos
-              </div>
-              <img src="/fireshark.png" alt="Fire Shark" className="w-24 h-24 object-contain mb-4 drop-shadow-[0_0_15px_rgba(249,115,22,0.8)] animate-pulse" />
-              <h2 className="font-display text-2xl tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-500 to-orange-400 font-bold mb-6">
-                FIRE SHARK
-              </h2>
-              
-              <div className="relative">
-                <div className="absolute -inset-4 bg-orange-500/20 blur-xl rounded-full" />
-                <Avatar name={dashboard.fire_sharks[0].name} src={dashboard.fire_sharks[0].avatar_url} size="xl" className="ring-4 ring-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.6)] w-32 h-32 relative z-10" />
-                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-orange-600 to-red-600 text-white font-black text-xl px-4 py-1 rounded-full shadow-lg border border-orange-400/50 z-20">
-                  1º
-                </div>
-              </div>
-              
-              <h3 className="text-xl font-bold text-white mt-8 mb-2 truncate w-full px-4">{dashboard.fire_sharks[0].name}</h3>
-              <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3">
-                <div className="flex flex-col items-center px-3 border-r border-white/10">
-                  <span className="text-xs text-orange-400/70 uppercase tracking-widest font-bold">Win Rate</span>
-                  <span className="text-3xl font-display text-orange-400">{dashboard.fire_sharks[0].win_rate}%</span>
-                </div>
-                <div className="flex flex-col items-center px-3">
-                  <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Vitórias</span>
-                  <span className="text-lg font-bold text-white">{dashboard.fire_sharks[0].wins}/{dashboard.fire_sharks[0].total_matches}</span>
-                </div>
-              </div>
-            </div>
-          )}
+          <style>{`
+            @keyframes fireParticle {
+              0% { transform: translateY(0) scale(1); opacity: 0; }
+              20% { opacity: 0.8; }
+              80% { opacity: 0.4; }
+              100% { transform: translateY(-120px) scale(0.2); opacity: 0; }
+            }
+            .fire-particle {
+              position: absolute;
+              bottom: 5%;
+              width: 5px;
+              height: 5px;
+              background: #f97316;
+              border-radius: 50%;
+              box-shadow: 0 0 10px #f97316, 0 0 20px #ef4444;
+              animation: fireParticle 2s infinite ease-in;
+            }
+            @keyframes pulseGlow {
+              0%, 100% { box-shadow: 0 0 30px rgba(249,115,22,0.15); }
+              50% { box-shadow: 0 0 60px rgba(249,115,22,0.5), inset 0 0 20px rgba(239,68,68,0.2); }
+            }
+            .neon-border {
+              animation: pulseGlow 3s infinite;
+            }
+            @keyframes lightningFlash {
+              0%, 92%, 96% { opacity: 0; }
+              93%, 97% { opacity: 0.6; }
+              100% { opacity: 0; }
+            }
+            .lightning {
+              position: absolute;
+              inset: 0;
+              background: radial-gradient(circle at top right, rgba(59,130,246,0.3) 0%, transparent 50%);
+              animation: lightningFlash 6s infinite;
+              pointer-events: none;
+            }
+            .text-glow {
+              text-shadow: 0 0 20px rgba(249,115,22,0.8), 0 0 40px rgba(239,68,68,0.6);
+            }
+          `}</style>
 
-          {/* List Rank 2-10 */}
-          <div className="relative z-10 w-full md:w-2/3 p-4 md:p-6 flex flex-col gap-2 max-h-[450px] overflow-y-auto custom-scrollbar">
-            <h3 className="text-xs font-bold text-orange-500/70 tracking-[0.2em] uppercase mb-2 pl-2">Top 10 - Tubarões da Quadra</h3>
-            {dashboard.fire_sharks.slice(1).map((shark, idx) => (
+          {/* Header & 1st Place */}
+          <div className="relative z-10 w-full xl:w-[45%] p-4 sm:p-6 pt-10 flex flex-col items-center border-b xl:border-b-0 xl:border-r border-orange-500/40 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-900/40 via-[#050202] to-[#050202] overflow-hidden">
+            <div className="lightning" />
+            
+            {/* Particles */}
+            {Array.from({length: 15}).map((_, i) => (
+               <div key={i} className="fire-particle" style={{ left: `${10 + Math.random() * 80}%`, animationDelay: `${Math.random() * 2}s`, animationDuration: `${1.5 + Math.random()}s` }} />
+            ))}
+
+            <div className="absolute top-0 left-0 bg-gradient-to-r from-red-700 to-red-600 text-white text-[9px] sm:text-[11px] font-black px-3 sm:px-4 py-1.5 shadow-[0_4px_15px_rgba(220,38,38,0.7)] tracking-widest uppercase" style={{ clipPath: 'polygon(0 0, 100% 0, 90% 100%, 0% 100%)' }}>
+              Mín. 10 Partidas
+            </div>
+            
+            <img src="/fireshark.png" alt="Fire Shark" className="w-36 sm:w-48 h-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.6)] animate-pulse" />
+            
+            <h2 className="font-display text-4xl sm:text-5xl tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-orange-500 to-red-600 font-black mt-2 uppercase filter drop-shadow-lg italic -skew-x-6 text-glow">
+              FIRE SHARK
+            </h2>
+            <p className="text-[8px] sm:text-[10px] text-gray-400 tracking-[0.3em] font-bold uppercase mb-6 sm:mb-8">Ranking da Quadra</p>
+
+            {dashboard.fire_sharks[0] && (
+              <div className="flex w-full items-center justify-between gap-1 sm:gap-2">
+                {/* Stats Left */}
+                <div className="flex flex-col gap-4 sm:gap-6 w-[25%] items-center text-center">
+                  <div className="flex flex-col items-center">
+                    <Zap size={16} className="text-red-500 mb-1 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] sm:w-5 sm:h-5" />
+                    <span className="text-[7px] sm:text-[9px] text-gray-300 tracking-widest font-bold uppercase mb-1">Vitórias</span>
+                    <span className="text-red-500 font-display text-lg sm:text-2xl leading-none">{dashboard.fire_sharks[0].wins}/{dashboard.fire_sharks[0].total_matches}</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <Target size={16} className="text-gray-300 mb-1 sm:w-5 sm:h-5" />
+                    <span className="text-[7px] sm:text-[9px] text-gray-300 tracking-widest font-bold uppercase mb-1">Aproveitamento</span>
+                    <span className="text-orange-400 font-display text-lg sm:text-2xl leading-none">{dashboard.fire_sharks[0].win_rate}%</span>
+                  </div>
+                </div>
+
+                {/* Center Avatar */}
+                <div className="relative w-[50%] flex justify-center mt-2 sm:mt-0">
+                  <div className="absolute inset-0 m-auto w-[130px] sm:w-[170px] h-[130px] sm:h-[170px] rounded-full animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 180deg, #3b82f6 0deg 180deg, #f97316 180deg 360deg)' }} />
+                  <div className="absolute inset-0 m-auto w-[122px] sm:w-[160px] h-[122px] sm:h-[160px] rounded-full bg-[#050202]" />
+                  
+                  <div className="relative z-10 flex flex-col items-center w-[114px] sm:w-[150px] h-[114px] sm:h-[150px] rounded-full bg-green-900/40 border-[2px] sm:border-[3px] border-black shadow-inner justify-center p-2 overflow-hidden">
+                    <span className="text-yellow-500 font-bold text-[8px] sm:text-xs tracking-widest mb-1 z-10 drop-shadow-md">1º LUGAR</span>
+                    <span className="text-white font-display text-5xl sm:text-7xl z-10 drop-shadow-lg">{dashboard.fire_sharks[0].name.charAt(0).toUpperCase()}</span>
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 pointer-events-none" />
+                  </div>
+
+                  <div className="absolute -bottom-4 sm:-bottom-5 left-1/2 -translate-x-1/2 w-20 sm:w-28 h-12 sm:h-16 bg-gradient-to-b from-orange-500 to-red-900 flex flex-col items-center justify-center z-20 shadow-[0_0_20px_rgba(249,115,22,0.6)]" style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}>
+                    <div className="w-[94%] h-[90%] bg-black flex flex-col items-center justify-center" style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}>
+                       <span className="text-orange-400 font-display text-base sm:text-xl leading-none pt-1 sm:pt-2">{dashboard.fire_sharks[0].win_rate}%</span>
+                       <span className="text-yellow-500/80 text-[6px] sm:text-[8px] font-bold tracking-widest leading-none mt-1">WIN RATE</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Energy Meter Right */}
+                <div className="flex flex-col items-center w-[25%] h-full justify-center">
+                  <Zap size={16} className="text-yellow-500 mb-2 drop-shadow-[0_0_8px_rgba(234,179,8,1)] sm:w-5 sm:h-5" />
+                  <div className="h-28 sm:h-36 w-4 sm:w-6 border-2 border-orange-500/30 rounded-sm p-0.5 flex flex-col justify-end gap-[2px] bg-black/50">
+                     {Array.from({length: 12}).map((_, i) => (
+                       <div key={i} className={cn("w-full h-full rounded-[1px]", i > 2 ? "bg-gradient-to-r from-orange-600 to-red-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" : "bg-white/5")} />
+                     ))}
+                  </div>
+                  <span className="text-red-600 text-[9px] sm:text-xs font-display mt-2 tracking-widest drop-shadow-[0_0_5px_rgba(239,68,68,0.8)] italic">MAX</span>
+                </div>
+              </div>
+            )}
+            
+            {dashboard.fire_sharks[0] && (
+               <div className="mt-8 sm:mt-10 flex flex-col items-center w-full">
+                  <h3 className="text-3xl sm:text-4xl font-display text-white drop-shadow-md truncate max-w-full px-2 sm:px-4">{dashboard.fire_sharks[0].name}</h3>
+                  <div className="flex items-center gap-2 mt-1 sm:mt-2 w-full max-w-[240px] sm:max-w-[280px]">
+                     <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-red-600" />
+                     <p className="text-red-600 text-[8px] sm:text-[9px] tracking-[0.2em] font-bold uppercase whitespace-nowrap">
+                        O TUBARÃO DA QUADRA
+                     </p>
+                     <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-red-600" />
+                  </div>
+               </div>
+            )}
+          </div>
+
+          {/* List Rank 1-10 */}
+          <div className="relative z-10 w-full xl:w-[55%] p-4 sm:p-6 pt-4 xl:pt-6 flex flex-col gap-3">
+            <div className="flex items-center gap-2 mb-2">
+               <Flame size={16} className="text-red-600 animate-pulse" />
+               <h3 className="text-xs font-bold text-gray-300 tracking-[0.1em] uppercase">TOP 10 - TUBARÕES DA QUADRA</h3>
+            </div>
+            
+            {dashboard.fire_sharks.map((shark, idx) => {
+              const isPlayer = player?.id === shark.id;
+              return (
               <Link to={`/players/${shark.id}`} key={shark.id} className={cn(
-                "flex items-center gap-3 md:gap-4 p-3 rounded-xl border transition-all duration-300 group",
-                player?.id === shark.id 
-                  ? "bg-orange-500/10 border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.15)]" 
-                  : "bg-white/5 border-white/5 hover:border-orange-500/20 hover:bg-white/10"
+                "flex items-center gap-2 sm:gap-4 p-2 sm:p-2.5 rounded-xl border transition-all duration-300 group relative overflow-hidden",
+                isPlayer ? "bg-orange-900/20 border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.15)]" : "bg-gradient-to-r from-white/[0.03] to-transparent border-white/5 hover:border-white/10"
               )}>
-                <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-inner flex-shrink-0",
-                  idx === 0 ? "bg-gray-300 text-gray-800" :
-                  idx === 1 ? "bg-amber-700 text-amber-100" :
-                  "bg-black/50 text-gray-400"
-                )}>
-                  {idx + 2}
+                {/* Hex Rank */}
+                <div className="relative w-[50px] h-[55px] flex items-center justify-center flex-shrink-0" style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}>
+                   <div className={cn("absolute inset-0", 
+                     idx === 0 ? "bg-gradient-to-br from-yellow-300 via-orange-500 to-red-600" :
+                     idx === 1 ? "bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500" :
+                     idx === 2 ? "bg-gradient-to-br from-amber-600 via-amber-700 to-amber-900" :
+                     "bg-gradient-to-br from-gray-700 to-gray-900"
+                   )} />
+                   <div className="absolute inset-[2px] bg-black flex items-center justify-center" style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}>
+                      <span className={cn("font-display text-2xl drop-shadow-md",
+                         idx === 0 ? "text-yellow-500" :
+                         idx === 1 ? "text-gray-300" :
+                         idx === 2 ? "text-amber-600" :
+                         "text-gray-500"
+                      )}>{idx + 1}</span>
+                   </div>
                 </div>
-                <Avatar name={shark.name} src={shark.avatar_url} size="sm" className="ring-2 ring-white/10 group-hover:ring-orange-500/30 transition-all" />
-                <div className="flex-1 min-w-0">
-                  <p className={cn("font-bold truncate", player?.id === shark.id ? "text-orange-400" : "text-gray-200 group-hover:text-white")}>{shark.name}</p>
-                  <p className="text-[10px] text-gray-500 font-medium">{shark.wins} vitórias em {shark.total_matches} jogos</p>
+                
+                <Avatar name={shark.name} src={shark.avatar_url} size="md" className={cn("ring-2", isPlayer ? "ring-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]" : "ring-white/5 group-hover:ring-white/20")} />
+                
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  <p className={cn("font-bold text-base truncate drop-shadow-sm", isPlayer ? "text-orange-400" : "text-white")}>{shark.name}</p>
+                  <p className="text-[9px] text-gray-500 font-medium tracking-wider uppercase mt-0.5">{shark.wins} vitórias em {shark.total_matches} partidas</p>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-lg font-display text-orange-400">{shark.win_rate}%</p>
+                
+                <div className="flex flex-col items-end justify-center w-20 sm:w-24 md:w-32 flex-shrink-0">
+                  <p className="text-orange-500 font-display text-lg sm:text-xl leading-none">{shark.win_rate}%</p>
+                  <p className="text-[7px] sm:text-[8px] text-gray-500 font-bold uppercase tracking-widest mt-1 mb-1.5">WIN RATE</p>
+                  <div className="w-full h-[4px] sm:h-[6px] bg-[#0a0a0a] border border-white/10 rounded-full overflow-hidden relative">
+                     <div className="h-full bg-gradient-to-r from-red-600 via-orange-500 to-yellow-400 relative" style={{ width: `${shark.win_rate}%` }}>
+                        <div className="absolute right-0 top-0 bottom-0 w-3 bg-blue-300 blur-[2px]" />
+                     </div>
+                  </div>
                 </div>
               </Link>
-            ))}
+            )})}
           </div>
         </motion.div>
       )}

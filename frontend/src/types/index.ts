@@ -295,6 +295,7 @@ export interface DashboardStats {
     name: string;
     avatar_url: string;
     win_rate: number;
+    score: number;
     wins: number;
     total_matches: number;
   }>;
