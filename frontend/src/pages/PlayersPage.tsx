@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X, AlertTriangle, Activity, TrendingUp, Swords, Shield } from 'lucide-react';
@@ -13,7 +13,6 @@ import { PlayerCard } from '@/components/players/PlayerCard';
 import { playersService } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
 import { useDebounce } from '@/lib/useDebounce';
-import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { POSITION_LABELS, type Position, type PlayerStatus } from '@/types';
 import type { Player } from '@/types';
@@ -128,6 +127,11 @@ export function PlayersPage() {
       onConfirm: () => deleteMutation.mutate(p.id)
     });
   }, [deleteMutation]);
+
+  // Scroll para o topo ao mudar de página
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [page]);
 
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
   const players = data?.results || [];

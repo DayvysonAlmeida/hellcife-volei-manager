@@ -22,14 +22,14 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
   const isInactive = player.status === 'inactive' || player.status === 'suspended';
   const hasAbsenceRisk = player.consecutive_absences >= 8 && player.status === 'active';
 
-  const borderColors = player.latest_overall 
+  const borderColors = player.latest_overall
     ? (
       player.latest_overall >= 8.5 ? ['#fca5a5', '#dc2626', '#fca5a5', '#991b1b', '#fca5a5'] :
-      player.latest_overall >= 7.5 ? ['#93c5fd', '#2563eb', '#93c5fd', '#1e3a8a', '#93c5fd'] :
-      player.latest_overall >= 6.5 ? ['#86efac', '#16a34a', '#86efac', '#14532d', '#86efac'] :
-      player.latest_overall >= 5.5 ? ['#fef08a', '#ca8a04', '#fef08a', '#854d0e', '#fef08a'] :
-      ['#e4e4e7', '#71717a', '#e4e4e7', '#3f3f46', '#e4e4e7']
-    ) 
+        player.latest_overall >= 7.5 ? ['#93c5fd', '#2563eb', '#93c5fd', '#1e3a8a', '#93c5fd'] :
+          player.latest_overall >= 6.5 ? ['#86efac', '#16a34a', '#86efac', '#14532d', '#86efac'] :
+            player.latest_overall >= 5.5 ? ['#fef08a', '#ca8a04', '#fef08a', '#854d0e', '#fef08a'] :
+              ['#e4e4e7', '#71717a', '#e4e4e7', '#3f3f46', '#e4e4e7']
+    )
     : ['#fef08a', '#ca8a04', '#fef08a', '#854d0e', '#fef08a'];
 
   const getPositionColor = (pos: string) => {
@@ -188,13 +188,13 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             )}
             {winRank && winRank <= 4 && (
               <div className="flex items-center justify-center gap-0.5 px-1.5 h-4 sm:h-5 rounded-full bg-gradient-to-tr from-yellow-500 to-yellow-200 border border-yellow-600 shadow-md" title={`Top ${winRank} Vitórias`}>
-                <span className="text-[8px] sm:text-[9px] font-black text-black">🏆#{winRank}</span>
+                <span className="text-[8px] sm:text-[9px] font-black text-black">🏆{winRank}</span>
               </div>
             )}
             {fireSharkRank && fireSharkRank <= 4 && (
               <div className="flex items-center justify-center gap-0.5 px-1.5 h-4 sm:h-5 rounded-full bg-gradient-to-tr from-red-600 to-orange-500 border border-red-700 shadow-md" title={`Top ${fireSharkRank} Fire Shark`}>
-                <Flame size={8} className="text-yellow-300 fill-yellow-300" />
-                <span className="text-[8px] sm:text-[9px] font-black text-white">#{fireSharkRank}</span>
+                <span className="text-[9px] sm:text-[10px] leading-none">🦈</span>
+                <span className="text-[8px] sm:text-[9px] font-black text-white">{fireSharkRank}</span>
               </div>
             )}
           </div>
