@@ -20,16 +20,18 @@ export function LocationMapModal({ location, className = '', buttonText, showIco
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
-      <Dialog.Trigger asChild>
-        <button 
-          className={`flex items-center gap-1.5 text-primary hover:text-primary-light transition-colors text-left ${className}`}
-          title="Ver localização da arena no mapa"
-        >
-          {showIcon && <MapPin size={16} className="shrink-0" />}
-          {buttonText && <span>{buttonText}</span>}
-          {!buttonText && <span className="truncate">{location}</span>}
-        </button>
-      </Dialog.Trigger>
+      <div onClick={(e) => e.stopPropagation()} className="inline-flex">
+        <Dialog.Trigger asChild>
+          <button 
+            className={`flex items-center gap-1.5 text-primary hover:text-primary-light transition-colors text-left ${className}`}
+            title="Ver localização da arena no mapa"
+          >
+            {showIcon && <MapPin size={16} className="shrink-0" />}
+            {buttonText && <span>{buttonText}</span>}
+            {!buttonText && <span className="truncate">{location}</span>}
+          </button>
+        </Dialog.Trigger>
+      </div>
 
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 animate-in fade-in-0" />

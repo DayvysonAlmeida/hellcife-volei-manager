@@ -49,12 +49,19 @@ export function MatchesPage() {
 
   // Agrupar partidas por circuito (gameday) ou por data (se avulsa)
   const groupedMatches = useMemo(() => {
-    return matches.reduce((acc: Record<string, Match[]>, match: Match) => {
+    const groups = matches.reduce((acc: Record<string, Match[]>, match: Match) => {
       const key = match.gameday ? `gd-${match.gameday}` : `date-${match.date}`;
       if (!acc[key]) acc[key] = [];
       acc[key].push(match);
       return acc;
     }, {});
+
+    // Ordenar as partidas de cada grupo da mais recente para a mais antiga (maior ID no topo)
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => b.id - a.id);
+    });
+
+    return groups;
   }, [matches]);
 
   const sortedKeys = useMemo(() => {
@@ -114,9 +121,12 @@ export function MatchesPage() {
             return (
               <div key={key} className={`card overflow-hidden transition-all duration-300 ${isExpanded ? 'shadow-lg border-red/20' : 'border-border'}`}>
                 {/* Header do Agrupamento (Dia/Circuito) Premium */}
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setExpandedDate(isExpanded ? null : key)}
-                  className={`w-full flex items-center justify-between p-4 md:p-5 transition-colors relative overflow-hidden group ${
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedDate(isExpanded ? null : key); } }}
+                  className={`w-full flex items-center justify-between p-4 md:p-5 transition-colors relative overflow-hidden group cursor-pointer ${
                     isExpanded ? 'bg-surface-hover/80' : 'bg-surface hover:bg-surface-hover/50'
                   }`}
                 >
@@ -181,7 +191,7 @@ export function MatchesPage() {
                       className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
                     />
                   </div>
-                </button>
+                  </div>
 
                 {/* Lista de Jogos do Dia */}
                 <AnimatePresence>

@@ -16,12 +16,11 @@ from apps.matches.models import MatchPlayer
 from apps.attendance.models import Attendance, GameDay
 
 
-# Subquery reutilizável para pegar o overall mais recente
 def latest_overall_subquery():
     return Subquery(
         Evaluation.objects.filter(
             player=OuterRef('pk')
-        ).order_by('-date').values('overall')[:1],
+        ).order_by('-date', '-id').values('overall')[:1],
         output_field=FloatField()
     )
 
@@ -465,6 +464,37 @@ class PlayerViewSet(viewsets.ModelViewSet):
         # Histórico de overall (1 query)
         evaluations = player.evaluations.order_by('date').values('date', 'overall')
 
+        # -- Cálculos de Rankings e Estrelas --
+        from django.db.models.functions import Coalesce
+        from django.db.models import Subquery, OuterRef
+        from apps.evaluations.models import Evaluation
+        from apps.players.models import StarHistory
+        latest_eval = Evaluation.objects.filter(player=OuterRef('pk')).order_by('-date', '-id').values('overall')[:1]
+        qs_players = Player.objects.filter(status='active', is_guest=False).annotate(
+            annotated_overall=Coalesce(Subquery(latest_eval), 0.0),
+            wins_count=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
+            total_matches_count=Count('match_appearances', distinct=True)
+        )
+
+        player_overall = player.latest_overall or 0.0
+        overall_rank = qs_players.filter(annotated_overall__gt=player_overall).count() + 1 if player_overall > 0 else None
+
+        win_rank = None
+        if total_matches >= 10:
+            bayesian_score = ((wins + 5) / (total_matches + 10)) * 100
+            better_count = 0
+            # Calcula ranking dos gladiadores
+            for p in qs_players.filter(total_matches_count__gte=10):
+                p_score = ((p.wins_count + 5) / (p.total_matches_count + 10)) * 100
+                if p_score > bayesian_score:
+                    better_count += 1
+                elif p_score == bayesian_score and p.wins_count > wins:
+                    better_count += 1
+            win_rank = better_count + 1
+
+        last_star = StarHistory.objects.filter(player=player, action='add').exclude(category='promotion').order_by('-created_at').first()
+        latest_mini_star = last_star.category if last_star else None
+
         return Response({
             'player_id': player.id,
             'total_matches': total_matches,
@@ -477,6 +507,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'attended_gamedays': attended,
             'attendance_rate': attendance_rate,
             'overall_history': list(evaluations),
+            'overall_rank': overall_rank,
+            'win_rank': win_rank,
+            'latest_mini_star': latest_mini_star,
         })
 
     @action(detail=False, methods=['get'], url_path='me', permission_classes=[IsAuthenticated])

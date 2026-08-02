@@ -119,7 +119,7 @@ class Player(models.Model):
 
     @property
     def latest_overall(self):
-        eval_ = self.evaluations.order_by('-date').first()
+        eval_ = self.evaluations.order_by('-date', '-id').first()
         return eval_.overall if eval_ else None
 
     @property

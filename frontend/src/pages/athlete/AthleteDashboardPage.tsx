@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Trophy, Flame, Star, ChevronRight, TrendingUp, Medal, History, Crown, AlertTriangle, Swords, CalendarCheck, Info, Zap, Target } from 'lucide-react';
+import { useState } from 'react';
+import { Trophy, Flame, Star, ChevronRight, TrendingUp, Medal, History, Crown, AlertTriangle, Swords, CalendarCheck, Info, Zap, Target, Share2 } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading } from '@/components/ui/Loading';
+import { ShareAchievementModal, type ShareModalProps } from '@/components/ui/ShareAchievementModal';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -29,6 +31,12 @@ const STATUS_MAP: Record<string, { label: string, color: string }> = {
 
 export function AthleteDashboardPage() {
   const { user } = useAuth();
+
+  // ── Estado do Modal de Compartilhamento
+  const [shareModal, setShareModal] = useState<Omit<ShareModalProps, 'isOpen' | 'onClose'> | null>(null);
+
+  const openShareModal = (props: Omit<ShareModalProps, 'isOpen' | 'onClose'>) => setShareModal(props);
+  const closeShareModal = () => setShareModal(null);
 
   const { data: player, isLoading: loadingPlayer } = useQuery({
     queryKey: ['athlete-me'],
@@ -62,12 +70,25 @@ export function AthleteDashboardPage() {
     { label: 'Vitórias', value: stats?.wins ?? '—', icon: Trophy, color: 'text-green-400' },
     { label: 'Presença', value: stats?.attendance_rate != null ? `${stats.attendance_rate}%` : '—', icon: CalendarCheck, color: 'text-purple-400' },
     { label: 'Mini Estrelas', value: player?.mini_stars ?? '—', icon: Flame, color: 'text-orange-400' },
+    { label: 'Faltas Cons.', value: player?.consecutive_absences ?? 0, icon: AlertTriangle, color: 'text-red-400' },
   ];
 
   const playerStatus = player?.status ? STATUS_MAP[player.status] : null;
 
+  // ── Checar se o atleta é o Fire Shark #1
+  const fireSharkRankIndex = dashboard?.fire_sharks?.findIndex(p => p.id === player?.id) ?? -1;
+  const isFireSharkRanked = fireSharkRankIndex !== -1;
+
   return (
     <div className="space-y-8 pb-10">
+      {/* ── Modal de Compartilhamento (Global) ── */}
+      {shareModal && (
+        <ShareAchievementModal
+          isOpen={true}
+          onClose={closeShareModal}
+          {...shareModal}
+        />
+      )}
       {/* ── Header de Boas-vindas (Estilo Carta Premium Glassmorphism) ── */}
       <div className="relative group/header">
         {/* Animated Gradient Border Layer */}
@@ -82,7 +103,7 @@ export function AthleteDashboardPage() {
           <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-blue/60 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none opacity-50" />
         
-        <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
+        {/* Botão Compartilhar Perfil removido daqui e passado para o Fire Shark */}        <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
           <div className="relative flex-shrink-0 group">
             <div className="absolute -inset-1 bg-gradient-to-r from-red to-orange-500 rounded-full blur opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse" />
             <Avatar
@@ -124,7 +145,7 @@ export function AthleteDashboardPage() {
             )}
             
             {/* Faltas Consecutivas Alerta Crítico */}
-            {player && player.consecutive_absences > 0 && (
+            {player && player.consecutive_absences >= 8 && (
               <div className={cn("mt-5 flex items-start gap-3 p-3 rounded-xl max-w-lg border backdrop-blur-sm", 
                 player.consecutive_absences >= 8 ? "bg-red/20 border-red/40 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.3)]" : "bg-orange-500/10 border-orange-500/30 text-orange-200"
               )}>
@@ -218,6 +239,32 @@ export function AthleteDashboardPage() {
             <div className="absolute top-0 left-0 bg-gradient-to-r from-red-700 to-red-600 text-white text-[9px] sm:text-[11px] font-black px-3 sm:px-4 py-1.5 shadow-[0_4px_15px_rgba(220,38,38,0.7)] tracking-widest uppercase" style={{ clipPath: 'polygon(0 0, 100% 0, 90% 100%, 0% 100%)' }}>
               Mín. 10 Partidas
             </div>
+
+            {/* Botão especial Fire Shark — aparece se o atleta estiver no Top 10 */}
+            {isFireSharkRanked && (
+              <button
+                onClick={() => {
+                  const mySharkData = dashboard.fire_sharks[fireSharkRankIndex];
+                  openShareModal({
+                    type: 'fire_shark_top1',
+                    athleteName: player?.display_name || user?.name || '',
+                    shirtNumber: player?.shirt_number,
+                    avatarUrl: player?.avatar_url || undefined,
+                    avatarInitial: (player?.display_name || user?.name || 'A').charAt(0),
+                    position: player?.main_position_display,
+                    overall: player?.latest_overall,
+                    winRate: mySharkData.win_rate,
+                    wins: mySharkData.wins,
+                    totalMatches: mySharkData.total_matches,
+                    winRank: fireSharkRankIndex + 1,
+                  });
+                }}
+                className="absolute top-2 right-2 sm:top-3 sm:right-3 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-orange-500/50 bg-black/40 hover:bg-black/60 text-gray-400 hover:text-orange-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all duration-300 group/share backdrop-blur-sm"
+              >
+                <Share2 size={12} className="group-hover/share:-rotate-12 transition-transform" />
+                Compartilhar Rank
+              </button>
+            )}
             
             <img src="/fireshark.png" alt="Fire Shark" className="w-36 sm:w-48 h-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.6)] animate-pulse" />
             
@@ -247,14 +294,19 @@ export function AthleteDashboardPage() {
                   <div className="absolute inset-0 m-auto w-[130px] sm:w-[170px] h-[130px] sm:h-[170px] rounded-full animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 180deg, #3b82f6 0deg 180deg, #f97316 180deg 360deg)' }} />
                   <div className="absolute inset-0 m-auto w-[122px] sm:w-[160px] h-[122px] sm:h-[160px] rounded-full bg-[#050202]" />
                   
+                  {/* Badge 1º Lugar Flutuante no Topo */}
+                  <span className="absolute -top-3 sm:-top-4 left-1/2 -translate-x-1/2 bg-black border border-yellow-500/50 px-4 py-1 rounded-full text-yellow-500 font-bold text-[8px] sm:text-[10px] tracking-[0.2em] z-30 shadow-[0_0_15px_rgba(234,179,8,0.4)] whitespace-nowrap flex items-center gap-1.5">
+                    <Crown size={12} className="text-yellow-400" />
+                    1º LUGAR
+                  </span>
+
                   <div className="relative z-10 flex flex-col items-center w-[114px] sm:w-[150px] h-[114px] sm:h-[150px] rounded-full bg-[#111] border-[2px] sm:border-[3px] border-black shadow-inner justify-center overflow-hidden">
                     {dashboard.fire_sharks[0].avatar_url ? (
                       <img src={dashboard.fire_sharks[0].avatar_url} alt={dashboard.fire_sharks[0].name} className="absolute inset-0 w-full h-full object-cover" />
                     ) : (
                       <span className="text-white font-display text-5xl sm:text-7xl z-10 drop-shadow-lg">{dashboard.fire_sharks[0].name.charAt(0).toUpperCase()}</span>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
-                    <span className="absolute top-3 text-yellow-500 font-bold text-[8px] sm:text-[10px] tracking-widest z-10 drop-shadow-md">1º LUGAR</span>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/10 pointer-events-none" />
                   </div>
 
                   <div className="absolute -bottom-4 sm:-bottom-5 left-1/2 -translate-x-1/2 w-20 sm:w-28 h-12 sm:h-16 bg-gradient-to-b from-orange-500 to-red-900 flex flex-col items-center justify-center z-20 shadow-[0_0_20px_rgba(249,115,22,0.6)]" style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}>
@@ -288,7 +340,7 @@ export function AthleteDashboardPage() {
                      </p>
                      <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-red-600" />
                   </div>
-               </div>
+                </div>
             )}
           </div>
 
@@ -610,8 +662,9 @@ export function AthleteDashboardPage() {
             {dashboard?.recent_stars.map((star) => {
               const cat = CATEGORY_MAP[star.category];
               const isPromo = star.category === 'promotion';
+              const isMyAchievement = player?.id === star.player_id;
               return (
-                <div key={star.id} className={cn("flex gap-4 p-3 rounded-xl transition-all border", isPromo ? "bg-gradient-to-r from-yellow-500/10 to-transparent border-yellow-500/30" : "bg-surface-highlight/30 hover:bg-surface-highlight border-border/20")}>
+                <div key={star.id} className={cn("flex gap-3 p-3 rounded-xl transition-all border", isPromo ? "bg-gradient-to-r from-yellow-500/10 to-transparent border-yellow-500/30" : "bg-surface-highlight/30 hover:bg-surface-highlight border-border/20")}>
                   <Avatar name={star.player_name} src={star.avatar_url || undefined} size="md" className={isPromo ? "ring-2 ring-yellow-400" : ""} />
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <p className="text-sm text-text-primary leading-tight">
@@ -629,6 +682,26 @@ export function AthleteDashboardPage() {
                       <p className="text-[10px] text-text-muted font-medium">{new Date(star.created_at).toLocaleDateString('pt-BR')} às {new Date(star.created_at).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</p>
                     </div>
                   </div>
+                  {/* Botão de compartilhar — só nos achievements do atleta logado */}
+                  {isMyAchievement && (
+                    <button
+                      onClick={() => openShareModal({
+                        type: isPromo ? 'big_star' : 'mini_star',
+                        athleteName: star.player_name,
+                        avatarUrl: star.avatar_url || undefined,
+                        avatarInitial: star.player_name.charAt(0),
+                        shirtNumber: player?.shirt_number,
+                        starCategory: star.category,
+                        starCategoryLabel: cat?.label,
+                        bigStarsTotal: player?.big_stars,
+                        miniStarsCount: player?.mini_stars,
+                      })}
+                      className="flex-shrink-0 self-center w-7 h-7 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-200 group/si"
+                      title="Compartilhar conquista"
+                    >
+                      <Share2 size={12} className="group-hover/si:rotate-12 transition-transform" />
+                    </button>
+                  )}
                 </div>
               )
             })}

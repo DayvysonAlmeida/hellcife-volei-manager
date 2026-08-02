@@ -97,6 +97,8 @@ export interface Player {
     win_rate: number;
     wins?: number;
     win_rank?: number;
+    overall_rank?: number;
+    latest_mini_star?: string;
     win_streak?: number;
     mvp: number;
     best_attacker: number;

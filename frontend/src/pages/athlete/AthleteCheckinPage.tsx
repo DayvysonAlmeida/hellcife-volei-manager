@@ -11,7 +11,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { LocationMapModal } from '@/components/ui/LocationMapModal';
 import { formatDate } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { cn, getPositionClass } from '@/lib/utils';
 
 function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any }) {
   const qc = useQueryClient();
@@ -358,22 +358,14 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                   const count = presentPlayers.filter((p: any) => p.main_position === pos).length;
                   if (count === 0) return null;
                   
-                  const colors: Record<string, string> = {
-                    outside: 'bg-red/10 text-red border-red/20',
-                    setter: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-                    middle: 'bg-green-500/10 text-green-400 border-green-500/20',
-                    opposite: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                    libero: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-                    universal: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
-                  };
                   const labels: Record<string, string> = {
                     outside: 'Ponteiros', setter: 'Levantadores', middle: 'Centrais', 
                     opposite: 'Opostos', libero: 'Líberos', universal: 'Universais'
                   };
-                  const color = colors[pos] || 'bg-gray-500/10 text-gray-400';
+                  const colorClass = getPositionClass(pos as any);
                   
                   return (
-                    <span key={pos} className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${color}`}>
+                    <span key={pos} className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${colorClass}`}>
                       {count} {labels[pos] || pos}
                     </span>
                   );

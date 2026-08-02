@@ -30,7 +30,14 @@ function MatchCard({ match }: { match: any }) {
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-text-muted text-xs uppercase tracking-wider">{match.modality_display || 'Jogo'}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-text-muted text-xs uppercase tracking-wider">{match.modality_display || 'Jogo'}</p>
+            {match.created_at && (
+              <p className="text-text-muted/60 text-[10px] uppercase font-bold tracking-widest flex items-center gap-1">
+                • 🕒 {new Date(match.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </div>
           {/* Placar */}
           <div className="flex items-center gap-2 mt-1">
             {teams.map((t: any, i: number) => (

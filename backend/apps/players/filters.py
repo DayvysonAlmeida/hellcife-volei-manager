@@ -9,7 +9,7 @@ def _latest_overall_subquery():
     return Subquery(
         Evaluation.objects.filter(
             player=OuterRef('pk')
-        ).order_by('-date').values('overall')[:1],
+        ).order_by('-date', '-id').values('overall')[:1],
         output_field=FloatField()
     )
 

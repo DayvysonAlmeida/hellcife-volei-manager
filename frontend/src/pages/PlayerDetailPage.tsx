@@ -2,12 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Edit, Phone, Link as LinkIcon, Ruler, Weight, Calendar, Trophy, CalendarCheck, Swords, KeyRound, UserCog, Trash2, Copy, Loader2, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Link as LinkIcon, Ruler, Weight, Calendar, Trophy, CalendarCheck, Swords, KeyRound, UserCog, Trash2, Copy, Loader2, Eye, EyeOff, RefreshCw, Share2 } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
+import { ShareAchievementModal, type ShareModalProps } from '@/components/ui/ShareAchievementModal';
 import { playersService } from '@/services/players';
 import { evaluationsService } from '@/services';
 import { SKILL_LABELS, HAND_LABELS } from '@/types';
@@ -21,6 +22,11 @@ export function PlayerDetailPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const playerId = Number(id);
+
+  // ── Estado do Modal de Compartilhamento
+  const [shareModal, setShareModal] = useState<Omit<ShareModalProps, 'isOpen' | 'onClose'> | null>(null);
+  const openShareModal = (props: Omit<ShareModalProps, 'isOpen' | 'onClose'>) => setShareModal(props);
+  const closeShareModal = () => setShareModal(null);
 
   // Access management state
   const [accessEmail, setAccessEmail] = useState('');
@@ -107,6 +113,16 @@ export function PlayerDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* ── Modal de Compartilhamento ── */}
+      {shareModal && (
+        <ShareAchievementModal
+          isOpen={true}
+          onClose={closeShareModal}
+          showTypeSelector={true}
+          {...shareModal}
+        />
+      )}
+
       {/* Back button */}
       <RouterLink to="/players" className="btn-ghost inline-flex items-center gap-2 -mb-2">
         <ArrowLeft size={16} />
@@ -166,6 +182,33 @@ export function PlayerDetailPage() {
                 <OverallBadge overall={player.latest_overall} size="lg" showLabel />
                 <p className="text-text-muted text-xs mt-1 tracking-wider uppercase">Overall</p>
               </div>
+              {/* Botão Compartilhar — visível para admin/moderador */}
+              {canEdit && (
+                <button
+                  onClick={() => openShareModal({
+                    type: player.big_stars > 0 ? 'big_star' : 'top_wins',
+                    athleteName: player.display_name,
+                    shirtNumber: player.shirt_number,
+                    avatarUrl: player.avatar_url || undefined,
+                    avatarInitial: player.display_name.charAt(0),
+                    position: player.main_position_display,
+                    overall: player.latest_overall,
+                    bigStarsTotal: player.big_stars,
+                    miniStarsCount: player.mini_stars,
+                    wins: stats?.wins,
+                    winRate: stats?.win_rate ? Math.round(Number(stats.win_rate)) : undefined,
+                    totalMatches: stats?.total_matches,
+                    overallRank: stats?.overall_rank,
+                    winRank: stats?.win_rank,
+                    starCategory: stats?.latest_mini_star,
+                  })}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-orange-500/40 text-gray-300 hover:text-orange-400 text-sm font-medium transition-all duration-200 group/share"
+                  title="Compartilhar conquista do atleta"
+                >
+                  <Share2 size={15} className="group-hover/share:rotate-12 transition-transform duration-200" />
+                  Compartilhar
+                </button>
+              )}
               {canEdit && (
                 <RouterLink to={`/players/${player.id}/edit`} className="btn-primary flex items-center gap-2">
                   <Edit size={14} />
