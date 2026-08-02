@@ -12,7 +12,7 @@ function MatchCard({ match }: { match: any }) {
   const [expanded, setExpanded] = useState(false);
 
   const teams: any[] = match.match_teams || [];
-  const winner = teams.find((t: any) => t.winner);
+  const _winner = teams.find((t: any) => t.winner);
   const isDraw = teams.length > 0 && teams.every((t: any) => !t.winner);
 
   return (

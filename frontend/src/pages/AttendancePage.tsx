@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarCheck, ChevronRight, ChevronLeft, Plus, DollarSign, Share2, Trash2, Edit2, Lock, Swords, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, Plus, Share2, Edit2, Lock, Swords, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
-import { PageLoading, EmptyState } from '@/components/ui/Loading';
+import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { GameDayForm } from '@/components/attendance/GameDayForm';
 import { GuestModal } from '@/components/attendance/GuestModal';
@@ -223,7 +223,7 @@ export function AttendancePage() {
     }
   });
 
-  const handleEditLimit = () => {
+  const _handleEditLimit = () => {
     if (!gameDayDetail) return;
     const currentLimit = gameDayDetail.max_players || 0;
     const response = window.prompt('Qual o novo limite de jogadores? (Digite 0 para ilimitado)', String(currentLimit));

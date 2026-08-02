@@ -6,38 +6,51 @@ Um sistema completo de gerenciamento para o time Hellcife Vôlei. Esta aplicaç�
 
 O sistema está dividido em vários módulos no backend que refletem as funcionalidades principais:
 - **Players (Jogadores)**: Gestão de perfis e dados de jogadores.
-- **Teams (Times)**: Gerenciamento de escalações e equipes.
+- **Teams (Times)**: Gerenciamento de escalações e equipes balanceadas por overall.
 - **Matches (Partidas)**: Registro e acompanhamento de jogos, placares e estatísticas.
-- **Attendance (Presenças)**: Controle de presença nos treinos e jogos.
-- **Evaluations (Avaliações)**: Avaliação de desempenho técnico e tático dos jogadores.
-- **Hall of Fame**: Destaques, premiações e jogadores notáveis.
+- **Attendance (Presenças)**: Controle de presença nos circuitos, fila de espera e check-in na quadra.
+- **Evaluations (Avaliações)**: Avaliação de desempenho técnico com 13 fundamentos e cálculo de overall automático.
+- **Stars System (Estrelas)**: Sistema de premiação por categorias (MVP, Ataque, Defesa, etc.) com mini e grandes estrelas.
+- **Notifications (Notificações)**: Notificações individuais e avisos globais para todos os atletas.
+- **Hall of Fame**: Destaques, premiações e jogadores notáveis por categoria e ano.
 
 ## 💻 Tecnologias e Stack
 
 ### Frontend
 - **Framework**: React 19 com TypeScript
 - **Build Tool**: Vite
-- **Estilização**: Tailwind CSS com componentes baseados em Radix UI (shadcn/ui-like)
+- **Estilização**: Tailwind CSS
 - **Animações**: Framer Motion
 - **Gerenciamento de Estado/Data Fetching**: TanStack React Query v5
 - **Roteamento**: React Router DOM v7
 - **Gráficos**: Recharts
 - **Linter**: Oxlint
+- **PWA**: Vite PWA Plugin (instalável como aplicativo)
 
 ### Backend
 - **Framework**: Django 5.1 + Django REST Framework (DRF)
-- **Linguagem**: Python 3.12
+- **Linguagem**: Python 3.11
 - **Banco de Dados**: SQLite (Desenvolvimento) / PostgreSQL via psycopg2 (Produção)
 - **Autenticação**: SimpleJWT (JSON Web Tokens)
 - **Documentação de API**: drf-spectacular (Swagger/OpenAPI)
 - **Filtros**: django-filter
+- **Arquivos Estáticos**: Whitenoise
+- **Servidor de Produção**: Gunicorn
 
 ## 📁 Estrutura do Projeto
 
 O projeto é estruturado como um monorepo contendo ambas as aplicações:
-- `/frontend/` - Aplicação SPA React
+- `/frontend/` - Aplicação SPA React (PWA)
 - `/backend/` - API RESTful Django
-- `render.yaml` - Configurações de infraestrutura como código para deploy no Render.
+
+## ☁️ Infraestrutura de Produção
+
+| Serviço | Plataforma |
+|---|---|
+| **Backend (API)** | Google Cloud Run (container Docker) |
+| **Frontend** | Vercel |
+| **Banco de Dados** | Neon DB (PostgreSQL serverless) |
+| **Storage de Mídia** | Cloudinary |
 
 ## 🛠️ Como Executar Localmente
 
@@ -58,13 +71,18 @@ venv\Scripts\activate
 # Instale as dependências
 pip install -r requirements.txt
 
+# Configure as variáveis de ambiente (copie o .env.example)
+copy .env.example .env
+# Edite o .env com suas configurações locais
+
 # Rode as migrações do banco de dados
 python manage.py migrate
 
 # Inicie o servidor de desenvolvimento
 python manage.py runserver
 ```
-A API estará disponível em `http://127.0.0.1:8000/`. (A documentação Swagger geralmente fica em `/api/schema/swagger-ui/`).
+
+A API estará disponível em `http://127.0.0.1:8000/`. A documentação Swagger fica em `/api/schema/swagger-ui/`.
 
 ### 2. Frontend (React/Vite)
 
@@ -79,14 +97,48 @@ npm install
 # Inicie o servidor de desenvolvimento
 npm run dev
 ```
+
 O Frontend estará disponível (normalmente) em `http://localhost:5173/`.
 
-## ☁️ Deploy
+## 🐳 Deploy no Google Cloud Run
 
-A infraestrutura atual está configurada para suportar deploy automatizado:
-- **Backend**: Configurado via `render.yaml` para deploy no **Render** (com suporte a gunicorn e whitenoise para arquivos estáticos).
-- **Frontend**: Configurado via `vercel.json` para deploy na **Vercel**.
-- **Banco de Dados (Produção)**: Espera-se conexão com um banco de dados relacional como PostgreSQL (ex: Neon DB), configurado pela variável de ambiente `DATABASE_URL`.
+O backend é containerizado via Docker e publicado no Google Cloud Run.
+
+### Variáveis de Ambiente Necessárias no Cloud Run
+
+Configure as seguintes variáveis no console do Cloud Run (ou via `gcloud`):
+
+| Variável | Descrição |
+|---|---|
+| `SECRET_KEY` | Chave secreta do Django |
+| `DEBUG` | `False` em produção |
+| `DATABASE_URL` | Connection string do PostgreSQL (ex: Neon DB) |
+| `ALLOWED_HOSTS` | Domínios permitidos (ex: `localhost`) |
+| `CLOUDRUN_SERVICE_URL` | URL completa do serviço (ex: `https://seu-servico-xxxx.run.app`) |
+| `CORS_ALLOWED_ORIGINS` | Origem do frontend (ex: `https://seu-app.vercel.app`) |
+| `CLOUDINARY_CLOUD_NAME` | Nome do cloud Cloudinary |
+| `CLOUDINARY_API_KEY` | API Key do Cloudinary |
+| `CLOUDINARY_API_SECRET` | API Secret do Cloudinary |
+| `CLOUDINARY_URL` | URL completa do Cloudinary |
+
+### Processo de Build e Deploy
+
+```bash
+# Build da imagem Docker
+docker build -t gcr.io/[PROJECT_ID]/hellcife-backend ./backend
+
+# Push para o Google Container Registry
+docker push gcr.io/[PROJECT_ID]/hellcife-backend
+
+# Deploy no Cloud Run
+gcloud run deploy hellcife-backend \
+  --image gcr.io/[PROJECT_ID]/hellcife-backend \
+  --platform managed \
+  --region southamerica-east1 \
+  --allow-unauthenticated
+```
+
+> **Nota:** As migrações do banco de dados são executadas automaticamente na inicialização do container via `CMD` no Dockerfile.
 
 ---
 Desenvolvido para gerenciar a paixão e o talento do Hellcife Vôlei. 🏐🔥

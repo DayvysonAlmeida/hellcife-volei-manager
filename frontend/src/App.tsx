@@ -27,6 +27,7 @@ const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => (
 const RegulationPage = lazy(() => import('@/pages/RegulationPage').then(m => ({ default: m.RegulationPage })));
 const CheckinPage = lazy(() => import('@/pages/CheckinPage').then(m => ({ default: m.CheckinPage })));
 const BracketPage = lazy(() => import('@/pages/BracketPage').then(m => ({ default: m.BracketPage })));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 
 // Portal do Atleta
 const AthleteDashboardPage = lazy(() => import('@/pages/athlete/AthleteDashboardPage').then(m => ({ default: m.AthleteDashboardPage })));
@@ -68,6 +69,7 @@ function App() {
               <Route path="checkin" element={<AthleteCheckinPage />} />
               <Route path="matches" element={<AthleteMatchesPage />} />
               <Route path="regulation" element={<RegulationPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
             </Route>
 
             {/* ── Painel Admin / Moderador ────────────────────────── */}
@@ -96,6 +98,7 @@ function App() {
               <Route path="matches/new" element={<MatchFormPage />} />
               <Route path="stars-system" element={<StarsSystemPage />} />
               <Route path="regulation" element={<RegulationPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
             </Route>
 
             {/* 404 fallback */}

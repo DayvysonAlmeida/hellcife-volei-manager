@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Check, Gift, Medal, Info, Trophy, Flame, Star, AlertTriangle } from 'lucide-react';
+import { Bell, Check, Gift, Medal, Info, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useLocation } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
@@ -23,6 +24,7 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const menuRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   // Fechar o menu ao clicar fora
   useEffect(() => {
@@ -121,6 +123,17 @@ export function NotificationBell() {
                   })}
                 </div>
               )}
+            </div>
+            {/* Footer — Link para página completa */}
+            <div className="p-3 border-t border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
+              <Link
+                to={`${location.pathname.startsWith('/athlete') ? '/athlete' : ''}/notifications`}
+                onClick={() => setIsOpen(false)}
+                className="flex items-center justify-center gap-1.5 text-xs text-text-muted hover:text-red transition-colors w-full py-1"
+              >
+                <Bell size={12} />
+                Ver todas as notificações
+              </Link>
             </div>
           </motion.div>
         )}

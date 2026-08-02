@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { Volleyball, Check, Clock, UserCheck, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy, Zap, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-import { useAuth } from '@/store/AuthContext';
 import { PageLoading } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ScrollText, Shield, Star, Calendar, MapPin, Users, DollarSign, Heart, AlertTriangle, Clock, AlertCircle, Info } from 'lucide-react';
+import { ScrollText, Shield, Star, Calendar, MapPin, Heart, AlertTriangle, Clock, AlertCircle, Info } from 'lucide-react';
 
 export function RegulationPage() {
   return (

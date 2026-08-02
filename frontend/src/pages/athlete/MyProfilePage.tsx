@@ -100,7 +100,7 @@ export function MyProfilePage() {
       </div>
 
       {/* ── Faltas Consecutivas ── */}
-      {player.consecutive_absences > 0 && (
+      {player.consecutive_absences >= 8 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

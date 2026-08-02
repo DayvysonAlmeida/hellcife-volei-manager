@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Trophy, Users, Star, Trash2, Plus, Swords, Shield } from 'lucide-react';
+import { ArrowLeft, Loader2, Trophy, Users, Star, Swords, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { matchesService, attendanceService, teamsService } from '@/services';

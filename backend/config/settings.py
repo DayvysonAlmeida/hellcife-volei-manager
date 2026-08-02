@@ -13,10 +13,13 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me')
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
-# Render atribui o hostname automaticamente
-RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='')
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+# Google Cloud Run: adiciona o hostname do serviço automaticamente
+CLOUDRUN_SERVICE_URL = config('CLOUDRUN_SERVICE_URL', default='')
+if CLOUDRUN_SERVICE_URL:
+    from urllib.parse import urlparse
+    parsed = urlparse(CLOUDRUN_SERVICE_URL)
+    if parsed.hostname:
+        ALLOWED_HOSTS.append(parsed.hostname)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
