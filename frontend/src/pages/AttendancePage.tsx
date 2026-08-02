@@ -387,10 +387,12 @@ export function AttendancePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-6 self-center sm:self-start">
-                  <div className="text-center flex flex-col items-center">
-                    <p className="font-display text-3xl text-green-500">{totalPaid}</p>
-                    <p className="text-text-muted text-[10px] uppercase tracking-wider mb-3">Pagaram</p>
-                  </div>
+                  {Number(gameDayDetail.court_price) > 0 && (
+                    <div className="text-center flex flex-col items-center">
+                      <p className="font-display text-3xl text-green-500">{totalPaid}</p>
+                      <p className="text-text-muted text-[10px] uppercase tracking-wider mb-3">Pagaram</p>
+                    </div>
+                  )}
                   <div className="text-center flex flex-col items-center group relative">
                     <p className="font-display text-3xl text-red">{gameDayDetail.total_present}</p>
                     <p className="text-text-muted text-[10px] uppercase tracking-wider mb-3 flex items-center justify-center gap-1">
@@ -469,6 +471,7 @@ export function AttendancePage() {
                   }
                 }}
                 isBulkLoading={bulkPaymentMutation.isPending}
+                showPaymentControls={Number(gameDayDetail.court_price) > 0}
               />
             </div>
           ) : null}

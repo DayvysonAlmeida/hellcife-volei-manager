@@ -29,8 +29,6 @@ const schema = z.object({
   avatar: z.any().optional(),
   notes: z.string().optional(),
   status: z.enum(['active', 'inactive', 'injured', 'suspended']),
-  mini_stars: z.coerce.number().min(0).max(10),
-  big_stars: z.coerce.number().min(0).max(10),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -82,16 +80,12 @@ export function PlayerFormPage() {
       instagram: player.instagram || '',
       notes: player.notes || '',
       status: player.status || 'active',
-      mini_stars: player.mini_stars ?? ('' as any),
-      big_stars: player.big_stars ?? ('' as any),
     } : {
       main_position: 'outside',
       secondary_position: '',
       dominant_hand: 'right',
       gender: 'M',
       status: 'active',
-      mini_stars: '' as any,
-      big_stars: '' as any,
     } as any,
   });
 
@@ -220,15 +214,7 @@ export function PlayerFormPage() {
           </Field>
         </FieldGroup>
 
-        {/* Sistema de Estrelas */}
-        <FieldGroup title="Sistema de Estrelas">
-          <Field label="Mini Estrelas" error={errors.mini_stars?.message}>
-            <input {...register('mini_stars')} type="number" min="0" max="10" className="input w-full" />
-          </Field>
-          <Field label="Estrelas Grandes" error={errors.big_stars?.message}>
-            <input {...register('big_stars')} type="number" min="0" max="10" className="input w-full" />
-          </Field>
-        </FieldGroup>
+
 
         {/* Contato */}
         <FieldGroup title="Contato e redes sociais">

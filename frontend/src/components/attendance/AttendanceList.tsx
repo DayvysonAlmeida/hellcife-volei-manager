@@ -22,6 +22,7 @@ interface AttendanceListProps {
   onCheckAll: () => void;
   onUncheckAll: () => void;
   isBulkLoading: boolean;
+  showPaymentControls: boolean;
 }
 
 export function AttendanceList({
@@ -44,6 +45,7 @@ export function AttendanceList({
   onCheckAll,
   onUncheckAll,
   isBulkLoading,
+  showPaymentControls,
 }: AttendanceListProps) {
   const renderAttendanceCard = (att: any, index?: number, isWaitlist?: boolean) => {
     return (
@@ -85,20 +87,22 @@ export function AttendanceList({
 
         {showEditControls ? (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onTogglePayment(att.player)}
-              disabled={isTogglingPayment(att.player)}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
-                att.has_paid
-                  ? 'bg-green-500 text-white shadow-lg shadow-green-500/20'
-                  : att.payment_claimed
-                  ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20 animate-pulse'
-                  : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-green-500 hover:text-green-500'
-              }`}
-              title={att.payment_claimed ? "Atleta avisou que pagou. Clique para confirmar." : "Alternar Pagamento"}
-            >
-              <DollarSign size={16} />
-            </button>
+            {showPaymentControls && (
+              <button
+                onClick={() => onTogglePayment(att.player)}
+                disabled={isTogglingPayment(att.player)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
+                  att.has_paid
+                    ? 'bg-green-500 text-white shadow-lg shadow-green-500/20'
+                    : att.payment_claimed
+                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20 animate-pulse'
+                    : 'bg-surface border-2 border-border-subtle text-text-muted hover:border-green-500 hover:text-green-500'
+                }`}
+                title={att.payment_claimed ? "Atleta avisou que pagou. Clique para confirmar." : "Alternar Pagamento"}
+              >
+                <DollarSign size={16} />
+              </button>
+            )}
             <button
               onClick={() => onTogglePresence(att.player)}
               disabled={isTogglingPresence(att.player)}
@@ -168,26 +172,30 @@ export function AttendanceList({
                 <Plus size={12} />
                 <span className="hidden sm:inline">Convidado</span>
               </button>
-              <button
-                onClick={onCheckAll}
-                disabled={isBulkLoading}
-                className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-green-500 border-green-500/30 hover:bg-green-500/10"
-                title="Marcar Todos como Pago"
-              >
-                <DollarSign size={12} />
-                <span className="hidden sm:inline">Todos Pagos</span>
-                <span className="sm:hidden">$$ ✅</span>
-              </button>
-              <button
-                onClick={onUncheckAll}
-                disabled={isBulkLoading}
-                className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-text-muted border-border hover:bg-surface-hover"
-                title="Desmarcar Pagamentos"
-              >
-                <DollarSign size={12} />
-                <span className="hidden sm:inline">Zerar Pagos</span>
-                <span className="sm:hidden">$$ ❌</span>
-              </button>
+              {showPaymentControls && (
+                <>
+                  <button
+                    onClick={onCheckAll}
+                    disabled={isBulkLoading}
+                    className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-green-500 border-green-500/30 hover:bg-green-500/10"
+                    title="Marcar Todos como Pago"
+                  >
+                    <DollarSign size={12} />
+                    <span className="hidden sm:inline">Todos Pagos</span>
+                    <span className="sm:hidden">$$ ✅</span>
+                  </button>
+                  <button
+                    onClick={onUncheckAll}
+                    disabled={isBulkLoading}
+                    className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-text-muted border-border hover:bg-surface-hover"
+                    title="Desmarcar Pagamentos"
+                  >
+                    <DollarSign size={12} />
+                    <span className="hidden sm:inline">Zerar Pagos</span>
+                    <span className="sm:hidden">$$ ❌</span>
+                  </button>
+                </>
+              )}
               <button
                 onClick={onRefreshClick}
                 disabled={isRefreshing}

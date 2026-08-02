@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { Flame, Zap, ShieldAlert } from 'lucide-react';
+import { getOverallColor } from '@/lib/utils';
 
 export type ShareAchievementType =
   | 'big_star'
@@ -126,6 +127,69 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
     // ─── FIRE SHARK TOP X ─────────────────────────────────────────────────────
     if (type === 'fire_shark_top1') {
       const isTop1 = winRank === 1;
+      const isTop2 = winRank === 2;
+      const isTop3 = winRank === 3;
+      const isPodium = isTop1 || isTop2 || isTop3;
+      
+      const overallColor = overall ? getOverallColor(overall) : '#525252';
+
+      let rankTheme = {
+        glow: 'rgba(249,115,22,0.5)',
+        textBg: 'none',
+        textFill: 'initial',
+        nameBanner: 'linear-gradient(90deg, #262626, #404040, #262626)',
+        nameBannerBorder: '#171717',
+        nameBannerTopBorder: '#737373',
+        avatarBorder: '#111',
+        avatarRing: 'rgba(249,115,22,0.5)',
+        badgeBg: 'linear-gradient(180deg, #404040, #262626)',
+        badgeTextGradient: 'none',
+        badgeBorder: '#a3a3a3',
+      };
+
+      if (isTop1) {
+        rankTheme = {
+          glow: 'rgba(220,38,38,0.8)',
+          textBg: 'linear-gradient(180deg, #fef08a, #eab308, #854d0e)',
+          textFill: 'transparent',
+          nameBanner: 'linear-gradient(90deg, #991b1b, #dc2626, #991b1b)',
+          nameBannerBorder: '#7f1d1d',
+          nameBannerTopBorder: '#fca5a5',
+          avatarBorder: 'linear-gradient(135deg, #f97316, #dc2626)',
+          avatarRing: 'conic-gradient(from 0deg, #dc2626, #f97316, #dc2626, #f97316, #dc2626)',
+          badgeBg: 'linear-gradient(180deg, #991b1b, #450a0a)',
+          badgeTextGradient: 'linear-gradient(180deg, #fef08a, #eab308, #854d0e)',
+          badgeBorder: '#fca5a5',
+        };
+      } else if (isTop2) {
+        rankTheme = {
+          glow: 'rgba(156,163,175,0.8)',
+          textBg: 'linear-gradient(180deg, #f3f4f6, #9ca3af, #4b5563)',
+          textFill: 'transparent',
+          nameBanner: 'linear-gradient(90deg, #374151, #6b7280, #374151)',
+          nameBannerBorder: '#1f2937',
+          nameBannerTopBorder: '#e5e7eb',
+          avatarBorder: 'linear-gradient(135deg, #d1d5db, #6b7280)',
+          avatarRing: 'conic-gradient(from 0deg, #9ca3af, #f3f4f6, #9ca3af, #f3f4f6, #9ca3af)',
+          badgeBg: 'linear-gradient(180deg, #4b5563, #1f2937)',
+          badgeTextGradient: 'linear-gradient(180deg, #f3f4f6, #9ca3af, #4b5563)',
+          badgeBorder: '#e5e7eb',
+        };
+      } else if (isTop3) {
+        rankTheme = {
+          glow: 'rgba(180,83,9,0.8)',
+          textBg: 'linear-gradient(180deg, #fcd34d, #b45309, #78350f)',
+          textFill: 'transparent',
+          nameBanner: 'linear-gradient(90deg, #78350f, #b45309, #78350f)',
+          nameBannerBorder: '#451a03',
+          nameBannerTopBorder: '#fde68a',
+          avatarBorder: 'linear-gradient(135deg, #f59e0b, #b45309)',
+          avatarRing: 'conic-gradient(from 0deg, #b45309, #fcd34d, #b45309, #fcd34d, #b45309)',
+          badgeBg: 'linear-gradient(180deg, #78350f, #451a03)',
+          badgeTextGradient: 'linear-gradient(180deg, #fcd34d, #b45309, #78350f)',
+          badgeBorder: '#fde68a',
+        };
+      }
 
       return (
         <div ref={ref} style={{ width: 600, height: 900, position: 'relative', overflow: 'hidden', fontFamily: "'Inter', sans-serif", background: '#050000' }}>
@@ -191,11 +255,11 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
               width: 360, height: 360, borderRadius: '50%', position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              {/* Aura de Fogo (Conic + Blur) para Top 1, ou anel simples para outros */}
-              {isTop1 ? (
+              {/* Aura (Conic + Blur) para Podio, ou anel simples para outros */}
+              {isPodium ? (
                 <div style={{
                   position: 'absolute', inset: -25, borderRadius: '50%',
-                  background: 'conic-gradient(from 0deg, #dc2626, #f97316, #dc2626, #f97316, #dc2626)',
+                  background: rankTheme.avatarRing,
                   filter: 'blur(25px)', opacity: 0.85, mixBlendMode: 'screen',
                   animation: 'spin 10s linear infinite',
                 }} />
@@ -203,15 +267,15 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
                 <div style={{
                   position: 'absolute', inset: -10, borderRadius: '50%',
                   background: 'transparent',
-                  border: '2px solid rgba(249,115,22,0.5)',
-                  boxShadow: '0 0 15px rgba(249,115,22,0.2)',
+                  border: `2px solid ${rankTheme.avatarRing}`,
+                  boxShadow: `0 0 15px ${rankTheme.glow}`,
                 }} />
               )}
               {/* Borda interna sólida para destacar o avatar */}
               <div style={{
                 position: 'absolute', inset: -4, borderRadius: '50%',
-                background: isTop1 ? 'linear-gradient(135deg, #f97316, #dc2626)' : '#111',
-                border: isTop1 ? 'none' : '2px solid rgba(220,38,38,0.5)',
+                background: isPodium ? rankTheme.avatarBorder : '#111',
+                border: isPodium ? 'none' : `2px solid ${rankTheme.glow}`,
                 boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)',
               }} />
               <div style={{ position: 'relative', zIndex: 2, borderRadius: '50%', overflow: 'hidden', width: 350, height: 350 }}>
@@ -221,20 +285,20 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
               {/* Badge TOP {winRank} flutuando no TOPO do avatar */}
               <div style={{
                 position: 'absolute', top: -18, zIndex: 20,
-                background: isTop1 ? 'linear-gradient(180deg, #991b1b, #450a0a)' : 'linear-gradient(180deg, #404040, #262626)',
+                background: rankTheme.badgeBg,
                 padding: '10px 32px',
                 clipPath: 'polygon(15% 0%, 85% 0%, 100% 50%, 85% 100%, 15% 100%, 0% 50%)',
-                boxShadow: isTop1 ? '0 10px 30px rgba(220,38,38,0.8)' : '0 5px 15px rgba(0,0,0,0.5)',
-                borderTop: isTop1 ? '2px solid #fca5a5' : '2px solid #a3a3a3',
+                boxShadow: `0 10px 30px ${rankTheme.glow}`,
+                borderTop: `2px solid ${rankTheme.badgeBorder}`,
               }}>
                 <span style={{ 
-                  color: isTop1 ? '#fff' : '#d4d4d8', 
+                  color: isPodium ? '#fff' : '#d4d4d8', 
                   fontSize: 26, fontWeight: 900, letterSpacing: 4, 
                   textTransform: 'uppercase', 
-                  background: isTop1 ? 'linear-gradient(180deg, #fef08a, #eab308, #854d0e)' : 'none',
-                  WebkitBackgroundClip: isTop1 ? 'text' : 'border-box',
-                  WebkitTextFillColor: isTop1 ? 'transparent' : 'initial',
-                  filter: isTop1 ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))' : 'none',
+                  background: rankTheme.badgeTextGradient,
+                  WebkitBackgroundClip: isPodium ? 'text' : 'border-box',
+                  WebkitTextFillColor: rankTheme.textFill,
+                  filter: isPodium ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))' : 'none',
                   fontStyle: 'italic',
                 }}>
                   TOP {winRank ?? '--'}
@@ -243,28 +307,35 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
             </div>
           </div>
 
-          {/* ── Left Badge (Para todos, muda a cor se Top 1) ── */}
+          {/* ── Left Badge (Escudo de Overall e Estrelas) ── */}
           <div style={{
             position: 'absolute', top: 300, left: 24, zIndex: 25,
             width: 140, background: 'linear-gradient(180deg, #171717, #0a0a0a)',
-            border: isTop1 ? '2px solid #ca8a04' : '2px solid #525252', borderRadius: '8px 8px 45px 45px',
+            border: `2px solid ${overallColor}`, borderRadius: '8px 8px 45px 45px',
             padding: '16px 0 20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center',
-            boxShadow: isTop1 ? '0 15px 30px rgba(0,0,0,0.9), inset 0 0 15px rgba(202,138,4,0.15)' : '0 10px 20px rgba(0,0,0,0.8)',
+            boxShadow: `0 15px 30px rgba(0,0,0,0.9), inset 0 0 15px ${overallColor}40`,
           }}>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-              <span style={{ fontSize: 12, color: isTop1 ? '#facc15' : '#a3a3a3' }}>★</span>
-              <span style={{ fontSize: 12, color: isTop1 ? '#facc15' : '#a3a3a3' }}>★</span>
-              <span style={{ fontSize: 12, color: '#525252' }}>★</span>
-              <span style={{ fontSize: 12, color: '#525252' }}>★</span>
-              <span style={{ fontSize: 12, color: '#525252' }}>★</span>
-            </div>
+            {((bigStarsTotal || 0) > 0 || (miniStarsCount || 0) > 0) ? (
+              <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
+                {Array.from({ length: bigStarsTotal || 0 }).map((_, i) => (
+                  <span key={`big-${i}`} style={{ fontSize: 16, color: '#facc15', textShadow: '0 0 8px rgba(250,204,21,0.6)' }}>⭐</span>
+                ))}
+                {Array.from({ length: miniStarsCount || 0 }).map((_, i) => (
+                  <span key={`mini-${i}`} style={{ fontSize: 10, color: '#fbbf24', marginTop: 3 }}>⭐</span>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginBottom: 16, opacity: 0.3 }}>
+                <span style={{ fontSize: 12, color: '#525252' }}>Sem estrelas</span>
+              </div>
+            )}
             <span style={{ 
-              color: isTop1 ? '#fff' : '#fff', 
+              color: '#fff', 
               fontSize: 54, fontWeight: 900, lineHeight: 1, letterSpacing: -2,
-              background: isTop1 ? 'linear-gradient(180deg, #fca5a5, #ef4444, #7f1d1d)' : 'none',
-              WebkitBackgroundClip: isTop1 ? 'text' : 'border-box',
-              WebkitTextFillColor: isTop1 ? 'transparent' : 'initial',
-              filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.8))',
+              background: 'linear-gradient(180deg, #fff, #d4d4d8, #a3a3a3)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              filter: `drop-shadow(0 4px 10px ${overallColor}80)`,
               fontStyle: 'italic',
               paddingRight: 10, // Evita cortar o final do texto em itálico
             }}>
@@ -273,15 +344,23 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
             <span style={{ color: '#a3a3a3', fontSize: 10, letterSpacing: 2, marginTop: 6, textTransform: 'uppercase' }}>
               {position || 'JOGADOR'}
             </span>
-            <div style={{ width: '70%', height: 1, background: isTop1 ? 'rgba(202,138,4,0.5)' : 'rgba(163,163,163,0.3)', margin: '14px 0' }} />
-            <span style={{ color: isTop1 ? '#facc15' : '#d4d4d8', fontSize: 22, fontWeight: 900, lineHeight: 1 }}>TOP {winRank ?? '--'}</span>
+            <div style={{ width: '70%', height: 1, background: `${overallColor}50`, margin: '14px 0' }} />
+            <span style={{ 
+              color: isPodium ? '#fff' : '#d4d4d8', 
+              fontSize: 22, fontWeight: 900, lineHeight: 1,
+              background: rankTheme.badgeTextGradient,
+              WebkitBackgroundClip: isPodium ? 'text' : 'border-box',
+              WebkitTextFillColor: rankTheme.textFill,
+            }}>
+              TOP {winRank ?? '--'}
+            </span>
             
             {textoHellcifeDataUrl ? (
               <img src={textoHellcifeDataUrl} alt="Hellcife" style={{ height: 20, marginTop: 15, objectFit: 'contain' }} />
             ) : (
               <span style={{ color: '#fff', fontSize: 9, letterSpacing: 1, marginTop: 4 }}>FIRE SHARK</span>
             )}
-            <span style={{ color: isTop1 ? '#ca8a04' : '#525252', fontSize: 10, marginTop: 12 }}>★</span>
+            <span style={{ color: overallColor, fontSize: 10, marginTop: 12 }}>●</span>
           </div>
 
           {/* ── Nome — banner skew e Subtítulo ── */}
@@ -290,14 +369,12 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
             zIndex: 25, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' 
           }}>
             <div style={{
-              background: isTop1 
-                ? 'linear-gradient(90deg, #991b1b, #dc2626, #991b1b)' 
-                : 'linear-gradient(90deg, #262626, #404040, #262626)',
+              background: rankTheme.nameBanner,
               padding: '12px 70px',
               transform: 'skew(-15deg)',
-              boxShadow: isTop1 ? '0 15px 30px rgba(0,0,0,0.6), inset 0 2px 10px rgba(255,255,255,0.4)' : '0 10px 20px rgba(0,0,0,0.6)',
-              borderBottom: isTop1 ? '6px solid #7f1d1d' : '6px solid #171717',
-              borderTop: isTop1 ? '1px solid #fca5a5' : '1px solid #737373',
+              boxShadow: isPodium ? '0 15px 30px rgba(0,0,0,0.6), inset 0 2px 10px rgba(255,255,255,0.4)' : '0 10px 20px rgba(0,0,0,0.6)',
+              borderBottom: `6px solid ${rankTheme.nameBannerBorder}`,
+              borderTop: `1px solid ${rankTheme.nameBannerTopBorder}`,
             }}>
               <span style={{
                 display: 'block', transform: 'skew(15deg)',
