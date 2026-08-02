@@ -10,6 +10,7 @@ import { ShareAchievementModal, type ShareModalProps } from '@/components/ui/Sha
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { PositionBadge } from '@/components/ui/Badges';
+import { PlayerCard } from '@/components/players/PlayerCard';
 import type { DashboardStats } from '@/types';
 
 const CATEGORY_MAP: Record<string, { label: string, color: string, icon: any }> = {
@@ -103,19 +104,24 @@ export function AthleteDashboardPage() {
           <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-blue/60 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none opacity-50" />
         
-        {/* Botão Compartilhar Perfil removido daqui e passado para o Fire Shark */}        <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
-          <div className="relative flex-shrink-0 group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-red to-orange-500 rounded-full blur opacity-70 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse" />
-            <Avatar
-              name={player?.display_name || user?.name || ''}
-              src={player?.avatar_url || undefined}
-              size="xl"
-              className="relative ring-4 ring-black shadow-2xl"
-            />
-            {player?.big_stars > 0 && (
-              <div className="absolute -bottom-2 -right-2 bg-gradient-to-br from-yellow-300 to-yellow-600 rounded-full w-10 h-10 flex items-center justify-center text-sm font-black text-black shadow-xl border-2 border-black transform rotate-12">
-                {player.big_stars}
+        {/* Botão Compartilhar Perfil removido daqui e passado para o Fire Shark */}        <div className="relative flex flex-col xl:flex-row items-center xl:items-start gap-8 text-center xl:text-left">
+          <div className="relative flex-shrink-0 flex items-center justify-center">
+            {player ? (
+              <div className="w-[220px] sm:w-[240px] -mb-6 md:-mb-10">
+                <PlayerCard 
+                  player={{ ...player, stats: stats || player.stats }} 
+                  idx={0} 
+                  canEdit={false} 
+                  onDelete={() => {}} 
+                  fireSharkRank={isFireSharkRanked ? fireSharkRankIndex + 1 : undefined}
+                />
               </div>
+            ) : (
+              <Avatar
+                name={user?.name || ''}
+                size="xl"
+                className="relative ring-4 ring-black shadow-2xl"
+              />
             )}
           </div>
           <div className="flex-1 min-w-0 flex flex-col justify-center h-full pt-2">
