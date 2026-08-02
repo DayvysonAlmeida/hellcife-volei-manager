@@ -98,30 +98,49 @@ class DashboardView(APIView):
                 'wins': p.wins,
             })
 
-        # Destaques — Top 3 jogadores com mais premiações usando os totais absolutos no model Player
-        highlight_fields = {
-            'mvp': 'total_mvp',
-            'best_attacker': 'total_attack',
-            'best_defender': 'total_defense',
-            'best_setter': 'total_setter',
-            'best_passer': 'total_pass',
-            'best_blocker': 'total_block',
-        }
+        # -------------------------------------------------------------
+        # Ranking Fire Shark (Aproveitamento Global - Min 10 jogos)
+        # -------------------------------------------------------------
+        qs_fire = Player.objects.filter(status='active', is_guest=False).annotate(
+            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
+            total_matches=Count('match_appearances', distinct=True),
+        ).filter(total_matches__gte=10)
+        
+        fire_list = []
+        for p in qs_fire:
+            win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
+            # Média Bayesiana (K=10, media_geral=0.5 -> 10 * 0.5 = 5)
+            bayesian_score = ((p.wins + 5) / (p.total_matches + 10)) * 100
+            
+            fire_list.append({
+                'id': p.id,
+                'name': p.display_name,
+                'avatar_url': p.avatar_url,
+                'position': p.main_position,
+                'wins': p.wins,
+                'total_matches': p.total_matches,
+                'win_rate': round(win_rate, 1),
+                'score': round(bayesian_score, 1)
+            })
+            
+        fire_list.sort(key=lambda x: (x['score'], x['wins']), reverse=True)
+        fire_sharks = fire_list[:10]
 
-        highlights = {}
-        for key, field in highlight_fields.items():
-            top = Player.objects.filter(**{f"{field}__gt": 0}).order_by(f"-{field}")
-            highlights[key] = [
-                {
-                    'id': p.id,
-                    'name': p.display_name,
-                    'avatar_url': p.avatar_url,
-                    'mini_stars': p.mini_stars,
-                    'big_stars': p.big_stars,
-                    'count': getattr(p, field)
-                }
-                for p in top
-            ]
+        # -------------------------------------------------------------
+        # Dream Team (O melhor de cada posição pelo Fire Shark Win Rate)
+        # -------------------------------------------------------------
+        dream_team = []
+        # Definimos as posições essenciais para o Dream Team
+        positions_needed = ['setter', 'libero', 'opposite', 'outside', 'middle', 'universal']
+        
+        for pos in positions_needed:
+            best = None
+            for p in fire_list:
+                if p['position'] == pos:
+                    best = p
+                    break  # already sorted by best score
+            if best:
+                dream_team.append(best)
 
         # Distribuição por Posição (ignorando convidados)
         position_distribution = list(
@@ -221,7 +240,8 @@ class DashboardView(APIView):
             'top_attendees': top_attendees,
             'top_winners': top_winners,
             'position_distribution': formatted_distribution,
-            'highlights': highlights,
+            'fire_sharks': fire_sharks,
+            'dream_team': dream_team,
             'hall_of_fame': hall_of_fame_list,
 
             'top_stars': top_stars,

@@ -13,13 +13,24 @@ interface PlayerCardProps {
   canEdit: boolean;
   onDelete: (player: Player) => void;
   winRank?: number; // 1, 2, 3 ou 4
+  fireSharkRank?: number; // 1, 2, 3 ou 4
 }
 
-export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDelete, winRank }: PlayerCardProps) {
+export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDelete, winRank, fireSharkRank }: PlayerCardProps) {
   const navigate = useNavigate();
 
   const isInactive = player.status === 'inactive' || player.status === 'suspended';
   const hasAbsenceRisk = player.consecutive_absences >= 8 && player.status === 'active';
+
+  const borderColors = player.latest_overall 
+    ? (
+      player.latest_overall >= 8.5 ? ['#fca5a5', '#dc2626', '#fca5a5', '#991b1b', '#fca5a5'] :
+      player.latest_overall >= 7.5 ? ['#93c5fd', '#2563eb', '#93c5fd', '#1e3a8a', '#93c5fd'] :
+      player.latest_overall >= 6.5 ? ['#86efac', '#16a34a', '#86efac', '#14532d', '#86efac'] :
+      player.latest_overall >= 5.5 ? ['#fef08a', '#ca8a04', '#fef08a', '#854d0e', '#fef08a'] :
+      ['#e4e4e7', '#71717a', '#e4e4e7', '#3f3f46', '#e4e4e7']
+    ) 
+    : ['#fef08a', '#ca8a04', '#fef08a', '#854d0e', '#fef08a'];
 
   const getPositionColor = (pos: string) => {
     switch (pos) {
@@ -41,31 +52,11 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: idx * 0.03 }}
-      className={`relative w-full max-w-[240px] mx-auto group ${isInactive ? 'opacity-60 grayscale-[0.8]' : ''} mb-6`}
+      className={`relative w-full max-w-[240px] mx-auto group ${isInactive ? 'opacity-60 grayscale-[0.8]' : ''} mb-6 md:mb-6`}
     >
       {/* Área Flutuante Superior (Sempre para cima do Card) */}
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-20 w-max pointer-events-none mb-1.5">
-
-        {/* Selo Win Streak removido daqui */}
-        {/* Selo Top Vitórias (Crown/Medal) */}
-        {winRank && winRank <= 4 && (
-          <div className="flex flex-col items-center drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] whitespace-nowrap">
-            <div className={`
-               px-3 py-0.5 rounded-t-lg rounded-b-sm border flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-black shadow-lg whitespace-nowrap
-               ${winRank === 1 ? 'bg-gradient-to-b from-yellow-300 to-yellow-600 border-yellow-200' :
-                winRank === 2 ? 'bg-gradient-to-b from-slate-300 to-slate-500 border-slate-200' :
-                  winRank === 3 ? 'bg-gradient-to-b from-amber-600 to-amber-800 border-amber-500 text-white' :
-                    'bg-gradient-to-b from-emerald-400 to-emerald-600 border-emerald-300 text-white'}
-             `}>
-              {winRank === 1 ? '🏆 Top 1 Vitórias' :
-                winRank === 2 ? '🥈 Top 2 Vitórias' :
-                  winRank === 3 ? '🥉 Top 3 Vitórias' :
-                    '🏅 Top 4 Vitórias'}
-            </div>
-          </div>
-        )}
-
-        {/* Alertas Externos */}
+        {/* Alertas Externos (Convidado / Risco de Faltas) */}
         {(player.is_guest || hasAbsenceRisk) && (
           <div className="flex items-center gap-1">
             {player.is_guest && (
@@ -113,7 +104,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             <polygon
               points="10,1 90,1 99,15 99,119 50,139 1,119 1,15"
               fill="none"
-              stroke="url(#gold-border)"
+              stroke={`url(#border-${player.id})`}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -127,12 +118,12 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
               className="opacity-50"
             />
             <defs>
-              <linearGradient id="gold-border" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#fef08a" />
-                <stop offset="20%" stopColor="#ca8a04" />
-                <stop offset="50%" stopColor="#fef08a" />
-                <stop offset="80%" stopColor="#854d0e" />
-                <stop offset="100%" stopColor="#fef08a" />
+              <linearGradient id={`border-${player.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={borderColors[0]} />
+                <stop offset="20%" stopColor={borderColors[1]} />
+                <stop offset="50%" stopColor={borderColors[2]} />
+                <stop offset="80%" stopColor={borderColors[3]} />
+                <stop offset="100%" stopColor={borderColors[4]} />
               </linearGradient>
               <linearGradient id="gold-highlight" x1="50%" y1="0%" x2="50%" y2="100%">
                 <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
@@ -187,16 +178,29 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             })}
           </div>
 
-          {/* Avatar Area */}
-          <div className="absolute inset-x-0 top-[10%] bottom-[35%] flex justify-center items-center z-10 pointer-events-none">
-
-            {/* Selo Win Streak (Foguinho) flutuando no topo da foto */}
+          {/* Badges de Topo (Win Streak + Top Ranks) */}
+          <div className="absolute top-[8%] left-1/2 -translate-x-1/2 w-[70%] flex flex-wrap justify-center items-center gap-1 z-30 pointer-events-none">
             {(player.stats?.win_streak ?? 0) >= 2 && (
-              <div className="absolute -top-2 z-50 flex items-center gap-0.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] animate-pulse" title={`${player.stats?.win_streak} vitórias consecutivas`}>
+              <div className="flex items-center gap-0.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] animate-pulse" title={`${player.stats?.win_streak} vitórias consecutivas`}>
                 <span className="text-sm font-black text-white">{player.stats?.win_streak}</span>
                 <Flame size={18} className="text-yellow-300 fill-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
               </div>
             )}
+            {winRank && winRank <= 4 && (
+              <div className="flex items-center justify-center gap-0.5 px-1.5 h-4 sm:h-5 rounded-full bg-gradient-to-tr from-yellow-500 to-yellow-200 border border-yellow-600 shadow-md" title={`Top ${winRank} Vitórias`}>
+                <span className="text-[8px] sm:text-[9px] font-black text-black">🏆#{winRank}</span>
+              </div>
+            )}
+            {fireSharkRank && fireSharkRank <= 4 && (
+              <div className="flex items-center justify-center gap-0.5 px-1.5 h-4 sm:h-5 rounded-full bg-gradient-to-tr from-red-600 to-orange-500 border border-red-700 shadow-md" title={`Top ${fireSharkRank} Fire Shark`}>
+                <Flame size={8} className="text-yellow-300 fill-yellow-300" />
+                <span className="text-[8px] sm:text-[9px] font-black text-white">#{fireSharkRank}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Avatar Area */}
+          <div className="absolute inset-x-0 top-[10%] bottom-[35%] flex justify-center items-center z-10 pointer-events-none">
 
             {player.avatar_url ? (
               <>
@@ -213,7 +217,8 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
                     src={player.avatar_url}
                     alt={player.name}
                     loading="lazy"
-                    className="pointer-events-auto h-[95%] aspect-square object-cover rounded-full border-[3px] border-yellow-500/80 shadow-[0_10px_20px_rgba(0,0,0,0.8)] mt-2"
+                    className="pointer-events-auto h-[95%] aspect-square object-cover rounded-full border-[3px] shadow-[0_10px_20px_rgba(0,0,0,0.8)] mt-2"
+                    style={{ borderColor: borderColors[1] }}
                   />
                 )}
                 {/* Degradê na base da foto para misturar a cintura do atleta ao fundo escuro */}
@@ -315,9 +320,9 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
         </div>
       </Link>
 
-      {/* Admin Actions Overlay (External bottom) */}
+      {/* Admin Actions Overlay (External bottom) - Hidden on Mobile */}
       {canEdit && (
-        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 z-30 flex flex-row gap-3 pointer-events-none md:translate-y-2 md:group-hover:translate-y-0">
+        <div className="hidden absolute -bottom-2 md:-bottom-4 left-1/2 -translate-x-1/2 opacity-0 md:group-hover:opacity-100 transition-all duration-300 z-30 md:flex flex-row gap-3 pointer-events-none md:translate-y-2 md:group-hover:translate-y-0">
           <button
             onClick={(e) => { e.preventDefault(); navigate(`/players/${player.id}/edit`); }}
             className="p-2 sm:p-2.5 rounded-full bg-zinc-900 text-yellow-500 shadow-[0_4px_12px_rgba(0,0,0,0.8)] border border-yellow-500/50 hover:bg-zinc-800 pointer-events-auto hover:scale-110 transition-transform"

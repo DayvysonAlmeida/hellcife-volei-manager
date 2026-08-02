@@ -33,84 +33,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   return null;
 };
 
-function HighlightColumn({ title, icon: Icon, colorClass, bgClass, data }: { title: string, icon: any, colorClass: string, bgClass: string, data: any[] }) {
-  const first = data[0];
-  const second = data[1];
-  const third = data[2];
-
-  return (
-    <div className="bg-surface/50 rounded-2xl p-5 border border-border/50 hover:border-border/80 transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden group hover:shadow-xl">
-      <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-      <div className={`w-12 h-12 rounded-xl ${bgClass} ${colorClass} flex items-center justify-center mb-4 relative z-10 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3`}>
-        <Icon size={24} className={colorClass.includes('fill') ? colorClass : ''} />
-      </div>
-      <h3 className="text-xs font-black text-text-primary uppercase tracking-widest mb-5 relative z-10 drop-shadow-sm">{title}</h3>
-      {data && data.length > 0 ? (
-        <div className="flex flex-col items-center w-full relative pt-2 pb-2 z-10">
-          {/* PÓDIO */}
-          <div className="flex items-end justify-center gap-2 w-full h-36 mb-4 relative mt-4">
-            {/* 2º Lugar */}
-            {second && (
-              <div className="flex flex-col items-center w-1/3 z-10 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-                <Avatar name={second.name} src={second.avatar_url} size="sm" className="mb-2 ring-2 ring-zinc-400/50" />
-                <p className="font-medium text-text-primary text-[10px] truncate w-full text-center">{second.name}</p>
-                <div className={`mt-1 text-xs font-bold ${colorClass}`}>{second.count}x</div>
-                <div className="w-full bg-surface-highlight h-10 mt-2 rounded-t-md flex items-end justify-center pb-1 border-t-2 border-zinc-400/50">
-                  <span className="text-[10px] font-bold text-zinc-400">2º</span>
-                </div>
-              </div>
-            )}
-            
-            {/* 1º Lugar */}
-            {first && (
-              <div className="relative flex flex-col items-center w-[40%] z-20 -mb-2 animate-fade-in-up">
-                <div className="absolute -top-7 text-yellow-400 animate-pulse">
-                  <Crown size={20} />
-                </div>
-                <Avatar name={first.name} src={first.avatar_url} size="md" className={`mb-2 ring-4 shadow-[0_0_15px_currentColor] ${colorClass.split(' ')[0].replace('text-', 'ring-').replace('fill-', '')} ${colorClass}`} />
-                <p className="font-bold text-text-primary text-[11px] truncate w-full text-center">{first.name}</p>
-                <div className={`mt-1 text-sm font-bold ${colorClass} bg-surface-highlight px-2 py-0.5 rounded-full`}>{first.count}x</div>
-                <div className={`w-full bg-gradient-to-t from-surface-highlight to-surface h-14 mt-2 rounded-t-md flex items-end justify-center pb-1 border-t-4 border-current ${colorClass}`}>
-                  <span className="text-[12px] font-bold">1º</span>
-                </div>
-              </div>
-            )}
-
-            {/* 3º Lugar */}
-            {third && (
-              <div className="flex flex-col items-center w-1/3 z-10 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-                <Avatar name={third.name} src={third.avatar_url} size="sm" className="mb-2 ring-2 ring-orange-600/50" />
-                <p className="font-medium text-text-primary text-[10px] truncate w-full text-center">{third.name}</p>
-                <div className={`mt-1 text-xs font-bold ${colorClass}`}>{third.count}x</div>
-                <div className="w-full bg-surface-highlight h-8 mt-2 rounded-t-md flex items-end justify-center pb-1 border-t-2 border-orange-600/50">
-                  <span className="text-[10px] font-bold text-orange-600/80">3º</span>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Outros (4º em diante) se houver */}
-          {data.length > 3 && (
-            <div className="flex flex-col gap-1.5 w-full mt-2 pt-2 border-t border-border/50 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
-              {data.slice(3).map((p, i) => (
-                <div key={p.id} className="flex items-center gap-2 bg-surface/30 p-1.5 rounded-lg text-left">
-                  <span className="text-text-muted font-bold text-[10px] w-4 text-center">{i + 4}º</span>
-                  <Avatar name={p.name} src={p.avatar_url} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-text-primary text-[10px] truncate">{p.name}</p>
-                  </div>
-                  <span className={`text-[10px] ${colorClass} font-bold`}>{p.count}x</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <p className="text-text-muted text-sm my-auto opacity-50 pt-4">Sem dados</p>
-      )}
-    </div>
-  );
-}
+// Funções e Componentes utilitários removidos para dar espaço ao Fire Shark
 
 export function DashboardPage() {
   const { data, isLoading, error, refetch } = useQuery<DashboardData>({
@@ -601,25 +524,112 @@ export function DashboardPage() {
         )}
       </motion.div>
 
-      {/* Destaques (Corridas por Partida) */}
-      {data.highlights && (
+      {/* ── DREAM TEAM (Top Win Rate por Posição) ── */}
+      {data.dream_team && data.dream_team.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="card p-6"
+          className="card p-6 bg-gradient-to-br from-surface to-[#0a0505] border border-red-900/30 shadow-[0_0_20px_rgba(220,38,38,0.05)]"
         >
-          <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-2">
-            <Trophy size={20} className="text-yellow-500" />
-            A CORRIDA PELAS ESTATUETAS (LÍDERES HISTÓRICOS)
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <HighlightColumn title="Mais vezes MVP" icon={Star} colorClass="text-yellow-500 fill-yellow-500 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]" bgClass="bg-yellow-500/10 border border-yellow-500/20" data={data.highlights.mvp || []} />
-            <HighlightColumn title="Melhor Ataque" icon={Swords} colorClass="text-red drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" bgClass="bg-red/10 border border-red/20" data={data.highlights.best_attacker || []} />
-            <HighlightColumn title="Melhor Defesa" icon={Shield} colorClass="text-blue drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" bgClass="bg-blue/10 border border-blue/20" data={data.highlights.best_defender || []} />
-            <HighlightColumn title="Melhor Levantador" icon={Crosshair} colorClass="text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" bgClass="bg-orange-500/10 border border-orange-500/20" data={data.highlights.best_setter || []} />
-            <HighlightColumn title="Melhor Passe" icon={Activity} colorClass="text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" bgClass="bg-green-500/10 border border-green-500/20" data={data.highlights.best_passer || []} />
-            <HighlightColumn title="Melhor Bloqueio" icon={Lock} colorClass="text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]" bgClass="bg-purple-500/10 border border-purple-500/20" data={data.highlights.best_blocker || []} />
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+              <Star size={24} className="fill-red-500/20" />
+            </div>
+            <div>
+              <h2 className="font-display text-xl text-red-400 tracking-wider">DREAM TEAM HELLCIFE</h2>
+              <p className="text-sm text-text-muted">A formação ideal baseada no aproveitamento Fire Shark de cada posição.</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+            {data.dream_team.map((player) => (
+              <Link 
+                key={player.id} 
+                to={`/players/${player.id}`}
+                className="flex flex-col items-center bg-black/40 border border-border/50 rounded-2xl p-4 hover:border-red-500/50 hover:bg-surface-highlight transition-all group"
+              >
+                <PositionBadge position={player.position as any} className="mb-3 text-[10px] px-2 py-0.5" />
+                <Avatar name={player.name} src={player.avatar_url} size="lg" className="ring-2 ring-red-500/20 group-hover:ring-red-500/50 mb-3 shadow-[0_0_15px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] transition-all" />
+                <h3 className="font-bold text-sm text-text-primary text-center truncate w-full">{player.name}</h3>
+                <div className="flex flex-col items-center mt-2 w-full bg-red-900/20 rounded-lg p-2 border border-red-500/10">
+                  <span className="text-orange-400 font-display text-lg leading-none">{player.win_rate}%</span>
+                  <span className="text-[9px] text-text-muted uppercase font-bold tracking-widest mt-1">{player.wins}/{player.total_matches} vitórias</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── FIRE SHARKS TOP 10 ── */}
+      {data.fire_sharks && data.fire_sharks.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="card p-6 bg-gradient-to-br from-[#050202] to-[#110505] border border-orange-500/20 shadow-[0_0_30px_rgba(249,115,22,0.1)] relative overflow-hidden"
+        >
+          {/* Subtle bg decorations */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 rounded-full blur-[80px] pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-red-600/5 rounded-full blur-[80px] pointer-events-none" />
+          
+          <div className="relative z-10 flex items-center justify-between mb-6">
+             <div className="flex items-center gap-3">
+               <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.3)]">
+                 <Flame size={24} />
+               </div>
+               <div>
+                 <h2 className="font-display text-2xl text-orange-400 tracking-wider flex items-center gap-2">
+                   TUBARÕES DA QUADRA <span className="text-xs bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/30">TOP 10</span>
+                 </h2>
+                 <p className="text-sm text-text-muted">Ranking de aproveitamento Fire Shark (Mínimo de 10 jogos)</p>
+               </div>
+             </div>
+          </div>
+          
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {data.fire_sharks.map((player, idx) => (
+              <Link
+                key={player.id}
+                to={`/players/${player.id}`}
+                className={`flex items-center gap-4 p-3 sm:p-4 rounded-2xl border transition-all duration-300 group ${
+                  idx === 0 
+                    ? 'bg-gradient-to-r from-orange-900/30 to-black border-orange-500/50 hover:border-orange-400' 
+                    : 'bg-black/40 border-border/50 hover:bg-surface/60 hover:border-orange-500/30'
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-display text-lg ${
+                  idx === 0 ? 'bg-orange-500 text-black shadow-[0_0_10px_rgba(249,115,22,0.8)]' : 
+                  idx === 1 ? 'bg-zinc-300 text-black' : 
+                  idx === 2 ? 'bg-orange-700 text-black' : 
+                  'bg-surface-highlight text-text-muted border border-border'
+                }`}>
+                  {idx + 1}
+                </div>
+                
+                <Avatar name={player.name} src={player.avatar_url} size={idx === 0 ? "lg" : "md"} className={idx === 0 ? "ring-2 ring-orange-500" : ""} />
+                
+                <div className="flex-1 min-w-0">
+                  <h3 className={`font-bold truncate ${idx === 0 ? 'text-orange-400 text-base' : 'text-text-primary text-sm'}`}>
+                    {player.name}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <PositionBadge position={player.position as any} className="text-[9px] px-1.5 py-0.5" />
+                    <span className="text-text-muted text-xs">{player.wins}V - {player.total_matches - player.wins}D</span>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-end">
+                   <div className="flex items-center gap-1">
+                     <span className={`font-display ${idx === 0 ? 'text-2xl text-orange-400' : 'text-xl text-text-primary'}`}>
+                       {player.win_rate}%
+                     </span>
+                   </div>
+                   <span className="text-[9px] text-text-muted uppercase font-bold tracking-widest mt-0.5">Win Rate</span>
+                </div>
+              </Link>
+            ))}
           </div>
         </motion.div>
       )}

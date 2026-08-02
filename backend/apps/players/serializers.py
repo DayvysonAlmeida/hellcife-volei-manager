@@ -68,6 +68,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
                 'win_rate': round(win_rate, 1),
                 'wins': obj.wins,
                 'win_rank': self.context.get('global_win_ranks', {}).get(obj.id, None),
+                'fire_shark_rank': self.context.get('global_fire_sharks', {}).get(obj.id, None),
                 'win_streak': streak,
                 'mvp': obj.mvps,
                 'best_attacker': obj.best_attackers,

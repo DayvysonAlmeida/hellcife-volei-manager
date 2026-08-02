@@ -299,6 +299,7 @@ export function PlayersPage() {
               idx={idx}
               canEdit={canEdit}
               winRank={player.stats?.win_rank}
+              fireSharkRank={player.stats?.fire_shark_rank}
               onDelete={handleDeleteRequest}
             />
           ))}

@@ -86,6 +86,23 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 ranks[p['id']] = current_rank
                 last_w = p['w']
             context['global_win_ranks'] = ranks
+
+            # Calcula o rank Fire Shark global (Win Rate com mín 10 jogos)
+            fs_qs = Player.objects.annotate(
+                w=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
+                tm=Count('match_appearances', distinct=True)
+            ).filter(tm__gte=10).values('id', 'w', 'tm')
+            
+            fs_list = []
+            for p in fs_qs:
+                score = ((p['w'] + 5) / (p['tm'] + 10)) * 100
+                fs_list.append({'id': p['id'], 'score': score, 'w': p['w']})
+                
+            fs_list.sort(key=lambda x: (x['score'], x['w']), reverse=True)
+            fs_ranks = {}
+            for idx, p in enumerate(fs_list):
+                fs_ranks[p['id']] = idx + 1
+            context['global_fire_sharks'] = fs_ranks
         return context
 
     def get_permissions(self):

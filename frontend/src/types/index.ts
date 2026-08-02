@@ -97,6 +97,7 @@ export interface Player {
     win_rate: number;
     wins?: number;
     win_rank?: number;
+    fire_shark_rank?: number;
     overall_rank?: number;
     latest_mini_star?: string;
     win_streak?: number;
@@ -523,7 +524,26 @@ export interface DashboardData {
   }>;
   top_winners: TopWinner[];
   position_distribution: PositionDist[];
-  highlights: Record<string, HighlightPlayer[]>;
+  fire_sharks: Array<{
+    id: number;
+    name: string;
+    avatar_url?: string;
+    position: string;
+    wins: number;
+    total_matches: number;
+    win_rate: number;
+    score: number;
+  }>;
+  dream_team: Array<{
+    id: number;
+    name: string;
+    avatar_url?: string;
+    position: string;
+    wins: number;
+    total_matches: number;
+    win_rate: number;
+    score: number;
+  }>;
   hall_of_fame: { id: number; player_name: string; avatar_url?: string; category: string; year: number }[];
   most_present?: { id: number; name: string; avatar_url?: string; count: number } | null;
   season_mvp?: { id: number; name: string; avatar_url?: string; count: number } | null;
@@ -605,9 +625,10 @@ export interface PlayerStats {
   player_id: number;
   total_matches: number;
   wins: number;
-  losses: number;
-  draws: number;
-  win_rate: number;
+  losses?: number;
+  win_rank?: number;
+  fire_shark_rank?: number;
+  win_streak?: number;
   mvps: number;
   total_gamedays: number;
   attended_gamedays: number;
