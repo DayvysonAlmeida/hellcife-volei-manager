@@ -4,11 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Loader2, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { playersService } from '@/services/players';
 import { PageLoading } from '@/components/ui/Loading';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { POSITION_LABELS } from '@/types';
 import type { Player, Position } from '@/types';
@@ -56,6 +57,7 @@ export function PlayerFormPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [serverError, setServerError] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
   const { data: player, isLoading } = useQuery({
     queryKey: ['player', Number(id)],
@@ -103,6 +105,18 @@ export function PlayerFormPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => playersService.delete(Number(id)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['players'] });
+      toast.success('Atleta excluído com sucesso!');
+      navigate('/players');
+    },
+    onError: () => {
+      toast.error('Erro ao excluir atleta! Pode ser que ele já tenha partidas associadas.');
+    }
+  });
+
   const avatarFile = watch('avatar');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -123,6 +137,13 @@ export function PlayerFormPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen}
+        onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
+        title={confirmDialog.title}
+        description={confirmDialog.desc}
+        onConfirm={confirmDialog.onConfirm}
+      />
       <Link to="/players" className="btn-ghost inline-flex items-center gap-2">
         <ArrowLeft size={16} />
         Voltar
@@ -259,7 +280,25 @@ export function PlayerFormPage() {
           </div>
         </FieldGroup>
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex gap-3 justify-end items-center">
+          {isEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmDialog({
+                  isOpen: true,
+                  title: 'Excluir Atleta',
+                  desc: 'Tem certeza que deseja excluir este atleta? Esta ação não pode ser desfeita. Observação: atletas com partidas registradas não podem ser excluídos, desative-os mudando o status.',
+                  onConfirm: () => deleteMutation.mutate()
+                });
+              }}
+              disabled={deleteMutation.isPending}
+              className="btn-ghost text-red hover:bg-red/10 mr-auto flex items-center gap-2 px-3 py-1.5"
+            >
+              {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              <span className="hidden sm:inline">Excluir Atleta</span>
+            </button>
+          )}
           <Link to="/players" className="btn-secondary">Cancelar</Link>
           <button type="submit" disabled={mutation.isPending} className="btn-primary flex items-center gap-2">
             {mutation.isPending && <Loader2 size={14} className="animate-spin" />}
