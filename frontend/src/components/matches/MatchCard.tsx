@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Calendar, MapPin, Trophy, Star, Shield, ChevronDown, Users, Trash2 } from 'lucide-react';
+import { Swords, Calendar, MapPin, Trophy, Star, Shield, ChevronDown, Users, Trash2, Pencil } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { LocationMapModal } from '@/components/ui/LocationMapModal';
 import { formatDate } from '@/lib/utils';
@@ -15,7 +15,9 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
   isDeleting: boolean;
   onToggle: () => void;
   onDelete: (id: number) => void;
+  onEdit?: (id: number) => void;
 }) {
+  const navigate = useNavigate();
   const teams = match.match_teams || [];
   const teamA = teams[0];
   const teamB = teams[1];
@@ -67,6 +69,16 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
             >
               <Trophy size={16} />
             </Link>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => navigate(`/matches/${match.id}/edit`)}
+              className="min-w-[40px] min-h-[40px] flex items-center justify-center text-text-muted hover:text-yellow-500 hover:bg-yellow-500/10 rounded-xl transition-colors"
+              title="Editar partida"
+              aria-label="Editar partida"
+            >
+              <Pencil size={16} />
+            </button>
           )}
           {/* Botão excluir — área de toque generosa no mobile */}
           {isAdmin && (

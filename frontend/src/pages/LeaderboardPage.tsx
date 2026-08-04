@@ -44,8 +44,11 @@ export function LeaderboardPage() {
   if (error) return <ErrorState onRetry={refetch} />;
   if (!players) return null;
 
-  const top3 = players.slice(0, 3);
-  const rest = players.slice(3);
+  const officialPlayers = players.filter((p: any) => !p.is_guest);
+  const guestPlayers = players.filter((p: any) => p.is_guest);
+
+  const top3 = officialPlayers.slice(0, 3);
+  const rest = officialPlayers.slice(3);
 
   return (
     <div className="space-y-8">
@@ -156,7 +159,7 @@ export function LeaderboardPage() {
         </div>
       )}
 
-      {/* Restante da Lista */}
+      {/* Restante da Lista (Oficiais) */}
       {rest.length > 0 && (
         <div className="card p-4 space-y-2">
           {rest.map((player: any, idx: number) => (
@@ -191,7 +194,44 @@ export function LeaderboardPage() {
         </div>
       )}
 
-      {players.length === 0 && (
+      {/* Convidados (Lista Colapsável) */}
+      {guestPlayers.length > 0 && (
+        <details className="card group overflow-hidden border border-border/50 bg-black/20 open:bg-black/40 transition-colors">
+          <summary className="cursor-pointer list-none p-4 font-display font-bold text-sm text-text-muted hover:text-white uppercase tracking-wider flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Zap size={16} className="text-yellow-500" />
+              Convidados Avaliados ({guestPlayers.length})
+            </span>
+            <span className="text-xl group-open:rotate-180 transition-transform">▾</span>
+          </summary>
+          <div className="p-4 pt-0 space-y-2 border-t border-border/10 mt-2">
+            {guestPlayers.map((player: any, idx: number) => (
+              <div
+                key={player.id}
+                className="flex items-center gap-4 p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors opacity-80"
+              >
+                <div className="w-8 text-center text-text-muted/60 font-display font-bold text-sm">
+                  -
+                </div>
+                <Avatar name={player.name} src={player.avatar_url} size="sm" className="grayscale group-hover:grayscale-0 transition-all" />
+                <div className="flex-1 min-w-0 flex items-center gap-3">
+                  <span className="text-text-primary/80 font-medium text-xs truncate">
+                    {player.nickname || player.name}
+                  </span>
+                  <div className="scale-75 origin-left">
+                    <PositionBadge position={player.main_position} />
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 scale-90 origin-right">
+                  <OverallBadge overall={player.overall} size="sm" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {officialPlayers.length === 0 && guestPlayers.length === 0 && (
         <div className="text-center py-12 text-text-muted">
           Nenhum atleta avaliado encontrado para esta posição.
         </div>

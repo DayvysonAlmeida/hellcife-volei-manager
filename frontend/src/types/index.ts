@@ -105,6 +105,7 @@ export interface Player {
     best_attacker: number;
     best_server: number;
     best_defender: number;
+    total_matches?: number;
   };
 }
 

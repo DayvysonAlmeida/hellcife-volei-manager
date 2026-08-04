@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Bell, Check, Gift, Medal, Info, AlertTriangle, Trash2, BellOff, Filter,
+  Bell, Check, Gift, Medal, Info, AlertTriangle, Trash2, BellOff, Filter, Send, Loader2
 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { useAuth } from '@/store/AuthContext';
+import { notificationsService } from '@/services/notifications';
+import toast from 'react-hot-toast';
 import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
@@ -55,8 +59,27 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 export function NotificationsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.profile === 'admin' || user?.profile === 'moderator';
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const [filter, setFilter] = useState<FilterType>('all');
+  
+  const [showGlobalForm, setShowGlobalForm] = useState(false);
+  const [globalTitle, setGlobalTitle] = useState('');
+  const [globalMessage, setGlobalMessage] = useState('');
+
+  const sendGlobalMutation = useMutation({
+    mutationFn: () => notificationsService.sendGlobalAnnouncement(globalTitle, globalMessage),
+    onSuccess: () => {
+      toast.success('Aviso global enviado para todos os atletas!');
+      setShowGlobalForm(false);
+      setGlobalTitle('');
+      setGlobalMessage('');
+    },
+    onError: () => {
+      toast.error('Erro ao enviar aviso global.');
+    }
+  });
 
   const filtered = filter === 'all'
     ? notifications
@@ -85,16 +108,80 @@ export function NotificationsPage() {
           </div>
         </div>
 
-        {unreadCount > 0 && (
-          <button
-            onClick={() => markAllAsRead()}
-            className="flex items-center gap-2 text-xs text-text-muted hover:text-text-primary border border-border rounded-lg px-3 py-1.5 hover:bg-surface-highlight transition-all"
-          >
-            <Check size={13} />
-            Marcar todas como lidas
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <button
+              onClick={() => markAllAsRead()}
+              className="flex items-center gap-2 text-xs text-text-muted hover:text-text-primary border border-border rounded-lg px-3 py-1.5 hover:bg-surface-highlight transition-all"
+            >
+              <Check size={13} />
+              Marcar lidas
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => setShowGlobalForm(!showGlobalForm)}
+              className="btn-primary text-xs py-1.5 px-3 flex items-center gap-2"
+            >
+              <Send size={13} />
+              Aviso Global
+            </button>
+          )}
+        </div>
       </motion.div>
+
+      {/* Form de Aviso Global (Apenas Admins) */}
+      <AnimatePresence>
+        {showGlobalForm && isAdmin && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="card p-4 border border-red/30 bg-red/5 mb-4">
+              <h3 className="text-sm font-bold text-red flex items-center gap-2 mb-3 uppercase tracking-widest">
+                <Send size={14} /> Disparar Aviso Global
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Título do Aviso</label>
+                  <input
+                    type="text"
+                    value={globalTitle}
+                    onChange={(e) => setGlobalTitle(e.target.value)}
+                    placeholder="Ex: Treino Cancelado"
+                    className="input w-full py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1">Mensagem (Visível para todos os atletas)</label>
+                  <textarea
+                    value={globalMessage}
+                    onChange={(e) => setGlobalMessage(e.target.value)}
+                    rows={2}
+                    placeholder="Digite a mensagem..."
+                    className="input w-full text-sm resize-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 mt-2">
+                  <button onClick={() => setShowGlobalForm(false)} className="btn-ghost text-xs py-1.5 px-3">
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={() => sendGlobalMutation.mutate()} 
+                    disabled={!globalTitle || !globalMessage || sendGlobalMutation.isPending}
+                    className="btn-primary text-xs py-1.5 px-4 flex items-center gap-2"
+                  >
+                    {sendGlobalMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                    Enviar para Todos
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Filtros por tipo */}
       <motion.div

@@ -5,7 +5,7 @@ import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 import { PageLoading } from '@/components/ui/Loading';
 import { PlayerCard } from '@/components/players/PlayerCard';
 import api from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
 import { SKILL_LABELS } from '@/types';
 
 
@@ -28,6 +28,11 @@ export function MyProfilePage() {
     enabled: !!player?.id,
   });
 
+  const { data: dashboard } = useQuery({
+    queryKey: ['athlete-dashboard'],
+    queryFn: () => api.get('/dashboard/').then(r => r.data)
+  });
+
   if (isLoading) return <PageLoading />;
   if (!player) return (
     <div className="card p-10 text-center">
@@ -41,6 +46,12 @@ export function MyProfilePage() {
         value: value as number,
       }))
     : [];
+
+  const fireSharkRankIndex = dashboard?.top_stars?.findIndex((p: any) => p.id === player?.id) ?? -1;
+  const fireSharkRank = fireSharkRankIndex >= 0 && fireSharkRankIndex < 4 ? fireSharkRankIndex + 1 : undefined;
+
+  const winRankIndex = dashboard?.top_wins?.findIndex((p: any) => p.id === player?.id) ?? -1;
+  const winRank = winRankIndex >= 0 && winRankIndex < 4 ? winRankIndex + 1 : undefined;
 
   const historyData = stats?.overall_history?.map((h: { date: string; overall: number }) => ({
     date: formatDate(h.date),
@@ -60,17 +71,22 @@ export function MyProfilePage() {
     <div className="space-y-6">
       {/* ── Card de Perfil Premium ── */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative rounded-[32px] bg-white/80 dark:bg-[#050505]/80 backdrop-blur-3xl border border-gray-200 dark:border-white/10 p-8 pt-12 shadow-neon-red flex flex-col items-center group"
       >
-        <p className="text-text-muted text-xs uppercase tracking-widest mb-4 font-medium">Seu Card</p>
-        <div className="w-[220px]">
+        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-red/60 to-transparent overflow-hidden rounded-t-[32px]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none opacity-50 overflow-hidden rounded-[32px]" />
+        <p className="text-text-muted text-[10px] uppercase tracking-widest mb-6 font-bold z-10 drop-shadow">Seu Player Card Oficial</p>
+        <div className="w-[240px] z-10 relative group-hover:scale-105 transition-transform duration-500">
           <PlayerCard
-            player={player}
+            player={{ ...player, stats: stats || player.stats }}
             idx={0}
             canEdit={false}
             onDelete={() => {}}
+            winRank={winRank}
+            fireSharkRank={fireSharkRank}
           />
         </div>
       </motion.div>
@@ -85,16 +101,18 @@ export function MyProfilePage() {
         ].map((s, i) => (
           <motion.div
             key={s.label}
+            whileHover={{ scale: 1.05, y: -5 }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + i * 0.05 }}
-            className="card p-4 text-center"
+            className="relative overflow-hidden rounded-[24px] bg-gray-50/80 dark:bg-[#111]/60 backdrop-blur-xl border border-gray-200 dark:border-white/10 p-4 text-center hover:bg-white dark:hover:bg-black/80 hover:border-red/50 hover:shadow-neon-red transition-all duration-300 group cursor-pointer"
           >
-            <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center mx-auto mb-2`}>
-              <s.icon size={18} className={s.color} />
+            <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className={`w-12 h-12 rounded-xl ${s.bg} flex items-center justify-center mx-auto mb-2 transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-1`}>
+              <s.icon size={24} className={s.color} />
             </div>
-            <p className="font-display text-2xl text-text-primary">{s.value}</p>
-            <p className="text-text-muted text-xs mt-0.5 uppercase tracking-wider">{s.label}</p>
+            <p className="font-display text-3xl text-gray-900 dark:text-white drop-shadow-sm">{s.value}</p>
+            <p className="text-text-muted text-[10px] mt-1 uppercase tracking-widest font-medium">{s.label}</p>
           </motion.div>
         ))}
       </div>
@@ -104,23 +122,25 @@ export function MyProfilePage() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-4 flex items-center gap-4"
+          className={cn("mt-2 flex items-start gap-3 p-4 rounded-2xl border backdrop-blur-sm", 
+            player.consecutive_absences >= 8 ? "bg-red/20 border-red/40 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-[pulse_2s_ease-in-out_infinite]" : "bg-orange-500/10 border-orange-500/30 text-orange-200"
+          )}
         >
-          <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center flex-shrink-0">
-            <Flame size={20} className="text-orange-400" />
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", player.consecutive_absences >= 8 ? "bg-red/20" : "bg-orange-500/10")}>
+            <Flame size={20} className={player.consecutive_absences >= 8 ? "text-red" : "text-orange-400"} />
           </div>
           <div className="flex-1">
-            <p className="text-text-primary font-medium text-sm">
-              {player.consecutive_absences} {player.consecutive_absences === 1 ? 'falta consecutiva' : 'faltas consecutivas'}
+            <p className="text-text-primary font-bold text-sm tracking-wide">
+              {player.consecutive_absences} {player.consecutive_absences === 1 ? 'falta consecutiva na quadra' : 'faltas consecutivas na quadra'}
             </p>
             {/* Progress bar */}
-            <div className="mt-2 h-1.5 rounded-full bg-surface-highlight overflow-hidden">
+            <div className="mt-2 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-500 transition-all duration-700"
+                className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-600 transition-all duration-700 shadow-[0_0_8px_rgba(239,68,68,0.8)]"
                 style={{ width: `${Math.min((player.consecutive_absences / 10) * 100, 100)}%` }}
               />
             </div>
-            <p className="text-text-muted text-xs mt-1.5">{player.consecutive_absences}/10 para inativação</p>
+            <p className={cn("text-xs mt-1.5", player.consecutive_absences >= 8 ? "text-red-300 font-bold" : "text-text-muted")}>{player.consecutive_absences}/10 para inativação</p>
           </div>
         </motion.div>
       )}
@@ -132,8 +152,10 @@ export function MyProfilePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="card p-6"
+            whileHover={{ y: -5 }}
+            className="relative overflow-hidden rounded-[32px] bg-white/60 dark:bg-[#050505]/60 backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-6 shadow-2xl hover:border-red/30 transition-all duration-300 group"
           >
+            <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-red/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <h2 className="font-display text-lg text-text-primary tracking-wider mb-4">HABILIDADES</h2>
             <ResponsiveContainer width="100%" height={280}>
               <RadarChart data={radarChartData}>
@@ -158,8 +180,10 @@ export function MyProfilePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="card p-6"
+          whileHover={{ y: -5 }}
+          className="relative overflow-hidden rounded-[32px] bg-white/60 dark:bg-[#050505]/60 backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-6 shadow-2xl hover:border-blue-500/30 transition-all duration-300 group"
         >
+          <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <h2 className="font-display text-lg text-text-primary tracking-wider mb-4">ESTRELAS</h2>
           <div className="space-y-3">
             {starCategories.map((cat) => (
@@ -195,8 +219,10 @@ export function MyProfilePage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="card p-6"
+          whileHover={{ y: -5 }}
+          className="relative overflow-hidden rounded-[32px] bg-white/60 dark:bg-[#050505]/60 backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-6 shadow-2xl hover:border-red/30 transition-all duration-300 group"
         >
+          <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-red/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
           <h2 className="font-display text-lg text-text-primary tracking-wider mb-4">EVOLUÇÃO DO OVERALL</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={historyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
@@ -225,8 +251,10 @@ export function MyProfilePage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        className="card p-6"
+        whileHover={{ y: -5 }}
+        className="relative overflow-hidden rounded-[32px] bg-white/60 dark:bg-[#050505]/60 backdrop-blur-2xl border border-gray-200 dark:border-white/10 p-6 shadow-2xl hover:border-gray-500/30 transition-all duration-300 group"
       >
+        <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-gray-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         <h2 className="font-display text-lg text-text-primary tracking-wider mb-4">INFORMAÇÕES</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
           {[

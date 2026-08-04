@@ -96,6 +96,7 @@ function App() {
               <Route path="bracket/:id" element={<BracketPage />} />
               <Route path="matches" element={<MatchesPage />} />
               <Route path="matches/new" element={<MatchFormPage />} />
+              <Route path="matches/:id/edit" element={<MatchFormPage />} />
               <Route path="stars-system" element={<StarsSystemPage />} />
               <Route path="regulation" element={<RegulationPage />} />
               <Route path="notifications" element={<NotificationsPage />} />

@@ -472,6 +472,15 @@ export function AttendancePage() {
                 }}
                 isBulkLoading={bulkPaymentMutation.isPending}
                 showPaymentControls={Number(gameDayDetail.court_price) > 0}
+                gamedayId={gameDayDetail.id}
+                onReorderWaitlist={(gdId, attIds) => {
+                  attendanceService.reorderWaitlist(gdId, attIds).then(() => {
+                    toast.success('Fila reordenada!');
+                    qc.invalidateQueries({ queryKey: ['gameday-detail'] });
+                  }).catch(() => {
+                    toast.error('Erro ao reordenar a fila.');
+                  });
+                }}
               />
             </div>
           ) : null}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, Trophy, Users, Star, Swords, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -36,6 +36,9 @@ type TeamState = {
 
 export function MatchFormPage() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = !!id;
+  const matchId = id ? Number(id) : null;
   const qc = useQueryClient();
 
   const [teamA, setTeamA] = useState<TeamState>({ name: 'Time Vermelho', color_hex: '#D90429', score: 0, playerIds: [] });
@@ -45,6 +48,7 @@ export function MatchFormPage() {
   const [bestAttackerId, setBestAttackerId] = useState<number | null>(null);
   const [bestDefenderId, setBestDefenderId] = useState<number | null>(null);
   const [playerSearch, setPlayerSearch] = useState('');
+  const [editLoaded, setEditLoaded] = useState(false);
 
   // Queries
   const { data: playersData, isLoading: loadingPlayers } = useQuery({
@@ -62,13 +66,66 @@ export function MatchFormPage() {
     queryFn: () => teamsService.list(),
   });
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
     defaultValues: {
       date: new Date().toLocaleDateString('en-CA'),
       modality: 6,
     },
   });
+
+  // Carregar dados da partida existente quando em modo edição
+  const { data: existingMatch, isLoading: loadingMatch } = useQuery({
+    queryKey: ['match-detail', matchId],
+    queryFn: () => matchesService.get(matchId!),
+    enabled: isEditMode && !!matchId,
+  });
+
+  // Preencher o formulário com os dados da partida existente
+  if (isEditMode && existingMatch && !editLoaded) {
+    reset({
+      date: existingMatch.date,
+      location: existingMatch.location || '',
+      modality: existingMatch.modality as any,
+      gameday: existingMatch.gameday || null,
+      notes: existingMatch.notes || '',
+    });
+
+    const teams = existingMatch.match_teams || [];
+    if (teams.length >= 1) {
+      const tA = teams[0];
+      const allPlayersA = tA.match_players || [];
+      setTeamA({
+        name: tA.team_name,
+        color_hex: tA.color_hex,
+        score: tA.score,
+        playerIds: allPlayersA.map((mp: any) => mp.player),
+      });
+      const mvpA = allPlayersA.find((mp: any) => mp.mvp);
+      const atkA = allPlayersA.find((mp: any) => mp.best_attacker);
+      const defA = allPlayersA.find((mp: any) => mp.best_defender);
+      if (mvpA) setMvpId(mvpA.player);
+      if (atkA) setBestAttackerId(atkA.player);
+      if (defA) setBestDefenderId(defA.player);
+    }
+    if (teams.length >= 2) {
+      const tB = teams[1];
+      const allPlayersB = tB.match_players || [];
+      setTeamB({
+        name: tB.team_name,
+        color_hex: tB.color_hex,
+        score: tB.score,
+        playerIds: allPlayersB.map((mp: any) => mp.player),
+      });
+      const mvpB = allPlayersB.find((mp: any) => mp.mvp);
+      const atkB = allPlayersB.find((mp: any) => mp.best_attacker);
+      const defB = allPlayersB.find((mp: any) => mp.best_defender);
+      if (mvpB && !mvpId) setMvpId(mvpB.player);
+      if (atkB && !bestAttackerId) setBestAttackerId(atkB.player);
+      if (defB && !bestDefenderId) setBestDefenderId(defB.player);
+    }
+    setEditLoaded(true);
+  }
 
   const handleImportGeneration = (genIdStr: string) => {
     if (!genIdStr) {
@@ -134,17 +191,7 @@ export function MatchFormPage() {
         throw new Error('Você precisa adicionar jogadores aos times!');
       }
 
-      // 1. Create match
-      const match = await matchesService.create({
-        date: data.date,
-        location: data.location || undefined,
-        modality: data.modality as any,
-        gameday: data.gameday || undefined,
-        notes: data.notes || undefined,
-      });
-
-      // 2. Add result
-      await matchesService.addResult(match.id, [
+      const teamsPayload = [
         {
           team_name: teamA.name,
           color_hex: teamA.color_hex,
@@ -163,15 +210,38 @@ export function MatchFormPage() {
           best_attacker_ids: bestAttackerId && teamB.playerIds.includes(bestAttackerId) ? [bestAttackerId] : [],
           best_defender_ids: bestDefenderId && teamB.playerIds.includes(bestDefenderId) ? [bestDefenderId] : [],
         }
-      ]);
+      ];
 
-      return match;
+      if (isEditMode && matchId) {
+        // Modo edição: atualiza dados básicos + refaz o resultado
+        await matchesService.update(matchId, {
+          date: data.date,
+          location: data.location || undefined,
+          modality: data.modality as any,
+          gameday: data.gameday || undefined,
+          notes: data.notes || undefined,
+        });
+        await matchesService.addResult(matchId, teamsPayload);
+        return { id: matchId };
+      } else {
+        // Modo criação: cria partida e adiciona resultado
+        const match = await matchesService.create({
+          date: data.date,
+          location: data.location || undefined,
+          modality: data.modality as any,
+          gameday: data.gameday || undefined,
+          notes: data.notes || undefined,
+        });
+        await matchesService.addResult(match.id, teamsPayload);
+        return match;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['matches'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       qc.invalidateQueries({ queryKey: ['player-stats'] });
-      toast.success('Partida registrada com sucesso!');
+      if (matchId) qc.invalidateQueries({ queryKey: ['match-detail', matchId] });
+      toast.success(isEditMode ? 'Partida atualizada com sucesso!' : 'Partida registrada com sucesso!');
       navigate('/matches');
     },
     onError: (err: any) => {
@@ -179,7 +249,7 @@ export function MatchFormPage() {
     },
   });
 
-  if (loadingPlayers) return <PageLoading />;
+  if (loadingPlayers || (isEditMode && loadingMatch)) return <PageLoading />;
 
   const players = playersData?.results || [];
   const gamedays = gamedaysData?.results || [];
@@ -309,8 +379,8 @@ export function MatchFormPage() {
       </Link>
 
       <div>
-        <h1 className="page-title">Registrar Nova Partida</h1>
-        <p className="page-subtitle">Preencha os detalhes e escale os times para registrar o resultado.</p>
+        <h1 className="page-title">{isEditMode ? 'Editar Partida' : 'Registrar Nova Partida'}</h1>
+        <p className="page-subtitle">{isEditMode ? 'Altere os dados e o resultado desta partida.' : 'Preencha os detalhes e escale os times para registrar o resultado.'}</p>
       </div>
 
       <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-6">
@@ -522,7 +592,7 @@ export function MatchFormPage() {
           <Link to="/matches" className="btn-secondary">Cancelar</Link>
           <button type="submit" disabled={createMutation.isPending} className="btn-primary flex items-center gap-2">
             {createMutation.isPending && <Loader2 size={14} className="animate-spin" />}
-            Salvar Resultado da Partida
+            {isEditMode ? 'Salvar Alterações' : 'Salvar Resultado da Partida'}
           </button>
         </div>
       </form>

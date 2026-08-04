@@ -203,7 +203,7 @@ export function AthleteMatchesPage() {
                   <span className="text-text-muted text-xs ml-auto">{groupMatches.length} jogos</span>
                 </div>
                 <div className="space-y-3">
-                  {groupMatches.map((match: any, i: number) => (
+                  {groupMatches.slice().reverse().map((match: any, i: number) => (
                     <motion.div
                       key={match.id}
                       initial={{ opacity: 0, y: 10 }}

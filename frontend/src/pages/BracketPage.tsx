@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,6 +26,7 @@ interface BracketState {
   consecutiveB: number;
   matchNumber: number;
   showSaveModal: boolean;
+  borrowCounts: Record<number, number>;
   transitionMessage: string | null;
   transitionColor: string | null;
 }
@@ -35,7 +36,8 @@ function borrowPlayersForTeam(
   team: DBTeam,
   opposingAvg: number,
   modality: number,
-  availableTeams: DBTeam[]
+  availableTeams: DBTeam[],
+  borrowCounts: Record<number, number> = {}
 ): CourtTeam {
   const needed = modality - team.team_players.length;
   const courtTeam: CourtTeam = {
@@ -46,14 +48,23 @@ function borrowPlayersForTeam(
   if (needed <= 0 || availableTeams.length === 0) return courtTeam;
 
   let candidates: any[] = [];
-  // Pegar candidatos do final da fila para o início
-  for (let i = availableTeams.length - 1; i >= 0; i--) {
-    candidates = [...candidates, ...availableTeams[i].team_players.map(p => ({
+  if (availableTeams.length === 1) {
+    // Se só tem 1 time na fila (total de 3 times), pega dele mesmo (o time que acabou de perder)
+    candidates = [...availableTeams[0].team_players.map(p => ({
        ...p,
        is_borrowed: true,
-       original_team_id: availableTeams[i].id 
+       original_team_id: availableTeams[0].id 
     }))];
-    if (candidates.length >= needed) break;
+  } else {
+    // Se passa de 4 times (2 na fila), não pega de quem acabou de sair (o último da fila). Pega do início.
+    for (let i = 0; i < availableTeams.length - 1; i++) {
+      candidates = [...candidates, ...availableTeams[i].team_players.map(p => ({
+         ...p,
+         is_borrowed: true,
+         original_team_id: availableTeams[i].id 
+      }))];
+      if (candidates.length >= needed * 2) break; // Pegar um pouco mais para ter opções de balanceamento
+    }
   }
   
   if (candidates.length === 0) return courtTeam;
@@ -73,7 +84,7 @@ function borrowPlayersForTeam(
   const combinations = getCombinations(candidates, Math.min(needed, candidates.length));
   
   let bestComb: any[] = [];
-  let minDiff = Infinity;
+  let minScore = Infinity;
   const currentSum = team.team_players.reduce((acc, p) => acc + p.player_overall, 0);
   const targetAvg = opposingAvg || team.avg_overall; // Se não tiver adversário definido, tenta manter a própria média
   
@@ -81,8 +92,13 @@ function borrowPlayersForTeam(
     const combSum = comb.reduce((acc, p) => acc + p.player_overall, 0);
     const newAvg = (currentSum + combSum) / (team.team_players.length + comb.length);
     const diff = Math.abs(newAvg - targetAvg);
-    if (diff < minDiff) {
-      minDiff = diff;
+    
+    // Penalizar fortemente a pessoa que já foi emprestada muitas vezes
+    const repeatedCount = comb.reduce((acc, p) => acc + (borrowCounts[p.player] || 0), 0);
+    const score = diff + (repeatedCount * 2); 
+    
+    if (score < minScore) {
+      minScore = score;
       bestComb = comb;
     }
   }
@@ -152,6 +168,7 @@ export function BracketPage() {
       consecutiveB: 0,
       matchNumber: 1,
       showSaveModal: false,
+      borrowCounts: {},
       transitionMessage: null,
       transitionColor: null,
     };
@@ -249,6 +266,11 @@ export function BracketPage() {
     });
   };
 
+  const borrowedQueue0 = useMemo(() => {
+    if (state.queue.length === 0 || !generation) return null;
+    return borrowPlayersForTeam(state.queue[0], 0, generation.modality, state.queue.slice(1), state.borrowCounts);
+  }, [state.queue, generation, state.borrowCounts]);
+
   const startPelada = () => {
     if (state.queue.length < 2) {
       toast.error('É preciso no mínimo 2 times para iniciar.');
@@ -259,8 +281,8 @@ export function BracketPage() {
       let courtA: CourtTeam = { ...q.shift()!, team_players: [] } as any; 
       let courtB: CourtTeam = { ...q.shift()!, team_players: [] } as any; 
       // Recover original players to avoid ts errors in initial setup
-      courtA = borrowPlayersForTeam(prev.queue[0], prev.queue[1].avg_overall, generation!.modality, q);
-      courtB = borrowPlayersForTeam(prev.queue[1], courtA.avg_overall, generation!.modality, q);
+      courtA = borrowPlayersForTeam(prev.queue[0], prev.queue[1].avg_overall, generation!.modality, q, prev.borrowCounts);
+      courtB = borrowPlayersForTeam(prev.queue[1], courtA.avg_overall, generation!.modality, q, prev.borrowCounts);
       
       return {
         ...prev,
@@ -371,6 +393,18 @@ export function BracketPage() {
       const winner = stripTeam(winnerCourt);
       const loser = stripTeam(loserCourt);
 
+      // Incrementa quem jogou emprestado nesta rodada
+      const newBorrowCounts = { ...prev.borrowCounts };
+      const recordBorrows = (t: CourtTeam) => {
+        t.team_players.forEach(p => {
+          if (p.is_borrowed) {
+            newBorrowCounts[p.player] = (newBorrowCounts[p.player] || 0) + 1;
+          }
+        });
+      };
+      recordBorrows(prev.courtA!);
+      recordBorrows(prev.courtB!);
+
       const newConsecutiveA = winnerIsA ? prev.consecutiveA + 1 : 0;
       const newConsecutiveB = !winnerIsA ? prev.consecutiveB + 1 : 0;
       const winnerConsecutive = winnerIsA ? newConsecutiveA : newConsecutiveB;
@@ -416,28 +450,29 @@ export function BracketPage() {
         }
       }
 
-      // Aplicar o empréstimo nos times que vão entrar, usando a fila ATUALIZADA (q)
+      // Aplicar o empréstimo nos times que vão entrar, usando a fila ATUALIZADA (q) e os novos contadores
       let finalNextA: CourtTeam | null = null;
       let finalNextB: CourtTeam | null = null;
 
       if (nextABase) {
-         finalNextA = borrowPlayersForTeam(nextABase, nextBBase?.avg_overall || 0, generation!.modality, q);
+         finalNextA = borrowPlayersForTeam(nextABase, nextBBase?.avg_overall || 0, generation!.modality, q, newBorrowCounts);
       }
       if (nextBBase) {
-         finalNextB = borrowPlayersForTeam(nextBBase, finalNextA?.avg_overall || 0, generation!.modality, q);
+         finalNextB = borrowPlayersForTeam(nextBBase, finalNextA?.avg_overall || 0, generation!.modality, q, newBorrowCounts);
       }
 
       return {
         ...prev,
         courtA: finalNextA,
         courtB: finalNextB,
+        queue: q,
         scoreA: 0,
         scoreB: 0,
         consecutiveA: nextConsecutiveA,
         consecutiveB: nextConsecutiveB,
-        queue: q,
         matchNumber: prev.matchNumber + 1,
         showSaveModal: false,
+        borrowCounts: newBorrowCounts,
         transitionMessage: message,
         transitionColor: winner.color_hex,
       };
@@ -688,8 +723,13 @@ export function BracketPage() {
           <span className="font-bold text-sm md:text-base text-text-primary uppercase tracking-widest text-center">
             Arbitragem (Rede / Marcação):
           </span>
-          <span className="font-bold text-sm md:text-base text-center" style={{ color: state.queue[0].color_hex }}>
+          <span className="font-bold text-sm md:text-base text-center flex items-center gap-2" style={{ color: state.queue[0].color_hex }}>
             {state.queue[0].name.toUpperCase()}
+            {borrowedQueue0 && borrowedQueue0.team_players.length > state.queue[0].team_players.length && (
+              <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full border border-yellow-500/20 font-bold hidden sm:inline-block">
+                +{borrowedQueue0.team_players.length - state.queue[0].team_players.length} p/ entrar
+              </span>
+            )}
           </span>
         </div>
       )}
@@ -849,7 +889,9 @@ export function BracketPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {state.queue.map((team, idx) => (
+            {state.queue.map((team, idx) => {
+              const displayTeam = (idx === 0 && borrowedQueue0) ? borrowedQueue0 : team;
+              return (
               <div key={team.id} className="flex flex-col justify-center bg-surface border border-border rounded-xl px-4 py-3 relative group">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2 md:gap-3">
@@ -885,14 +927,15 @@ export function BracketPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {team.team_players.map((p: any) => (
-                    <span key={p.player} className="text-[10px] text-text-muted bg-background/50 px-2 py-0.5 rounded-full border border-border/50 truncate max-w-full">
+                  {displayTeam.team_players.map((p: any) => (
+                    <span key={p.player} className={`text-[10px] px-2 py-0.5 rounded-full border truncate max-w-full flex items-center gap-1 ${p.is_borrowed ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'text-text-muted bg-background/50 border-border/50'}`}>
                       {p.player_name}
+                      {p.is_borrowed && <span className="text-[9px] uppercase font-bold opacity-80">(Emp)</span>}
                     </span>
                   ))}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}

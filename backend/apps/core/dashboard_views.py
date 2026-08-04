@@ -201,10 +201,11 @@ class DashboardView(APIView):
 
         new_stars = []
         for p in new_stars_qs:
-            # Tentar pegar a categoria do prêmio mais recente recebido
-            latest_history = p.star_history.filter(action='add').exclude(category='promotion').order_by('-created_at').first()
-            if latest_history:
-                top_cat = latest_history.category
+            # Tentar pegar a categoria do prêmio mais recente recebido sem causar N+1
+            histories = [sh for sh in p.star_history.all() if sh.action == 'add' and sh.category != 'promotion']
+            if histories:
+                histories.sort(key=lambda x: x.created_at, reverse=True)
+                top_cat = histories[0].category
             else:
                 # Fallback para o legado caso o histórico seja vazio
                 cats = {

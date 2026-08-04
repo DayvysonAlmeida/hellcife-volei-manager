@@ -20,4 +20,9 @@ export const notificationsService = {
   deleteNotification: async (id: number) => {
     await api.delete(`/notifications/${id}/`);
   },
+
+  sendGlobalAnnouncement: async (title: string, message: string) => {
+    const { data } = await api.post('/notifications/global_announcement/', { title, message });
+    return data;
+  },
 };

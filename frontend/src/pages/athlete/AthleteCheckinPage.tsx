@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Volleyball, Check, Clock, UserCheck, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy, Zap, X } from 'lucide-react';
+import { Volleyball, Check, Clock, UserCheck, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy, Zap, X, Plus, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { PageLoading } from '@/components/ui/Loading';
@@ -15,6 +15,7 @@ import { cn, getPositionClass } from '@/lib/utils';
 function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any }) {
   const qc = useQueryClient();
   const [guestSearch, setGuestSearch] = useState('');
+  const [showAllGuests, setShowAllGuests] = useState(false);
 
   const { data: circuitDetail } = useQuery({
     queryKey: ['athlete-circuit-detail', circuit.id],
@@ -104,13 +105,13 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden card p-4 border-l-4 border-l-green-500 shadow-lg"
+        className="relative overflow-hidden card p-4 sm:p-6 border-l-4 border-l-green-500 shadow-lg"
       >
         <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-red/5 blur-2xl pointer-events-none" />
         
         {/* Info Cabeçalho */}
-        <div className="flex items-start justify-between gap-3 border-b border-border/30 pb-3 mb-3">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-border/30 pb-4 mb-4">
+          <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1">
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               <span className="text-green-400 text-[10px] font-bold uppercase tracking-wider">Aberto</span>
@@ -135,14 +136,16 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               </p>
             )}
           </div>
-          <div className="text-right flex-shrink-0 bg-surface-highlight/30 px-3 py-1.5 rounded-xl border border-border/50 flex flex-col items-end">
-            <p className="font-display text-2xl text-text-primary leading-none">{circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0}</p>
-            <p className="text-text-muted text-[9px] uppercase tracking-wider mt-0.5">Confirmados</p>
-            {circuit.max_players && (
-              <p className="text-text-muted/60 text-[9px]">/ {circuit.max_players} vagas</p>
-            )}
+          <div className="w-full sm:w-auto text-center sm:text-right flex-shrink-0 bg-surface-highlight/30 px-4 py-2 sm:px-3 sm:py-1.5 rounded-xl border border-border/50 flex flex-row sm:flex-col items-center justify-between sm:items-end gap-2 sm:gap-0">
+            <div className="flex flex-col items-start sm:items-end">
+              <p className="font-display text-2xl text-text-primary leading-none">{circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0}</p>
+              <p className="text-text-muted text-[9px] sm:text-[10px] uppercase tracking-wider mt-0.5">Confirmados</p>
+              {circuit.max_players && (
+                <p className="text-text-muted/60 text-[9px]">/ {circuit.max_players} vagas</p>
+              )}
+            </div>
             {avgOverall && (
-              <div className="mt-1.5 inline-flex items-center gap-1 bg-yellow-500/10 text-yellow-500 text-[9px] px-1.5 py-0.5 rounded border border-yellow-500/20 font-bold tracking-wider" title="Média de Overall dos confirmados">
+              <div className="inline-flex items-center gap-1 bg-yellow-500/10 text-yellow-500 text-[10px] px-2 py-1 sm:px-1.5 sm:py-0.5 rounded border border-yellow-500/20 font-bold tracking-wider" title="Média de Overall dos confirmados">
                 <Zap size={10} className="fill-yellow-500/50" /> {avgOverall}
               </div>
             )}
@@ -234,21 +237,21 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
             )}
 
             {amPresent && !myAttendance?.has_paid && (
-              <div className="flex gap-2">
-                <div className="flex-1 text-center bg-green-500/10 text-green-400 rounded py-2 text-xs font-medium border border-green-500/20 flex items-center justify-center">
+              <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                <div className="flex-1 text-center bg-green-500/10 text-green-400 rounded py-2.5 sm:py-2 text-xs font-medium border border-green-500/20 flex items-center justify-center">
                   ✅ Presença garantida!
                 </div>
                 {myAttendance?.payment_claimed ? (
-                  <div className="flex-1 text-center bg-orange-500/10 text-orange-400 rounded py-2 text-xs font-bold border border-orange-500/30 flex items-center justify-center animate-pulse">
+                  <div className="flex-1 text-center bg-orange-500/10 text-orange-400 rounded py-2.5 sm:py-2 text-xs font-bold border border-orange-500/30 flex items-center justify-center animate-pulse">
                     ⏳ Em Análise
                   </div>
                 ) : (
                   <button
                     onClick={() => claimPaymentMutation.mutate(myPlayer.id)}
                     disabled={claimPaymentMutation.isPending}
-                    className="flex-1 btn-primary py-2 text-xs font-bold bg-yellow-500 text-yellow-950 hover:bg-yellow-400 border-none flex items-center justify-center gap-1"
+                    className="flex-1 btn-primary py-2.5 sm:py-2 text-xs font-bold bg-yellow-500 text-yellow-950 hover:bg-yellow-400 border-none flex items-center justify-center gap-1"
                   >
-                    {claimPaymentMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : '💰 Já Paguei'}
+                    {claimPaymentMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : '💰 Já Paguei o PIX'}
                   </button>
                 )}
               </div>
@@ -286,50 +289,62 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
           </div>
         </div>
 
-        <div className="relative mb-3">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input
-            type="text"
-            value={guestSearch}
-            onChange={e => setGuestSearch(e.target.value)}
-            placeholder="Buscar..."
-            className="input w-full pl-8 py-1.5 text-sm"
-          />
+        <div className="flex gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              value={guestSearch}
+              onChange={e => setGuestSearch(e.target.value)}
+              placeholder="Buscar..."
+              className="input w-full pl-8 py-1.5 text-sm"
+            />
+          </div>
+          <button
+            onClick={() => setShowAllGuests(true)}
+            className="btn-outline px-3 py-1.5 text-[10px] sm:text-xs whitespace-nowrap flex items-center gap-1 border-border/30 hover:bg-surface-highlight rounded-lg"
+            title="Ver todos os convidados"
+          >
+            <Users size={14} /> Ver Todos
+          </button>
         </div>
 
-        {availableGuests.length > 0 ? (
-          <div className="space-y-1.5">
-            {availableGuests.map((guest: any) => (
-              <motion.div
-                key={guest.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2 p-2 bg-surface-highlight/50 rounded-lg border border-border/30"
-              >
-                <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-text-primary text-xs font-bold truncate">{guest.name}</p>
-                  {guest.invited_by && (
-                    <p className="text-text-muted text-[9px] truncate">Por {guest.invited_by}</p>
-                  )}
-                </div>
-                <button
-                  onClick={() => guestCheckinMutation.mutate(guest.id)}
-                  disabled={guestCheckinMutation.isPending}
-                  className="btn-primary text-[10px] px-2.5 py-1 flex items-center gap-1 rounded"
+        {guestSearch.trim().length >= 2 ? (
+          availableGuests.length > 0 ? (
+            <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
+              {availableGuests.map((guest: any) => (
+                <motion.div
+                  key={guest.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex items-center gap-2 p-2 bg-surface-highlight/50 rounded-lg border border-border/30"
                 >
-                  {guestCheckinMutation.isPending ? <Loader2 size={10} className="animate-spin" /> : <UserCheck size={10} />}
-                  Add
-                </button>
-              </motion.div>
-            ))}
-          </div>
+                  <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-text-primary text-xs font-bold truncate">{guest.name}</p>
+                    {guest.invited_by && (
+                      <p className="text-text-muted text-[9px] truncate">Por {guest.invited_by}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => guestCheckinMutation.mutate(guest.id)}
+                    disabled={guestCheckinMutation.isPending}
+                    className="btn-primary text-[10px] px-2.5 py-1 flex items-center gap-1 rounded"
+                  >
+                    {guestCheckinMutation.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />} Adicionar
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-text-muted text-xs bg-surface/30 rounded-lg border border-border/20">
+              Nenhum convidado encontrado.
+            </div>
+          )
         ) : (
-          <div className="text-center py-4 bg-black/10 rounded-lg border border-border/10">
-            <UserPlus size={20} className="text-text-muted/30 mx-auto mb-1" />
-            <p className="text-text-muted text-[10px] px-4">
-              {guestSearch ? 'Não encontrado.' : 'Nenhum convidado na lista aguardando check-in.'}
-            </p>
+          <div className="text-center py-6 text-text-muted text-[10px] sm:text-xs bg-surface/30 rounded-lg border border-border/20 flex flex-col items-center gap-2">
+            <Search size={16} className="opacity-50" />
+            <p>Digite o nome para buscar os convidados.</p>
           </div>
         )}
       </motion.div>
@@ -429,6 +444,53 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               ))}
           </div>
         </motion.div>
+      )}
+
+      {/* Modal Ver Todos os Convidados */}
+      {showAllGuests && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#111] border border-border w-full max-w-md rounded-[1.25rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-border/30 bg-surface/30">
+              <h3 className="font-display font-bold text-white flex items-center gap-2">
+                <Users size={18} className="text-blue-400" /> Convidados da Base
+              </h3>
+              <button onClick={() => setShowAllGuests(false)} className="text-text-muted hover:text-white transition-colors p-1 rounded-full hover:bg-white/10">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2">
+              {(() => {
+                const allAvailableGuests = circuitDetail?.players?.filter((p: any) => p.is_guest && !p.present && !p.is_waitlist) || [];
+                return allAvailableGuests.length > 0 ? (
+                  allAvailableGuests.map((guest: any) => (
+                    <div key={guest.id} className="flex items-center gap-3 p-2 bg-surface/50 rounded-lg border border-border/20">
+                      <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-text-primary text-sm font-bold truncate">{guest.name}</p>
+                        {guest.invited_by && <p className="text-text-muted text-[10px] truncate">Por {guest.invited_by}</p>}
+                      </div>
+                      <button
+                        onClick={() => {
+                          guestCheckinMutation.mutate(guest.id);
+                          setShowAllGuests(false);
+                          setGuestSearch('');
+                        }}
+                        disabled={guestCheckinMutation.isPending}
+                        className="btn-primary text-xs px-3 py-1 flex items-center gap-1 rounded"
+                      >
+                        <Plus size={12} /> Add
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-text-muted text-sm">
+                    Todos os convidados cadastrados já estão no circuito.
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

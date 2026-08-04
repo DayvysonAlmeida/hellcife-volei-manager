@@ -113,7 +113,7 @@ export function RegulationPage() {
               { dia: 'Segunda-feira', hora: 'Vago', tipo: '', local: '' },
               { dia: 'Terça-feira', hora: '20h às 21h', tipo: 'Areia', local: 'Arena Deep' },
               { dia: 'Quarta-feira', hora: 'Vago', tipo: '', local: '' },
-              { dia: 'Quinta-feira', hora: '19:30 às 21:30', tipo: 'Poliesportiva', local: 'Compaz Ariano Suassuna' },
+              { dia: 'Quinta-feira', hora: '19:30 às 21:30', tipo: 'Poliesportiva', local: 'Compaz Ariano Suassuna (Em Breve)' },
               { dia: 'Sexta-feira', hora: '19:30 às 21:30', tipo: 'Areia', local: 'Arena Belo Gol/Prainha ZS' },
               { dia: 'Sábado', hora: 'Vago', tipo: '', local: '' },
               { dia: 'Domingo', hora: '10h às 12h', tipo: 'Areia', local: 'Compaz Miguel Arraes' },
@@ -129,7 +129,7 @@ export function RegulationPage() {
                     </span>
                   )}
                 </div>
-                
+
                 {prog.hora !== 'Vago' ? (
                   <div className="flex flex-col gap-2">
                     <div className="flex items-start gap-2 text-text-secondary">
@@ -187,7 +187,7 @@ export function RegulationPage() {
           <AlertTriangle className="text-red" />
           <h3 className="font-display text-2xl tracking-wider text-text-primary">CONDUTAS VEDADAS & PENALIDADES</h3>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
             <h4 className="font-medium text-red mb-3 flex items-center gap-2">

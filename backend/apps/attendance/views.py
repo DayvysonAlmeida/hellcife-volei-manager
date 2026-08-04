@@ -38,7 +38,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         from rest_framework.permissions import AllowAny
         if self.action in ['checkin_info', 'public_checkin']:
             return [AllowAny()]
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_attendance', 'initialize', 'add_guest']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_attendance', 'initialize', 'add_guest', 'reorder_waitlist']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
 
@@ -499,6 +499,34 @@ class GameDayViewSet(viewsets.ModelViewSet):
         attendance.save()
         
         return Response({'detail': 'Aviso de pagamento enviado com sucesso! O administrador irá confirmar em breve.', 'payment_claimed': True})
+
+    @action(detail=True, methods=['post'], url_path='reorder-waitlist')
+    def reorder_waitlist(self, request, pk=None):
+        """Reordena a fila de espera conforme a ordem de IDs recebida."""
+        gameday = self.get_object()
+        attendance_ids = request.data.get('attendance_ids', [])
+        
+        if not attendance_ids:
+            return Response({'detail': 'Lista de IDs vazia.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from django.utils import timezone
+        base_time = timezone.now()
+        
+        waitlist_atts = gameday.attendances.filter(is_waitlist=True, id__in=attendance_ids)
+        att_map = {att.id: att for att in waitlist_atts}
+        
+        to_update = []
+        for i, att_id in enumerate(attendance_ids):
+            att = att_map.get(att_id)
+            if att:
+                from datetime import timedelta
+                att.waitlist_joined_at = base_time + timedelta(seconds=i)
+                to_update.append(att)
+        
+        if to_update:
+            Attendance.objects.bulk_update(to_update, ['waitlist_joined_at'])
+        
+        return Response({'detail': f'Fila reordenada com sucesso! ({len(to_update)} atualizados)'})
 
 
 

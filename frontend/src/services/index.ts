@@ -78,6 +78,9 @@ export const attendanceService = {
 
   bulkCourtCheckin: (gamedayId: number, playerIds: number[], actionType: 'check_all' | 'uncheck_all') =>
     api.post('/attendance/court-checkins/bulk-toggle/', { gameday_id: gamedayId, player_ids: playerIds, action_type: actionType }).then(r => r.data),
+
+  reorderWaitlist: (gamedayId: number, attendanceIds: number[]) =>
+    api.post(`/attendance/gamedays/${gamedayId}/reorder-waitlist/`, { attendance_ids: attendanceIds }).then(r => r.data),
 };
 
 export const teamsService = {

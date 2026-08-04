@@ -1,6 +1,57 @@
-import { Search, Plus, RefreshCw, Check, Users, DollarSign, X } from 'lucide-react';
+import { Search, Plus, RefreshCw, Check, Users, DollarSign, X, GripVertical } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function SortableWaitlistCard({ att, idx, renderCard, showEditControls }: {
+  att: any;
+  idx: number;
+  renderCard: (att: any, idx?: number, isWaitlist?: boolean) => React.ReactNode;
+  showEditControls: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: att.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto' as any,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative">
+      {showEditControls && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 w-6 h-10 flex items-center justify-center text-text-muted/50 hover:text-yellow-500 cursor-grab active:cursor-grabbing touch-none"
+          title="Arrastar para reordenar"
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
+      <div className={showEditControls ? 'pl-5' : ''}>
+        {renderCard(att, idx, true)}
+      </div>
+    </div>
+  );
+}
 
 interface AttendanceListProps {
   presentAttendances: any[];
@@ -23,6 +74,8 @@ interface AttendanceListProps {
   onUncheckAll: () => void;
   isBulkLoading: boolean;
   showPaymentControls: boolean;
+  gamedayId?: number;
+  onReorderWaitlist?: (gamedayId: number, attendanceIds: number[]) => void;
 }
 
 export function AttendanceList({
@@ -46,7 +99,28 @@ export function AttendanceList({
   onUncheckAll,
   isBulkLoading,
   showPaymentControls,
+  gamedayId,
+  onReorderWaitlist,
 }: AttendanceListProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = waitlistAttendances.findIndex(a => a.id === active.id);
+    const newIndex = waitlistAttendances.findIndex(a => a.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(waitlistAttendances, oldIndex, newIndex);
+    if (gamedayId && onReorderWaitlist) {
+      onReorderWaitlist(gamedayId, reordered.map(a => a.id));
+    }
+  };
   const renderAttendanceCard = (att: any, index?: number, isWaitlist?: boolean) => {
     return (
       <div
@@ -243,9 +317,15 @@ export function AttendanceList({
               </button>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {waitlistAttendances.map((att, idx) => renderAttendanceCard(att, idx, true))}
-          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={waitlistAttendances.map(a => a.id)} strategy={verticalListSortingStrategy}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {waitlistAttendances.map((att, idx) => (
+                  <SortableWaitlistCard key={att.id} att={att} idx={idx} renderCard={renderAttendanceCard} showEditControls={showEditControls} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       )}
 

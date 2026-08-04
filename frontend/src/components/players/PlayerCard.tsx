@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Star, Edit, Trash2, Activity, TrendingUp, Shield, Swords, AlertTriangle, Flame, Crosshair, Lock } from 'lucide-react';
+import { Star, Edit, Trash2, Activity, TrendingUp, Shield, Swords, AlertTriangle, Flame, Crosshair, Lock, Trophy } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { POSITION_LABELS } from '@/types';
 import type { Player } from '@/types';
@@ -204,7 +204,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
 
             {player.avatar_url ? (
               <>
-                {player.avatar_url.toLowerCase().includes('.png') ? (
+                {player.avatar_url.toLowerCase().includes('.png') || player.avatar_url.toLowerCase().includes('.webp') || (player.avatar_url.toLowerCase().includes('cloudinary') && !player.avatar_url.toLowerCase().includes('.jpg') && !player.avatar_url.toLowerCase().includes('.jpeg')) ? (
                   <img
                     src={player.avatar_url}
                     alt={player.name}
@@ -308,11 +308,31 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
               )}
             </div>
 
-            {/* Pílulas flutuantes (Leaderboard Stats) reduzidas para não quebrar o layout */}
-            {player.stats && (player.stats.matches > 0 || player.stats.win_rate > 0) && (
-              <div className="flex flex-wrap justify-center gap-1 w-full pointer-events-none">
-                {player.stats.matches > 0 && <span title="Partidas Jogadas" className="flex items-center gap-0.5 bg-black/60 text-white px-1.5 py-[2px] rounded border border-yellow-500/30 text-[8px] backdrop-blur-md pointer-events-auto shadow-[0_2px_4px_rgba(0,0,0,0.6)] whitespace-nowrap"><Activity size={8} className="text-blue-400" /> {player.stats.matches} Partidas</span>}
-                {player.stats.win_rate > 0 && <span title="Taxa de Vitória" className="flex items-center gap-0.5 bg-black/60 text-green-400 px-1.5 py-[2px] rounded border border-yellow-500/30 text-[8px] backdrop-blur-md pointer-events-auto shadow-[0_2px_4px_rgba(0,0,0,0.6)] whitespace-nowrap"><TrendingUp size={8} /> {player.stats.win_rate}% Vitórias</span>}
+            {/* Base Stats Panel */}
+            {player.stats && ((player.stats.matches || 0) > 0 || (player.stats.total_matches || 0) > 0 || (player.stats.win_rate || 0) > 0) && (
+              <div className="flex items-center justify-center divide-x divide-white/20 w-full max-w-[90%] bg-black/60 backdrop-blur-md border border-white/10 rounded overflow-hidden mt-1.5 pointer-events-auto shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
+                
+                {((player.stats.matches || 0) > 0 || (player.stats.total_matches || 0) > 0) && (
+                  <div title="Partidas Jogadas" className="flex flex-col items-center flex-1 py-1 px-1 hover:bg-white/10 transition-colors cursor-help">
+                    <span className="text-[6px] sm:text-[7px] text-white/60 font-medium uppercase tracking-widest leading-none mb-0.5">Partidas</span>
+                    <span className="text-[10px] sm:text-xs font-display font-black text-blue-400 leading-none drop-shadow-sm">{player.stats.matches || player.stats.total_matches}</span>
+                  </div>
+                )}
+                
+                {(player.stats.wins || 0) > 0 && (
+                  <div title="Vitórias" className="flex flex-col items-center flex-1 py-1 px-1 hover:bg-white/10 transition-colors cursor-help bg-gradient-to-t from-yellow-500/10 to-transparent">
+                    <span className="text-[6px] sm:text-[7px] text-yellow-500/80 font-medium uppercase tracking-widest leading-none mb-0.5 flex items-center gap-0.5"><Trophy size={6} /> Vitórias</span>
+                    <span className="text-[10px] sm:text-xs font-display font-black text-yellow-400 leading-none drop-shadow-sm">{player.stats.wins}</span>
+                  </div>
+                )}
+                
+                {(player.stats.win_rate || 0) > 0 && (
+                  <div title="Win Rate" className="flex flex-col items-center flex-1 py-1 px-1 hover:bg-white/10 transition-colors cursor-help">
+                    <span className="text-[6px] sm:text-[7px] text-white/60 font-medium uppercase tracking-widest leading-none mb-0.5">Win Rate</span>
+                    <span className="text-[10px] sm:text-xs font-display font-black text-green-400 leading-none drop-shadow-sm">{player.stats.win_rate}%</span>
+                  </div>
+                )}
+                
               </div>
             )}
 

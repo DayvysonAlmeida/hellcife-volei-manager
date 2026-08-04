@@ -3,10 +3,35 @@ import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsService } from '@/services/notifications';
 
-/** Solicita permissão de notificação nativa do navegador uma única vez. */
+/** Solicita permissão de notificação nativa do navegador via Toast para exigir interação do usuário (bypass de bloqueio). */
 function requestBrowserNotificationPermission() {
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
+    toast((t) => (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-medium">Deseja receber as notificações de Circuitos no sistema?</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              Notification.requestPermission().then((perm) => {
+                if (perm === 'granted') toast.success('Notificações ativadas! 🔔', { id: 'perm-success' });
+              });
+              toast.dismiss(t.id);
+            }}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
+          >
+            Ativar Notificações
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="bg-surface-highlight hover:bg-white/10 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-border"
+          >
+            Agora não
+          </button>
+        </div>
+      </div>
+    ), { duration: 15000, id: 'browser-notif-req', position: 'top-center' });
+  } else if ('Notification' in window && Notification.permission === 'denied') {
+    console.warn('Permissão de notificações do navegador bloqueada pelo usuário.');
   }
 }
 

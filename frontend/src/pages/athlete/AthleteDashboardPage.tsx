@@ -10,7 +10,6 @@ import { ShareAchievementModal, type ShareModalProps } from '@/components/ui/Sha
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { PositionBadge } from '@/components/ui/Badges';
-import { PlayerCard } from '@/components/players/PlayerCard';
 import type { DashboardStats } from '@/types';
 
 const CATEGORY_MAP: Record<string, { label: string, color: string, icon: any }> = {
@@ -90,70 +89,91 @@ export function AthleteDashboardPage() {
           {...shareModal}
         />
       )}
-      {/* ── Header de Boas-vindas (Estilo Carta Premium Glassmorphism) ── */}
-      <div className="relative group/header">
-        {/* Animated Gradient Border Layer */}
-        <div className="absolute -inset-[2px] bg-gradient-to-br from-red/80 via-transparent to-blue/80 rounded-[34px] opacity-40 group-hover/header:opacity-100 transition-opacity duration-700 blur-sm pointer-events-none"></div>
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-[32px] bg-white/80 dark:bg-[#050505]/80 backdrop-blur-3xl border border-gray-200 dark:border-white/10 p-8 shadow-neon-red"
-        >
-          {/* Ambient inner glow */}
-          <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-red/60 to-transparent" />
-          <div className="absolute bottom-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-blue/60 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none opacity-50" />
+      {/* ── Header de Boas-vindas (Estilo Premium E-Sports c/ Raios) ── */}
+      <div className="relative group/header mb-4">
+        {/* Glow dinâmico de fundo */}
+        <div className="absolute -inset-[3px] bg-gradient-to-br from-red/80 via-purple-500/50 to-blue-500/80 rounded-[36px] opacity-60 group-hover/header:opacity-100 transition-all duration-700 blur-md pointer-events-none animate-pulse"></div>
         
-        {/* Botão Compartilhar Perfil removido daqui e passado para o Fire Shark */}        <div className="relative flex flex-col xl:flex-row items-center xl:items-start gap-8 text-center xl:text-left">
-          <div className="relative flex-shrink-0 flex items-center justify-center">
-            {player ? (
-              <div className="w-[220px] sm:w-[240px] -mb-6 md:-mb-10">
-                <PlayerCard 
-                  player={{ ...player, stats: stats || player.stats }} 
-                  idx={0} 
-                  canEdit={false} 
-                  onDelete={() => {}} 
-                  fireSharkRank={isFireSharkRanked ? fireSharkRankIndex + 1 : undefined}
-                />
-              </div>
-            ) : (
-              <Avatar
-                name={user?.name || ''}
-                size="xl"
-                className="relative ring-4 ring-black shadow-2xl"
-              />
-            )}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut", type: "spring" }}
+          className="relative overflow-hidden rounded-[32px] bg-[#050508] border-2 border-white/10 p-8 sm:p-10 shadow-2xl"
+        >
+          {/* Fundo Trovões e Raios (Background Animado / SVGs) */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute -top-24 -left-24 w-64 h-64 bg-red/30 blur-[80px] rounded-full mix-blend-screen animate-[pulse_3s_ease-in-out_infinite]" />
+            <div className="absolute -bottom-24 -right-24 w-80 h-80 bg-blue-600/30 blur-[90px] rounded-full mix-blend-screen animate-[pulse_4s_ease-in-out_infinite]" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+            
+            {/* SVG Relâmpagos */}
+            <svg className="absolute inset-0 w-full h-full opacity-30 group-hover/header:opacity-60 transition-opacity duration-700 scale-110" preserveAspectRatio="none" viewBox="0 0 1000 300" fill="none">
+              <path d="M-50,50 L200,100 L150,150 L400,20 L350,120 L600,0 L500,200 L800,50 L750,250 L1050,-50" stroke="url(#paint0_linear)" strokeWidth="3" filter="url(#glow)"/>
+              <path d="M-50,250 L200,150 L150,200 L400,50 L350,180 L600,250 L500,100 L800,200 L750,50 L1050,300" stroke="url(#paint1_linear)" strokeWidth="2" filter="url(#glow)"/>
+              <defs>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                <linearGradient id="paint0_linear" x1="0" y1="0" x2="1000" y2="300" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#ef4444" />
+                  <stop offset="0.5" stopColor="#a855f7" />
+                  <stop offset="1" stopColor="#3b82f6" />
+                </linearGradient>
+                <linearGradient id="paint1_linear" x1="1000" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#3b82f6" />
+                  <stop offset="0.5" stopColor="#ef4444" />
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
-          <div className="flex-1 min-w-0 flex flex-col justify-center h-full pt-2">
-            <div className="flex items-center justify-center sm:justify-start gap-3 mb-1">
-              <p className="text-text-muted text-sm uppercase tracking-[0.2em] font-medium">{greeting()},</p>
-              {playerStatus && (
-                <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-lg", playerStatus.color)}>
-                  {playerStatus.label}
-                </span>
+
+          <div className="relative z-10 flex flex-col xl:flex-row items-center xl:items-start gap-8 text-center xl:text-left">
+            <div className="relative flex-shrink-0 flex items-center justify-center mb-4 xl:mb-0 group/avatar cursor-pointer">
+              <div className="absolute inset-0 bg-gradient-to-tr from-red to-blue-500 rounded-full blur-xl opacity-40 group-hover/avatar:opacity-80 transition-opacity animate-spin-slow"></div>
+              <Avatar
+                name={player?.display_name || user?.name || ''}
+                src={player?.avatar_url || undefined}
+                size="xl"
+                className={cn("relative ring-4 shadow-2xl z-10 w-28 h-28 sm:w-32 sm:h-32 transition-transform duration-500 group-hover/avatar:scale-105", isFireSharkRanked ? "ring-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.8)]" : "ring-white/20")}
+              />
+              {isFireSharkRanked && (
+                <div className="absolute -bottom-4 bg-black/90 border border-orange-500 px-4 py-1 rounded-full text-orange-500 font-black text-[10px] tracking-[0.3em] z-20 shadow-[0_0_20px_rgba(249,115,22,0.6)] flex items-center gap-1.5 whitespace-nowrap">
+                  <Flame size={14} className="animate-pulse" /> SHARK #{fireSharkRankIndex + 1}
+                </div>
               )}
             </div>
-            <h1 className="font-display text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-white/70 tracking-wider truncate drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]">
-              {(player?.display_name || user?.name || '').toUpperCase()}
-            </h1>
-            {player?.shirt_number && (
-              <div className="flex items-center justify-center sm:justify-start gap-3 mt-3">
-                <div className="bg-red/20 border border-red/30 px-4 py-1.5 rounded-lg flex items-center gap-2">
-                  <span className="text-text-muted text-xs uppercase tracking-wider">Camisa</span>
-                  <span className="text-red font-display text-xl leading-none">#{player.shirt_number}</span>
-                </div>
-                {player?.main_position_display && (
-                  <div className="flex items-center gap-1 bg-surface-highlight/50 px-2 py-0.5 rounded-md border border-border/50">
-                    <PositionBadge position={player.main_position} />
-                  </div>
+            
+            <div className="flex-1 min-w-0 flex flex-col justify-center h-full pt-2">
+              <div className="flex items-center justify-center sm:justify-start gap-3 mb-2">
+                <p className="text-white/70 text-xs sm:text-sm uppercase tracking-[0.3em] font-bold drop-shadow-md">{greeting()},</p>
+                {playerStatus && (
+                  <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-lg backdrop-blur-md bg-opacity-30", playerStatus.color)}>
+                    {playerStatus.label}
+                  </span>
                 )}
               </div>
-            )}
-            
+              <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-500 tracking-wider truncate drop-shadow-[0_2px_20px_rgba(255,255,255,0.3)] pb-2">
+                {(player?.display_name || user?.name || '').toUpperCase()}
+              </h1>
+              
+              {player?.shirt_number && (
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-4">
+                  <div className="bg-red/20 border border-red/40 px-5 py-2 rounded-xl flex items-center gap-2 backdrop-blur-md shadow-[0_0_15px_rgba(220,38,38,0.3)]">
+                    <span className="text-red-100 text-[10px] sm:text-xs uppercase tracking-widest font-medium">Camisa</span>
+                    <span className="text-white font-display text-xl sm:text-2xl leading-none drop-shadow-[0_0_8px_rgba(220,38,38,0.8)]">#{player.shirt_number}</span>
+                  </div>
+                  {player?.main_position_display && (
+                    <div className="flex items-center gap-1 bg-blue-500/10 px-4 py-2 rounded-xl border border-blue-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+                      <PositionBadge position={player.main_position} />
+                    </div>
+                  )}
+                </div>
+              )}
             {/* Faltas Consecutivas Alerta Crítico */}
             {player && player.consecutive_absences >= 8 && (
               <div className={cn("mt-5 flex items-start gap-3 p-3 rounded-xl max-w-lg border backdrop-blur-sm", 
-                player.consecutive_absences >= 8 ? "bg-red/20 border-red/40 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.3)]" : "bg-orange-500/10 border-orange-500/30 text-orange-200"
+                player.consecutive_absences >= 8 ? "bg-red/20 border-red/40 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-[pulse_2s_ease-in-out_infinite]" : "bg-orange-500/10 border-orange-500/30 text-orange-200"
               )}>
                 <AlertTriangle size={20} className={cn("mt-0.5 flex-shrink-0", player.consecutive_absences >= 8 ? "text-red" : "text-orange-400")} />
                 <div className="flex-1 min-w-0 text-left">
@@ -166,9 +186,9 @@ export function AthleteDashboardPage() {
                 </div>
               </div>
             )}
+            </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
       </div>
 
       {stats && stats.total_matches < 10 && (
@@ -409,10 +429,11 @@ export function AthleteDashboardPage() {
         {statCards.map((s, i) => (
           <motion.div
             key={s.label}
+            whileHover={{ scale: 1.05, y: -5 }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * i }}
-            className="relative overflow-hidden rounded-[24px] bg-gray-50/80 dark:bg-[#111]/60 backdrop-blur-xl border border-gray-200 dark:border-white/10 p-4 text-center hover:bg-white dark:hover:bg-black/80 hover:border-red/50 hover:shadow-neon-red transition-all duration-300 group"
+            className="relative overflow-hidden rounded-[24px] bg-gray-50/80 dark:bg-[#111]/60 backdrop-blur-xl border border-gray-200 dark:border-white/10 p-4 text-center hover:bg-white dark:hover:bg-black/80 hover:border-red/50 hover:shadow-neon-red transition-all duration-300 group cursor-pointer"
           >
             <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br ${s.color.replace('text-', 'from-').replace('-400', '-500/10')} to-transparent rounded-bl-full pointer-events-none`} />
@@ -460,7 +481,11 @@ export function AthleteDashboardPage() {
                                 p.id === player?.id ? 'text-red font-bold' : 'text-text-primary';
 
               return (
-                <div key={p.id} className={cn("relative overflow-hidden flex items-center gap-4 p-3 rounded-2xl transition-all border", bgClass, isTop3 ? "shadow-lg scale-[1.02] my-1" : "")}>
+                <motion.div 
+                  key={p.id} 
+                  whileHover={{ scale: 1.02, x: 5 }}
+                  className={cn("relative overflow-hidden flex items-center gap-4 p-3 rounded-2xl transition-all border cursor-pointer", bgClass, isTop3 ? "shadow-lg my-1" : "")}
+                >
                   
                   {/* Gráfico de Barra (Win Rate) no background */}
                   <div 
@@ -481,7 +506,7 @@ export function AthleteDashboardPage() {
                       <p className="text-[10px] text-text-muted uppercase tracking-widest font-medium mt-1">{p.win_rate}% Win</p>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
             {(!dashboard?.top_wins || dashboard.top_wins.length === 0) && (
@@ -525,7 +550,11 @@ export function AthleteDashboardPage() {
                                 p.id === player?.id ? 'text-red font-bold' : 'text-text-primary';
 
               return (
-                <div key={p.id} className={cn("relative overflow-hidden flex items-start gap-4 p-3 rounded-2xl transition-all border", bgClass, isTop3 ? "shadow-lg scale-[1.02] my-1" : "")}>
+                <motion.div 
+                  key={p.id} 
+                  whileHover={{ scale: 1.02, x: 5 }}
+                  className={cn("relative overflow-hidden flex items-start gap-4 p-3 rounded-2xl transition-all border cursor-pointer", bgClass, isTop3 ? "shadow-lg my-1" : "")}
+                >
                   
                   {/* Gráfico de Barra (Mini Stars / 15) no background */}
                   <div 
@@ -593,7 +622,7 @@ export function AthleteDashboardPage() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
             {(!dashboard?.top_stars || dashboard.top_stars.length === 0) && (

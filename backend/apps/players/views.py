@@ -512,6 +512,16 @@ class PlayerViewSet(viewsets.ModelViewSet):
         last_star = StarHistory.objects.filter(player=player, action='add').exclude(category='promotion').order_by('-created_at').first()
         latest_mini_star = last_star.category if last_star else None
 
+        # Calcula a sequência de vitórias (Win Streak)
+        streak = 0
+        appearances = list(player.match_appearances.select_related('match_team__match').order_by('-match_team__match__date'))
+        for app in appearances:
+            if app.match_team and app.match_team.match:
+                if app.match_team.winner:
+                    streak += 1
+                else:
+                    break
+
         return Response({
             'player_id': player.id,
             'total_matches': total_matches,
@@ -519,6 +529,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'losses': losses,
             'draws': draws,
             'win_rate': win_rate,
+            'win_streak': streak,
             'mvps': mvps,
             'total_gamedays': total_gamedays,
             'attended_gamedays': attended,
