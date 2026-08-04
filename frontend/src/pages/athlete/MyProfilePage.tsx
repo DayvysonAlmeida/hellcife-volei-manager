@@ -47,10 +47,10 @@ export function MyProfilePage() {
       }))
     : [];
 
-  const fireSharkRankIndex = dashboard?.top_stars?.findIndex((p: any) => p.id === player?.id) ?? -1;
+  const fireSharkRankIndex = dashboard?.fire_sharks?.findIndex((p: any) => p.id === player?.id) ?? -1;
   const fireSharkRank = fireSharkRankIndex >= 0 && fireSharkRankIndex < 4 ? fireSharkRankIndex + 1 : undefined;
 
-  const winRankIndex = dashboard?.top_wins?.findIndex((p: any) => p.id === player?.id) ?? -1;
+  const winRankIndex = dashboard?.top_winners?.findIndex((p: any) => p.id === player?.id) ?? -1;
   const winRank = winRankIndex >= 0 && winRankIndex < 4 ? winRankIndex + 1 : undefined;
 
   const historyData = stats?.overall_history?.map((h: { date: string; overall: number }) => ({
