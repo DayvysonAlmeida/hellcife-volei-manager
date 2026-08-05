@@ -239,7 +239,7 @@ export function ShareAchievementModal({
             className="fixed inset-0 z-[91] flex items-center justify-center p-4 pointer-events-none"
           >
             <div
-              className="pointer-events-auto w-full max-w-sm bg-[#0a0a0d] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl"
+              className="pointer-events-auto relative w-full max-w-sm bg-[#0a0a0d] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -282,8 +282,8 @@ export function ShareAchievementModal({
                 </div>
               )}
 
-              {/* Card escondido em tamanho real para captura perfeita (sem scale) */}
-              <div style={{ position: 'fixed', top: '-9999px', left: '-9999px', pointerEvents: 'none', zIndex: -9999 }}>
+              {/* Card invisível (na tela para enganar o Safari iOS que ignora layouts off-screen) */}
+              <div style={{ position: 'absolute', top: 0, left: 0, opacity: 0.01, pointerEvents: 'none', zIndex: -10 }}>
                 <AchievementShareCard
                   ref={cardRef}
                   {...cardProps}
