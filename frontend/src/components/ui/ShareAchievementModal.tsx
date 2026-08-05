@@ -80,35 +80,39 @@ export function ShareAchievementModal({
       reader.readAsDataURL(blob);
     });
 
-  // Pré-carrega as imagens uma vez ao montar
+  // Pré-carrega as imagens separadamente (tolerante a falhas individuais)
   useEffect(() => {
     async function loadImages() {
       try {
-        const fetchPromises = [
-          fetch('/fireshark-bg.png'),
-          fetch('/escudo-hellcife-novo.png'),
-          fetch('/tubarao-furia.png'),
-          fetch('/texto-hellcife.jpeg')
+        const fetchAndConvert = async (url: string, useCors = false) => {
+          const res = await fetch(url, useCors ? { mode: 'cors' } : undefined);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const blob = await res.blob();
+          return toDataUrl(blob);
+        };
+
+        const promises = [
+          fetchAndConvert('/fireshark-bg.png'),
+          fetchAndConvert('/escudo-hellcife-novo.png'),
+          fetchAndConvert('/tubarao-furia.png'),
+          fetchAndConvert('/texto-hellcife.jpeg')
         ];
         
         if (cardProps.avatarUrl) {
-          // fetch with cors mode to allow html2canvas rendering
-          fetchPromises.push(fetch(cardProps.avatarUrl, { mode: 'cors' }));
+          promises.push(fetchAndConvert(cardProps.avatarUrl, true));
         }
 
-        const responses = await Promise.all(fetchPromises);
-        const blobs = await Promise.all(responses.map(r => r.blob()));
-        const dataUrls = await Promise.all(blobs.map(b => toDataUrl(b)));
+        const results = await Promise.allSettled(promises);
         
-        setFiresharkDataUrl(dataUrls[0]);
-        setEscudoDataUrl(dataUrls[1]);
-        setTubaraoFuriaDataUrl(dataUrls[2]);
-        setTextoHellcifeDataUrl(dataUrls[3]);
-        if (dataUrls[4]) {
-          setAvatarDataUrl(dataUrls[4]);
+        if (results[0].status === 'fulfilled') setFiresharkDataUrl(results[0].value);
+        if (results[1].status === 'fulfilled') setEscudoDataUrl(results[1].value);
+        if (results[2].status === 'fulfilled') setTubaraoFuriaDataUrl(results[2].value);
+        if (results[3].status === 'fulfilled') setTextoHellcifeDataUrl(results[3].value);
+        if (cardProps.avatarUrl && results[4]?.status === 'fulfilled') {
+          setAvatarDataUrl(results[4].value);
         }
       } catch (e) {
-        console.warn('Não foi possível pré-carregar imagens:', e);
+        console.warn('Falha no pré-carregamento de imagens:', e);
       }
     }
     loadImages();
@@ -120,9 +124,16 @@ export function ShareAchievementModal({
     setIsCapturing(true);
     setError(null);
     try {
+      // Hack WebKit/iOS: múltiplas capturas antes do URL final evitam problemas de imagens vazias
+      const options = { cacheBust: true, style: { transform: 'scale(1)', transformOrigin: 'top left' } };
+      await toPng(cardRef.current, options).catch(() => {});
+      await toPng(cardRef.current, options).catch(() => {});
+
       const url = await toPng(cardRef.current, {
         pixelRatio: 2,
         backgroundColor: '#050000',
+        cacheBust: true,
+        style: { transform: 'scale(1)', transformOrigin: 'top left' }
       });
       setPreviewUrl(url);
     } catch (err) {

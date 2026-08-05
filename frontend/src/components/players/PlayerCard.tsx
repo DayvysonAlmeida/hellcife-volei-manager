@@ -217,7 +217,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
                     src={player.avatar_url}
                     alt={player.name}
                     loading="lazy"
-                    className="pointer-events-auto h-[95%] aspect-square object-cover rounded-full border-[3px] shadow-[0_10px_20px_rgba(0,0,0,0.8)] mt-2"
+                    className="pointer-events-auto h-[95%] aspect-square object-cover object-top rounded-full border-[3px] shadow-[0_10px_20px_rgba(0,0,0,0.8)] mt-2"
                     style={{ borderColor: borderColors[1] }}
                   />
                 )}
