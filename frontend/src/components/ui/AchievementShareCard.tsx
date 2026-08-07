@@ -55,6 +55,7 @@ function CardAvatar({ avatarUrl, name, size }: { avatarUrl?: string; name: strin
       <img
         src={avatarUrl}
         alt={name}
+        crossOrigin="anonymous"
         style={{ width: size, height: size, objectFit: 'cover', borderRadius: '50%', display: 'block' }}
       />
     );
@@ -145,10 +146,13 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
         badgeBg: 'linear-gradient(180deg, #404040, #262626)',
         badgeTextGradient: 'none',
         badgeBorder: '#a3a3a3',
+        cardBorder: 'linear-gradient(135deg, #404040, #171717)',
+        cardBg: 'radial-gradient(circle at 50% 40%, #1a0000 0%, #050000 60%, #000000 100%)'
       };
 
       if (isTop1) {
         rankTheme = {
+          ...rankTheme,
           glow: 'rgba(220,38,38,0.8)',
           textBg: 'linear-gradient(180deg, #fef08a, #eab308, #854d0e)',
           textFill: 'transparent',
@@ -160,9 +164,12 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
           badgeBg: 'linear-gradient(180deg, #991b1b, #450a0a)',
           badgeTextGradient: 'linear-gradient(180deg, #fef08a, #eab308, #854d0e)',
           badgeBorder: '#fca5a5',
+          cardBorder: 'linear-gradient(135deg, #fef08a, #eab308, #854d0e)',
+          cardBg: 'radial-gradient(circle at 50% 40%, #450a0a 0%, #170505 50%, #000000 100%)'
         };
       } else if (isTop2) {
         rankTheme = {
+          ...rankTheme,
           glow: 'rgba(156,163,175,0.8)',
           textBg: 'linear-gradient(180deg, #f3f4f6, #9ca3af, #4b5563)',
           textFill: 'transparent',
@@ -174,9 +181,11 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
           badgeBg: 'linear-gradient(180deg, #4b5563, #1f2937)',
           badgeTextGradient: 'linear-gradient(180deg, #f3f4f6, #9ca3af, #4b5563)',
           badgeBorder: '#e5e7eb',
+          cardBorder: 'linear-gradient(135deg, #f3f4f6, #6b7280)',
         };
       } else if (isTop3) {
         rankTheme = {
+          ...rankTheme,
           glow: 'rgba(180,83,9,0.8)',
           textBg: 'linear-gradient(180deg, #fcd34d, #b45309, #78350f)',
           textFill: 'transparent',
@@ -188,289 +197,170 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
           badgeBg: 'linear-gradient(180deg, #78350f, #451a03)',
           badgeTextGradient: 'linear-gradient(180deg, #fcd34d, #b45309, #78350f)',
           badgeBorder: '#fde68a',
+          cardBorder: 'linear-gradient(135deg, #fcd34d, #b45309)',
         };
       }
 
       return (
-        <div ref={ref} style={{ width: 600, height: 900, position: 'relative', overflow: 'hidden', fontFamily: "'Inter', sans-serif", background: '#050000' }}>
+        <div ref={ref} style={{ width: 600, height: 900, position: 'relative', overflow: 'hidden', fontFamily: "'Inter', sans-serif", padding: 18, background: 'transparent' }}>
           
-          {/* BG radial profundo */}
-          <div style={{ position: 'absolute', inset: 0, background: isTop1 ? 'radial-gradient(circle at 50% 40%, #450a0a 0%, #170505 50%, #000000 100%)' : 'radial-gradient(circle at 50% 40%, #1a0000 0%, #050000 60%, #000000 100%)' }} />
-
-          {/* Efeitos de Labaredas de Fogo para Top 1 */}
-          {isTop1 && (
-            <>
-              {/* Glow core */}
-              <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 500, height: 500, background: 'radial-gradient(circle, rgba(239,68,68,0.25) 0%, rgba(249,115,22,0.1) 40%, transparent 70%)', filter: 'blur(40px)', zIndex: 1 }} />
+          {/* Card Border / Frame (estilo Game Card) */}
+          <div style={{ position: 'absolute', inset: 12, background: rankTheme.cardBorder, borderRadius: 32, zIndex: 1, boxShadow: '0 15px 40px rgba(0,0,0,0.9)' }}>
+            <div style={{ position: 'absolute', inset: 6, background: rankTheme.cardBg, borderRadius: 26, overflow: 'hidden' }}>
               
-              {/* Labaredas / Brasas subindo */}
-              <div style={{ position: 'absolute', bottom: '0%', left: -50, width: 350, height: 500, background: 'radial-gradient(ellipse, rgba(249,115,22,0.15) 0%, transparent 60%)', transform: 'rotate(25deg)', filter: 'blur(35px)', zIndex: 2 }} />
-              <div style={{ position: 'absolute', bottom: '0%', right: -50, width: 350, height: 500, background: 'radial-gradient(ellipse, rgba(239,68,68,0.15) 0%, transparent 60%)', transform: 'rotate(-25deg)', filter: 'blur(35px)', zIndex: 2 }} />
-            </>
-          )}
+              {/* Textura de Quadra/Grid */}
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '30px 30px', opacity: 0.5 }} />
 
-          {/* Logo Fire Shark Background Gigante (Opcional) */}
-          {firesharkDataUrl && (
-            <img
-              src={firesharkDataUrl}
-              alt=""
-              style={{
-                position: 'absolute', top: '5%', left: '5%',
-                width: '90%', height: '70%',
-                objectFit: 'contain', objectPosition: 'center',
-                opacity: 0.05,
-                mixBlendMode: 'screen',
-              }}
-            />
-          )}
-
-          {/* Tubarão Fúria Gigante no Fundo */}
-          {tubaraoFuriaDataUrl && (
-            <img
-              src={tubaraoFuriaDataUrl}
-              alt="Tubarão Fúria"
-              style={{
-                position: 'absolute', top: -50, left: '50%', transform: 'translateX(-50%)',
-                width: 750, height: 750,
-                objectFit: 'contain', objectPosition: 'top center',
-                opacity: isTop1 ? 1 : 0.6,
-                zIndex: 5, // No fundo, atrás do avatar
-              }}
-            />
-          )}
-
-          {/* Logo Hellcife mais aparente no Topo Direito (Sem círculo de fundo) */}
-          {escudoDataUrl && (
-            <div style={{ position: 'absolute', top: 30, right: 30, zIndex: 40 }}>
-              <img src={escudoDataUrl} alt="Hellcife" style={{ width: 150, height: 150, objectFit: 'contain', filter: 'drop-shadow(0 5px 15px rgba(0,0,0,0.8)) drop-shadow(0 0 15px rgba(239,68,68,0.4))' }} />
-            </div>
-          )}
-
-          {/* ── Avatar central com super aura ── */}
-          <div style={{
-            position: 'absolute', top: 220, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center',
-          }}>
-            <div style={{
-              width: 360, height: 360, borderRadius: '50%', position: 'relative',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {/* Aura (Conic + Blur) para Podio, ou anel simples para outros */}
-              {isPodium ? (
-                <div style={{
-                  position: 'absolute', inset: -25, borderRadius: '50%',
-                  background: rankTheme.avatarRing,
-                  filter: 'blur(25px)', opacity: 0.85, mixBlendMode: 'screen',
-                  animation: 'spin 10s linear infinite',
-                }} />
-              ) : (
-                <div style={{
-                  position: 'absolute', inset: -10, borderRadius: '50%',
-                  background: 'transparent',
-                  border: `2px solid ${rankTheme.avatarRing}`,
-                  boxShadow: `0 0 15px ${rankTheme.glow}`,
-                }} />
+              {/* Labaredas de Fogo para Top 1 */}
+              {isTop1 && (
+                <>
+                  <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 500, height: 500, background: 'radial-gradient(circle, rgba(239,68,68,0.25) 0%, rgba(249,115,22,0.1) 40%, transparent 70%)', filter: 'blur(40px)', zIndex: 1 }} />
+                  <div style={{ position: 'absolute', bottom: '0%', left: -50, width: 350, height: 500, background: 'radial-gradient(ellipse, rgba(249,115,22,0.15) 0%, transparent 60%)', transform: 'rotate(25deg)', filter: 'blur(35px)', zIndex: 2 }} />
+                  <div style={{ position: 'absolute', bottom: '0%', right: -50, width: 350, height: 500, background: 'radial-gradient(ellipse, rgba(239,68,68,0.15) 0%, transparent 60%)', transform: 'rotate(-25deg)', filter: 'blur(35px)', zIndex: 2 }} />
+                </>
               )}
-              {/* Borda interna sólida para destacar o avatar */}
-              <div style={{
-                position: 'absolute', inset: -4, borderRadius: '50%',
-                background: isPodium ? rankTheme.avatarBorder : '#111',
-                border: isPodium ? 'none' : `2px solid ${rankTheme.glow}`,
-                boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)',
-              }} />
-              <div style={{ position: 'relative', zIndex: 2, borderRadius: '50%', overflow: 'hidden', width: 350, height: 350 }}>
-                <CardAvatar avatarUrl={avatarUrl} name={athleteName} size={350} />
+
+              {/* Fundo Fire Shark & Tubarão Fúria */}
+              {firesharkDataUrl && (
+                <img src={firesharkDataUrl} alt="" style={{ position: 'absolute', top: '5%', left: '5%', width: '90%', height: '70%', objectFit: 'contain', opacity: 0.05, mixBlendMode: 'screen' }} />
+              )}
+              {tubaraoFuriaDataUrl && (
+                <img src={tubaraoFuriaDataUrl} alt="" style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 650, height: 650, objectFit: 'contain', objectPosition: 'top center', opacity: isTop1 ? 1 : 0.6, zIndex: 5 }} />
+              )}
+
+              {/* TOP LEFT OVERALL SHIELD (Fifa Style) */}
+              <div style={{ position: 'absolute', top: 40, left: 30, zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ fontSize: 72, fontWeight: 900, lineHeight: 0.9, letterSpacing: -3, color: '#fff', textShadow: '0 4px 10px rgba(0,0,0,0.8)', fontStyle: 'italic' }}>
+                  {overall ?? '--'}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: 2, color: overallColor, textTransform: 'uppercase', textShadow: '0 2px 5px rgba(0,0,0,0.8)' }}>
+                  {position || 'JOGADOR'}
+                </div>
+                
+                {/* Linha divisória */}
+                <div style={{ width: 60, height: 2, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)', margin: '10px 0' }} />
+                
+                {/* Estrelas */}
+                {((bigStarsTotal || 0) > 0 || (miniStarsCount || 0) > 0) && (
+                  <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center', width: 60 }}>
+                    {Array.from({ length: bigStarsTotal || 0 }).map((_, i) => (
+                      <span key={`big-${i}`} style={{ fontSize: 14, color: '#facc15', filter: 'drop-shadow(0 0 5px rgba(250,204,21,0.6))' }}>⭐</span>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Escudo Menor na esquerda abaixo do Overall */}
+                {escudoDataUrl && (
+                  <img src={escudoDataUrl} alt="Hellcife" style={{ width: 60, height: 60, objectFit: 'contain', marginTop: 15, filter: 'drop-shadow(0 5px 15px rgba(0,0,0,0.8))' }} />
+                )}
               </div>
 
-              {/* Badge TOP {winRank} flutuando no TOPO do avatar */}
-              <div style={{
-                position: 'absolute', top: -18, zIndex: 20,
-                background: rankTheme.badgeBg,
-                padding: '10px 32px',
-                clipPath: 'polygon(15% 0%, 85% 0%, 100% 50%, 85% 100%, 15% 100%, 0% 50%)',
-                boxShadow: `0 10px 30px ${rankTheme.glow}`,
-                borderTop: `2px solid ${rankTheme.badgeBorder}`,
-              }}>
-                <span style={{ 
-                  color: isPodium ? '#fff' : '#d4d4d8', 
-                  fontSize: 26, fontWeight: 900, letterSpacing: 4, 
-                  textTransform: 'uppercase', 
-                  background: rankTheme.badgeTextGradient,
-                  WebkitBackgroundClip: isPodium ? 'text' : 'border-box',
-                  WebkitTextFillColor: rankTheme.textFill,
-                  filter: isPodium ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))' : 'none',
-                  fontStyle: 'italic',
-                }}>
-                  TOP {winRank ?? '--'}
+              {/* Logo Hellcife / Rank Direito superior */}
+              <div style={{ position: 'absolute', top: 40, right: 30, zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                 <div style={{ background: rankTheme.badgeBg, padding: '10px 24px', borderRadius: 8, boxShadow: `0 10px 30px ${rankTheme.glow}`, border: `2px solid ${rankTheme.badgeBorder}` }}>
+                  <span style={{ 
+                    color: isPodium ? '#fff' : '#d4d4d8', 
+                    fontSize: 24, fontWeight: 900, letterSpacing: 3, 
+                    textTransform: 'uppercase', 
+                    background: rankTheme.badgeTextGradient,
+                    WebkitBackgroundClip: isPodium ? 'text' : 'border-box',
+                    WebkitTextFillColor: rankTheme.textFill,
+                    filter: isPodium ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.9))' : 'none',
+                    fontStyle: 'italic',
+                  }}>
+                    TOP {winRank ?? '--'}
+                  </span>
+                </div>
+              </div>
+
+              {/* AVATAR */}
+              <div style={{ position: 'absolute', top: 220, left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: 330, height: 330, borderRadius: '50%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {isPodium ? (
+                    <div style={{ position: 'absolute', inset: -20, borderRadius: '50%', background: rankTheme.avatarRing, filter: 'blur(20px)', opacity: 0.85, mixBlendMode: 'screen', animation: 'spin 10s linear infinite' }} />
+                  ) : (
+                    <div style={{ position: 'absolute', inset: -8, borderRadius: '50%', background: 'transparent', border: `2px solid ${rankTheme.avatarRing}`, boxShadow: `0 0 15px ${rankTheme.glow}` }} />
+                  )}
+                  <div style={{ position: 'absolute', inset: -4, borderRadius: '50%', background: isPodium ? rankTheme.avatarBorder : '#111', border: isPodium ? 'none' : `2px solid ${rankTheme.glow}`, boxShadow: 'inset 0 0 20px rgba(0,0,0,0.8)' }} />
+                  <div style={{ position: 'relative', zIndex: 2, borderRadius: '50%', overflow: 'hidden', width: 320, height: 320 }}>
+                    <CardAvatar avatarUrl={avatarUrl} name={athleteName} size={320} />
+                  </div>
+                </div>
+              </div>
+
+              {/* NOME DO ATLETA */}
+              <div style={{ position: 'absolute', top: 560, left: '50%', transform: 'translateX(-50%)', zIndex: 25, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                <span style={{ color: '#fff', fontSize: 60, fontWeight: 900, fontStyle: 'italic', letterSpacing: 2, textTransform: 'uppercase', textShadow: '0 5px 25px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5)', lineHeight: 1 }}>
+                  {firstName}
+                </span>
+                
+                <div style={{ marginTop: 8, background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.8), transparent)', padding: '4px 60px', borderTop: '1px solid rgba(234,179,8,0.5)', borderBottom: '1px solid rgba(234,179,8,0.5)' }}>
+                  <span style={{ color: '#facc15', fontSize: 14, fontWeight: 900, letterSpacing: 8, textTransform: 'uppercase', fontStyle: 'italic', textShadow: '0 2px 8px rgba(0,0,0,0.9)' }}>
+                    O Tubarão da Quadra!
+                  </span>
+                </div>
+                
+                <div style={{ width: '80%', height: 2, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)', margin: '15px 0' }} />
+              </div>
+
+              {/* ATRIBUTOS GAME STYLE (Grid 2 colunas) */}
+              <div style={{ position: 'absolute', bottom: 50, left: 40, right: 40, zIndex: 30 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 40px', background: 'rgba(0,0,0,0.4)', padding: '20px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)', backdropFilter: 'blur(10px)' }}>
+                  
+                  {/* Vitórias */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: 20 }}>🏆</span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>{wins ?? '--'}</div>
+                      <div style={{ color: '#a3a3a3', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>VITÓRIAS</div>
+                    </div>
+                  </div>
+
+                  {/* Taxa de Vitória */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: 20 }}>🔥</span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>{winRate ?? '--'}%</div>
+                      <div style={{ color: '#a3a3a3', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>TAXA (WIN)</div>
+                    </div>
+                  </div>
+
+                  {/* Partidas */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, background: 'rgba(250,204,21,0.1)', border: '1px solid rgba(250,204,21,0.3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: 20 }}>⚡</span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>{totalMatches ?? '--'}</div>
+                      <div style={{ color: '#a3a3a3', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>PARTIDAS</div>
+                    </div>
+                  </div>
+
+                  {/* Ranking */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: 20 }}>🦈</span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>#{winRank ?? '--'}</div>
+                      <div style={{ color: '#a3a3a3', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>RANKING</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Tagline Final */}
+              <div style={{ position: 'absolute', bottom: 15, left: 0, right: 0, zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 4, fontWeight: 700, textTransform: 'uppercase' }}>
+                  HELLCIFE VÔLEI MANAGER
                 </span>
               </div>
             </div>
-          </div>
-
-          {/* ── Left Badge (Escudo de Overall e Estrelas) ── */}
-          <div style={{
-            position: 'absolute', top: 300, left: 24, zIndex: 25,
-            width: 140, background: 'linear-gradient(180deg, #171717, #0a0a0a)',
-            border: `2px solid ${overallColor}`, borderRadius: '8px 8px 45px 45px',
-            padding: '16px 0 20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center',
-            boxShadow: `0 15px 30px rgba(0,0,0,0.9), inset 0 0 15px ${overallColor}40`,
-          }}>
-            {((bigStarsTotal || 0) > 0 || (miniStarsCount || 0) > 0) ? (
-              <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
-                {Array.from({ length: bigStarsTotal || 0 }).map((_, i) => (
-                  <span key={`big-${i}`} style={{ fontSize: 16, color: '#facc15', textShadow: '0 0 8px rgba(250,204,21,0.6)' }}>⭐</span>
-                ))}
-                {Array.from({ length: miniStarsCount || 0 }).map((_, i) => (
-                  <span key={`mini-${i}`} style={{ fontSize: 10, color: '#fbbf24', marginTop: 3 }}>⭐</span>
-                ))}
-              </div>
-            ) : (
-              <div style={{ marginBottom: 16, opacity: 0.3 }}>
-                <span style={{ fontSize: 12, color: '#525252' }}>Sem estrelas</span>
-              </div>
-            )}
-            <span style={{ 
-              color: '#fff', 
-              fontSize: 54, fontWeight: 900, lineHeight: 1, letterSpacing: -2,
-              background: 'linear-gradient(180deg, #fff, #d4d4d8, #a3a3a3)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              filter: `drop-shadow(0 4px 10px ${overallColor}80)`,
-              fontStyle: 'italic',
-              paddingRight: 10, // Evita cortar o final do texto em itálico
-            }}>
-              {overall ?? '--'}
-            </span>
-            <span style={{ color: '#a3a3a3', fontSize: 10, letterSpacing: 2, marginTop: 6, textTransform: 'uppercase' }}>
-              {position || 'JOGADOR'}
-            </span>
-            <div style={{ width: '70%', height: 1, background: `${overallColor}50`, margin: '14px 0' }} />
-            <span style={{ 
-              color: isPodium ? '#fff' : '#d4d4d8', 
-              fontSize: 22, fontWeight: 900, lineHeight: 1,
-              background: rankTheme.badgeTextGradient,
-              WebkitBackgroundClip: isPodium ? 'text' : 'border-box',
-              WebkitTextFillColor: rankTheme.textFill,
-            }}>
-              TOP {winRank ?? '--'}
-            </span>
-            
-            {textoHellcifeDataUrl ? (
-              <img src={textoHellcifeDataUrl} alt="Hellcife" style={{ height: 20, marginTop: 15, objectFit: 'contain' }} />
-            ) : (
-              <span style={{ color: '#fff', fontSize: 9, letterSpacing: 1, marginTop: 4 }}>FIRE SHARK</span>
-            )}
-            <span style={{ color: overallColor, fontSize: 10, marginTop: 12 }}>●</span>
-          </div>
-
-          {/* ── Nome — banner skew e Subtítulo ── */}
-          <div style={{ 
-            position: 'absolute', top: 560, left: '50%', transform: 'translateX(-50%)', 
-            zIndex: 25, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' 
-          }}>
-            <div style={{
-              background: rankTheme.nameBanner,
-              padding: '12px 70px',
-              transform: 'skew(-15deg)',
-              boxShadow: isPodium ? '0 15px 30px rgba(0,0,0,0.6), inset 0 2px 10px rgba(255,255,255,0.4)' : '0 10px 20px rgba(0,0,0,0.6)',
-              borderBottom: `6px solid ${rankTheme.nameBannerBorder}`,
-              borderTop: `1px solid ${rankTheme.nameBannerTopBorder}`,
-            }}>
-              <span style={{
-                display: 'block', transform: 'skew(15deg)',
-                color: '#fff', fontSize: 56, fontWeight: 900, fontStyle: 'italic', letterSpacing: 4,
-                textTransform: 'uppercase',
-                textShadow: '3px 3px 0 #000, 5px 5px 15px rgba(0,0,0,0.5)',
-                lineHeight: 1,
-              }}>
-                {firstName}
-              </span>
-            </div>
-
-            {/* Subtítulo: O Tubarão da Quadra */}
-            <div style={{
-              marginTop: 10,
-              background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.8), transparent)',
-              padding: '4px 40px',
-              borderTop: '1px solid rgba(234,179,8,0.5)',
-              borderBottom: '1px solid rgba(234,179,8,0.5)',
-            }}>
-              <span style={{
-                color: '#facc15', fontSize: 16, fontWeight: 900, letterSpacing: 6,
-                textTransform: 'uppercase', fontStyle: 'italic',
-                textShadow: '0 2px 8px rgba(0,0,0,0.9), 0 0 15px rgba(250,204,21,0.5)',
-                display: 'block',
-              }}>
-                O Tubarão da Quadra!
-              </span>
-            </div>
-          </div>
-
-
-
-          {/* ── Logo Gigante no fundo (bottom) ── */}
-          {escudoDataUrl && (
-            <img
-              src={escudoDataUrl}
-              alt=""
-              style={{
-                position: 'absolute', bottom: -50, right: -60, zIndex: 10,
-                width: 320, height: 320, objectFit: 'contain',
-                opacity: 0.15, mixBlendMode: 'overlay',
-                transform: 'rotate(-15deg)',
-              }}
-            />
-          )}
-
-          {/* ── Stats base ── */}
-          <div style={{
-            position: 'absolute', bottom: 45, left: 40, right: 40, zIndex: 30,
-            display: 'flex', justifyContent: 'space-around', alignItems: 'center',
-          }}>
-            {/* Win Rate */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 40, filter: isTop1 ? 'drop-shadow(0 0 15px rgba(239,68,68,0.8))' : 'none' }}>🔥</span>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span style={{ color: '#fff', fontSize: 26, fontWeight: 900, fontStyle: 'italic', lineHeight: 1, textShadow: '0 4px 10px rgba(0,0,0,0.8)' }}>{winRate ?? '--'}%</span>
-                <span style={{ color: '#d4d4d8', fontSize: 10, letterSpacing: 2, fontWeight: 800, textTransform: 'uppercase', marginTop: 2 }}>VITÓRIAS</span>
-              </div>
-            </div>
-
-            {/* Partidas */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 40, color: '#facc15', textShadow: '0 0 15px rgba(250,204,21,0.6)' }}>⚡</span>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span style={{ color: '#fff', fontSize: 26, fontWeight: 900, fontStyle: 'italic', lineHeight: 1, textShadow: '0 4px 10px rgba(0,0,0,0.8)' }}>{totalMatches ?? wins ?? '--'}</span>
-                <span style={{ color: '#d4d4d8', fontSize: 10, letterSpacing: 2, fontWeight: 800, textTransform: 'uppercase', marginTop: 2 }}>PARTIDAS</span>
-              </div>
-            </div>
-
-            {/* Ranking */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 40, filter: isTop1 ? 'drop-shadow(0 0 15px rgba(56,189,248,0.4))' : 'grayscale(100%)' }}>🦈</span>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span style={{ 
-                  color: isTop1 ? '#fff' : '#fff', fontSize: 26, fontWeight: 900, fontStyle: 'italic', lineHeight: 1,
-                  background: isTop1 ? 'linear-gradient(180deg, #fef08a, #eab308, #854d0e)' : 'none',
-                  WebkitBackgroundClip: isTop1 ? 'text' : 'border-box',
-                  WebkitTextFillColor: isTop1 ? 'transparent' : 'initial',
-                  filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.8))'
-                }}>TOP {winRank ?? '--'}</span>
-                <span style={{ color: '#d4d4d8', fontSize: 10, letterSpacing: 2, fontWeight: 800, textTransform: 'uppercase', marginTop: 2 }}>RANKING</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Tagline final ── */}
-          <div style={{
-            position: 'absolute', bottom: 10, left: 0, right: 0, zIndex: 30,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
-          }}>
-            <div style={{ width: '100%', maxWidth: 90, height: 2, background: 'linear-gradient(to right, transparent, rgba(220,38,38,0.5))' }} />
-            <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, letterSpacing: 5, fontWeight: 700, textTransform: 'uppercase' }}>
-              O TUBARÃO DO <span style={{ color: '#D90429' }}>HELLCIFE</span>
-            </span>
-            <div style={{ width: '100%', maxWidth: 90, height: 2, background: 'linear-gradient(to left, transparent, rgba(220,38,38,0.5))' }} />
           </div>
         </div>
       );
@@ -625,100 +515,124 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
       const themeColors = {
         primary: isTop1 ? '#FACC15' : '#9ca3af', // Gold vs Silver
         dark: isTop1 ? '#713f12' : '#374151',
-        bg: isTop1 ? 'linear-gradient(160deg, #1c1917 0%, #292524 50%, #0c0a09 100%)' : 'linear-gradient(160deg, #111827 0%, #1f2937 50%, #030712 100%)'
+        bg: isTop1 ? 'linear-gradient(160deg, #1c1917 0%, #292524 50%, #0c0a09 100%)' : 'linear-gradient(160deg, #111827 0%, #1f2937 50%, #030712 100%)',
+        border: isTop1 ? 'linear-gradient(135deg, #FACC15, #b45309)' : 'linear-gradient(135deg, #f3f4f6, #4b5563)'
       };
 
       return (
-        <div ref={ref} style={{ width: 600, height: 900, position: 'relative', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
-          <div style={{ position: 'absolute', inset: 0, background: themeColors.bg }} />
+        <div ref={ref} style={{ width: 600, height: 900, position: 'relative', overflow: 'hidden', fontFamily: "'Inter', sans-serif", padding: 18, background: 'transparent' }}>
           
-          {/* Fundo Gigante Rank */}
-          <div style={{ 
-            position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)', 
-            fontSize: 450, fontWeight: 900, fontStyle: 'italic', color: 'rgba(255,255,255,0.03)', 
-            lineHeight: 0.8, zIndex: 1 
-          }}>
-            #{rankValue}
+          {/* Card Border / Frame (estilo Game Card) */}
+          <div style={{ position: 'absolute', inset: 12, background: themeColors.border, borderRadius: 32, zIndex: 1, boxShadow: '0 15px 40px rgba(0,0,0,0.9)' }}>
+            <div style={{ position: 'absolute', inset: 6, background: themeColors.bg, borderRadius: 26, overflow: 'hidden' }}>
+              
+              {/* Textura */}
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+              
+              <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 500, height: 400, background: `radial-gradient(circle, ${themeColors.primary}30 0%, transparent 70%)`, zIndex: 2 }} />
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, transparent 100%)', zIndex: 2 }} />
+
+              {/* Logo Hellcife Central Fundo */}
+              {escudoDataUrl && (
+                <div style={{ position: 'absolute', top: '25%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1, opacity: 0.05 }}>
+                  <img src={escudoDataUrl} alt="Hellcife" style={{ width: 450, height: 450, objectFit: 'contain' }} />
+                </div>
+              )}
+
+              {/* TOP LEFT OVERALL SHIELD */}
+              <div style={{ position: 'absolute', top: 30, left: 30, zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ fontSize: 60, fontWeight: 900, lineHeight: 0.9, color: '#fff', textShadow: '0 4px 10px rgba(0,0,0,0.8)' }}>
+                  {overall ?? '--'}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: themeColors.primary, textTransform: 'uppercase' }}>
+                  {position || 'GLADIADOR'}
+                </div>
+                <div style={{ width: 50, height: 2, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)', margin: '10px 0' }} />
+                {escudoDataUrl && (
+                  <img src={escudoDataUrl} alt="Hellcife" style={{ width: 50, height: 50, objectFit: 'contain', marginTop: 10, filter: 'drop-shadow(0 5px 15px rgba(0,0,0,0.8))' }} />
+                )}
+              </div>
+
+              {/* RANK TOP RIGHT */}
+              <div style={{ position: 'absolute', top: 30, right: 30, zIndex: 30 }}>
+                <div style={{ background: 'rgba(0,0,0,0.5)', border: `2px solid ${themeColors.primary}`, padding: '8px 20px', borderRadius: '12px', backdropFilter: 'blur(10px)', boxShadow: `0 10px 20px rgba(0,0,0,0.5)` }}>
+                   <span style={{ color: themeColors.primary, fontSize: 20, fontWeight: 900, textTransform: 'uppercase' }}>TOP {rankValue}</span>
+                </div>
+              </div>
+
+              {/* AVATAR */}
+              <div style={{ position: 'absolute', top: 200, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+                <ColorRing size={320} innerSize={295} colors={[themeColors.primary, themeColors.dark]}>
+                  <CardAvatar avatarUrl={avatarUrl} name={athleteName} size={300} />
+                </ColorRing>
+              </div>
+
+              {/* NOME & TITULO */}
+              <div style={{ position: 'absolute', top: 540, left: '50%', transform: 'translateX(-50%)', zIndex: 25, width: '100%', textAlign: 'center' }}>
+                <div style={{ fontSize: 55, fontWeight: 900, letterSpacing: 2, color: '#fff', textTransform: 'uppercase', lineHeight: 1, textShadow: '0 5px 25px rgba(0,0,0,0.9)' }}>
+                  {athleteName.split(' ')[0] || athleteName}
+                </div>
+                <div style={{ marginTop: 5 }}>
+                  <span style={{ color: themeColors.primary, fontSize: 16, fontWeight: 900, letterSpacing: 8, textTransform: 'uppercase', textShadow: '0 2px 8px rgba(0,0,0,0.9)' }}>
+                    MAIS VITÓRIAS
+                  </span>
+                </div>
+                <div style={{ width: '80%', height: 2, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)', margin: '15px auto' }} />
+              </div>
+
+              {/* ATRIBUTOS */}
+              <div style={{ position: 'absolute', bottom: 50, left: 40, right: 40, zIndex: 30 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 40px', background: 'rgba(0,0,0,0.6)', padding: '20px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}>
+                  
+                  {/* Vitórias */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: 20 }}>🏅</span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>{wins ?? '--'}</div>
+                      <div style={{ color: '#a3a3a3', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>VITÓRIAS</div>
+                    </div>
+                  </div>
+
+                  {/* Taxa de Vitória */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: 20 }}>📊</span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>{winRate ?? '--'}%</div>
+                      <div style={{ color: '#a3a3a3', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>TAXA (WIN)</div>
+                    </div>
+                  </div>
+
+                  {/* Partidas */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: 20 }}>⚔️</span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>{totalMatches ?? '--'}</div>
+                      <div style={{ color: '#a3a3a3', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>PARTIDAS</div>
+                    </div>
+                  </div>
+
+                  {/* Ranking Global */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       <span style={{ fontSize: 20 }}>🌍</span>
+                    </div>
+                    <div>
+                      <div style={{ color: '#fff', fontSize: 24, fontWeight: 900 }}>#{overallRank ?? '--'}</div>
+                      <div style={{ color: '#a3a3a3', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>RANK GERAL</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
           </div>
-
-          <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 500, height: 400, background: `radial-gradient(circle, ${themeColors.primary}20 0%, transparent 70%)`, zIndex: 2 }} />
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '40%', background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, transparent 100%)', zIndex: 2 }} />
-          
-          {/* Frame Metálico */}
-          <div style={{ position: 'absolute', inset: 18, border: `3px solid ${themeColors.primary}40`, borderRadius: 16, zIndex: 10, boxShadow: `inset 0 0 30px rgba(0,0,0,0.8), 0 0 20px ${themeColors.primary}20` }} />
-
-          {/* Logo Hellcife */}
-          {escudoDataUrl && (
-            <div style={{ position: 'absolute', top: 32, right: 32, zIndex: 20 }}>
-              <img src={escudoDataUrl} alt="Hellcife" style={{ width: 140, height: 140, objectFit: 'contain', filter: `drop-shadow(0 5px 15px rgba(0,0,0,0.8)) drop-shadow(0 0 15px ${themeColors.primary}40)` }} />
-            </div>
-          )}
-
-          {/* Medalhão Rank */}
-          <div style={{ 
-            position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', 
-            width: 120, height: 120, borderRadius: '50%', 
-            background: 'linear-gradient(135deg, #171717, #000)',
-            border: `4px solid ${themeColors.primary}`,
-            boxShadow: `0 10px 30px rgba(0,0,0,0.9), inset 0 0 20px ${themeColors.primary}40`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 10
-          }}>
-            <span style={{ fontSize: 60, filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.8))` }}>{rankLabel}</span>
-          </div>
-
-          {/* Título */}
-          <div style={{ position: 'absolute', top: 200, left: 0, right: 0, textAlign: 'center', zIndex: 10 }}>
-            <div style={{ 
-              fontSize: 38, fontWeight: 900, letterSpacing: 4, 
-              background: `linear-gradient(180deg, #fff, ${themeColors.primary})`,
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              textTransform: 'uppercase', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.8))'
-            }}>
-              GLADIADORES
-            </div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 16, letterSpacing: 8, marginTop: 8, fontWeight: 800 }}>
-              TOP {rankValue} · MAIS VITÓRIAS
-            </div>
-          </div>
-
-          {/* Avatar Shield */}
-          <div style={{ position: 'absolute', top: 290, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-            <ColorRing size={230} innerSize={205} colors={[themeColors.primary, themeColors.dark]}>
-              <CardAvatar avatarUrl={avatarUrl} name={athleteName} size={200} />
-            </ColorRing>
-          </div>
-
-          {/* Estatísticas Inferiores em Blocos Metálicos */}
-          <div style={{ position: 'absolute', bottom: 130, left: 40, right: 40, display: 'flex', justifyContent: 'center', gap: 20, zIndex: 10 }}>
-            <div style={{ width: 140, padding: '16px 0', background: 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.8))', border: `1px solid ${themeColors.primary}30`, borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
-              <span style={{ fontSize: 34, fontWeight: 900, color: themeColors.primary }}>{winRate ?? '--'}%</span>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 800, letterSpacing: 2, marginTop: 4 }}>TAXA DE VIT.</span>
-            </div>
-            
-            <div style={{ width: 140, padding: '16px 0', background: 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.8))', border: `1px solid ${themeColors.primary}30`, borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
-              <span style={{ fontSize: 34, fontWeight: 900, color: '#fff' }}>{wins ?? '--'}</span>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 800, letterSpacing: 2, marginTop: 4 }}>VITÓRIAS</span>
-            </div>
-            
-            <div style={{ width: 140, padding: '16px 0', background: 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.8))', border: `1px solid ${themeColors.primary}30`, borderRadius: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
-              <span style={{ fontSize: 34, fontWeight: 900, color: '#fff' }}>{totalMatches ?? '--'}</span>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 800, letterSpacing: 2, marginTop: 4 }}>PARTIDAS</span>
-            </div>
-          </div>
-
-          {/* Nome */}
-          <div style={{ position: 'absolute', bottom: 50, left: 0, right: 0, textAlign: 'center', zIndex: 10 }}>
-            <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: 4, color: '#fff', textTransform: 'uppercase', lineHeight: 1, textShadow: '0 5px 15px rgba(0,0,0,0.9)' }}>
-              {athleteName.toUpperCase()}
-            </div>
-          </div>
-          
-          {textoHellcifeDataUrl && (
-            <div style={{ position: 'absolute', bottom: 15, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-              <img src={textoHellcifeDataUrl} alt="Hellcife" style={{ height: 25, objectFit: 'contain', opacity: 0.8 }} />
-            </div>
-          )}
         </div>
       );
     }

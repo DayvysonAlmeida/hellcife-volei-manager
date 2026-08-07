@@ -46,7 +46,9 @@ export function AttendancePage() {
   // A auto-seleção foi removida para garantir que no mobile o usuário veja a lista de circuitos primeiro.
 
   const { activeGameDays, historyGameDays } = useMemo(() => {
-    const active = gameDays.filter(gd => !gd.is_closed && gd.date >= todayStr);
+    const active = gameDays
+      .filter(gd => !gd.is_closed && gd.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date));
     const history = gameDays.filter(gd => gd.is_closed || gd.date < todayStr);
     return { activeGameDays: active, historyGameDays: history };
   }, [gameDays, todayStr]);

@@ -115,7 +115,7 @@ export function TeamsPage() {
   const todayStr = new Date().toLocaleDateString('en-CA');
   
   const { upcomingGameDays, pastGameDays } = useMemo(() => {
-    const upcomingGameDays = gameDays?.filter(gd => !gd.is_closed && gd.date >= todayStr) || [];
+    const upcomingGameDays = (gameDays?.filter(gd => !gd.is_closed && gd.date >= todayStr) || []).sort((a: any, b: any) => a.date.localeCompare(b.date));
     const pastGameDays = gameDays?.filter(gd => gd.is_closed || gd.date < todayStr) || [];
     return { upcomingGameDays, pastGameDays };
   }, [gameDays, todayStr]);

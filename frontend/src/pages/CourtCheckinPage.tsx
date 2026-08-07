@@ -29,7 +29,7 @@ export function CourtCheckinPage() {
 
   const { openGameDays, closedGameDays } = useMemo(() => {
     return { 
-      openGameDays: gameDays.filter((gd: any) => !gd.is_closed),
+      openGameDays: gameDays.filter((gd: any) => !gd.is_closed).sort((a: any, b: any) => a.date.localeCompare(b.date)),
       closedGameDays: gameDays.filter((gd: any) => gd.is_closed)
     };
   }, [gameDays]);

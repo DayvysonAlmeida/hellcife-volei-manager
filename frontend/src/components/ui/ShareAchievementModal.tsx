@@ -40,9 +40,9 @@ const CONGRATS: Record<ShareAchievementType, { title: string; subtitle: string }
 // Labels dos tipos de card
 const TYPE_LABELS: Record<ShareAchievementType, { label: string; icon: string }> = {
   fire_shark_top1: { label: 'Fire Shark', icon: '🦈' },
-  big_star:        { label: 'Grande Estrela', icon: '🌟' },
-  top_wins:        { label: 'Gladiadores', icon: '🏆' },
-  mini_star:       { label: 'Mini Estrela', icon: '⭐' },
+  big_star: { label: 'Grande Estrela', icon: '🌟' },
+  top_wins: { label: 'Gladiadores', icon: '🏆' },
+  mini_star: { label: 'Mini Estrela', icon: '⭐' },
 };
 
 export function ShareAchievementModal({
@@ -80,6 +80,19 @@ export function ShareAchievementModal({
       reader.readAsDataURL(blob);
     });
 
+  // Converte base64 -> Blob (Síncrono para preservar o User Gesture no click e garantir o filename .png)
+  const dataURItoBlob = (dataURI: string) => {
+    const split = dataURI.split(',');
+    const byteString = atob(split[1]);
+    const mimeString = split[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+  };
+
   // Pré-carrega as imagens separadamente (tolerante a falhas individuais)
   useEffect(() => {
     async function loadImages() {
@@ -97,13 +110,13 @@ export function ShareAchievementModal({
           fetchAndConvert('/tubarao-furia.png'),
           fetchAndConvert('/texto-hellcife.jpeg')
         ];
-        
+
         if (cardProps.avatarUrl) {
           promises.push(fetchAndConvert(cardProps.avatarUrl, true));
         }
 
         const results = await Promise.allSettled(promises);
-        
+
         if (results[0].status === 'fulfilled') setFiresharkDataUrl(results[0].value);
         if (results[1].status === 'fulfilled') setEscudoDataUrl(results[1].value);
         if (results[2].status === 'fulfilled') setTubaraoFuriaDataUrl(results[2].value);
@@ -126,12 +139,12 @@ export function ShareAchievementModal({
     try {
       // Hack WebKit/iOS: múltiplas capturas antes do URL final evitam problemas de imagens vazias
       const options = { cacheBust: true, style: { transform: 'scale(1)', transformOrigin: 'top left' } };
-      await toPng(cardRef.current, options).catch(() => {});
-      await toPng(cardRef.current, options).catch(() => {});
+      await toPng(cardRef.current, options).catch(() => { });
+      await toPng(cardRef.current, options).catch(() => { });
 
       const url = await toPng(cardRef.current, {
         pixelRatio: 2,
-        backgroundColor: '#050000',
+        backgroundColor: 'transparent',
         cacheBust: true,
         style: { transform: 'scale(1)', transformOrigin: 'top left' }
       });
@@ -184,12 +197,26 @@ export function ShareAchievementModal({
   // ── Download da imagem
   const handleDownload = useCallback(() => {
     if (!previewUrl) return;
-    const a = document.createElement('a');
-    a.href = previewUrl;
-    a.download = `hellcife-conquista-${activeType}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+      const safeType = String(activeType).replace(/[^a-z0-9]/gi, '_');
+      const filename = `hellcife-conquista-${safeType}.png`;
+
+      const blob = dataURItoBlob(previewUrl);
+      const objectUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      a.style.display = 'none';
+
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (e) {
+      console.error('Erro ao baixar:', e);
+    }
   }, [previewUrl, activeType]);
 
   // ── Copiar texto alternativo
@@ -206,12 +233,11 @@ export function ShareAchievementModal({
 
   // ── WhatsApp share (texto + instrução para salvar imagem)
   const handleWhatsApp = useCallback(() => {
+    handleDownload();
     const text = encodeURIComponent(
       `${congrats.subtitle} 🏐\n\n*${cardProps.athleteName}* no Hellcife Vôlei!\n#HellcifeVolei #Vôlei`
     );
     window.open(`https://wa.me/?text=${text}`, '_blank');
-    // Também faz download da imagem para o usuário poder enviar no WhatsApp
-    setTimeout(() => handleDownload(), 300);
   }, [congrats, cardProps.athleteName, handleDownload]);
 
   if (!isOpen) return null;
@@ -372,7 +398,7 @@ export function ShareAchievementModal({
                   )}
                 >
                   <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                   </svg>
                   Enviar no WhatsApp
                 </motion.button>

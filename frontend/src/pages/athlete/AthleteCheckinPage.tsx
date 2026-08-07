@@ -180,8 +180,8 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
 
         {/* Minha Presença Compacta */}
         {myPlayer && (
-          <div className="bg-surface-highlight/40 rounded-xl p-3 border border-border/30 mt-3">
-            <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="bg-surface-highlight/40 rounded-xl p-2.5 sm:p-3 border border-border/30 mt-2">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Avatar name={myPlayer.display_name} src={myPlayer.avatar_url} size="sm" />
                 <div>
@@ -195,7 +195,7 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                 {amPresent ? (
                   <div className="flex items-center gap-1.5">
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
-                      <Check size={12} /> Conf.
+                      <Check size={12} /> Confirmado
                     </span>
                     {safePrice === 0 && (
                       <button onClick={() => cancelMutation.mutate(myPlayer.id)} disabled={cancelMutation.isPending} className="p-1 text-red hover:bg-red/10 rounded" title="Cancelar Presença">
@@ -213,28 +213,18 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                     </button>
                   </div>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-black/20 text-text-muted border border-border">
-                    Ausente
-                  </span>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => checkinMutation.mutate(myPlayer.id)}
+                    disabled={checkinMutation.isPending}
+                    className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-shadow whitespace-nowrap"
+                  >
+                    {checkinMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CalendarCheck size={14} />}
+                    Confirmar
+                  </motion.button>
                 )}
               </div>
             </div>
-
-            {!amPresent && !amWaitlist && (
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={() => checkinMutation.mutate(myPlayer.id)}
-                disabled={checkinMutation.isPending}
-                className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm font-bold"
-              >
-                {checkinMutation.isPending ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <CalendarCheck size={16} />
-                )}
-                Confirmar Minha Presença
-              </motion.button>
-            )}
 
             {amPresent && !myAttendance?.has_paid && (
               <div className="flex flex-col sm:flex-row gap-2 mt-2">
@@ -277,7 +267,7 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="card p-4"
+        className="card p-3 sm:p-4"
       >
         <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 rounded-lg bg-blue/10 flex items-center justify-center text-blue-400">
@@ -289,14 +279,14 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
           </div>
         </div>
 
-        <div className="flex gap-2 mb-3">
+        <div className="flex gap-2">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
               value={guestSearch}
               onChange={e => setGuestSearch(e.target.value)}
-              placeholder="Buscar..."
+              placeholder="Buscar convidado..."
               className="input w-full pl-8 py-1.5 text-sm"
             />
           </div>
@@ -309,9 +299,9 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
           </button>
         </div>
 
-        {guestSearch.trim().length >= 2 ? (
+        {guestSearch.trim().length >= 2 && (
           availableGuests.length > 0 ? (
-            <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar mt-3">
               {availableGuests.map((guest: any) => (
                 <motion.div
                   key={guest.id}
@@ -337,15 +327,10 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               ))}
             </div>
           ) : (
-            <div className="text-center py-4 text-text-muted text-xs bg-surface/30 rounded-lg border border-border/20">
+            <div className="text-center py-3 mt-3 text-text-muted text-xs bg-surface/30 rounded-lg border border-border/20">
               Nenhum convidado encontrado.
             </div>
           )
-        ) : (
-          <div className="text-center py-6 text-text-muted text-[10px] sm:text-xs bg-surface/30 rounded-lg border border-border/20 flex flex-col items-center gap-2">
-            <Search size={16} className="opacity-50" />
-            <p>Digite o nome para buscar os convidados.</p>
-          </div>
         )}
       </motion.div>
 
@@ -509,7 +494,8 @@ export function AthleteCheckinPage() {
     queryKey: ['athlete-open-circuits'],
     queryFn: async () => {
       const res = await api.get(`/attendance/gamedays/?is_closed=false&is_published=true&ordering=date`);
-      return res.data.results || res.data;
+      const list = res.data.results || res.data;
+      return list.sort((a: any, b: any) => a.date.localeCompare(b.date));
     },
   });
 
