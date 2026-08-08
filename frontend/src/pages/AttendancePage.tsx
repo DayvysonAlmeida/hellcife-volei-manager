@@ -256,31 +256,9 @@ export function AttendancePage() {
           <p className="page-subtitle max-w-3xl">Aqui é onde criamos o circuito e lançamos quem vai participar de acordo com a quantidade de vagas. As pessoas confirmam presença no link público e os administradores gerenciam a lista (incluindo convidados e pagamentos).</p>
         </div>
         {canEdit && (
-          <div className="flex gap-2 flex-col sm:flex-row">
-            <button
-              onClick={() => {
-                setConfirmDialog({
-                  isOpen: true,
-                  title: 'Recalcular Faltas',
-                  desc: 'Isso vai analisar todos os circuitos antigos encerrados e recalcular as faltas (no-shows) de todo mundo na base de dados. Tem certeza?',
-                  onConfirm: () => {
-                    const promise = attendanceService.processPastAbsences().then(() => qc.invalidateQueries({ queryKey: ['gamedays'] }));
-                    toast.promise(promise, {
-                      loading: 'Processando...',
-                      success: (data: any) => data.detail || 'Faltas recalculadas!',
-                      error: 'Erro ao processar faltas.',
-                    });
-                  }
-                });
-              }}
-              className="btn-secondary flex items-center justify-center gap-2"
-              title="Sincronizar faltas retroativas"
-            >
-              <RefreshCw size={16} />
-              Sincronizar Faltas
-            </button>
-            <button onClick={() => setShowNewForm(!showNewForm)} className="btn-primary flex items-center justify-center gap-2">
-              <Plus size={16} />
+          <div className="flex gap-2 flex-col sm:flex-row mt-4 sm:mt-0">
+            <button onClick={() => setShowNewForm(!showNewForm)} className="btn-primary flex items-center justify-center gap-2 px-6">
+              <Plus size={18} />
               Novo Circuito
             </button>
           </div>

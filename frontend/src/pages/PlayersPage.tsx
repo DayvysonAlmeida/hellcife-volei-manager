@@ -48,6 +48,7 @@ export function PlayersPage() {
   const [guestTab, setGuestTab] = useState<'list' | 'new'>('list');
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<Position>('outside');
+  const [guestGender, setGuestGender] = useState<'M' | 'F'>('M');
   const [guestInvitedBy, setGuestInvitedBy] = useState(user?.name || '');
   
   const { data: guestsData, isLoading: loadingGuests } = useQuery({
@@ -464,6 +465,20 @@ export function PlayersPage() {
 
                 <div>
                   <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">
+                    Gênero *
+                  </label>
+                  <select
+                    value={guestGender}
+                    onChange={(e) => setGuestGender(e.target.value as 'M' | 'F')}
+                    className="input w-full"
+                  >
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">
                     Convidado por
                   </label>
                   <input
@@ -483,6 +498,7 @@ export function PlayersPage() {
                         main_position: guestPosition,
                         is_guest: true,
                         invited_by: guestInvitedBy,
+                        gender: guestGender,
                         status: 'active',
                       })
                     }

@@ -50,6 +50,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         name = request.data.get('name')
         main_position = request.data.get('main_position')
         invited_by = request.data.get('invited_by')
+        gender = request.data.get('gender', 'M')
 
         if not name or not main_position:
             return Response({'detail': 'Nome e Posição são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -63,6 +64,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         guest_player = Player.objects.create(
             name=name,
             main_position=main_position,
+            gender=gender,
             is_guest=True,
             invited_by=invited_by,
             status='active'
@@ -554,10 +556,14 @@ def sync_absences_logic():
         gamedays_by_date[g.date].append(g)
         
     for date, gamedays in gamedays_by_date.items():
-        # Um dia só "encerrou" se TODOS os circuitos do dia estão encerrados ou a data já passou
-        # Mas para ser justo, se a data já passou, consideramos finalizado.
-        # Se for hoje, só consideramos circuitos que já foram fechados. Se não tem nenhum fechado, não conta falta.
-        finished_gamedays = [g for g in gamedays if g.is_closed or g.date < today]
+        # Um dia só "encerrou" se a data passou ou foi fechado.
+        # REGRA NOVA: Só consideramos Circuitos que foram PUBLICADOS e tiveram pelo menos 1 pessoa na quadra
+        # Se não teve ninguém na quadra (court_checkins vazio) ou não foi publicado, o evento não ocorreu de fato.
+        finished_gamedays = [
+            g for g in gamedays 
+            if (g.is_closed or g.date < today) and g.is_published and len(g.court_checkins.all()) > 0
+        ]
+        
         if not finished_gamedays:
             continue
             

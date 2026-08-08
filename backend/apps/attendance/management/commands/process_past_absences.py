@@ -6,9 +6,11 @@ class Command(BaseCommand):
     help = 'Processa as faltas (no-shows) retroativamente para todos os circuitos já encerrados.'
 
     def handle(self, *args, **options):
-        closed_gamedays = GameDay.objects.filter(is_closed=True).order_by('date')
+        # Apenas GameDays fechados, publicados e que tiveram pelo menos 1 check-in (evento de fato ocorreu)
+        all_closed_gamedays = GameDay.objects.filter(is_closed=True, is_published=True).prefetch_related('court_checkins').order_by('date')
+        closed_gamedays = [g for g in all_closed_gamedays if g.court_checkins.count() > 0]
         
-        self.stdout.write(f"Encontrados {closed_gamedays.count()} circuitos encerrados para processar.")
+        self.stdout.write(f"Encontrados {len(closed_gamedays)} circuitos válidos para processar.")
         
         # Reseta as faltas de todo mundo
         Player.objects.all().update(consecutive_absences=0)
