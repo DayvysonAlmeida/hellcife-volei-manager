@@ -296,7 +296,7 @@ export const AchievementShareCard = forwardRef<HTMLDivElement, AchievementShareC
                 
                 <div style={{ marginTop: 8, background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.8), transparent)', padding: '4px 60px', borderTop: '1px solid rgba(234,179,8,0.5)', borderBottom: '1px solid rgba(234,179,8,0.5)' }}>
                   <span style={{ color: '#facc15', fontSize: 14, fontWeight: 900, letterSpacing: 8, textTransform: 'uppercase', fontStyle: 'italic', textShadow: '0 2px 8px rgba(0,0,0,0.9)' }}>
-                    O Tubarão da Quadra!
+                    {isTop1 ? 'O Tubarão da Quadra!' : 'Tubarão da Quadra!'}
                   </span>
                 </div>
                 

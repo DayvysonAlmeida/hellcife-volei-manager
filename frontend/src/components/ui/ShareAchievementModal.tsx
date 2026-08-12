@@ -65,20 +65,20 @@ export function ShareAchievementModal({
   const [tubaraoFuriaDataUrl, setTubaraoFuriaDataUrl] = useState<string>();
   const [textoHellcifeDataUrl, setTextoHellcifeDataUrl] = useState<string>();
 
-  const congrats = CONGRATS[activeType];
+  const baseCongrats = CONGRATS[activeType];
+  const congrats = { ...baseCongrats };
+  
+  if (activeType === 'fire_shark_top1' && cardProps.winRank) {
+    congrats.title = `🦈 FIRE SHARK #${cardProps.winRank}!`;
+    if (cardProps.winRank > 1) {
+      congrats.subtitle = `Você está no Top ${cardProps.winRank} dos Tubarões! Bora mostrar pro mundo?`;
+    }
+  }
 
   // Sincroniza se o tipo externo mudar
   useEffect(() => {
     setActiveType(cardProps.type);
   }, [cardProps.type]);
-
-  // Converte fetch -> data URL (sem CORS issues para o canvas)
-  const toDataUrl = (blob: Blob): Promise<string> =>
-    new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(blob);
-    });
 
   // Converte base64 -> Blob (Síncrono para preservar o User Gesture no click e garantir o filename .png)
   const dataURItoBlob = (dataURI: string) => {
@@ -93,60 +93,145 @@ export function ShareAchievementModal({
     return new Blob([ab], { type: mimeString });
   };
 
+  // Converte fetch -> data URL para imagens locais (sem CORS)
+  const toDataUrl = (blob: Blob): Promise<string> =>
+    new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+
+  // Converte URL de imagem externa -> data URL via canvas (compatível com iOS Safari)
+  // Estratégia: Image() → canvas → toDataURL() é o método mais confiável no WebKit
+  const imageUrlToDataUrl = (url: string): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || 400;
+          canvas.height = img.naturalHeight || 400;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error('No 2d context'));
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch {
+          // Canvas taint: CORS bloqueou mesmo com crossOrigin='anonymous'
+          reject(new Error('Canvas tainted'));
+        }
+      };
+      img.onerror = () => reject(new Error('Image load failed'));
+      // Adiciona timestamp para evitar cache que ignora CORS headers no iOS
+      img.src = url.includes('?') ? `${url}&_cb=${Date.now()}` : `${url}?_cb=${Date.now()}`;
+    });
+
+  // Gera avatar de iniciais via canvas como fallback (sem depender de CORS)
+  // Mantém as cores premium do card FireShark ao invés de laranja
+  const generateInitialsDataUrl = (name: string): string => {
+    const initials = name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+    const size = 400;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+    // Fundo degradê escuro (estilo do card, não laranja)
+    const grad = ctx.createLinearGradient(0, 0, size, size);
+    grad.addColorStop(0, '#1a0a0a');
+    grad.addColorStop(0.5, '#2d0808');
+    grad.addColorStop(1, '#0a0000');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+    // Borda sutil
+    ctx.strokeStyle = 'rgba(220, 38, 38, 0.6)';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+    ctx.stroke();
+    // Iniciais
+    ctx.fillStyle = '#fff';
+    ctx.font = `900 ${size * 0.38}px Inter, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(220,38,38,0.8)';
+    ctx.shadowBlur = 20;
+    ctx.fillText(initials, size / 2, size / 2);
+    return canvas.toDataURL('image/png');
+  };
+
   // Pré-carrega as imagens separadamente (tolerante a falhas individuais)
   useEffect(() => {
+    let cancelled = false;
     async function loadImages() {
       try {
-        const fetchAndConvert = async (url: string, useCors = false) => {
-          const res = await fetch(url, useCors ? { mode: 'cors' } : undefined);
+        const fetchLocal = async (url: string) => {
+          const res = await fetch(url);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const blob = await res.blob();
           return toDataUrl(blob);
         };
 
-        const promises = [
-          fetchAndConvert('/fireshark-bg.png'),
-          fetchAndConvert('/escudo-hellcife-novo.png'),
-          fetchAndConvert('/tubarao-furia.png'),
-          fetchAndConvert('/texto-hellcife.jpeg')
-        ];
+        const [r0, r1, r2, r3] = await Promise.allSettled([
+          fetchLocal('/fireshark-bg.png'),
+          fetchLocal('/escudo-hellcife-novo.png'),
+          fetchLocal('/tubarao-furia.png'),
+          fetchLocal('/texto-hellcife.jpeg'),
+        ]);
 
+        if (cancelled) return;
+        if (r0.status === 'fulfilled') setFiresharkDataUrl(r0.value);
+        if (r1.status === 'fulfilled') setEscudoDataUrl(r1.value);
+        if (r2.status === 'fulfilled') setTubaraoFuriaDataUrl(r2.value);
+        if (r3.status === 'fulfilled') setTextoHellcifeDataUrl(r3.value);
+
+        // Avatar: tenta Image()→canvas (iOS-friendly), senão gera iniciais via canvas
         if (cardProps.avatarUrl) {
-          promises.push(fetchAndConvert(cardProps.avatarUrl, true));
-        }
-
-        const results = await Promise.allSettled(promises);
-
-        if (results[0].status === 'fulfilled') setFiresharkDataUrl(results[0].value);
-        if (results[1].status === 'fulfilled') setEscudoDataUrl(results[1].value);
-        if (results[2].status === 'fulfilled') setTubaraoFuriaDataUrl(results[2].value);
-        if (results[3].status === 'fulfilled') setTextoHellcifeDataUrl(results[3].value);
-        if (cardProps.avatarUrl && results[4]?.status === 'fulfilled') {
-          setAvatarDataUrl(results[4].value);
+          try {
+            const dataUrl = await imageUrlToDataUrl(cardProps.avatarUrl);
+            if (!cancelled) setAvatarDataUrl(dataUrl);
+          } catch {
+            // CORS bloqueado no iOS: gera avatar de iniciais via canvas (sem laranja!)
+            console.warn('Avatar CORS bloqueado — usando iniciais como fallback');
+            const initialsUrl = generateInitialsDataUrl(cardProps.athleteName);
+            if (!cancelled && initialsUrl) setAvatarDataUrl(initialsUrl);
+          }
         }
       } catch (e) {
         console.warn('Falha no pré-carregamento de imagens:', e);
       }
     }
     loadImages();
-  }, []);
+    return () => { cancelled = true; };
+  }, [cardProps.avatarUrl, cardProps.athleteName]);
 
   // Gera o preview assim que o modal abre
+  // Aguarda as imagens estarem prontas para evitar canvas em branco no iOS
   const generatePreview = useCallback(async () => {
     if (!cardRef.current) return;
     setIsCapturing(true);
     setError(null);
     try {
-      // Hack WebKit/iOS: múltiplas capturas antes do URL final evitam problemas de imagens vazias
-      const options = { cacheBust: true, style: { transform: 'scale(1)', transformOrigin: 'top left' } };
-      await toPng(cardRef.current, options).catch(() => { });
-      await toPng(cardRef.current, options).catch(() => { });
+      // iOS Safari: aguarda um tick adicional para garantir renderização DOM completa
+      await new Promise(r => setTimeout(r, 100));
 
+      // Hack WebKit/iOS: múltiplas capturas "aquece" o engine de renderização
+      // e garante que imagens já em cache sejam usadas corretamente
+      const warmupOptions = {
+        cacheBust: false, // false no warmup para usar cache do browser
+        style: { transform: 'scale(1)', transformOrigin: 'top left' },
+      };
+      await toPng(cardRef.current, warmupOptions).catch(() => {});
+      await toPng(cardRef.current, warmupOptions).catch(() => {});
+
+      // Captura final em alta resolução
       const url = await toPng(cardRef.current, {
         pixelRatio: 2,
-        backgroundColor: 'transparent',
-        cacheBust: true,
-        style: { transform: 'scale(1)', transformOrigin: 'top left' }
+        backgroundColor: '#000000', // Fundo preto explícito evita transparência laranja/branca no iOS
+        cacheBust: false,
+        style: { transform: 'scale(1)', transformOrigin: 'top left' },
       });
       setPreviewUrl(url);
     } catch (err) {
@@ -159,8 +244,9 @@ export function ShareAchievementModal({
 
   useEffect(() => {
     if (isOpen) {
-      // Delay maior para garantir que imagens e fontes carregaram
-      const timer = setTimeout(() => generatePreview(), 600);
+      // Delay de 1000ms: iOS Safari precisa de mais tempo para
+      // renderizar o DOM e carregar as imagens (Data URLs) antes da captura
+      const timer = setTimeout(() => generatePreview(), 1000);
       return () => clearTimeout(timer);
     } else {
       setPreviewUrl(null);
@@ -308,13 +394,22 @@ export function ShareAchievementModal({
                 </div>
               )}
 
-              {/* Card invisível (na tela para enganar o Safari iOS que ignora layouts off-screen) */}
-              <div style={{ position: 'absolute', top: 0, left: 0, opacity: 0.01, pointerEvents: 'none', zIndex: -10 }}>
+              {/* Card invisível para captura — NUNCA passa o URL original como fallback.
+                  Se avatarDataUrl for undefined (CORS bloqueado no iOS), o componente
+                  mostrará as iniciais ao invés de tentar carregar uma URL externa que
+                  taintaria o canvas e causaria o fundo laranja/branco. */}
+              <div style={{
+                position: 'absolute',
+                top: '-9999px',   // Fora da viewport mas DENTRO do DOM (iOS não renderiza z-index negativo)
+                left: 0,
+                opacity: 0.001,   // Quase invisível mas renderizado pelo WebKit
+                pointerEvents: 'none',
+              }}>
                 <AchievementShareCard
                   ref={cardRef}
                   {...cardProps}
                   type={activeType}
-                  avatarUrl={avatarDataUrl || cardProps.avatarUrl} // Passa versão DataURL se existir, ou fallback
+                  avatarUrl={avatarDataUrl} // SOMENTE Data URL — nunca URL original (evita canvas taint no iOS)
                   firesharkDataUrl={firesharkDataUrl}
                   escudoDataUrl={escudoDataUrl}
                   tubaraoFuriaDataUrl={tubaraoFuriaDataUrl}
