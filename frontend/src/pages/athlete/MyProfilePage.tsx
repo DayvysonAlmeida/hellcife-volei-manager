@@ -4,6 +4,8 @@ import { Trophy, CalendarCheck, Swords, Flame, TrendingUp } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { PageLoading } from '@/components/ui/Loading';
 import { PlayerCard } from '@/components/players/PlayerCard';
+import { SubscriptionWidget } from '@/components/subscriptions/SubscriptionWidget';
+import { TrophyRoom } from '@/components/profile/TrophyRoom';
 import api from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
 import { SKILL_LABELS } from '@/types';
@@ -91,6 +93,15 @@ export function MyProfilePage() {
         </div>
       </motion.div>
 
+      {/* ── Assinatura ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <SubscriptionWidget />
+      </motion.div>
+
       {/* ── Stats Rápidas ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -116,6 +127,76 @@ export function MyProfilePage() {
           </motion.div>
         ))}
       </div>
+
+      {/* ── Card de Elo ── */}
+      {(() => {
+        const tierData = player.elo_tier_data;
+        const eloValue = Math.round(player.elo ?? 500);
+        const tierColors: Record<string, { glow: string; border: string; barFrom: string; barTo: string; badge: string }> = {
+          rookie:  { glow: 'none',                              border: 'border-gray-600',     barFrom: '#4B5563', barTo: '#6B7280', badge: '🪨' },
+          bronze:  { glow: '0 0 20px rgba(205,124,47,0.3)',    border: 'border-amber-700/50', barFrom: '#92400E', barTo: '#CD7C2F', badge: '🥉' },
+          silver:  { glow: '0 0 20px rgba(148,163,184,0.3)',   border: 'border-slate-400/50', barFrom: '#64748B', barTo: '#94A3B8', badge: '🥈' },
+          gold:    { glow: '0 0 25px rgba(234,179,8,0.35)',    border: 'border-yellow-500/50',barFrom: '#B45309', barTo: '#EAB308', badge: '🥇' },
+          diamond: { glow: '0 0 28px rgba(6,182,212,0.4)',     border: 'border-cyan-400/50',  barFrom: '#0E7490', barTo: '#06B6D4', badge: '💎' },
+          elite:   { glow: '0 0 30px rgba(147,51,234,0.45)',   border: 'border-purple-500/50',barFrom: '#7C3AED', barTo: '#EC4899', badge: '🔥' },
+        };
+        const tc = tierColors[player.elo_tier ?? 'silver'] ?? tierColors.silver;
+        const percent = tierData?.percent ?? 0;
+        const tierName = tierData?.tier?.name ?? 'Prata';
+        const nextTierName = tierData?.next_tier?.name ?? null;
+        const pointsToNext = tierData?.points_to_next ?? null;
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            whileHover={{ y: -4 }}
+            className={`relative overflow-hidden rounded-[28px] bg-white/60 dark:bg-[#080808]/70 backdrop-blur-2xl border ${tc.border} p-5 transition-all duration-300 group`}
+            style={{ boxShadow: tc.glow }}
+          >
+            <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-display text-sm text-text-muted uppercase tracking-[0.2em]">Rating Elo</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{tc.badge}</span>
+                <span className="font-display text-2xl font-black text-text-primary">{eloValue}</span>
+              </div>
+            </div>
+
+            {/* Faixa atual */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-text-primary font-bold text-sm">{tierName}</span>
+              {nextTierName && (
+                <span className="text-text-muted text-xs">
+                  {pointsToNext != null ? `+${pointsToNext} pts para ${nextTierName}` : nextTierName}
+                </span>
+              )}
+              {!nextTierName && (
+                <span className="text-purple-400 text-xs font-bold animate-pulse">Faixa máxima!</span>
+              )}
+            </div>
+
+            {/* Barra de progresso */}
+            <div className="h-2 rounded-full bg-black/30 border border-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-1000 ease-out"
+                style={{
+                  width: `${percent}%`,
+                  background: `linear-gradient(90deg, ${tc.barFrom}, ${tc.barTo})`,
+                  boxShadow: `0 0 8px ${tc.barTo}80`,
+                }}
+              />
+            </div>
+            <p className="text-text-muted text-[10px] mt-1 text-right">{percent}% para próxima faixa</p>
+          </motion.div>
+        );
+      })()}
+
+      <TrophyRoom player={player} />
+
 
       {/* ── Faltas Consecutivas ── */}
       {player.consecutive_absences >= 8 && (

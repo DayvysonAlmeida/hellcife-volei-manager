@@ -4,11 +4,13 @@ import { useParams, Link as RouterLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Edit, Phone, Link as LinkIcon, Ruler, Weight, Calendar, Trophy, CalendarCheck, Swords, KeyRound, UserCog, Trash2, Copy, Loader2, Eye, EyeOff, RefreshCw, Share2 } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { PlayerCard } from '@/components/players/PlayerCard';
+import { TrophyRoom } from '@/components/profile/TrophyRoom';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
-import { ShareAchievementModal, type ShareModalProps } from '@/components/ui/ShareAchievementModal';
+import { ShareAchievementModal, type ShareModalProps } from '@/components/athlete/share/ShareAchievementModal';
 import { playersService } from '@/services/players';
 import { evaluationsService } from '@/services';
 import { SKILL_LABELS, HAND_LABELS } from '@/types';
@@ -307,6 +309,8 @@ export function PlayerDetailPage() {
           </div>
         </motion.div>
       </div>
+
+      <TrophyRoom player={player} />
 
       {/* Overall history */}
       {historyData.length > 1 && (

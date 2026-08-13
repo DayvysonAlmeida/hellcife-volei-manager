@@ -62,7 +62,7 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
     Distribui jogadores em times usando um algoritmo guloso inteligente.
     Garante separação de levantadores, mulheres e balanceia por overall.
     """
-    n_teams = math.floor(len(players) / team_size)
+    n_teams = math.ceil(len(players) / team_size)
     if n_teams < 1:
         n_teams = 1
 
@@ -71,7 +71,7 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
         limit = len(players)
     
     draft_players = players[:limit]
-    leftover_players = players[limit:]
+    leftover_players = players[limit:] # Com ceil, leftover_players sempre será vazio!
 
     teams = [[] for _ in range(n_teams)]
     

@@ -6,9 +6,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q, Subquery, OuterRef, FloatField, Case, When, IntegerField
 from django.db.models.functions import Coalesce
 
-from .models import Player, StarHistory
+from .models import Player, StarHistory, Badge
 from apps.notifications.models import Notification
-from .serializers import PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer
+from .serializers import (
+    PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer,
+    BadgeSerializer
+)
 from .filters import PlayerFilter
 from apps.core.permissions import IsAdminOrModerator
 from apps.evaluations.models import Evaluation
@@ -58,7 +61,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
             qs = qs.prefetch_related('match_appearances__match_team__match')
         else:
             # Para outras actions, prefetch para uso em PlayerDetailSerializer
-            qs = qs.prefetch_related('evaluations')
+            qs = qs.prefetch_related('evaluations', 'badges__badge')
 
         return qs
 
@@ -619,6 +622,200 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
         if not player.user:
             return Response({'detail': 'Este atleta não possui acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
+        player_data = []
+        for p in players:
+            win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
+            avatar_url = f"/media/{p.avatar}" if p.avatar else None
+
+            player_data.append({
+                'id': p.id,
+                'name': p.name,
+                'nickname': p.nickname,
+                'main_position': p.main_position,
+                'main_position_display': p.get_main_position_display(),
+                'avatar_url': avatar_url,
+                'shirt_number': p.shirt_number,
+                'overall': round(p.annotated_overall, 2),
+                'stats': {
+                    'matches': p.total_matches,
+                    'win_rate': round(win_rate, 1),
+                    'mvp': p.mvps,
+                    'best_attacker': p.best_attackers,
+                    'best_server': p.best_servers,
+                    'best_defender': p.best_defenders,
+                }
+            })
+
+        return Response(player_data)
+
+    @action(detail=True, methods=['get'], url_path='stats')
+    def stats(self, request, pk=None):
+        player = self.get_object()
+
+        # Usa annotations ao invés de loop Python para calcular vitórias/derrotas
+        match_stats = MatchPlayer.objects.filter(player=player).aggregate(
+            total_matches=Count('id'),
+            mvps=Count('id', filter=Q(mvp=True)),
+            wins=Count('id', filter=Q(match_team__winner=True)),
+            losses=Count('id', filter=Q(
+                match_team__isnull=False,
+                match_team__winner=False,
+            )),
+        )
+
+        total_matches = match_stats['total_matches']
+        wins = match_stats['wins']
+        losses = match_stats['losses']
+        mvps = match_stats['mvps']
+        draws = total_matches - wins - losses
+        win_rate = round(wins / total_matches * 100, 1) if total_matches > 0 else 0
+
+        # Presença (2 queries simples)
+        total_gamedays = GameDay.objects.filter(date__gte=player.created_at.date()).count()
+        attended = Attendance.objects.filter(player=player, present=True).count()
+        attendance_rate = round(attended / total_gamedays * 100, 1) if total_gamedays > 0 else 0
+
+        # Histórico de overall (1 query)
+        evaluations = player.evaluations.order_by('date').values('date', 'overall')
+
+        # -- Cálculos de Rankings e Estrelas --
+        from django.db.models.functions import Coalesce
+        from django.db.models import Subquery, OuterRef
+        from apps.evaluations.models import Evaluation
+        from apps.players.models import StarHistory
+        latest_eval = Evaluation.objects.filter(player=OuterRef('pk')).order_by('-date', '-id').values('overall')[:1]
+        qs_players = Player.objects.filter(status='active', is_guest=False).annotate(
+            annotated_overall=Coalesce(Subquery(latest_eval), 0.0),
+            wins_count=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
+            total_matches_count=Count('match_appearances', distinct=True)
+        )
+
+        player_overall = player.latest_overall or 0.0
+        overall_rank = qs_players.filter(annotated_overall__gt=player_overall).count() + 1 if player_overall > 0 else None
+
+        win_rank = None
+        if total_matches >= 10:
+            bayesian_score = ((wins + 5) / (total_matches + 10)) * 100
+            better_count = 0
+            # Calcula ranking dos gladiadores
+            for p in qs_players.filter(total_matches_count__gte=10):
+                p_score = ((p.wins_count + 5) / (p.total_matches_count + 10)) * 100
+                if p_score > bayesian_score:
+                    better_count += 1
+                elif p_score == bayesian_score and p.wins_count > wins:
+                    better_count += 1
+            win_rank = better_count + 1
+
+        last_star = StarHistory.objects.filter(player=player, action='add').exclude(category='promotion').order_by('-created_at').first()
+        latest_mini_star = last_star.category if last_star else None
+
+        # Calcula a sequência de vitórias (Win Streak)
+        streak = 0
+        appearances = list(player.match_appearances.select_related('match_team__match').order_by('-match_team__match__date'))
+        for app in appearances:
+            if app.match_team and app.match_team.match:
+                if app.match_team.winner:
+                    streak += 1
+                else:
+                    break
+
+        return Response({
+            'player_id': player.id,
+            'total_matches': total_matches,
+            'wins': wins,
+            'losses': losses,
+            'draws': draws,
+            'win_rate': win_rate,
+            'win_streak': streak,
+            'mvps': mvps,
+            'total_gamedays': total_gamedays,
+            'attended_gamedays': attended,
+            'attendance_rate': attendance_rate,
+            'overall_history': list(evaluations),
+            'overall_rank': overall_rank,
+            'win_rank': win_rank,
+            'latest_mini_star': latest_mini_star,
+        })
+
+    @action(detail=False, methods=['get'], url_path='me', permission_classes=[IsAuthenticated])
+    def me(self, request):
+        """Retorna o Player vinculado ao usuário logado (para portal do atleta)."""
+        player = Player.objects.filter(user=request.user).select_related('user').prefetch_related('evaluations').first()
+        if not player:
+            return Response({'detail': 'Nenhum perfil de atleta vinculado a este usuário.'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PlayerDetailSerializer(player, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='create-access')
+    def create_access(self, request, pk=None):
+        """Cria um usuário (profile=player) e vincula ao Player. Apenas admin/moderador."""
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        player = self.get_object()
+
+        if player.user:
+            return Response({'detail': 'Este atleta já possui um acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = request.data.get('email', '').strip().lower()
+        password = request.data.get('password', '').strip()
+
+        if not email:
+            return Response({'detail': 'E-mail é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not password or len(password) < 6:
+            return Response({'detail': 'A senha deve ter pelo menos 6 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from apps.core.models import User
+        if User.objects.filter(email=email).exists():
+            return Response({'detail': 'Já existe um usuário com este e-mail.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            name=player.display_name,
+            profile='player',
+        )
+        player.user = user
+        player.save(update_fields=['user'])
+
+        return Response({
+            'detail': 'Acesso criado com sucesso!',
+            'email': email,
+            'password': password,
+            'player_name': player.display_name,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='revoke-access')
+    def revoke_access(self, request, pk=None):
+        """Remove o usuário vinculado ao Player. Apenas admin/moderador."""
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        player = self.get_object()
+
+        if not player.user:
+            return Response({'detail': 'Este atleta não possui acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = player.user
+        player.user = None
+        player.save(update_fields=['user'])
+        user.delete()
+
+        return Response({'detail': 'Acesso revogado com sucesso.'})
+
+    @action(detail=True, methods=['post'], url_path='reset-password')
+    def reset_password(self, request, pk=None):
+        """Redefine a senha do usuário vinculado ao Player. Apenas admin/moderador."""
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        player = self.get_object()
+
+        if not player.user:
+            return Response({'detail': 'Este atleta não possui acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         new_password = request.data.get('password', '').strip()
         if not new_password or len(new_password) < 6:
@@ -634,3 +831,35 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'player_name': player.display_name,
         })
 
+    @action(detail=True, methods=['post'], url_path='recalculate-elo')
+    def recalculate_elo(self, request, pk=None):
+        """Recalcula o Elo de um jogador específico. Apenas admin/moderador."""
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        from .elo_service import recalculate_elo as _recalc
+        player = self.get_object()
+        new_elo = _recalc(player)
+        return Response({'elo': new_elo, 'elo_tier': player.elo_tier})
+
+    @action(detail=False, methods=['post'], url_path='recalculate-all-elos')
+    def recalculate_all_elos(self, request):
+        """Recalcula o Elo de todos os jogadores. Apenas admin/moderador."""
+        from apps.core.permissions import IsAdminOrModerator
+        if not IsAdminOrModerator().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        from .elo_service import recalculate_elo as _recalc
+        players = Player.objects.all()
+        updated = 0
+        for player in players:
+            _recalc(player)
+            updated += 1
+
+        return Response({'detail': f'Elo recalculado para {updated} jogadores.'})
+
+
+class BadgeViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Badge.objects.all()
+    serializer_class = BadgeSerializer

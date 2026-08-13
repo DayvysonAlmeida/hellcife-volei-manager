@@ -84,6 +84,19 @@ class Player(models.Model):
         help_text='Quantos circuitos fechados seguidos este jogador não fez check-in na quadra.'
     )
 
+    # Sistema Elo — baseado em vitórias/derrotas nas partidas
+    elo = models.FloatField(
+        default=500.0,
+        verbose_name='Elo',
+        help_text='Rating Elo calculado com base no histórico de partidas. Vitória: +20, Derrota: -10. Mínimo: 100.'
+    )
+    elo_tier = models.CharField(
+        max_length=20,
+        default='silver',
+        verbose_name='Faixa Elo',
+        help_text='Faixa atual do jogador: rookie, bronze, silver, gold, diamond, elite.',
+    )
+
     # Totais absolutos para o Dashboard (não são resetados ao virar grande estrela)
     total_mvp = models.PositiveIntegerField(default=0, verbose_name='Total MVP')
     total_attack = models.PositiveIntegerField(default=0, verbose_name='Total Ataque')
@@ -163,3 +176,52 @@ class StarHistory(models.Model):
 
     def __str__(self):
         return f"{self.player.display_name} - {self.get_action_display()} {self.count} {self.get_category_display()}"
+
+
+class Badge(models.Model):
+    TIER_CHOICES = [
+        ('bronze', 'Bronze'),
+        ('silver', 'Prata'),
+        ('gold', 'Ouro'),
+        ('diamond', 'Diamante'),
+    ]
+
+    CONDITION_CHOICES = [
+        ('total_matches', 'Total de Partidas Jogadas'),
+        ('total_mvp', 'Total de MVPs'),
+        ('total_big_stars', 'Total de Grandes Estrelas'),
+        ('consecutive_wins', 'Vitórias Consecutivas'),
+        ('consecutive_matches_no_loss', 'Partidas Invicto no Dia'),
+    ]
+
+    name = models.CharField(max_length=100, verbose_name='Nome do Badge')
+    description = models.TextField(verbose_name='Descrição')
+    icon = models.CharField(max_length=50, default='Award', verbose_name='Ícone Lucide')
+    color_hex = models.CharField(max_length=20, default='#FFD700', verbose_name='Cor Hexadecimal')
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES, default='bronze', verbose_name='Nível')
+    condition_type = models.CharField(max_length=50, choices=CONDITION_CHOICES, verbose_name='Condição')
+    condition_value = models.PositiveIntegerField(verbose_name='Valor da Condição')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Badge'
+        verbose_name_plural = 'Badges'
+        ordering = ['tier', 'condition_value']
+
+    def __str__(self):
+        return f"{self.name} ({self.get_tier_display()})"
+
+
+class PlayerBadge(models.Model):
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='badges', verbose_name='Jogador')
+    badge = models.ForeignKey(Badge, on_delete=models.CASCADE, related_name='awarded_to', verbose_name='Badge')
+    awarded_at = models.DateTimeField(auto_now_add=True, verbose_name='Conquistado em')
+
+    class Meta:
+        verbose_name = 'Badge do Jogador'
+        verbose_name_plural = 'Badges dos Jogadores'
+        unique_together = ('player', 'badge')
+        ordering = ['-awarded_at']
+
+    def __str__(self):
+        return f"{self.player.display_name} - {self.badge.name}"

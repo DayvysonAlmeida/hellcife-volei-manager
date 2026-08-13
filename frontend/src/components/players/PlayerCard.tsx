@@ -22,15 +22,68 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
   const isInactive = player.status === 'inactive' || player.status === 'suspended';
   const hasAbsenceRisk = player.consecutive_absences >= 8 && player.status === 'active';
 
-  const borderColors = player.latest_overall
-    ? (
-      player.latest_overall >= 8.5 ? ['#fca5a5', '#dc2626', '#fca5a5', '#991b1b', '#fca5a5'] :
-        player.latest_overall >= 7.5 ? ['#93c5fd', '#2563eb', '#93c5fd', '#1e3a8a', '#93c5fd'] :
-          player.latest_overall >= 6.5 ? ['#86efac', '#16a34a', '#86efac', '#14532d', '#86efac'] :
-            player.latest_overall >= 5.5 ? ['#fef08a', '#ca8a04', '#fef08a', '#854d0e', '#fef08a'] :
-              ['#e4e4e7', '#71717a', '#e4e4e7', '#3f3f46', '#e4e4e7']
-    )
-    : ['#fef08a', '#ca8a04', '#fef08a', '#854d0e', '#fef08a'];
+  // ── Elo Tier → Estilo LoL ──────────────────────────────────────────────────
+  const eloTierStyles: Record<string, {
+    colors: string[];
+    glow: string;
+    icon: string;
+    name: string;
+    textColor: string;
+    pulse: boolean;
+  }> = {
+    rookie:  {
+      colors: ['#6B7280', '#4B5563', '#6B7280', '#374151', '#6B7280'],
+      glow: 'none',
+      icon: '🪨',
+      name: 'Iniciante',
+      textColor: '#9CA3AF',
+      pulse: false,
+    },
+    bronze:  {
+      colors: ['#CD7C2F', '#7C3A0A', '#E8A060', '#92400E', '#CD7C2F'],
+      glow: 'drop-shadow(0 0 6px rgba(205,124,47,0.7))',
+      icon: '🥉',
+      name: 'Bronze',
+      textColor: '#CD7C2F',
+      pulse: false,
+    },
+    silver:  {
+      colors: ['#CBD5E1', '#64748B', '#E2E8F0', '#475569', '#CBD5E1'],
+      glow: 'drop-shadow(0 0 8px rgba(203,213,225,0.6))',
+      icon: '🥈',
+      name: 'Prata',
+      textColor: '#CBD5E1',
+      pulse: false,
+    },
+    gold:    {
+      colors: ['#FDE68A', '#D97706', '#FCD34D', '#B45309', '#FDE68A'],
+      glow: 'drop-shadow(0 0 10px rgba(234,179,8,0.85))',
+      icon: '🥇',
+      name: 'Ouro',
+      textColor: '#FDE68A',
+      pulse: false,
+    },
+    diamond: {
+      colors: ['#67E8F9', '#0891B2', '#A5F3FC', '#0E7490', '#67E8F9'],
+      glow: 'drop-shadow(0 0 12px rgba(6,182,212,0.9))',
+      icon: '💎',
+      name: 'Diamante',
+      textColor: '#67E8F9',
+      pulse: true,
+    },
+    elite:   {
+      colors: ['#E879F9', '#7C3AED', '#F0ABFC', '#9333EA', '#E879F9'],
+      glow: 'drop-shadow(0 0 16px rgba(147,51,234,1))',
+      icon: '🔥',
+      name: 'Elite',
+      textColor: '#E879F9',
+      pulse: true,
+    },
+  };
+
+  const eloTier = player.elo_tier ?? 'silver';
+  const eloStyle = eloTierStyles[eloTier] ?? eloTierStyles.silver;
+  const borderColors = eloStyle.colors;
 
   const getPositionColor = (pos: string) => {
     switch (pos) {
@@ -46,6 +99,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
 
   // Formato exato do escudo do card
   const cardClipPath = 'polygon(10% 0, 90% 0, 100% 10.7%, 100% 85.7%, 50% 100%, 0 85.7%, 0 10.7%)';
+
 
   return (
     <motion.div
@@ -77,10 +131,14 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
 
       <Link to={`/players/${player.id}`} className="block w-full outline-none">
 
-        {/* Container Principal do Card - Construído 100% em CSS puro */}
+        {/* Container Principal do Card */}
         <div
-          className="w-full aspect-[5/7] relative flex flex-col items-center justify-start group-hover:-translate-y-2 group-hover:shadow-[0_20px_40px_-15px_rgba(234,179,8,0.4)] transition-all duration-300 bg-zinc-950"
-          style={{ clipPath: cardClipPath }}
+          className="w-full aspect-[5/7] relative flex flex-col items-center justify-start group-hover:-translate-y-2 transition-all duration-300 bg-zinc-950"
+          style={{
+            clipPath: cardClipPath,
+            filter: eloStyle.glow,
+            transition: 'filter 0.3s ease, transform 0.3s ease',
+          }}
         >
           {/* BACKGROUND NEON ANIMADO / ESTILIZADO (CSS puro) */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden bg-gradient-to-b from-zinc-900 to-black z-0">
@@ -150,8 +208,9 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             </span>
           </div>
 
-          {/* Top Right: Status */}
-          <div className="absolute top-[8%] right-[12%] flex flex-col items-center gap-2 z-20">
+          {/* Top Right: Status + Tier */}
+          <div className="absolute top-[8%] right-[8%] flex flex-col items-center gap-1 z-20">
+            {/* Status dot */}
             {player.status === 'active' ? (
               <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] border border-white/40" title="Ativo" />
             ) : player.status === 'injured' ? (
@@ -159,6 +218,23 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             ) : (
               <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full bg-zinc-600 shadow-[0_0_8px_rgba(82,82,91,0.8)] border border-white/40" title="Inativo/Suspenso" />
             )}
+            {/* Ícone do Tier */}
+            <span
+              className={`text-[11px] sm:text-[13px] leading-none select-none drop-shadow-[0_0_6px_currentColor] ${eloStyle.pulse ? 'animate-pulse' : ''}`}
+              title={eloStyle.name}
+            >
+              {eloStyle.icon}
+            </span>
+            {/* Nome do Tier */}
+            <span
+              className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest leading-none drop-shadow-[0_0_6px_currentColor]"
+              style={{
+                color: eloStyle.textColor,
+                textShadow: `0 0 8px ${eloStyle.textColor}`,
+              }}
+            >
+              {eloStyle.name}
+            </span>
           </div>
 
           {/* Top Mini Stars Row (Yu-Gi-Oh Style) */}
@@ -249,8 +325,13 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
               </h3>
             </div>
 
-            {/* Linha divisória fina dourada */}
-            <div className="w-3/4 h-[1px] bg-gradient-to-r from-transparent via-yellow-500 to-transparent mb-1 opacity-80" />
+            {/* Linha divisória fina — cor do tier */}
+            <div
+              className="w-3/4 h-[1px] mb-1 opacity-90"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${borderColors[1]}, transparent)`,
+              }}
+            />
 
             {/* Estrelas em Destaque (Mini e Grandes) */}
             <div className="flex flex-col items-center justify-center w-full max-w-[180px] mb-1 drop-shadow-md">

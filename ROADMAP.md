@@ -87,9 +87,10 @@
 - [ ] Leaderboard e Hall da Fama filtrados por temporada
 - [ ] Encerramento de temporada (congelar estatísticas)
 
-#### 5.2 — Pagamentos e Rateio 💰
-- [ ] Cálculo automático de rateio por presença
-- [x] Atleta confirma pagamento PIX (`payment_claimed` no Portal do Atleta)
+#### 5.2 — Pagamentos, Assinaturas e Rateio 💰
+- [x] Criação do módulo de assinaturas/planos (`apps/subscriptions`)
+- [x] Integração com gateway de pagamentos (Asaas)
+- [ ] Atleta confirma pagamento PIX (`payment_claimed` no Portal do Atleta)
 - [ ] Admin confirma recebimento (`has_paid`)
 - [ ] Relatório financeiro por circuito e por mês
 
@@ -118,6 +119,6 @@
 | 🟠 Fase 2 — Dívida Técnica | 9 | 9 | 100% ✅ |
 | 🟡 Fase 3 — Features Faltantes | 8 | 11 | 73% |
 | 🟢 Fase 4 — UX/UI | 5 | 10 | 50% |
-| 🔵 Fase 5 — Avançado | 1 | 11 | 9% |
+| 🔵 Fase 5 — Avançado | 3 | 12 | 25% |
 | ⚪ Fase 6 — Qualidade | 0 | 6 | 0% |
 

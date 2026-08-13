@@ -12,6 +12,7 @@ O sistema está dividido em vários módulos no backend que refletem as funciona
 - **Evaluations (Avaliações)**: Avaliação de desempenho técnico com 13 fundamentos e cálculo de overall automático.
 - **Stars System (Estrelas)**: Sistema de premiação por categorias (MVP, Ataque, Defesa, etc.) com mini e grandes estrelas.
 - **Notifications (Notificações)**: Notificações individuais e avisos globais para todos os atletas.
+- **Subscriptions (Assinaturas)**: Gestão de planos, assinaturas e integração com Asaas para pagamentos via PIX.
 - **Hall of Fame**: Destaques, premiações e jogadores notáveis por categoria e ano.
 
 ## 💻 Tecnologias e Stack
@@ -120,6 +121,9 @@ Configure as seguintes variáveis no console do Cloud Run (ou via `gcloud`):
 | `CLOUDINARY_API_KEY` | API Key do Cloudinary |
 | `CLOUDINARY_API_SECRET` | API Secret do Cloudinary |
 | `CLOUDINARY_URL` | URL completa do Cloudinary |
+| `ASAAS_API_KEY` | Chave da API do Asaas |
+| `ASAAS_API_URL` | URL base da API do Asaas (Sandbox ou Produção) |
+| `ASAAS_WEBHOOK_TOKEN` | Token para validação de webhooks do Asaas |
 
 ### Processo de Build e Deploy
 

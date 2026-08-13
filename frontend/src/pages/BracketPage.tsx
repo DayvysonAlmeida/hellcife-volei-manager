@@ -14,6 +14,9 @@ import toast from 'react-hot-toast';
 import { MatchCard } from '@/components/matches/MatchCard';
 import { CourtCheckinModal } from '@/components/attendance/CourtCheckinModal';
 import { useAuth } from '@/store/AuthContext';
+import { borrowPlayersForTeam } from '@/components/bracket/bracket-utils';
+import { CourtScoreboard } from '@/components/bracket/CourtScoreboard';
+import { SaveMatchModal } from '@/components/bracket/SaveMatchModal';
 
 interface BracketState {
   isStarted: boolean;
@@ -29,84 +32,6 @@ interface BracketState {
   borrowCounts: Record<number, number>;
   transitionMessage: string | null;
   transitionColor: string | null;
-}
-
-// Algoritmo de empréstimo para balancear o overall do time que está precisando
-function borrowPlayersForTeam(
-  team: DBTeam,
-  opposingAvg: number,
-  modality: number,
-  availableTeams: DBTeam[],
-  borrowCounts: Record<number, number> = {}
-): CourtTeam {
-  const needed = modality - team.team_players.length;
-  const courtTeam: CourtTeam = {
-    ...team,
-    team_players: team.team_players.map(p => ({ ...p, is_borrowed: false }))
-  };
-
-  if (needed <= 0 || availableTeams.length === 0) return courtTeam;
-
-  let candidates: any[] = [];
-  if (availableTeams.length === 1) {
-    // Se só tem 1 time na fila (total de 3 times), pega dele mesmo (o time que acabou de perder)
-    candidates = [...availableTeams[0].team_players.map(p => ({
-       ...p,
-       is_borrowed: true,
-       original_team_id: availableTeams[0].id 
-    }))];
-  } else {
-    // Se passa de 4 times (2 na fila), não pega de quem acabou de sair (o último da fila). Pega do início.
-    for (let i = 0; i < availableTeams.length - 1; i++) {
-      candidates = [...candidates, ...availableTeams[i].team_players.map(p => ({
-         ...p,
-         is_borrowed: true,
-         original_team_id: availableTeams[i].id 
-      }))];
-      if (candidates.length >= needed * 2) break; // Pegar um pouco mais para ter opções de balanceamento
-    }
-  }
-  
-  if (candidates.length === 0) return courtTeam;
-
-  // Encontrar todas as combinações
-  const getCombinations = (arr: any[], k: number): any[][] => {
-    if (k === 1) return arr.map(a => [a]);
-    const combs: any[][] = [];
-    for (let i = 0; i < arr.length - k + 1; i++) {
-      const head = arr.slice(i, i + 1);
-      const tailCombs = getCombinations(arr.slice(i + 1), k - 1);
-      tailCombs.forEach(tc => combs.push([...head, ...tc]));
-    }
-    return combs;
-  };
-  
-  const combinations = getCombinations(candidates, Math.min(needed, candidates.length));
-  
-  let bestComb: any[] = [];
-  let minScore = Infinity;
-  const currentSum = team.team_players.reduce((acc, p) => acc + p.player_overall, 0);
-  const targetAvg = opposingAvg || team.avg_overall; // Se não tiver adversário definido, tenta manter a própria média
-  
-  for (const comb of combinations) {
-    const combSum = comb.reduce((acc, p) => acc + p.player_overall, 0);
-    const newAvg = (currentSum + combSum) / (team.team_players.length + comb.length);
-    const diff = Math.abs(newAvg - targetAvg);
-    
-    // Penalizar fortemente a pessoa que já foi emprestada muitas vezes
-    const repeatedCount = comb.reduce((acc, p) => acc + (borrowCounts[p.player] || 0), 0);
-    const score = diff + (repeatedCount * 2); 
-    
-    if (score < minScore) {
-      minScore = score;
-      bestComb = comb;
-    }
-  }
-  
-  courtTeam.team_players = [...courtTeam.team_players, ...bestComb];
-  courtTeam.avg_overall = (currentSum + bestComb.reduce((acc, p) => acc + p.player_overall, 0)) / courtTeam.team_players.length;
-  
-  return courtTeam;
 }
 
 export function BracketPage() {
@@ -738,48 +663,12 @@ export function BracketPage() {
       <div className="flex flex-col md:flex-row gap-4 md:gap-8 flex-1">
         
         {/* Court A */}
-        <div className="flex-1 card flex flex-col overflow-hidden relative" style={{ borderColor: `${state.courtA?.color_hex}40` }}>
-          <div className="absolute inset-0 opacity-10" style={{ backgroundColor: state.courtA?.color_hex }} />
-          
-          <div className="relative z-10 p-6 md:p-10 flex flex-col h-full">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex flex-col min-w-0 pr-2 flex-1">
-                <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold truncate tracking-wider w-full" style={{ color: state.courtA?.color_hex }}>
-                  {state.courtA?.name.toUpperCase()}
-                </h2>
-                <div className="flex flex-wrap gap-1 mt-1 w-full">
-                  {state.courtA?.team_players.map((p: any) => (
-                    <span key={p.player} className={`text-[10px] md:text-xs px-2 py-0.5 rounded-full border truncate max-w-[100px] sm:max-w-[150px] flex items-center gap-1 ${p.is_borrowed ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'text-text-muted bg-surface/50 border-border/50'}`}>
-                      {p.player_name}
-                      {p.is_borrowed && <span className="text-[9px] uppercase font-bold opacity-80">(Emp)</span>}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              {state.consecutiveA > 0 && (
-                <div className="flex text-yellow-400 flex-shrink-0 mt-1" title={`${state.consecutiveA} vitórias seguidas. Na 2ª, também sai!`}>
-                  {Array.from({ length: state.consecutiveA }).map((_, i) => <Star key={i} size={24} className="fill-yellow-400 sm:w-8 sm:h-8" />)}
-                  {state.consecutiveA === 1 && <Star size={24} className="opacity-20 sm:w-8 sm:h-8" />}
-                </div>
-              )}
-            </div>
-
-            <div className="flex-1 flex items-center justify-center py-4 md:py-8 lg:py-12">
-              <span className="text-[7rem] sm:text-[10rem] lg:text-[18rem] leading-none font-display font-bold tabular-nums tracking-tighter" style={{ color: state.courtA?.color_hex }}>
-                {state.scoreA}
-              </span>
-            </div>
-
-            <div className="flex gap-2 sm:gap-4 md:gap-8 mt-auto">
-              <button onClick={() => updateScore('A', -1)} className="flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-4xl sm:text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95">
-                -
-              </button>
-              <button onClick={() => updateScore('A', 1)} className="flex-[1.5] sm:flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border text-4xl sm:text-5xl md:text-8xl font-bold transition-colors active:scale-95 shadow-lg flex items-center justify-center" style={{ borderColor: `${state.courtA?.color_hex}80`, color: state.courtA?.color_hex }}>
-                +
-              </button>
-            </div>
-          </div>
-        </div>
+        <CourtScoreboard
+          team={state.courtA}
+          score={state.scoreA}
+          consecutive={state.consecutiveA}
+          onUpdateScore={(delta) => updateScore('A', delta)}
+        />
 
         {/* VS Separator (Desktop) */}
         <div className="hidden md:flex flex-col items-center justify-center px-4">
@@ -788,48 +677,13 @@ export function BracketPage() {
         </div>
 
         {/* Court B */}
-        <div className="flex-1 card flex flex-col overflow-hidden relative" style={{ borderColor: `${state.courtB?.color_hex}40` }}>
-          <div className="absolute inset-0 opacity-10" style={{ backgroundColor: state.courtB?.color_hex }} />
-          
-          <div className="relative z-10 p-6 md:p-10 flex flex-col h-full">
-            <div className="flex items-start justify-between mb-2 flex-row-reverse">
-              <div className="flex flex-col min-w-0 pl-2 flex-1">
-                <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold truncate text-right tracking-wider w-full" style={{ color: state.courtB?.color_hex }}>
-                  {state.courtB?.name.toUpperCase()}
-                </h2>
-                <div className="flex flex-wrap justify-end gap-1 mt-1 w-full">
-                  {state.courtB?.team_players.map((p: any) => (
-                    <span key={p.player} className={`text-[10px] md:text-xs px-2 py-0.5 rounded-full border truncate max-w-[100px] sm:max-w-[150px] flex items-center gap-1 flex-row-reverse ${p.is_borrowed ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'text-text-muted bg-surface/50 border-border/50'}`}>
-                      {p.player_name}
-                      {p.is_borrowed && <span className="text-[9px] uppercase font-bold opacity-80">(Emp)</span>}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              {state.consecutiveB > 0 && (
-                <div className="flex text-yellow-400 flex-row-reverse flex-shrink-0 mt-1" title={`${state.consecutiveB} vitórias seguidas. Na 2ª, também sai!`}>
-                  {Array.from({ length: state.consecutiveB }).map((_, i) => <Star key={i} size={24} className="fill-yellow-400 sm:w-8 sm:h-8" />)}
-                  {state.consecutiveB === 1 && <Star size={24} className="opacity-20 sm:w-8 sm:h-8" />}
-                </div>
-              )}
-            </div>
-
-            <div className="flex-1 flex items-center justify-center py-4 md:py-8 lg:py-12">
-              <span className="text-[7rem] sm:text-[10rem] lg:text-[18rem] leading-none font-display font-bold tabular-nums tracking-tighter" style={{ color: state.courtB?.color_hex }}>
-                {state.scoreB}
-              </span>
-            </div>
-
-            <div className="flex gap-2 sm:gap-4 md:gap-8 mt-auto">
-              <button onClick={() => updateScore('B', -1)} className="flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-4xl sm:text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95">
-                -
-              </button>
-              <button onClick={() => updateScore('B', 1)} className="flex-[1.5] sm:flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border text-4xl sm:text-5xl md:text-8xl font-bold transition-colors active:scale-95 shadow-lg flex items-center justify-center" style={{ borderColor: `${state.courtB?.color_hex}80`, color: state.courtB?.color_hex }}>
-                +
-              </button>
-            </div>
-          </div>
-        </div>
+        <CourtScoreboard
+          team={state.courtB}
+          score={state.scoreB}
+          consecutive={state.consecutiveB}
+          isReversed
+          onUpdateScore={(delta) => updateScore('B', delta)}
+        />
 
       </div>
 
@@ -965,57 +819,16 @@ export function BracketPage() {
       )}
 
       {/* Modal Salvar Resultado */}
-      <AnimatePresence>
-        {state.showSaveModal && (
-          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="bg-card w-full max-w-2xl rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]"
-            >
-              <div className="p-6 md:p-8 border-b border-border bg-surface/50">
-                <h2 className="font-display text-3xl mb-1 text-text-primary">Confirmar Resultado</h2>
-                <p className="text-sm text-text-muted">Revise o placar final e, se quiser, escolha os destaques da partida.</p>
-              </div>
-
-              <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex flex-col items-center">
-                {/* Placar Final */}
-                <div className="flex justify-center items-center gap-8 mb-10 w-full bg-surface p-6 rounded-2xl border border-border shadow-inner">
-                  <div className="text-center w-1/3">
-                    <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider truncate" style={{ color: state.courtA?.color_hex }}>{state.courtA?.name}</span>
-                    <span className={`text-6xl md:text-7xl font-display font-bold ${state.scoreA >= state.scoreB ? 'text-yellow-400' : 'text-text-muted'}`}>{state.scoreA}</span>
-                  </div>
-                  <span className="text-text-muted text-2xl font-display opacity-50 flex-shrink-0">X</span>
-                  <div className="text-center w-1/3">
-                    <span className="block text-sm md:text-base font-bold mb-2 uppercase tracking-wider truncate" style={{ color: state.courtB?.color_hex }}>{state.courtB?.name}</span>
-                    <span className={`text-6xl md:text-7xl font-display font-bold ${state.scoreB >= state.scoreA ? 'text-yellow-400' : 'text-text-muted'}`}>{state.scoreB}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 md:p-6 border-t border-border bg-surface/50 flex gap-4">
-                <button
-                  className="btn-secondary flex-1 py-4 text-lg font-bold"
-                  onClick={() => setState(s => ({ ...s, showSaveModal: false }))}
-                  disabled={saveMutation.isPending}
-                >
-                  Voltar
-                </button>
-                <button
-                  className="btn-primary flex-[2] flex items-center justify-center gap-2 py-4 text-lg font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
-                  onClick={handleSaveResult}
-                  disabled={saveMutation.isPending}
-                >
-                  <Save size={20} />
-                  {saveMutation.isPending ? 'Salvando...' : 'Confirmar Resultado'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <SaveMatchModal
+        isOpen={state.showSaveModal}
+        onClose={() => setState(s => ({ ...s, showSaveModal: false }))}
+        onSave={handleSaveResult}
+        isSaving={saveMutation.isPending}
+        courtA={state.courtA}
+        courtB={state.courtB}
+        scoreA={state.scoreA}
+        scoreB={state.scoreB}
+      />
 
       {generation.gameday && (
         <CourtCheckinModal

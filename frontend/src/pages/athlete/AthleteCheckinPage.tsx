@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { Volleyball, Check, Clock, UserCheck, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy, Zap, X, Plus, Users } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Volleyball, Check, Clock, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy, Zap, X, Plus, Users, Crown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { PageLoading } from '@/components/ui/Loading';
@@ -17,11 +17,37 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   const [guestSearch, setGuestSearch] = useState('');
   const [showAllGuests, setShowAllGuests] = useState(false);
 
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestPosition, setGuestPosition] = useState('Outro');
+  const [useFreeGuest, setUseFreeGuest] = useState(false);
+
   const { data: circuitDetail } = useQuery({
     queryKey: ['athlete-circuit-detail', circuit.id],
     queryFn: () => api.get(`/attendance/gamedays/${circuit.id}/checkin-info/`).then(r => r.data),
-    refetchInterval: 10000, // atualiza auto a cada 10s
+    refetchInterval: 10000,
   });
+
+  const { data: sub } = useQuery({
+    queryKey: ['my_subscription'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/subscriptions/user-subscriptions/my_subscription/');
+        return res.data;
+      } catch (err: any) {
+        if (err.response?.status === 404) return null;
+        throw err;
+      }
+    },
+    retry: false,
+  });
+
+  const currentCycle = sub?.current_cycle;
+  const plan = sub?.plan;
+  const hasCredits = sub?.status === 'active' && currentCycle && Number(currentCycle.credits_balance) >= 1;
+  const freeGuestsUsed = currentCycle ? currentCycle.free_guests_used : 0;
+  const freeGuestsTotal = plan ? plan.free_guests : 0;
+  const guestsAvailable = freeGuestsTotal - freeGuestsUsed >= 0 ? freeGuestsTotal - freeGuestsUsed : 0;
 
   const checkinMutation = useMutation({
     mutationFn: (playerId: number) =>
@@ -40,10 +66,22 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
     },
   });
 
-  const availableGuests = circuitDetail?.players?.filter((p: any) =>
-    p.is_guest && !p.present && !p.is_waitlist &&
-    (guestSearch === '' || p.name.toLowerCase().includes(guestSearch.toLowerCase()))
-  ) || [];
+  const addGuestMutation = useMutation({
+    mutationFn: (data: any) =>
+      api.post(`/attendance/gamedays/${circuit.id}/public-add-guest/`, data).then(r => r.data),
+    onSuccess: (res) => {
+      toast.success(res.detail || 'Convidado adicionado!');
+      setShowGuestModal(false);
+      setGuestName('');
+      setGuestPosition('Outro');
+      setUseFreeGuest(false);
+      qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit.id] });
+      qc.invalidateQueries({ queryKey: ['my_subscription'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.detail || 'Erro ao adicionar convidado.');
+    },
+  });
 
   const guestCheckinMutation = useMutation({
     mutationFn: (guestId: number) =>
@@ -101,15 +139,12 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
 
   return (
     <div className="space-y-4 mb-6">
-      {/* ── Info do Circuito e Minha Presença ── */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden card p-4 sm:p-6 border-l-4 border-l-green-500 shadow-lg"
       >
         <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-red/5 blur-2xl pointer-events-none" />
-        
-        {/* Info Cabeçalho */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-border/30 pb-4 mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1">
@@ -152,7 +187,6 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
           </div>
         </div>
 
-        {/* PIX Opcional */}
         {safePrice > 0 && (amPresent || amWaitlist) && (
           <div className="mb-3">
             {circuitDetail?.gameday?.total_present > 0 ? (
@@ -178,7 +212,6 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
           </div>
         )}
 
-        {/* Minha Presença Compacta */}
         {myPlayer && (
           <div className="bg-surface-highlight/40 rounded-xl p-3 border border-border/30 mt-3">
             <div className="flex items-center justify-between gap-2 mb-3">
@@ -225,14 +258,16 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                 whileTap={{ scale: 0.98 }}
                 onClick={() => checkinMutation.mutate(myPlayer.id)}
                 disabled={checkinMutation.isPending}
-                className="btn-primary w-full flex items-center justify-center gap-2 py-2 text-sm font-bold"
+                className={`w-full flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-xl transition-all border ${hasCredits ? 'bg-red hover:bg-red-hover text-white border-red shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-surface-hover hover:bg-surface-highlight text-text-primary border-border/50 hover:border-text-muted'}`}
               >
                 {checkinMutation.isPending ? (
                   <Loader2 size={16} className="animate-spin" />
+                ) : hasCredits ? (
+                  <Zap size={16} className="text-white fill-white/20" />
                 ) : (
                   <CalendarCheck size={16} />
                 )}
-                Confirmar Minha Presença
+                {hasCredits ? 'Confirmar (Usar 1 Crédito)' : 'Confirmar Presença'}
               </motion.button>
             )}
 
@@ -258,8 +293,9 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
             )}
 
             {amPresent && myAttendance?.has_paid && (
-              <div className="text-center bg-green-500/20 text-green-400 rounded py-2 text-xs font-bold border border-green-500/40">
-                ✅ Pago e Confirmado!
+              <div className="flex items-center justify-center gap-2 text-center bg-green-500/20 text-green-400 rounded py-2 text-xs font-bold border border-green-500/40 mt-2">
+                {myAttendance?.used_credit ? <Zap size={14} className="fill-green-400/20" /> : '✅'}
+                {myAttendance?.used_credit ? 'Pago via Plano!' : 'Pago e Confirmado!'}
               </div>
             )}
 
@@ -272,7 +308,6 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
         )}
       </motion.div>
 
-      {/* ── Adicionar Convidado ── */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -310,108 +345,187 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
         </div>
 
         {guestSearch.trim().length >= 2 ? (
-          availableGuests.length > 0 ? (
-            <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
-              {availableGuests.map((guest: any) => (
-                <motion.div
-                  key={guest.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex items-center gap-2 p-2 bg-surface-highlight/50 rounded-lg border border-border/30"
+          <div className="space-y-1.5 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar">
+            {circuitDetail?.players?.filter((p: any) =>
+              p.is_guest && !p.present && !p.is_waitlist &&
+              (guestSearch === '' || p.name.toLowerCase().includes(guestSearch.toLowerCase()))
+            ).map((guest: any) => (
+              <motion.div
+                key={guest.id}
+                className="flex items-center gap-2 p-2 bg-surface-highlight/50 rounded-lg border border-border/30"
+              >
+                <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-text-primary text-xs font-bold truncate">{guest.name}</p>
+                  {guest.invited_by && (
+                    <p className="text-text-muted text-[9px] truncate">Por {guest.invited_by}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => guestCheckinMutation.mutate(guest.id)}
+                  disabled={guestCheckinMutation.isPending}
+                  className="btn-primary text-[10px] px-2.5 py-1 flex items-center gap-1 rounded"
                 >
-                  <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-text-primary text-xs font-bold truncate">{guest.name}</p>
-                    {guest.invited_by && (
-                      <p className="text-text-muted text-[9px] truncate">Por {guest.invited_by}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => guestCheckinMutation.mutate(guest.id)}
-                    disabled={guestCheckinMutation.isPending}
-                    className="btn-primary text-[10px] px-2.5 py-1 flex items-center gap-1 rounded"
-                  >
-                    {guestCheckinMutation.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />} Adicionar
-                  </button>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-4 text-text-muted text-xs bg-surface/30 rounded-lg border border-border/20">
-              Nenhum convidado encontrado.
-            </div>
-          )
+                  {guestCheckinMutation.isPending ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />} Adicionar
+                </button>
+              </motion.div>
+            ))}
+          </div>
         ) : (
           <div className="text-center py-6 text-text-muted text-[10px] sm:text-xs bg-surface/30 rounded-lg border border-border/20 flex flex-col items-center gap-2">
             <Search size={16} className="opacity-50" />
             <p>Digite o nome para buscar os convidados.</p>
           </div>
         )}
+        
+        <button
+          onClick={() => setShowGuestModal(true)}
+          className="w-full mt-4 flex items-center justify-center gap-2 py-2 text-sm font-bold rounded-xl border border-blue-500/30 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-all"
+        >
+          <Users size={16} />
+          Adicionar Convidado
+        </button>
       </motion.div>
 
-      {/* ── Lista de Confirmados ── */}
-      {circuitDetail?.players && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="card p-4"
-        >
-          <div className="mb-3 border-b border-border/30 pb-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Check size={16} className="text-green-400" />
-              <h2 className="font-display text-base text-text-primary tracking-wider">
-                CONFIRMADOS ({presentPlayers.length})
-              </h2>
-            </div>
-            
-            {/* Resumo de Posições */}
-            {presentPlayers.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {(['outside', 'setter', 'middle', 'opposite', 'libero', 'universal'] as const).map(pos => {
-                  const count = presentPlayers.filter((p: any) => p.main_position === pos).length;
-                  if (count === 0) return null;
-                  
-                  const labels: Record<string, string> = {
-                    outside: 'Ponteiros', setter: 'Levantadores', middle: 'Centrais', 
-                    opposite: 'Opostos', libero: 'Líberos', universal: 'Universais'
-                  };
-                  const colorClass = getPositionClass(pos as any);
-                  
-                  return (
-                    <span key={pos} className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${colorClass}`}>
-                      {count} {labels[pos] || pos}
-                    </span>
-                  );
-                })}
+      {/* Guest Modal */}
+      <AnimatePresence>
+        {showGuestModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-surface border-2 border-border shadow-[0_0_40px_rgba(217,4,41,0.2)] rounded-2xl w-full max-w-sm overflow-hidden"
+            >
+              <div className="flex justify-between items-center p-4 border-b border-white/10 bg-black/40">
+                <h2 className="text-lg font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Users className="text-blue-400" size={18} />
+                  Novo Convidado
+                </h2>
+                <button onClick={() => setShowGuestModal(false)} className="text-white/50 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
               </div>
-            )}
-          </div>
-          <div className="space-y-1">
-            {presentPlayers
-              .map((p: any, i: number) => (
-                <div key={p.id} className="flex items-center gap-2 py-1.5 border-b border-border/10 last:border-0 hover:bg-surface-highlight/30 px-1 rounded transition-colors">
-                  <span className="text-text-muted/40 text-[10px] w-4 text-right flex-shrink-0 font-bold">{i + 1}</span>
-                  <Avatar name={p.name} src={p.avatar_url} size="sm" className="w-6 h-6 text-[10px]" />
-                  <span className={cn('text-xs flex-1 truncate', p.id === myPlayer?.id ? 'text-red font-bold' : 'text-text-primary font-medium')}>
-                    {p.name}
-                  </span>
-                  {p.is_guest && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20 truncate max-w-[100px]">
-                      {p.invited_by ? `Conv. por ${p.invited_by}` : 'Convidado'}
-                    </span>
-                  )}
-                  <Check size={12} className="text-green-400 flex-shrink-0 ml-auto" />
-                </div>
-              ))}
-            {circuitDetail.players.filter((p: any) => p.present).length === 0 && (
-              <p className="text-text-muted text-xs text-center py-4 bg-black/10 rounded-lg">Nenhum confirmado ainda.</p>
-            )}
-          </div>
-        </motion.div>
-      )}
 
-      {/* ── Lista da Fila de Espera ── */}
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-black text-white/60 uppercase tracking-widest mb-1.5 ml-1">Nome do Convidado</label>
+                  <input 
+                    type="text" 
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    className="w-full bg-white/5 border-2 border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-blue-500/50 outline-none transition-all"
+                    placeholder="Nome e Sobrenome"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-black text-white/60 uppercase tracking-widest mb-1.5 ml-1">Posição Principal</label>
+                  <select 
+                    value={guestPosition}
+                    onChange={(e) => setGuestPosition(e.target.value)}
+                    className="w-full bg-[#111] border-2 border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-blue-500/50 outline-none transition-all"
+                  >
+                    <option value="Outro">Selecione...</option>
+                    <option value="Ponteiro">Ponteiro</option>
+                    <option value="Central">Central</option>
+                    <option value="Oposto">Oposto</option>
+                    <option value="Levantador">Levantador</option>
+                    <option value="Líbero">Líbero</option>
+                  </select>
+                </div>
+                
+                {guestsAvailable > 0 && (
+                  <label className="flex items-center gap-3 bg-blue-500/10 border-2 border-blue-500/30 p-3 rounded-xl cursor-pointer hover:bg-blue-500/20 transition-colors mt-2">
+                    <input 
+                      type="checkbox" 
+                      checked={useFreeGuest}
+                      onChange={(e) => setUseFreeGuest(e.target.checked)}
+                      className="w-5 h-5 accent-blue-500 rounded bg-transparent"
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-bold text-white text-sm">Usar Cota Grátis</span>
+                      <span className="text-[10px] text-blue-400 uppercase tracking-widest">Você tem {guestsAvailable} sobrando</span>
+                    </div>
+                  </label>
+                )}
+                
+                {!useFreeGuest && (
+                  <div className="text-[10px] text-white/50 text-center uppercase tracking-widest mt-2 border border-white/10 p-2 rounded-lg bg-black/20">
+                    O convidado pagará o rateio normal do circuito.
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-4 border-t border-white/10 bg-black/40">
+                <button 
+                  onClick={() => addGuestMutation.mutate({ player_id: myPlayer.id, name: guestName, main_position: guestPosition, use_free_guest: useFreeGuest })}
+                  disabled={!guestName || addGuestMutation.isPending}
+                  className="w-full btn-primary bg-blue-600 hover:bg-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.3)] flex items-center justify-center gap-2 py-3 text-sm tracking-widest disabled:opacity-50"
+                >
+                  {addGuestMutation.isPending ? <Loader2 className="animate-spin" /> : <Users size={18} />}
+                  Adicionar à Fila de Espera
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="card p-4"
+      >
+        <div className="mb-3 border-b border-border/30 pb-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Check size={16} className="text-green-400" />
+            <h2 className="font-display text-base text-text-primary tracking-wider">
+              CONFIRMADOS ({presentPlayers.length})
+            </h2>
+          </div>
+          {presentPlayers.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {(['outside', 'setter', 'middle', 'opposite', 'libero', 'universal'] as const).map(pos => {
+                const count = presentPlayers.filter((p: any) => p.main_position === pos).length;
+                if (count === 0) return null;
+                const labels: Record<string, string> = {
+                  outside: 'Ponteiros', setter: 'Levantadores', middle: 'Centrais', 
+                  opposite: 'Opostos', libero: 'Líberos', universal: 'Universais'
+                };
+                const colorClass = getPositionClass(pos as any);
+                return (
+                  <span key={pos} className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${colorClass}`}>
+                    {count} {labels[pos] || pos}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="space-y-1">
+          {presentPlayers.map((p: any, i: number) => (
+            <div key={p.id} className="flex items-center gap-2 py-1.5 border-b border-border/10 last:border-0 hover:bg-surface-highlight/30 px-1 rounded transition-colors">
+              <span className="text-text-muted/40 text-[10px] w-4 text-right flex-shrink-0 font-bold">{i + 1}</span>
+              <Avatar name={p.name} src={p.avatar_url} size="sm" className="w-6 h-6 text-[10px]" />
+              <span className={cn('text-xs flex-1 truncate', p.id === myPlayer?.id ? 'text-red font-bold' : 'text-text-primary font-medium')}>
+                {p.name}
+              </span>
+              {p.is_guest && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20 truncate max-w-[100px]">
+                  {p.invited_by ? `Conv. por ${p.invited_by}` : 'Convidado'}
+                </span>
+              )}
+              <Check size={12} className="text-green-400 flex-shrink-0 ml-auto" />
+            </div>
+          ))}
+          {presentPlayers.length === 0 && (
+            <p className="text-text-muted text-xs text-center py-4 bg-black/10 rounded-lg">Nenhum confirmado ainda.</p>
+          )}
+        </div>
+      </motion.div>
+
       {circuitDetail?.players && circuitDetail.players.filter((p: any) => p.is_waitlist).length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -435,18 +549,24 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                   <span className={cn('text-xs flex-1 truncate', p.id === myPlayer?.id ? 'text-yellow-500 font-bold' : 'text-text-primary font-medium')}>
                     {p.name}
                   </span>
-                  {p.is_guest && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20 truncate max-w-[100px]">
-                      {p.invited_by ? `Conv. por ${p.invited_by}` : 'Convidado'}
-                    </span>
-                  )}
+                  <div className="flex flex-col items-end gap-1">
+                    {p.is_priority && (
+                      <span className="text-[9px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase font-bold border border-amber-500/20 flex items-center gap-1">
+                        <Crown size={10} /> VIP
+                      </span>
+                    )}
+                    {p.is_guest && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue/10 text-blue-400 border border-blue/20 truncate max-w-[100px]">
+                        {p.invited_by ? `Conv. por ${p.invited_by}` : 'Convidado'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
           </div>
         </motion.div>
       )}
 
-      {/* Modal Ver Todos os Convidados */}
       {showAllGuests && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#111] border border-border w-full max-w-md rounded-[1.25rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -500,7 +620,7 @@ export function AthleteCheckinPage() {
   const [searchParams] = useSearchParams();
   const circuitId = searchParams.get('circuitId');
 
-  const { data: myPlayer } = useQuery({
+  const { data: myPlayer, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['athlete-me'],
     queryFn: () => api.get('/players/me/').then(r => r.data),
   });
@@ -513,7 +633,7 @@ export function AthleteCheckinPage() {
     },
   });
 
-  if (isLoading) return <PageLoading />;
+  if (isLoading || isLoadingProfile) return <PageLoading />;
 
   let circuitsToDisplay = openCircuits || [];
   if (circuitId) {

@@ -248,10 +248,14 @@ export function AttendancePage() {
         onConfirm={confirmDialog.onConfirm}
       />
 
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="page-title">Criação de Circuitos</h1>
-          <p className="page-subtitle max-w-3xl">Aqui é onde criamos o circuito e lançamos quem vai participar de acordo com a quantidade de vagas. As pessoas confirmam presença no link público e os administradores gerenciam a lista (incluindo convidados e pagamentos).</p>
+          <h1 className="font-display text-4xl sm:text-5xl text-white uppercase tracking-widest leading-none drop-shadow-md">
+            Criação de <span className="text-red">Circuitos</span>
+          </h1>
+          <p className="text-white/60 text-sm mt-2 font-medium uppercase tracking-[0.2em] max-w-xl">
+            Gerenciamento de Vagas, Listas de Presença e Pagamentos.
+          </p>
         </div>
         {canEdit && (
           <div className="flex gap-2 flex-col sm:flex-row">
@@ -413,6 +417,10 @@ export function AttendancePage() {
               
               {gameDayDetail.court_price && (
                 <div className="p-3 bg-surface-hover rounded-xl border border-border flex items-center justify-between text-sm flex-wrap gap-4">
+                  <div className="flex-1 min-w-[100px]">
+                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Custo em Créditos</p>
+                    <p className="font-bold text-emerald-400">{gameDayDetail.credit_cost || '1.0'} ⚡</p>
+                  </div>
                   <div className="flex-1 min-w-[100px]">
                     <p className="text-text-muted text-[10px] uppercase tracking-wider">Valor da Quadra</p>
                     <p className="font-bold text-text-primary">R$ {courtPrice.toFixed(2).replace('.', ',')}</p>

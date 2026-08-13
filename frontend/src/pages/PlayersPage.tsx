@@ -6,7 +6,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
-import { PageLoading, EmptyState } from '@/components/ui/Loading';
+import { EmptyState } from '@/components/ui/Loading';
+import { CardSkeleton } from '@/components/ui/skeletons/CardSkeleton';
+import { TableSkeleton } from '@/components/ui/skeletons/TableSkeleton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { PlayerCard } from '@/components/players/PlayerCard';
@@ -48,6 +50,7 @@ export function PlayersPage() {
   const [guestTab, setGuestTab] = useState<'list' | 'new'>('list');
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<Position>('outside');
+  const [guestGender, setGuestGender] = useState<'M' | 'F'>('M');
   const [guestInvitedBy, setGuestInvitedBy] = useState(user?.name || '');
   
   const { data: guestsData, isLoading: loadingGuests } = useQuery({
@@ -182,7 +185,7 @@ export function PlayersPage() {
                 placeholder="Buscar atleta..."
                 value={search}
                 onChange={handleSearchChange}
-                className="input w-full pl-9 h-10"
+                className="input-glass pl-9 h-10"
               />
             </div>
             <button 
@@ -214,7 +217,7 @@ export function PlayersPage() {
             <select
               value={ordering}
               onChange={handleFilterChange(setOrdering)}
-              className="input h-10 text-xs sm:text-sm"
+              className="input-glass h-10 text-xs sm:text-sm"
             >
               <option value="name">Ordem Alfabética</option>
               <option value="-annotated_overall">Maior Overall</option>
@@ -224,7 +227,7 @@ export function PlayersPage() {
             <select
               value={guestFilter}
               onChange={handleFilterChange(setGuestFilter)}
-              className="input h-10 text-xs sm:text-sm"
+              className="input-glass h-10 text-xs sm:text-sm"
             >
               <option value="">Todos (Ofic. + Conv.)</option>
               <option value="false">Apenas Oficiais</option>
@@ -234,7 +237,7 @@ export function PlayersPage() {
             <select
               value={positionFilter}
               onChange={handleFilterChange(setPositionFilter)}
-              className="input h-10 text-xs sm:text-sm"
+              className="input-glass h-10 text-xs sm:text-sm"
             >
               <option value="">Todas Posições</option>
               <option value="outside">Ponteiro</option>
@@ -248,7 +251,7 @@ export function PlayersPage() {
             <select
               value={statusFilter}
               onChange={handleFilterChange(setStatusFilter)}
-              className="input h-10 text-xs sm:text-sm"
+              className="input-glass h-10 text-xs sm:text-sm"
             >
               <option value="">Todos Status</option>
               <option value="active">Ativos</option>
@@ -288,7 +291,17 @@ export function PlayersPage() {
 
       {/* Content */}
       {isLoading ? (
-        <PageLoading />
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="card overflow-hidden">
+            <TableSkeleton rows={10} />
+          </div>
+        )
       ) : players.length === 0 ? (
         <EmptyState
           message="Nenhum atleta encontrado. Ajuste os filtros ou adicione um novo atleta."
@@ -309,7 +322,11 @@ export function PlayersPage() {
           ))}
         </div>
       ) : (
-        <div className="card overflow-hidden overflow-x-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card overflow-hidden overflow-x-auto"
+        >
           <table className="w-full min-w-[600px]">
             <thead className="border-b border-border">
               <tr>
@@ -374,7 +391,7 @@ export function PlayersPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </motion.div>
       )}
 
       {/* Paginação */}
@@ -439,7 +456,7 @@ export function PlayersPage() {
                     type="text"
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
-                    className="input w-full"
+                    className="input-glass"
                     placeholder="Ex: João Silva"
                   />
                 </div>
@@ -451,7 +468,7 @@ export function PlayersPage() {
                   <select
                     value={guestPosition}
                     onChange={(e) => setGuestPosition(e.target.value as Position)}
-                    className="input w-full"
+                    className="input-glass"
                   >
                     <option value="outside">Ponteiro</option>
                     <option value="setter">Levantador</option>
@@ -464,13 +481,27 @@ export function PlayersPage() {
 
                 <div>
                   <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">
+                    Gênero *
+                  </label>
+                  <select
+                    value={guestGender}
+                    onChange={(e) => setGuestGender(e.target.value as 'M' | 'F')}
+                    className="input-glass"
+                  >
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">
                     Convidado por
                   </label>
                   <input
                     type="text"
                     value={guestInvitedBy}
                     onChange={(e) => setGuestInvitedBy(e.target.value)}
-                    className="input w-full"
+                    className="input-glass"
                     placeholder="Seu nome"
                   />
                 </div>
@@ -483,6 +514,7 @@ export function PlayersPage() {
                         main_position: guestPosition,
                         is_guest: true,
                         invited_by: guestInvitedBy,
+                        gender: guestGender,
                         status: 'active',
                       })
                     }

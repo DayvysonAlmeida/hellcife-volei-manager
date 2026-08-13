@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -206,6 +206,12 @@ export function LoginPage() {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
                 {errors.password && <p className="text-red text-xs mt-1 ml-2 font-medium">{errors.password.message}</p>}
+              </div>
+
+              <div className="flex justify-end relative z-10">
+                <Link to="/forgot-password" className="text-xs font-medium text-gray-500 dark:text-white/60 hover:text-red dark:hover:text-red transition-colors">
+                  Esqueceu a senha?
+                </Link>
               </div>
 
               {/* Glowing Submit Button using Project Neon Classes */}

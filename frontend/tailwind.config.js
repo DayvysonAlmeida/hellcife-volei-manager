@@ -29,8 +29,8 @@ export default {
           dark: '#A80020',
         },
         blue: {
-          DEFAULT: '#2563EB',
-          dark: '#1D4ED8',
+          DEFAULT: '#1C4E9E',
+          dark: '#153C7A',
         },
         yellow: {
           DEFAULT: '#FACC15',
@@ -59,7 +59,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Orbitron', 'sans-serif'],
+        display: ['Bebas Neue', 'Orbitron', 'sans-serif'],
       },
       boxShadow: {
         'neon-red': 'var(--shadow-neon-red)',
@@ -70,11 +70,11 @@ export default {
         'card-hover': '0 8px 32px rgba(0, 0, 0, 0.6)',
       },
       backgroundImage: {
-        'hero-gradient': 'radial-gradient(ellipse at top, rgba(217, 4, 41, 0.15) 0%, rgba(9, 9, 11, 0) 60%)',
-        'card-gradient': 'linear-gradient(135deg, rgba(28, 28, 31, 0.9), rgba(24, 24, 27, 0.95))',
+        'hero-gradient': 'radial-gradient(ellipse at top, rgba(217, 4, 41, 0.15) 0%, rgba(6, 6, 8, 0) 60%)',
+        'card-gradient': 'linear-gradient(135deg, rgba(13, 15, 20, 0.95), rgba(10, 12, 16, 0.98))',
         'red-gradient': 'linear-gradient(135deg, #D90429, #A80020)',
-        'blue-gradient': 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-        'sidebar-gradient': 'linear-gradient(180deg, #09090B 0%, #0D0D10 100%)',
+        'blue-gradient': 'linear-gradient(135deg, #1C4E9E, #153C7A)',
+        'sidebar-gradient': 'linear-gradient(180deg, #060608 0%, #0D0F14 100%)',
       },
       animation: {
         'pulse-red': 'pulseRed 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',

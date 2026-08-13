@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball } from 'lucide-react';
+import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Zap, Bell, Activity, CreditCard } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
@@ -21,26 +21,73 @@ declare global {
   }
 }
 
-const adminNavItems = [
-  { to: '/dashboard', icon: Home, label: 'Dashboard' },
-  { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
-  { to: '/players', icon: Users, label: 'Atletas' },
-  { to: '/evaluations', icon: TrendingUp, label: 'Avaliações' },
-  { to: '/attendance', icon: Volleyball, label: 'Circuito' },
-  { to: '/court-checkin', icon: ClipboardList, label: 'Tiragem de Falta' },
-  { to: '/teams', icon: Shuffle, label: 'Peladas' },
-  { to: '/matches', icon: Swords, label: 'Jogos' },
-  { to: '/attendance/tracking', icon: ShieldAlert, label: 'Frequências e Faltas' },
-  { to: '/stars-system', icon: Star, label: 'Sistema de Estrelas' },
-  { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
+const adminNavGroups = [
+  {
+    title: 'Visão Geral',
+    items: [
+      { to: '/dashboard', icon: Home, label: 'Dashboard' },
+      { to: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
+    ]
+  },
+  {
+    title: 'Competição',
+    items: [
+      { to: '/attendance', icon: Volleyball, label: 'Circuito' },
+      { to: '/court-checkin', icon: ClipboardList, label: 'Tiragem de Falta' },
+      { to: '/teams', icon: Shuffle, label: 'Peladas' },
+      { to: '/matches', icon: Swords, label: 'Jogos' },
+      { to: '/attendance/tracking', icon: ShieldAlert, label: 'Frequências' },
+    ]
+  },
+  {
+    title: 'Plano & Financeiro',
+    items: [
+      { to: '/finance', icon: Activity, label: 'Painel Financeiro' },
+      { to: '/plans', icon: CreditCard, label: 'Planos de Assinatura' },
+      { to: '/subscriptions', icon: Crown, label: 'Assinaturas' },
+    ]
+  },
+  {
+    title: 'Gestão de Atletas',
+    items: [
+      { to: '/players', icon: Users, label: 'Atletas' },
+      { to: '/evaluations', icon: TrendingUp, label: 'Avaliações' },
+      { to: '/stars-system', icon: Star, label: 'Sistema de Estrelas' },
+    ]
+  },
+  {
+    title: 'Clube',
+    items: [
+      { to: '/subscriptions', icon: Crown, label: 'Assinaturas' },
+      { to: '/plans', icon: Zap, label: 'Planos (Admin)' },
+      { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
+    ]
+  }
 ];
 
-const playerNavItems = [
-  { to: '/athlete', icon: Home, label: 'Início' },
-  { to: '/athlete/profile', icon: CircleUser, label: 'Meu Perfil' },
-  { to: '/athlete/checkin', icon: Volleyball, label: 'Circuito' },
-  { to: '/athlete/matches', icon: Swords, label: 'Jogos' },
-  { to: '/athlete/regulation', icon: ScrollText, label: 'Regulamento' },
+const playerNavGroups = [
+  {
+    title: 'Visão Geral',
+    items: [
+      { to: '/athlete', icon: Home, label: 'Início' },
+      { to: '/athlete/profile', icon: CircleUser, label: 'Meu Perfil' },
+      { to: '/athlete/notifications', icon: Bell, label: 'Notificações' },
+    ]
+  },
+  {
+    title: 'Competição',
+    items: [
+      { to: '/athlete/checkin', icon: Volleyball, label: 'Circuito' },
+      { to: '/athlete/matches', icon: Swords, label: 'Jogos' },
+    ]
+  },
+  {
+    title: 'Clube',
+    items: [
+      { to: '/athlete/plans', icon: Star, label: 'Planos' },
+      { to: '/athlete/regulation', icon: ScrollText, label: 'Regulamento' },
+    ]
+  }
 ];
 
 interface SidebarProps {
@@ -54,7 +101,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const isPlayer = user?.profile === 'player';
-  const navItems = isPlayer ? playerNavItems : adminNavItems;
+  const navGroups = isPlayer ? playerNavGroups : adminNavGroups;
 
   const handleLogout = () => {
     logout();
@@ -151,40 +198,44 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
-          {!collapsed && (
-            <p className="text-text-muted text-[10px] font-bold uppercase tracking-widest px-3 mb-2">
-              Navegação
-            </p>
-          )}
-          {navItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={() => onMobileClose()} // Fecha menu no mobile ao clicar
-              className={({ isActive }) => cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer group',
-                isActive
-                  ? 'bg-red/10 text-red border-l-2 border-red'
-                  : 'text-text-secondary hover:bg-surface hover:text-text-primary'
+        <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto custom-scrollbar">
+          {navGroups.map((group, groupIdx) => (
+            <div key={groupIdx} className="space-y-1">
+              {!collapsed && (
+                <p className="text-text-muted text-[10px] font-bold uppercase tracking-widest px-3 mb-2">
+                  {group.title}
+                </p>
               )}
-              title={collapsed ? label : undefined}
-            >
-              <Icon size={20} className="flex-shrink-0" />
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="whitespace-nowrap text-sm"
-                  >
-                    {label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </NavLink>
+              {group.items.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => onMobileClose()} // Fecha menu no mobile ao clicar
+                  className={({ isActive }) => cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer group',
+                    isActive
+                      ? 'bg-red/10 text-red border-l-2 border-red'
+                      : 'text-text-secondary hover:bg-surface hover:text-text-primary'
+                  )}
+                  title={collapsed ? label : undefined}
+                >
+                  <Icon size={20} className="flex-shrink-0" />
+                  <AnimatePresence>
+                    {!collapsed && (
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="whitespace-nowrap text-sm"
+                      >
+                        {label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </NavLink>
+              ))}
+            </div>
           ))}
 
           {/* Botão de Instalar App (PWA) - Só aparece se o navegador permitir a instalação */}

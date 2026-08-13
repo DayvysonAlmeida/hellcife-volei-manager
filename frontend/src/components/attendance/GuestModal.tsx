@@ -36,6 +36,7 @@ export function GuestModal({
   const [guestTab, setGuestTab] = useState<'list' | 'new'>('list');
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<Position>('outside');
+  const [guestGender, setGuestGender] = useState<'M' | 'F'>('M');
   const [guestInvitedBy, setGuestInvitedBy] = useState(user?.name || '');
 
   // Buscar convidados salvos
@@ -48,7 +49,7 @@ export function GuestModal({
 
   // Mutations
   const addGuestMutation = useMutation({
-    mutationFn: (data: { name: string; main_position: Position; invited_by: string }) =>
+    mutationFn: (data: { name: string; main_position: Position; invited_by: string; gender: 'M' | 'F' }) =>
       attendanceService.addGuest(gameDayId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gameday', gameDayId] });
@@ -169,6 +170,20 @@ export function GuestModal({
 
             <div>
               <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">
+                Gênero *
+              </label>
+              <select
+                value={guestGender}
+                onChange={(e) => setGuestGender(e.target.value as 'M' | 'F')}
+                className="input w-full"
+              >
+                <option value="M">Masculino</option>
+                <option value="F">Feminino</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">
                 Convidado por
               </label>
               <input
@@ -187,6 +202,7 @@ export function GuestModal({
                     name: guestName,
                     main_position: guestPosition,
                     invited_by: guestInvitedBy,
+                    gender: guestGender,
                   })
                 }
                 disabled={!guestName || addGuestMutation.isPending}

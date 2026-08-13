@@ -6,6 +6,7 @@ class GameDay(models.Model):
     time = models.TimeField(blank=True, null=True, verbose_name='Hora Inicial')
     time_end = models.TimeField(blank=True, null=True, verbose_name='Hora Final')
     court_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, verbose_name='Valor da Quadra')
+    credit_cost = models.DecimalField(max_digits=4, decimal_places=1, default=1.0, verbose_name='Custo em Créditos', help_text='Quantos créditos custa para participar desta pelada.')
     description = models.CharField(max_length=200, blank=True, null=True, verbose_name='Descrição')
     location = models.CharField(max_length=200, blank=True, null=True, verbose_name='Local')
     max_players = models.PositiveSmallIntegerField(default=0, verbose_name='Limite de Jogadores')
@@ -52,6 +53,8 @@ class Attendance(models.Model):
     present = models.BooleanField(default=False, verbose_name='Presente', db_index=True)
     has_paid = models.BooleanField(default=False, verbose_name='Pagou')
     payment_claimed = models.BooleanField(default=False, verbose_name='Avisou que pagou', help_text='O atleta clicou no botão informando que já realizou o PIX.')
+    credits_used = models.DecimalField(max_digits=4, decimal_places=1, default=0.0, verbose_name='Créditos Utilizados')
+    used_priority = models.BooleanField(default=False, verbose_name='Usou Prioridade')
     checked_at = models.DateTimeField(auto_now=True, verbose_name='Hora do check-in')
     
     # Controle de Faltas (No-shows)
@@ -60,12 +63,16 @@ class Attendance(models.Model):
         verbose_name='Faltou',
         help_text='Marcado automaticamente quando o circuito fecha e não há check-in na quadra.'
     )
-    is_justified = models.BooleanField(default=False, verbose_name='Justificada')
-    justification_text = models.CharField(max_length=255, blank=True, null=True, verbose_name='Motivo da Justificativa')
+    is_justified = models.BooleanField(default=False, verbose_name="Falta Justificada?")
+    justification_text = models.TextField(blank=True, null=True, verbose_name="Justificativa")
+    
+    # Integração com Assinaturas
+    used_credit = models.BooleanField(default=False, verbose_name="Usou Crédito do Plano?")
 
     # Fila de Espera
     is_waitlist = models.BooleanField(default=False, verbose_name='Na Fila de Espera', db_index=True)
     waitlist_joined_at = models.DateTimeField(null=True, blank=True, verbose_name='Entrou na Fila em')
+    is_priority = models.BooleanField(default=False, verbose_name='VIP - Fura Fila')
 
     class Meta:
         verbose_name = 'Presença'

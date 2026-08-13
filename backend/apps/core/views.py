@@ -9,8 +9,14 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from .models import User
 from .serializers import (
     CustomTokenObtainPairSerializer, UserSerializer,
-    UserCreateSerializer, UserUpdateSerializer, ChangePasswordSerializer
+    UserCreateSerializer, UserUpdateSerializer, ChangePasswordSerializer,
+    ForgotPasswordSerializer, ResetPasswordSerializer
 )
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from django.conf import settings
 from .permissions import IsAdminUser, IsAdminOrModerator
 
 
@@ -56,3 +62,70 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action in ['update', 'partial_update']:
             return UserUpdateSerializer
         return UserSerializer
+
+
+class ForgotPasswordView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = ForgotPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Não retornar erro para não expor se o email existe ou não
+            return Response({'detail': 'Se o email existir, um link de recuperação será enviado.'})
+
+        uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        reset_link = f"{frontend_url}/reset-password?uid={uidb64}&token={token}"
+        
+        # Tentativa de envio de email real (em Produção, caso as variáveis de SMTP estejam configuradas)
+        try:
+            subject = 'Hellcife Vôlei - Recuperação de Senha'
+            message = f"Olá {user.name},\n\nVocê solicitou a recuperação de senha. Clique no link abaixo para criar uma nova senha:\n\n{reset_link}\n\nSe você não solicitou isso, ignore este e-mail."
+            
+            # Email origin (FROM)
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'nao-responda@hellcife.com.br')
+            
+            send_mail(
+                subject,
+                message,
+                from_email,
+                [user.email],
+                fail_silently=False,
+            )
+            print(f"✅ E-mail enviado com sucesso para {user.email}")
+        except Exception as e:
+            # Fallback para ambiente local ou quando SMTP não estiver configurado
+            print("⚠️ ERRO AO ENVIAR EMAIL (SMTP não configurado ou falhou). Imprimindo link de segurança localmente:")
+            print("="*50)
+            print("🔒 RECUPERAÇÃO DE SENHA SOLICITADA")
+            print(f"Usuário: {user.name} ({user.email})")
+            print(f"Link de Recuperação: {reset_link}")
+            print(f"Erro Real: {str(e)}")
+            print("="*50)
+        
+        return Response({'detail': 'Se o email existir, um link de recuperação será enviado.'})
+
+
+class ResetPasswordView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = ResetPasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        uid = force_str(urlsafe_base64_decode(serializer.validated_data['uidb64']))
+        user = User.objects.get(pk=uid)
+        
+        user.set_password(serializer.validated_data['new_password'])
+        user.save()
+        
+        return Response({'detail': 'Senha redefinida com sucesso!'})

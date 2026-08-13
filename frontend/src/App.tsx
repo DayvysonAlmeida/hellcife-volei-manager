@@ -11,6 +11,8 @@ import { PageLoading } from '@/components/ui/Loading';
 
 // Lazy loading — cada página é carregada apenas quando visitada
 const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const ForgotPasswordPage = lazy(() => import('@/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const PlayersPage = lazy(() => import('@/pages/PlayersPage').then(m => ({ default: m.PlayersPage })));
 const PlayerDetailPage = lazy(() => import('@/pages/PlayerDetailPage').then(m => ({ default: m.PlayerDetailPage })));
@@ -24,6 +26,9 @@ const MatchesPage = lazy(() => import('@/pages/MatchesPage').then(m => ({ defaul
 const MatchFormPage = lazy(() => import('@/pages/MatchFormPage').then(m => ({ default: m.MatchFormPage })));
 const StarsSystemPage = lazy(() => import('@/pages/StarsSystemPage').then(m => ({ default: m.StarsSystemPage })));
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
+const AdminSubscriptionsPage = lazy(() => import('@/pages/subscriptions/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })));
+const AdminPlansPage = lazy(() => import('@/pages/subscriptions/AdminPlansPage').then(m => ({ default: m.AdminPlansPage })));
+const FinanceDashboardPage = lazy(() => import('@/pages/subscriptions/FinanceDashboardPage').then(m => ({ default: m.FinanceDashboardPage })));
 const RegulationPage = lazy(() => import('@/pages/RegulationPage').then(m => ({ default: m.RegulationPage })));
 const CheckinPage = lazy(() => import('@/pages/CheckinPage').then(m => ({ default: m.CheckinPage })));
 const BracketPage = lazy(() => import('@/pages/BracketPage').then(m => ({ default: m.BracketPage })));
@@ -34,6 +39,7 @@ const AthleteDashboardPage = lazy(() => import('@/pages/athlete/AthleteDashboard
 const MyProfilePage = lazy(() => import('@/pages/athlete/MyProfilePage').then(m => ({ default: m.MyProfilePage })));
 const AthleteCheckinPage = lazy(() => import('@/pages/athlete/AthleteCheckinPage').then(m => ({ default: m.AthleteCheckinPage })));
 const AthleteMatchesPage = lazy(() => import('@/pages/athlete/AthleteMatchesPage').then(m => ({ default: m.AthleteMatchesPage })));
+const PlansPage = lazy(() => import('@/pages/subscriptions/PlansPage').then(m => ({ default: m.PlansPage })));
 
 function App() {
   return (
@@ -53,6 +59,24 @@ function App() {
               }
             />
             
+            <Route
+              path="/forgot-password"
+              element={
+                <PublicRoute>
+                  <ForgotPasswordPage />
+                </PublicRoute>
+              }
+            />
+            
+            <Route
+              path="/reset-password"
+              element={
+                <PublicRoute>
+                  <ResetPasswordPage />
+                </PublicRoute>
+              }
+            />
+            
             <Route path="/checkin/:id" element={<CheckinPage />} />
 
             {/* ── Portal do Atleta ────────────────────────────────── */}
@@ -68,6 +92,7 @@ function App() {
               <Route path="profile" element={<MyProfilePage />} />
               <Route path="checkin" element={<AthleteCheckinPage />} />
               <Route path="matches" element={<AthleteMatchesPage />} />
+              <Route path="plans" element={<PlansPage />} />
               <Route path="regulation" element={<RegulationPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
             </Route>
@@ -98,6 +123,9 @@ function App() {
               <Route path="matches/new" element={<MatchFormPage />} />
               <Route path="matches/:id/edit" element={<MatchFormPage />} />
               <Route path="stars-system" element={<StarsSystemPage />} />
+              <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
+              <Route path="plans" element={<AdminPlansPage />} />
+              <Route path="finance" element={<FinanceDashboardPage />} />
               <Route path="regulation" element={<RegulationPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
             </Route>

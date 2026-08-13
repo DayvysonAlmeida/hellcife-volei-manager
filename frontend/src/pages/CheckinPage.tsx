@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, CalendarCheck, Loader2, Copy, Wallet, Search, Flame } from 'lucide-react';
+import { Check, CalendarCheck, Loader2, Copy, Wallet, Search, Flame, Zap, Crown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { PageLoading } from '@/components/ui/Loading';
@@ -65,6 +65,7 @@ export function CheckinPage() {
 
   const presentPlayers = filteredPlayers.filter((p: any) => p.present);
   const waitlistPlayers = filteredPlayers.filter((p: any) => !p.present && p.is_waitlist).sort((a: any, b: any) => {
+    if (a.is_priority !== b.is_priority) return a.is_priority ? -1 : 1;
     if (a.is_guest !== b.is_guest) return a.is_guest ? 1 : -1;
     if (a.waitlist_joined_at && b.waitlist_joined_at) {
       return new Date(a.waitlist_joined_at).getTime() - new Date(b.waitlist_joined_at).getTime();
@@ -241,8 +242,13 @@ export function CheckinPage() {
                           <span className="font-bold text-base text-red tracking-wide">
                             {player.name}
                           </span>
+                          {player.used_credit && (
+                            <span className="text-[10px] bg-red/10 text-red px-1.5 py-0.5 rounded uppercase font-bold mt-0.5 border border-red/20 flex items-center gap-1 w-fit">
+                              <Zap size={10} className="fill-red/20" /> Plano
+                            </span>
+                          )}
                           {player.is_guest && (
-                            <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5">
+                            <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5 w-fit">
                               Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
                             </span>
                           )}
@@ -278,8 +284,20 @@ export function CheckinPage() {
                           <span className="font-bold text-base text-yellow-500 tracking-wide">
                             {player.name}
                           </span>
+                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                            {player.is_priority && (
+                              <span className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase font-bold border border-amber-500/20 flex items-center gap-1">
+                                <Crown size={10} /> VIP
+                              </span>
+                            )}
+                            {player.used_credit && (
+                              <span className="text-[10px] bg-red/10 text-red px-1.5 py-0.5 rounded uppercase font-bold border border-red/20 flex items-center gap-1">
+                                <Zap size={10} className="fill-red/20" /> Plano
+                              </span>
+                            )}
+                          </div>
                           {player.is_guest && (
-                            <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5">
+                            <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5 w-fit">
                               Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
                             </span>
                           )}
@@ -318,8 +336,13 @@ export function CheckinPage() {
                             <span className={`font-medium text-base text-text-primary transition-colors ${activeTab === 'guests' ? 'group-hover:text-blue' : 'group-hover:text-red'}`}>
                               {player.name}
                             </span>
+                            {player.used_credit && (
+                              <span className="text-[10px] bg-red/10 text-red px-1.5 py-0.5 rounded uppercase font-bold mt-0.5 border border-red/20 flex items-center gap-1 w-fit">
+                                <Zap size={10} className="fill-red/20" /> Plano
+                              </span>
+                            )}
                             {player.is_guest && (
-                              <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5">
+                              <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5 w-fit">
                                 Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
                               </span>
                             )}

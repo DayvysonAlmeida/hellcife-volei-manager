@@ -88,6 +88,18 @@ class MatchViewSet(viewsets.ModelViewSet):
         from apps.core.utils.ranking_monitor import check_rank_changes
         check_rank_changes()
 
+        # Recalcular Elo de todos os jogadores da partida
+        from apps.players.elo_service import recalculate_elo
+        from apps.players.models import Player
+        all_player_ids = set()
+        for team_data in teams_data:
+            all_player_ids.update(team_data.get('player_ids', []))
+        for pid in all_player_ids:
+            try:
+                recalculate_elo(Player.objects.get(pk=pid))
+            except Player.DoesNotExist:
+                pass
+
         return Response({'detail': 'Resultado registrado com sucesso.'})
 
     @action(detail=False, methods=['post'], url_path='quick')
@@ -140,5 +152,26 @@ class MatchViewSet(viewsets.ModelViewSet):
 
         from apps.core.utils.ranking_monitor import check_rank_changes
         check_rank_changes()
+
+        # Verificar e premiar Badges Automáticos para todos os jogadores da partida
+        from apps.players.services import check_and_award_badges
+        from apps.players.models import Player
+        player_ids = set()
+        for t in teams_data:
+            player_ids.update(t.get('player_ids', []))
+        for pid in player_ids:
+            try:
+                p = Player.objects.get(id=pid)
+                check_and_award_badges(p)
+            except Player.DoesNotExist:
+                pass
+
+        # Recalcular Elo de todos os jogadores da partida
+        from apps.players.elo_service import recalculate_elo
+        for pid in player_ids:
+            try:
+                recalculate_elo(Player.objects.get(pk=pid))
+            except Player.DoesNotExist:
+                pass
 
         return Response(MatchSerializer(match).data, status=status.HTTP_201_CREATED)

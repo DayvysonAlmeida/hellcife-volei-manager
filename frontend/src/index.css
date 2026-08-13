@@ -5,24 +5,24 @@
 @tailwind utilities;
 
 :root {
-  --color-bg: 10 10 12;
-  --color-surface: 18 18 20;
-  --color-surface-highlight: 28 28 32;
+  --color-bg: 6 6 8;
+  --color-surface: 13 15 20;
+  --color-surface-highlight: 28 35 50;
   --color-primary: 217 4 41;
   --color-primary-hover: 239 35 60;
-  --color-secondary: 37 99 235;
-  --color-secondary-hover: 59 130 246;
-  --color-accent: 250 204 21;
-  --color-border: 39 39 42;
-  --color-border-subtle: 63 63 70;
+  --color-secondary: 28 78 158;
+  --color-secondary-hover: 45 105 200;
+  --color-accent: 201 168 76;
+  --color-border: 28 78 158; /* Azul cobalto sutil */
+  --color-border-subtle: 20 50 100;
   --color-text-primary: 244 244 245;
   --color-text-secondary: 161 161 170;
   --color-text-muted: 113 113 122;
   
   --shadow-neon-red: 0 0 20px rgba(217, 4, 41, 0.4), 0 0 40px rgba(217, 4, 41, 0.2);
-  --shadow-neon-blue: 0 0 20px rgba(37, 99, 235, 0.4), 0 0 40px rgba(37, 99, 235, 0.2);
+  --shadow-neon-blue: 0 0 20px rgba(28, 78, 158, 0.4), 0 0 40px rgba(28, 78, 158, 0.2);
   --shadow-neon-green: 0 0 20px rgba(22, 163, 74, 0.4), 0 0 40px rgba(22, 163, 74, 0.2);
-  --shadow-neon-yellow: 0 0 20px rgba(250, 204, 21, 0.4), 0 0 40px rgba(250, 204, 21, 0.2);
+  --shadow-neon-yellow: 0 0 20px rgba(201, 168, 76, 0.4), 0 0 40px rgba(201, 168, 76, 0.2);
   
   --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
   --shadow-card-hover: 0 8px 32px rgba(0, 0, 0, 0.6);
@@ -39,8 +39,8 @@
   --color-surface-highlight: 228 228 231;
   --color-primary: 217 4 41;
   --color-primary-hover: 239 35 60;
-  --color-secondary: 37 99 235;
-  --color-secondary-hover: 59 130 246;
+  --color-secondary: 28 78 158;
+  --color-secondary-hover: 45 105 200;
   --color-accent: 202 138 4;
   --color-border: 212 212 216;
   --color-border-subtle: 161 161 170;
@@ -49,7 +49,7 @@
   --color-text-muted: 82 82 91;
 
   --shadow-neon-red: 0 4px 15px rgba(217, 4, 41, 0.2);
-  --shadow-neon-blue: 0 4px 15px rgba(37, 99, 235, 0.2);
+  --shadow-neon-blue: 0 4px 15px rgba(28, 78, 158, 0.2);
   --shadow-neon-green: 0 4px 15px rgba(22, 163, 74, 0.2);
   --shadow-neon-yellow: 0 4px 15px rgba(202, 138, 4, 0.2);
   
@@ -106,7 +106,7 @@
     @apply rounded-xl relative overflow-hidden transition-all duration-300;
     background-color: rgba(var(--color-surface), var(--card-opacity));
     backdrop-filter: var(--card-blur);
-    border: 1px solid rgba(var(--color-border), 0.5);
+    border: 1px solid rgba(var(--color-border), 0.25);
     box-shadow: var(--shadow-card);
   }
   
@@ -207,8 +207,8 @@
   }
 
   .text-neon-blue {
-    color: #2563EB;
-    text-shadow: 0 0 20px rgba(37, 99, 235, 0.6);
+    color: #1C4E9E;
+    text-shadow: 0 0 20px rgba(28, 78, 158, 0.6);
   }
 
   /* Dividers */
@@ -228,10 +228,10 @@
 
 @layer utilities {
   .glass {
-    background: rgba(28, 28, 31, 0.8);
+    background: rgba(13, 15, 20, 0.8);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(63, 63, 70, 0.5);
+    border: 1px solid rgba(28, 78, 158, 0.25);
   }
 
   .border-neon-red {
@@ -240,8 +240,12 @@
   }
 
   .border-neon-blue {
-    border-color: rgba(37, 99, 235, 0.5);
-    box-shadow: inset 0 0 20px rgba(37, 99, 235, 0.1);
+    border-color: rgba(28, 78, 158, 0.5);
+    box-shadow: inset 0 0 20px rgba(28, 78, 158, 0.1);
+  }
+
+  .input-glass {
+    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all;
   }
 
   /* Animate delay utilities */

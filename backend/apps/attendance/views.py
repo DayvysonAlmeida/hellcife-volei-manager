@@ -36,7 +36,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         from rest_framework.permissions import AllowAny
-        if self.action in ['checkin_info', 'public_checkin']:
+        if self.action in ['checkin_info', 'public_checkin', 'cancel_checkin', 'claim_payment', 'public_add_guest']:
             return [AllowAny()]
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_attendance', 'initialize', 'add_guest', 'reorder_waitlist']:
             return [IsAdminOrModerator()]
@@ -50,6 +50,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         name = request.data.get('name')
         main_position = request.data.get('main_position')
         invited_by = request.data.get('invited_by')
+        gender = request.data.get('gender', 'M')
 
         if not name or not main_position:
             return Response({'detail': 'Nome e Posição são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -63,6 +64,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         guest_player = Player.objects.create(
             name=name,
             main_position=main_position,
+            gender=gender,
             is_guest=True,
             invited_by=invited_by,
             status='active'
@@ -289,6 +291,11 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if attendance.present:
             attendance.present = False
+            # Estorno de Crédito
+            from apps.subscriptions.services import SubscriptionService
+            SubscriptionService.refund_attendance(attendance.player, attendance)
+            attendance.used_credit = False
+            attendance.has_paid = False
             attendance.save()
         elif attendance.is_waitlist:
             attendance.is_waitlist = False
@@ -309,6 +316,22 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 attendance.present = True
                 attendance.is_waitlist = False
                 attendance.waitlist_joined_at = None
+                
+                # Uso de Crédito pelo Admin Toggle
+                if not attendance.used_credit:
+                    from apps.subscriptions.services import SubscriptionService
+                    from django.db import transaction
+                    try:
+                        with transaction.atomic():
+                            credit_cost, used_priority = SubscriptionService.process_attendance_checkin(attendance.player, gameday)
+                            attendance.credits_used = credit_cost
+                            attendance.used_priority = used_priority
+                            attendance.used_credit = True
+                            attendance.has_paid = True
+                    except ValueError:
+                        # Se admin forçar, não impede, mas não debita (pois não tem saldo)
+                        pass
+                        
                 attendance.save()
                 self._check_and_notify_full_circuit(gameday)
                 
@@ -363,6 +386,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'latest_overall': round(p.annotated_overall, 2) if getattr(p, 'annotated_overall', None) else 0.0,
                 'has_paid': att.has_paid if att else False,
                 'payment_claimed': att.payment_claimed if att else False,
+                'used_credit': att.used_credit if att else False,
+                'is_priority': att.is_priority if att else False,
                 'main_position': p.main_position,
                 'is_guest': p.is_guest,
                 'invited_by': p.invited_by,
@@ -401,6 +426,14 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if attendance.present:
             return Response({'detail': 'Você já confirmou sua presença! Para cancelar, fale com a organização.'}, status=status.HTTP_400_BAD_REQUEST)
             
+        from apps.subscriptions.services import SubscriptionService
+        from django.db import transaction
+        
+        # Verifica se pode acessar (janela de 24h etc)
+        can_access, uses_priority = SubscriptionService.check_priority_access(attendance.player, gameday)
+        if not can_access:
+            return Response({'detail': 'Lista na janela exclusiva de prioridade (24h) e você não possui prioridades disponíveis.'}, status=status.HTTP_400_BAD_REQUEST)
+            
         if attendance.player.is_guest:
             if not attendance.is_waitlist:
                 attendance.is_waitlist = True
@@ -417,18 +450,39 @@ class GameDayViewSet(viewsets.ModelViewSet):
             if not attendance.is_waitlist:
                 attendance.is_waitlist = True
                 attendance.waitlist_joined_at = timezone.now()
+                if uses_priority:
+                    # Se tiver prioridade, gasta apenas prioridade para furar fila, sem gastar crédito ainda
+                    cycle = SubscriptionService.get_current_cycle(attendance.player)
+                    if cycle and not cycle.subscription.plan.has_unlimited_priority:
+                        cycle.priorities_used += 1
+                        cycle.save()
+                    attendance.is_priority = True
+                    attendance.used_priority = True
                 attendance.save()
+            detail_msg = 'Lista cheia! Você entrou na Fila de Espera VIP (Fura-Fila).' if attendance.is_priority else 'Lista de presença cheia! Você foi adicionado à Fila de Espera.'
             return Response({
                 'present': False, 
                 'is_waitlist': True, 
                 'player_id': player_id,
-                'detail': 'Lista de presença cheia! Você foi adicionado à Fila de Espera.'
+                'detail': detail_msg
             })
                 
-        attendance.present = True
-        attendance.is_waitlist = False
-        attendance.waitlist_joined_at = None
-        attendance.save()
+        # Debita créditos e salva presença confirmada
+        try:
+            with transaction.atomic():
+                credit_cost, used_priority = SubscriptionService.process_attendance_checkin(attendance.player, gameday)
+                attendance.credits_used = credit_cost
+                attendance.used_priority = used_priority
+                attendance.used_credit = True
+                attendance.has_paid = True
+                
+                attendance.present = True
+                attendance.is_waitlist = False
+                attendance.waitlist_joined_at = None
+                attendance.save()
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         self._check_and_notify_full_circuit(gameday)
         
         return Response({'present': attendance.present, 'is_waitlist': attendance.is_waitlist, 'player_id': player_id})
@@ -453,9 +507,71 @@ class GameDayViewSet(viewsets.ModelViewSet):
         attendance.present = False
         attendance.is_waitlist = False
         attendance.waitlist_joined_at = None
+        
+        # Estorno de Crédito e Prioridade
+        from apps.subscriptions.services import SubscriptionService
+        SubscriptionService.refund_attendance(attendance.player, attendance)
+        attendance.used_credit = False
+        attendance.has_paid = False
+        attendance.is_priority = False
         attendance.save()
         
         return Response({'detail': 'Sua inscrição foi cancelada com sucesso.', 'player_id': player_id})
+
+    @action(detail=True, methods=['post'], url_path='public-add-guest')
+    def public_add_guest(self, request, pk=None):
+        """Endpoint público para atleta adicionar convidado."""
+        from django.utils import timezone
+        gameday = self.get_object()
+        player_id = request.data.get('player_id')
+        name = request.data.get('name')
+        main_position = request.data.get('main_position', 'Outro')
+        use_free_guest = request.data.get('use_free_guest', False)
+        
+        if not player_id or not name:
+            return Response({'detail': 'Jogador e Nome do convidado são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        inviting_player = Player.objects.filter(id=player_id).first()
+        if not inviting_player:
+            return Response({'detail': 'Jogador não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+            
+        existing_guest = Player.objects.filter(name=name, is_guest=True, attendances__gameday=gameday).first()
+        if existing_guest:
+            return Response({'detail': 'Um convidado com esse nome já está na lista deste dia.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Tratar uso da Cota Grátis
+        from apps.subscriptions.models import SubscriptionCycle
+        cycle = SubscriptionCycle.objects.filter(subscription__player_id=player_id, is_active=True).first()
+        
+        if use_free_guest:
+            if not cycle:
+                return Response({'detail': 'Nenhuma assinatura ativa encontrada.'}, status=status.HTTP_400_BAD_REQUEST)
+            if cycle.free_guests_used >= cycle.subscription.plan.free_guests:
+                return Response({'detail': 'Você já usou toda a sua cota de convidados grátis neste ciclo.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            cycle.free_guests_used += 1
+            cycle.save()
+
+        guest_player = Player.objects.create(
+            name=f"{name} (Conv. de {inviting_player.name.split()[0]})",
+            main_position=main_position,
+            is_guest=True,
+            invited_by=inviting_player.name,
+            status='active'
+        )
+
+        Attendance.objects.create(
+            gameday=gameday,
+            player=guest_player,
+            present=False,
+            is_waitlist=True,
+            waitlist_joined_at=timezone.now(),
+            has_paid=use_free_guest,
+            used_credit=use_free_guest
+        )
+        
+        detail_msg = 'Convidado adicionado à fila de espera gratuitamente!' if use_free_guest else 'Convidado adicionado à fila de espera com sucesso!'
+        return Response({'detail': detail_msg})
 
     @action(detail=True, methods=['post'], url_path='promote-waitlist')
     def promote_waitlist(self, request, pk=None):
@@ -465,7 +581,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if gameday.max_players and gameday.total_present >= gameday.max_players:
             return Response({'detail': 'A lista principal está lotada! Alguém precisa sair ou o limite de jogadores aumentar para poder promover da fila.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        next_player_att = gameday.attendances.filter(is_waitlist=True).select_related('player').order_by('player__is_guest', 'waitlist_joined_at').first()
+        # Promover priorizando is_priority=True, depois membro normal (is_guest=False), depois ordem de chegada
+        next_player_att = gameday.attendances.filter(is_waitlist=True).select_related('player').order_by('-is_priority', 'player__is_guest', 'waitlist_joined_at').first()
         
         if not next_player_att:
             return Response({'detail': 'A fila de espera está vazia.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -554,10 +671,14 @@ def sync_absences_logic():
         gamedays_by_date[g.date].append(g)
         
     for date, gamedays in gamedays_by_date.items():
-        # Um dia só "encerrou" se TODOS os circuitos do dia estão encerrados ou a data já passou
-        # Mas para ser justo, se a data já passou, consideramos finalizado.
-        # Se for hoje, só consideramos circuitos que já foram fechados. Se não tem nenhum fechado, não conta falta.
-        finished_gamedays = [g for g in gamedays if g.is_closed or g.date < today]
+        # Um dia só "encerrou" se a data passou ou foi fechado.
+        # REGRA NOVA: Só consideramos Circuitos que foram PUBLICADOS e tiveram pelo menos 1 pessoa na quadra
+        # Se não teve ninguém na quadra (court_checkins vazio) ou não foi publicado, o evento não ocorreu de fato.
+        finished_gamedays = [
+            g for g in gamedays 
+            if (g.is_closed or g.date < today) and g.is_published and len(g.court_checkins.all()) > 0
+        ]
+        
         if not finished_gamedays:
             continue
             

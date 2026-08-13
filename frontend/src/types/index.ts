@@ -21,6 +21,23 @@ export interface LoginResponse {
 }
 
 // ==================== Player ====================
+export interface Badge {
+  id: number;
+  name: string;
+  description: string;
+  icon: string;
+  color_hex: string;
+  tier: 'bronze' | 'silver' | 'gold' | 'diamond';
+  condition_type: string;
+  condition_value: number;
+  created_at: string;
+}
+
+export interface PlayerBadge {
+  id: number;
+  badge: Badge;
+  awarded_at: string;
+}
 export type Position = 'libero' | 'setter' | 'opposite' | 'outside' | 'middle' | 'universal';
 export type DominantHand = 'right' | 'left' | 'both';
 export type Gender = 'M' | 'F';
@@ -92,6 +109,30 @@ export interface Player {
   is_guest: boolean;
   invited_by?: string;
   consecutive_absences: number;
+  badges?: PlayerBadge[];
+  elo: number;
+  elo_tier: 'rookie' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite';
+  elo_tier_data?: {
+    tier: {
+      name: string;
+      key: string;
+      min: number;
+      max: number | null;
+      color: string;
+      text_color: string;
+      icon: string;
+      gradient: string;
+    };
+    next_tier: {
+      name: string;
+      key: string;
+      min: number;
+      color: string;
+      icon: string;
+    } | null;
+    percent: number;
+    points_to_next: number | null;
+  };
   stats?: {
     matches: number;
     win_rate: number;
@@ -215,6 +256,7 @@ export interface GameDay {
   time?: string;
   time_end?: string;
   court_price?: number;
+  credit_cost?: number | string;
   description?: string;
   location?: string;
   max_players?: number;
@@ -236,6 +278,8 @@ export interface Attendance {
   gameday: number;
   player: number;
   player_name: string;
+  credits_used?: number | string;
+  used_priority?: boolean;
   player_avatar?: string;
   player_position: Position;
   player_shirt?: number;

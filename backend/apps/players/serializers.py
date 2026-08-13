@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Player
+from .models import Player, Badge, PlayerBadge
+from .elo_service import get_elo_tier, get_elo_progress
 
 
 class PlayerListSerializer(serializers.ModelSerializer):
@@ -9,6 +10,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     avatar_url = serializers.SerializerMethodField()
     stats = serializers.SerializerMethodField()
+    elo_tier_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -19,7 +21,8 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'is_guest', 'invited_by', 'consecutive_absences', 'stats',
-            'gender'
+            'gender',
+            'elo', 'elo_tier', 'elo_tier_data',
         ]
 
     def get_latest_overall(self, obj):
@@ -44,6 +47,9 @@ class PlayerListSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
         return None
+
+    def get_elo_tier_data(self, obj):
+        return get_elo_progress(obj.elo)
 
     def get_stats(self, obj):
         if hasattr(obj, 'total_matches'):
@@ -78,6 +84,20 @@ class PlayerListSerializer(serializers.ModelSerializer):
         return None
 
 
+class BadgeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Badge
+        fields = '__all__'
+
+
+class PlayerBadgeSerializer(serializers.ModelSerializer):
+    badge = BadgeSerializer(read_only=True)
+
+    class Meta:
+        model = PlayerBadge
+        fields = ['id', 'badge', 'awarded_at']
+
+
 class PlayerDetailSerializer(serializers.ModelSerializer):
     latest_overall = serializers.SerializerMethodField()
     display_name = serializers.ReadOnlyField()
@@ -87,6 +107,8 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
     gender_display = serializers.CharField(source='get_gender_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     avatar_url = serializers.SerializerMethodField()
+    badges = PlayerBadgeSerializer(many=True, read_only=True)
+    elo_tier_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -104,7 +126,8 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'updated_at',
-            'is_guest', 'invited_by', 'consecutive_absences'
+            'is_guest', 'invited_by', 'consecutive_absences', 'badges',
+            'elo', 'elo_tier', 'elo_tier_data',
         ]
 
     def get_latest_overall(self, obj):
@@ -125,6 +148,9 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
         return None
+
+    def get_elo_tier_data(self, obj):
+        return get_elo_progress(obj.elo)
 
 
 class PlayerWriteSerializer(serializers.ModelSerializer):

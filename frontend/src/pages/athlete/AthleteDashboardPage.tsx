@@ -6,7 +6,7 @@ import { Trophy, Flame, Star, ChevronRight, TrendingUp, Medal, History, Crown, A
 import { useAuth } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading } from '@/components/ui/Loading';
-import { ShareAchievementModal, type ShareModalProps } from '@/components/ui/ShareAchievementModal';
+import { ShareAchievementModal, type ShareModalProps } from '@/components/athlete/share/ShareAchievementModal';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -156,8 +156,53 @@ export function AthleteDashboardPage() {
               <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-500 tracking-wider truncate drop-shadow-[0_2px_20px_rgba(255,255,255,0.3)] pb-2">
                 {(player?.display_name || user?.name || '').toUpperCase()}
               </h1>
-              
+
+              {/* ── Badge de Elo ── */}
+              {player && (() => {
+                const tierMeta: Record<string, { icon: string; name: string; color: string; glow: string; pulse: boolean }> = {
+                  rookie:  { icon: '🪨', name: 'Iniciante', color: '#9CA3AF', glow: 'rgba(156,163,175,0.4)', pulse: false },
+                  bronze:  { icon: '🥉', name: 'Bronze',    color: '#CD7C2F', glow: 'rgba(205,124,47,0.5)',  pulse: false },
+                  silver:  { icon: '🥈', name: 'Prata',     color: '#CBD5E1', glow: 'rgba(203,213,225,0.5)', pulse: false },
+                  gold:    { icon: '🥇', name: 'Ouro',      color: '#FDE68A', glow: 'rgba(253,230,138,0.6)', pulse: false },
+                  diamond: { icon: '💎', name: 'Diamante',  color: '#67E8F9', glow: 'rgba(103,232,249,0.7)', pulse: true  },
+                  elite:   { icon: '🔥', name: 'Elite',     color: '#E879F9', glow: 'rgba(232,121,249,0.8)', pulse: true  },
+                };
+                const tier = tierMeta[player.elo_tier ?? 'silver'] ?? tierMeta.silver;
+                return (
+                  <div className="flex items-center justify-center sm:justify-start mt-2 mb-1">
+                    <div
+                      className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border backdrop-blur-md"
+                      style={{
+                        borderColor: `${tier.color}60`,
+                        background: `${tier.glow.replace('rgba', 'rgba').replace(/[\d.]+\)$/, '0.12)')}`,
+                        boxShadow: `0 0 18px ${tier.glow}, inset 0 0 12px ${tier.glow.replace(/[\d.]+\)$/, '0.08)')}`,
+                      }}
+                    >
+                      <span className={`text-lg leading-none ${tier.pulse ? 'animate-pulse' : ''}`}>
+                        {tier.icon}
+                      </span>
+                      <span
+                        className="font-display text-sm sm:text-base font-black uppercase tracking-[0.2em] leading-none"
+                        style={{
+                          color: tier.color,
+                          textShadow: `0 0 12px ${tier.color}`,
+                        }}
+                      >
+                        {tier.name}
+                      </span>
+                      <span
+                        className="text-[10px] font-bold opacity-70 leading-none"
+                        style={{ color: tier.color }}
+                      >
+                        {Math.round(player.elo ?? 500)} pts
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {player?.shirt_number && (
+
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-4">
                   <div className="bg-red/20 border border-red/40 px-5 py-2 rounded-xl flex items-center gap-2 backdrop-blur-md shadow-[0_0_15px_rgba(220,38,38,0.3)]">
                     <span className="text-red-100 text-[10px] sm:text-xs uppercase tracking-widest font-medium">Camisa</span>
