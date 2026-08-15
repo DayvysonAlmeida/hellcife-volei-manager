@@ -11,14 +11,15 @@ export function DreamTeam({ dreamTeam }: { dreamTeam: any[] }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
-      className="card p-6 bg-gradient-to-br from-surface to-[#0a0505] border border-red-900/30 shadow-[0_0_20px_rgba(220,38,38,0.05)]"
+      className="relative bg-surface/30 backdrop-blur-md border border-red-900/30 rounded-2xl p-6 overflow-hidden group hover:border-red-900/50 transition-all hover:shadow-[0_0_30px_rgba(220,38,38,0.05)]"
     >
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-xl bg-red-500/10 text-red-500 border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]">
-          <Star size={24} className="fill-red-500/20" />
+      <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-[50px] rounded-full pointer-events-none -z-10 group-hover:bg-red-500/10 transition-all" />
+      <div className="flex items-center gap-3 mb-6 relative z-10">
+        <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
+          <Star size={20} className="text-red-400 fill-red-400/20" />
         </div>
         <div>
-          <h2 className="font-display text-xl text-red-400 tracking-wider">DREAM TEAM HELLCIFE</h2>
+          <h2 className="font-display text-xl text-text-primary tracking-wider">DREAM TEAM HELLCIFE</h2>
           <p className="text-sm text-text-muted">A formação ideal baseada no aproveitamento Fire Shark de cada posição.</p>
         </div>
       </div>

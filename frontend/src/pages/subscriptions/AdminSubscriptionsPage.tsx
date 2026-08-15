@@ -224,95 +224,181 @@ export const AdminSubscriptionsPage = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-background/80 text-text-secondary text-xs uppercase tracking-widest">
-                <tr>
-                  <th className="px-6 py-5 font-bold">Atleta</th>
-                  <th className="px-6 py-5 font-bold">Plano</th>
-                  <th className="px-6 py-5 font-bold">Status</th>
-                  <th className="px-6 py-5 font-bold">Próxima Fatura</th>
-                  <th className="px-6 py-5 font-bold text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {isLoading ? (
+          <div className="w-full">
+            {/* --- VERSÃO DESKTOP (Tabela) --- */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-background/80 text-text-secondary text-xs uppercase tracking-widest">
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
-                      <div className="w-8 h-8 border-4 border-red border-t-transparent rounded-full animate-spin mx-auto" />
-                    </td>
+                    <th className="px-6 py-5 font-bold">Atleta</th>
+                    <th className="px-6 py-5 font-bold">Plano</th>
+                    <th className="px-6 py-5 font-bold">Status</th>
+                    <th className="px-6 py-5 font-bold">Próxima Fatura</th>
+                    <th className="px-6 py-5 font-bold text-right">Ações</th>
                   </tr>
-                ) : subs?.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
-                      <ShieldAlert size={48} className="text-text-muted mx-auto mb-4 opacity-50" />
-                      <p className="text-text-secondary text-lg font-bold uppercase">Nenhuma Assinatura Encontrada</p>
-                    </td>
-                  </tr>
-                ) : (
-                  subs?.map((sub: any) => (
-                    <tr key={sub.id} className="hover:bg-surface-highlight/50 transition-colors group">
-                      <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-background border border-border/50 flex items-center justify-center font-black text-text-muted">
-                            {(sub.player_name || 'A')[0]}
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center">
+                        <div className="w-8 h-8 border-4 border-red border-t-transparent rounded-full animate-spin mx-auto" />
+                      </td>
+                    </tr>
+                  ) : subs?.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center">
+                        <ShieldAlert size={48} className="text-text-muted mx-auto mb-4 opacity-50" />
+                        <p className="text-text-secondary text-lg font-bold uppercase">Nenhuma Assinatura Encontrada</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    subs?.map((sub: any) => (
+                      <tr key={sub.id} className="hover:bg-surface-highlight/50 transition-colors group">
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-background border border-border/50 flex items-center justify-center font-black text-text-muted">
+                              {(sub.player_name || 'A')[0]}
+                            </div>
+                            <span className="font-bold text-white uppercase">{sub.player_name || `Atleta #${sub.player}`}</span>
                           </div>
-                          <span className="font-bold text-white uppercase">{sub.player_name || `Atleta #${sub.player}`}</span>
+                        </td>
+                        <td className="px-6 py-5">
+                          <span className="bg-surface px-3 py-1.5 rounded-lg text-sm font-bold text-text-primary border border-border/50">
+                            {sub.plan?.name || `Plano ID ${sub.plan}`}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5">
+                          {sub.status === 'active' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Ativo
+                            </span>
+                          )}
+                          {sub.status === 'PENDING_PAYMENT' && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black rounded-md bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase tracking-wider">
+                              Pendente
+                            </span>
+                          )}
+                          {(sub.status === 'canceled' || sub.status === 'past_due') && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black rounded-md bg-red/10 text-red border border-red/20 uppercase tracking-wider">
+                              {sub.status === 'canceled' ? 'Cancelado' : 'Atrasado'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-5 text-sm font-mono text-text-secondary">
+                          {sub.next_billing_date ? new Date(sub.next_billing_date).toLocaleDateString('pt-BR') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-5 text-right">
+                          <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => handleEdit(sub.id)}
+                              className="p-2 bg-surface hover:bg-blue-500/20 text-text-muted hover:text-blue-400 rounded-lg border border-border/50 hover:border-blue-500/30 transition-all"
+                              title="Editar Assinatura"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleCancel(sub.id)}
+                              disabled={processingId === sub.id}
+                              className="p-2 bg-surface hover:bg-red/20 text-text-muted hover:text-red rounded-lg border border-border/50 hover:border-red/30 transition-all disabled:opacity-50"
+                              title="Cancelar Assinatura"
+                            >
+                              {processingId === sub.id ? (
+                                <div className="w-4 h-4 border-2 border-red border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Trash2 size={16} />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* --- VERSÃO MOBILE (Cards) --- */}
+            <div className="md:hidden flex flex-col divide-y divide-border/50">
+              {isLoading ? (
+                <div className="py-12 flex justify-center">
+                  <div className="w-8 h-8 border-4 border-red border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : subs?.length === 0 ? (
+                <div className="py-12 text-center px-4">
+                  <ShieldAlert size={40} className="text-text-muted mx-auto mb-3 opacity-50" />
+                  <p className="text-text-secondary text-sm font-bold uppercase">Nenhuma Assinatura Encontrada</p>
+                </div>
+              ) : (
+                subs?.map((sub: any) => (
+                  <div key={sub.id} className="p-4 flex flex-col gap-4 bg-surface/20 hover:bg-surface-highlight/30 transition-colors">
+                    {/* Header: Nome e Status */}
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-background border border-border/50 flex items-center justify-center font-black text-text-muted flex-shrink-0">
+                          {(sub.player_name || 'A')[0]}
                         </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <span className="bg-surface px-3 py-1.5 rounded-lg text-sm font-bold text-text-primary border border-border/50">
-                          {sub.plan?.name || `Plano ID ${sub.plan}`}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5">
+                        <span className="font-bold text-white uppercase text-sm">{sub.player_name || `Atleta #${sub.player}`}</span>
+                      </div>
+                      
+                      <div className="flex-shrink-0">
                         {sub.status === 'active' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-black rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Ativo
                           </span>
                         )}
                         {sub.status === 'PENDING_PAYMENT' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black rounded-md bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-black rounded-md bg-orange-500/10 text-orange-400 border border-orange-500/20 uppercase tracking-wider">
                             Pendente
                           </span>
                         )}
                         {(sub.status === 'canceled' || sub.status === 'past_due') && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-black rounded-md bg-red/10 text-red border border-red/20 uppercase tracking-wider">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-black rounded-md bg-red/10 text-red border border-red/20 uppercase tracking-wider">
                             {sub.status === 'canceled' ? 'Cancelado' : 'Atrasado'}
                           </span>
                         )}
-                      </td>
-                      <td className="px-6 py-5 text-sm font-mono text-text-secondary">
-                        {sub.next_billing_date ? new Date(sub.next_billing_date).toLocaleDateString('pt-BR') : 'N/A'}
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => handleEdit(sub.id)}
-                            className="p-2 bg-surface hover:bg-blue-500/20 text-text-muted hover:text-blue-400 rounded-lg border border-border/50 hover:border-blue-500/30 transition-all"
-                            title="Editar Assinatura"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleCancel(sub.id)}
-                            disabled={processingId === sub.id}
-                            className="p-2 bg-surface hover:bg-red/20 text-text-muted hover:text-red rounded-lg border border-border/50 hover:border-red/30 transition-all disabled:opacity-50"
-                            title="Cancelar Assinatura"
-                          >
-                            {processingId === sub.id ? (
-                              <div className="w-4 h-4 border-2 border-red border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <Trash2 size={16} />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+
+                    {/* Detalhes: Plano e Fatura */}
+                    <div className="grid grid-cols-2 gap-4 bg-background/50 p-3 rounded-xl border border-border/50">
+                      <div>
+                        <p className="text-[9px] text-text-muted uppercase font-bold tracking-widest mb-1">Plano</p>
+                        <span className="bg-surface px-2 py-1 rounded text-xs font-bold text-text-primary border border-border/50">
+                          {sub.plan?.name || `Plano ID ${sub.plan}`}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] text-text-muted uppercase font-bold tracking-widest mb-1">Próxima Fatura</p>
+                        <span className="text-xs font-mono text-text-secondary">
+                          {sub.next_billing_date ? new Date(sub.next_billing_date).toLocaleDateString('pt-BR') : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Ações */}
+                    <div className="flex justify-end gap-2 pt-2 border-t border-border/30">
+                      <button
+                        onClick={() => handleEdit(sub.id)}
+                        className="btn-secondary py-1.5 px-4 text-xs h-auto"
+                      >
+                        <Edit size={14} className="mr-1.5 inline" /> Editar
+                      </button>
+                      <button
+                        onClick={() => handleCancel(sub.id)}
+                        disabled={processingId === sub.id}
+                        className="btn-secondary py-1.5 px-4 text-xs h-auto border-red/30 text-red hover:bg-red/10"
+                      >
+                        {processingId === sub.id ? (
+                          <div className="w-3.5 h-3.5 border-2 border-red border-t-transparent rounded-full animate-spin inline-block align-middle" />
+                        ) : (
+                          <><Trash2 size={14} className="mr-1.5 inline" /> Cancelar</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

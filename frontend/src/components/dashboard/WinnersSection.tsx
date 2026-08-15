@@ -26,11 +26,14 @@ export function WinnersSection({ winners }: { winners: any[] }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.6 }}
-      className="card p-6"
+      className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-6 overflow-hidden group hover:border-white/10 transition-all hover:shadow-[0_0_30px_rgba(255,255,255,0.03)]"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-        <h2 className="font-display text-xl text-text-primary tracking-wider flex items-center gap-2">
-          <Award size={20} className="text-red" />
+      <div className="absolute top-0 right-0 w-32 h-32 bg-red/5 blur-[50px] rounded-full pointer-events-none -z-10 group-hover:bg-red/10 transition-all" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10">
+        <h2 className="font-display text-xl text-text-primary tracking-wider flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-red/10 flex items-center justify-center border border-red/20 shadow-[0_0_15px_rgba(217,4,41,0.2)]">
+            <Award size={20} className="text-red" />
+          </div>
           MAIORES VENCEDORES
         </h2>
         {/* Filtros de posição */}

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Trophy, Medal, Star, Swords, Zap, Shield, Activity, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Trophy, Medal, Star, Swords, Zap, Shield, Activity, TrendingUp, Info } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -34,6 +35,7 @@ const PlayerStats = ({ stats }: { stats: any }) => {
 
 export function LeaderboardPage() {
   const [positionFilter, setPositionFilter] = useState<Position | ''>('');
+  const navigate = useNavigate();
 
   const { data: players, isLoading, error, refetch } = useQuery({
     queryKey: ['players-ranking', positionFilter],
@@ -53,12 +55,21 @@ export function LeaderboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="page-title flex items-center gap-3">
-          <Trophy className="text-yellow-500" size={32} />
-          LEADERBOARD
-        </h1>
-        <p className="page-subtitle">Ranking oficial dos atletas por pontuação de Overall.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="page-title flex items-center gap-3">
+            <Trophy className="text-yellow-500" size={32} />
+            LEADERBOARD
+          </h1>
+          <p className="page-subtitle">Ranking oficial dos atletas por pontuação de Overall.</p>
+        </div>
+        <button
+          onClick={() => navigate('/elo-system')}
+          className="flex items-center gap-2 bg-[#0a0a0a] border border-[#2a2a2a] hover:border-red hover:text-red transition-all px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest text-white/50 w-fit"
+        >
+          <Info size={16} />
+          Como funciona o Elo?
+        </button>
       </div>
 
       {/* Filtros */}
@@ -87,8 +98,9 @@ export function LeaderboardPage() {
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="card !overflow-visible p-6 pt-8 text-center border-zinc-400/50 shadow-[0_0_20px_rgba(161,161,170,0.1)] relative mt-8 md:mt-0 flex flex-col h-full"
+              className="relative bg-surface/30 backdrop-blur-md border border-zinc-400/20 rounded-2xl p-6 pt-8 text-center shadow-[0_0_20px_rgba(161,161,170,0.05)] overflow-visible flex flex-col h-full mt-8 md:mt-0 group hover:border-zinc-400/40 transition-all"
             >
+              <div className="absolute inset-0 bg-zinc-400/5 blur-[50px] rounded-full pointer-events-none -z-10 group-hover:bg-zinc-400/10 transition-all" />
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-zinc-400 rounded-full flex items-center justify-center border-4 border-background shadow-lg z-10">
                 <span className="text-background font-display font-bold text-xl">2</span>
               </div>
@@ -112,8 +124,9 @@ export function LeaderboardPage() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="card !overflow-visible p-6 pt-10 text-center border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.2)] relative z-10 md:-translate-y-8 flex flex-col h-full"
+            className="relative bg-surface/30 backdrop-blur-md border border-yellow-500/30 rounded-2xl p-6 pt-10 text-center shadow-[0_0_30px_rgba(234,179,8,0.1)] overflow-visible z-10 md:-translate-y-8 flex flex-col h-full group hover:border-yellow-500/50 hover:shadow-[0_0_40px_rgba(234,179,8,0.2)] transition-all"
           >
+            <div className="absolute inset-0 bg-yellow-500/10 blur-[60px] rounded-full pointer-events-none -z-10 group-hover:bg-yellow-500/20 transition-all" />
             <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center border-4 border-background shadow-lg z-10">
               <Trophy className="text-background" size={24} fill="currentColor" />
             </div>
@@ -137,8 +150,9 @@ export function LeaderboardPage() {
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="card !overflow-visible p-6 pt-8 text-center border-orange-700/50 shadow-[0_0_20px_rgba(194,65,12,0.1)] relative mt-8 md:mt-0 flex flex-col h-full"
+              className="relative bg-surface/30 backdrop-blur-md border border-orange-700/20 rounded-2xl p-6 pt-8 text-center shadow-[0_0_20px_rgba(194,65,12,0.05)] overflow-visible flex flex-col h-full mt-8 md:mt-0 group hover:border-orange-700/40 transition-all"
             >
+              <div className="absolute inset-0 bg-orange-700/5 blur-[50px] rounded-full pointer-events-none -z-10 group-hover:bg-orange-700/10 transition-all" />
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-orange-700 rounded-full flex items-center justify-center border-4 border-background shadow-lg z-10">
                 <span className="text-background font-display font-bold text-xl">3</span>
               </div>
@@ -161,7 +175,7 @@ export function LeaderboardPage() {
 
       {/* Restante da Lista (Oficiais) */}
       {rest.length > 0 && (
-        <div className="card p-4 space-y-2">
+        <div className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-lg space-y-2">
           {rest.map((player: any, idx: number) => (
             <motion.div
               key={player.id}
@@ -196,7 +210,7 @@ export function LeaderboardPage() {
 
       {/* Convidados (Lista Colapsável) */}
       {guestPlayers.length > 0 && (
-        <details className="card group overflow-hidden border border-border/50 bg-black/20 open:bg-black/40 transition-colors">
+        <details className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl group overflow-hidden transition-colors hover:border-white/10 shadow-lg">
           <summary className="cursor-pointer list-none p-4 font-display font-bold text-sm text-text-muted hover:text-white uppercase tracking-wider flex items-center justify-between">
             <span className="flex items-center gap-2">
               <Zap size={16} className="text-yellow-500" />

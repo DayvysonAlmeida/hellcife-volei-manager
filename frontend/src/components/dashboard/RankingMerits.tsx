@@ -10,7 +10,7 @@ export function RankingMerits({ topStars }: { topStars: any[] }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="card p-6 border-yellow-500/20"
+        className="relative bg-surface/30 backdrop-blur-md border border-yellow-500/10 rounded-2xl p-6 overflow-hidden group hover:border-yellow-500/20 transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.05)]"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
           <div className="flex items-center gap-3">

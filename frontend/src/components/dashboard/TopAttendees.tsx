@@ -9,10 +9,15 @@ export function TopAttendees({ attendees }: { attendees: any[] }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="card p-5"
+          className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-6 overflow-hidden group hover:border-white/10 transition-all hover:shadow-[0_0_30px_rgba(255,255,255,0.03)]"
         >
-          <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-4 flex items-center gap-2">
-            <Zap size={14} className="text-yellow-500" /> Os 5 Mais Assíduos
+          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 blur-[50px] rounded-full pointer-events-none -z-10 group-hover:bg-yellow-500/10 transition-all" />
+          
+          <h3 className="font-display text-lg text-text-primary tracking-wider mb-6 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20">
+              <Zap size={16} className="text-yellow-500" />
+            </div>
+            MAIS ASSÍDUOS
           </h3>
           <div className="flex flex-col gap-2">
             {attendees?.length > 0 ? attendees.map((att, i) => (

@@ -9,12 +9,15 @@ export function HallOfFame({ hallOfFame }: { hallOfFame: any[] }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.55 }}
-        className="card p-6 border-yellow-500/30"
+        className="relative bg-surface/30 backdrop-blur-md border border-yellow-500/10 rounded-2xl p-6 overflow-hidden group hover:border-yellow-500/20 transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.05)]"
       >
-        <div className="flex items-center gap-3 mb-6">
-          <Award size={28} className="text-yellow-500" />
+        <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 blur-[50px] rounded-full pointer-events-none -z-10 group-hover:bg-yellow-500/10 transition-all" />
+        <div className="flex items-center gap-3 mb-6 relative z-10">
+          <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+            <Award size={20} className="text-yellow-500" />
+          </div>
           <div>
-            <h2 className="font-display text-2xl text-yellow-500 tracking-wider">HALL DA FAMA</h2>
+            <h2 className="font-display text-xl text-text-primary tracking-wider">HALL DA FAMA</h2>
             <p className="text-sm text-text-muted">Premiações oficiais e históricas do time</p>
           </div>
         </div>

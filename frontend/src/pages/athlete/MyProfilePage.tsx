@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Trophy, CalendarCheck, Swords, Flame, TrendingUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Trophy, CalendarCheck, Swords, Flame, TrendingUp, Info } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { PageLoading } from '@/components/ui/Loading';
 import { PlayerCard } from '@/components/players/PlayerCard';
@@ -12,6 +13,7 @@ import { SKILL_LABELS } from '@/types';
 
 
 export function MyProfilePage() {
+  const navigate = useNavigate();
   const { data: player, isLoading } = useQuery({
     queryKey: ['athlete-me'],
     queryFn: () => api.get('/players/me/').then(r => r.data),
@@ -138,7 +140,8 @@ export function MyProfilePage() {
           silver:  { glow: '0 0 20px rgba(148,163,184,0.3)',   border: 'border-slate-400/50', barFrom: '#64748B', barTo: '#94A3B8', badge: '🥈' },
           gold:    { glow: '0 0 25px rgba(234,179,8,0.35)',    border: 'border-yellow-500/50',barFrom: '#B45309', barTo: '#EAB308', badge: '🥇' },
           diamond: { glow: '0 0 28px rgba(6,182,212,0.4)',     border: 'border-cyan-400/50',  barFrom: '#0E7490', barTo: '#06B6D4', badge: '💎' },
-          elite:   { glow: '0 0 30px rgba(147,51,234,0.45)',   border: 'border-purple-500/50',barFrom: '#7C3AED', barTo: '#EC4899', badge: '🔥' },
+          elite:   { glow: '0 0 30px rgba(147,51,234,0.45)',   border: 'border-purple-500/50',barFrom: '#7C3AED', barTo: '#EC4899', badge: '🔮' },
+          challenger: { glow: '0 0 35px rgba(220,38,38,0.5)',  border: 'border-red/60',       barFrom: '#991B1B', barTo: '#DC2626', badge: '👑' },
         };
         const tc = tierColors[player.elo_tier ?? 'silver'] ?? tierColors.silver;
         const percent = tierData?.percent ?? 0;
@@ -159,7 +162,16 @@ export function MyProfilePage() {
             
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-display text-sm text-text-muted uppercase tracking-[0.2em]">Rating Elo</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-display text-sm text-text-muted uppercase tracking-[0.2em]">Rating Elo</h2>
+                <button
+                  onClick={() => navigate('/athlete/elo-system')}
+                  className="w-5 h-5 rounded-full bg-surface/50 border border-border flex items-center justify-center text-text-muted hover:text-white hover:border-white/20 transition-all group-hover:scale-110"
+                  title="Entenda como funciona o Elo"
+                >
+                  <Info size={12} />
+                </button>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-xl">{tc.badge}</span>
                 <span className="font-display text-2xl font-black text-text-primary">{eloValue}</span>

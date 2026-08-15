@@ -11,11 +11,13 @@ export function OsCoroados({ newStars }: { newStars: any[] }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45 }}
-        className="card p-6 border-yellow-500/30 overflow-hidden relative"
+        className="relative bg-surface/30 backdrop-blur-md border border-yellow-500/10 rounded-2xl p-6 overflow-hidden group hover:border-yellow-500/20 transition-all hover:shadow-[0_0_30px_rgba(234,179,8,0.05)]"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-transparent pointer-events-none" />
-        <h2 className="font-display text-xl text-yellow-500 tracking-wider mb-6 flex items-center gap-2">
-          <Crown size={20} className="text-yellow-500" />
+        <h2 className="font-display text-xl text-text-primary tracking-wider mb-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+            <Crown size={20} className="text-yellow-500" />
+          </div>
           OS COROADOS (ÚLTIMOS DESTAQUES)
         </h2>
         

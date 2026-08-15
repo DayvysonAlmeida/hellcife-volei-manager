@@ -74,16 +74,35 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
     elite:   {
       colors: ['#E879F9', '#7C3AED', '#F0ABFC', '#9333EA', '#E879F9'],
       glow: 'drop-shadow(0 0 16px rgba(147,51,234,1))',
-      icon: '🔥',
+      icon: '🔮',
       name: 'Elite',
       textColor: '#E879F9',
       pulse: true,
     },
+    challenger: {
+      colors: ['#EF4444', '#991B1B', '#FCA5A5', '#7F1D1D', '#EF4444'],
+      glow: 'drop-shadow(0 0 20px rgba(239,68,68,1))',
+      icon: '👑',
+      name: 'Desafiante',
+      textColor: '#EF4444',
+      pulse: true,
+    },
   };
 
-  const eloTier = player.elo_tier ?? 'silver';
-  const eloStyle = eloTierStyles[eloTier] ?? eloTierStyles.silver;
+  const eloTier = player.elo_tier || 'rookie';
+  const eloStyle = eloTierStyles[eloTier as keyof typeof eloTierStyles] || eloTierStyles.rookie;
   const borderColors = eloStyle.colors;
+  
+  const TIER_LEVELS = {
+    rookie: 0,
+    bronze: 1,
+    silver: 2,
+    gold: 3,
+    diamond: 4,
+    elite: 5,
+    challenger: 6
+  };
+  const tierLevel = TIER_LEVELS[eloTier as keyof typeof TIER_LEVELS] || 0;
 
   const getPositionColor = (pos: string) => {
     switch (pos) {
@@ -100,13 +119,12 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
   // Formato exato do escudo do card
   const cardClipPath = 'polygon(10% 0, 90% 0, 100% 10.7%, 100% 85.7%, 50% 100%, 0 85.7%, 0 10.7%)';
 
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: idx * 0.03 }}
-      className={`relative w-full max-w-[240px] mx-auto group ${isInactive ? 'opacity-60 grayscale-[0.8]' : ''} mb-6 md:mb-6`}
+      className={`relative w-full max-w-[240px] mx-auto group ${isInactive ? 'opacity-60 grayscale-[0.8]' : ''} px-2 pb-6 mb-4 md:mb-6`}
     >
       {/* Área Flutuante Superior (Sempre para cima do Card) */}
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-20 w-max pointer-events-none mb-1.5">
@@ -157,24 +175,8 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
             <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50 mix-blend-overlay" />
           </div>
 
-          {/* BORDA DOURADA (SVG perfeitamente alinhado com o escudo) */}
-          <svg viewBox="0 0 100 140" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-40">
-            <polygon
-              points="10,1 90,1 99,15 99,119 50,139 1,119 1,15"
-              fill="none"
-              stroke={`url(#border-${player.id})`}
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-            {/* Efeito de brilho metálico no centro superior */}
-            <polygon
-              points="10,0 90,0 100,15 100,120 50,140 0,120 0,15"
-              fill="none"
-              stroke="url(#gold-highlight)"
-              strokeWidth="1.5"
-              vectorEffect="non-scaling-stroke"
-              className="opacity-50"
-            />
+          {/* PREMIUM ELO SVG BORDER (Construída do zero, sem imagens externas) */}
+          <svg viewBox="0 0 100 140" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-40 overflow-visible" style={{ filter: eloStyle.glow }}>
             <defs>
               <linearGradient id={`border-${player.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor={borderColors[0]} />
@@ -184,10 +186,121 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
                 <stop offset="100%" stopColor={borderColors[4]} />
               </linearGradient>
               <linearGradient id="gold-highlight" x1="50%" y1="0%" x2="50%" y2="100%">
-                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-                <stop offset="20%" stopColor="#ffffff" stopOpacity="0" />
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
+                <stop offset="15%" stopColor="#ffffff" stopOpacity="0" />
               </linearGradient>
             </defs>
+
+            {/* Fundo do brilho externo - mais forte em tiers altos */}
+            <polygon
+              points="10,0 90,0 100,15 100,120 50,140 0,120 0,15"
+              fill="none"
+              stroke={`url(#border-${player.id})`}
+              strokeWidth={tierLevel >= 5 ? "8" : tierLevel >= 3 ? "5" : "3"}
+              vectorEffect="non-scaling-stroke"
+              className={`opacity-50 blur-[${tierLevel >= 5 ? '6' : '4'}px]`}
+            />
+
+            {/* Linha Principal da Borda */}
+            <polygon
+              points="10,0 90,0 100,15 100,120 50,140 0,120 0,15"
+              fill="none"
+              stroke={`url(#border-${player.id})`}
+              strokeWidth={tierLevel >= 5 ? "2.5" : "2"}
+              vectorEffect="non-scaling-stroke"
+            />
+
+            {/* Reflexo Metálico Interno */}
+            <polygon
+              points="10.5,1 89.5,1 99,15.5 99,119 50,138 1,119 1,15.5"
+              fill="none"
+              stroke="url(#gold-highlight)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+              className="opacity-80 mix-blend-overlay"
+            />
+
+            {/* Adornos Premium no Rodapé (Asas e Diamante evolutivos) */}
+            <g transform="translate(50, 139)">
+              {/* Diamante Central (Apenas de Silver pra cima) */}
+              {tierLevel >= 2 && (
+                <>
+                  <polygon points={tierLevel >= 5 ? "0,-10 6,0 0,8 -6,0" : "0,-8 5,0 0,6 -5,0"} fill={borderColors[0]} stroke="#fff" strokeWidth="0.5" vectorEffect="non-scaling-stroke" className="drop-shadow-md" />
+                  <polygon points={tierLevel >= 5 ? "0,-5 3,0 0,4 -3,0" : "0,-4 2.5,0 0,3 -2.5,0"} fill="#fff" opacity="0.6" />
+                </>
+              )}
+
+              {/* Asas */}
+              {tierLevel >= 1 && (
+                <>
+                  {/* Asa 1 (Base - Bronze+) */}
+                  <polygon points="-5,-1 -35,-15 -25,-18 -5,-4" fill={`url(#border-${player.id})`} stroke="#fff" strokeWidth="0.5" strokeOpacity="0.4" vectorEffect="non-scaling-stroke" />
+                  <polygon points="5,-1 35,-15 25,-18 5,-4" fill={`url(#border-${player.id})`} stroke="#fff" strokeWidth="0.5" strokeOpacity="0.4" vectorEffect="non-scaling-stroke" />
+                </>
+              )}
+              {tierLevel >= 3 && (
+                <>
+                  {/* Asa 2 (Média - Gold+) */}
+                  <polygon points="-12,-4 -40,-20 -32,-22 -12,-7" fill={borderColors[2]} opacity="0.9" />
+                  <polygon points="12,-4 40,-20 32,-22 12,-7" fill={borderColors[2]} opacity="0.9" />
+                </>
+              )}
+              {tierLevel >= 5 && (
+                <>
+                  {/* Asa 3 (Elite+) */}
+                  <polygon points="-18,-7 -45,-25 -38,-27 -18,-10" fill={borderColors[4]} opacity="0.7" />
+                  <polygon points="18,-7 45,-25 38,-27 18,-10" fill={borderColors[4]} opacity="0.7" />
+                </>
+              )}
+              {tierLevel === 6 && (
+                <>
+                  {/* Asa 4 Suprema (Apenas Challenger) */}
+                  <polygon points="-24,-10 -50,-30 -43,-32 -24,-13" fill={borderColors[1]} opacity="0.8" />
+                  <polygon points="24,-10 50,-30 43,-32 24,-13" fill={borderColors[1]} opacity="0.8" />
+                </>
+              )}
+
+              {/* Estrelinhas flutuantes simulando energia (Diamond+) */}
+              {tierLevel >= 4 && (
+                <>
+                  <circle cx="0" cy="-14" r="0.8" fill="#fff" className="animate-pulse" />
+                  <circle cx="-6" cy="-10" r="0.5" fill="#fff" className="animate-pulse delay-75" />
+                  <circle cx="6" cy="-10" r="0.5" fill="#fff" className="animate-pulse delay-150" />
+                </>
+              )}
+              {tierLevel === 6 && (
+                <>
+                  {/* Aura Extra Challenger */}
+                  <circle cx="-12" cy="-15" r="0.6" fill="#fff" className="animate-pulse delay-200" />
+                  <circle cx="12" cy="-15" r="0.6" fill="#fff" className="animate-pulse delay-300" />
+                  <circle cx="0" cy="-20" r="1.2" fill={borderColors[2]} className="animate-pulse opacity-80" />
+                </>
+              )}
+            </g>
+
+            {/* Adornos Premium no Topo (Garras evolutivas) */}
+            {tierLevel >= 4 && (
+              <g>
+                <polyline points="0,25 0,15 10,0 20,0" fill="none" stroke={borderColors[0]} strokeWidth={tierLevel >= 5 ? "4" : "3"} vectorEffect="non-scaling-stroke" />
+                <polyline points="100,25 100,15 90,0 80,0" fill="none" stroke={borderColors[0]} strokeWidth={tierLevel >= 5 ? "4" : "3"} vectorEffect="non-scaling-stroke" />
+              </g>
+            )}
+            {tierLevel >= 5 && (
+              <g>
+                {/* Garras internas Elite+ */}
+                <polyline points="0,35 0,25 5,15" fill="none" stroke={borderColors[2]} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                <polyline points="100,35 100,25 95,15" fill="none" stroke={borderColors[2]} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+              </g>
+            )}
+            {tierLevel === 6 && (
+              <g>
+                {/* Coroa Divina Challenger */}
+                <polygon points="40,0 45,-6 50,0 55,-6 60,0" fill="none" stroke={borderColors[0]} strokeWidth="1.5" vectorEffect="non-scaling-stroke" className="opacity-80 drop-shadow-md" />
+                <circle cx="45" cy="-8" r="1.5" fill="#fff" className="animate-pulse" />
+                <circle cx="55" cy="-8" r="1.5" fill="#fff" className="animate-pulse delay-75" />
+                <circle cx="50" cy="-4" r="1" fill={borderColors[2]} />
+              </g>
+            )}
           </svg>
 
           {/* Efeito de flash ao passar o mouse */}
@@ -308,7 +421,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
           </div>
 
           {/* Área de Dados Base */}
-          <div className="absolute bottom-[12%] inset-x-0 flex flex-col items-center z-30 px-3">
+          <div className="absolute bottom-[16%] inset-x-0 flex flex-col items-center z-30 px-3">
 
             {/* Name & Shirt Number */}
             <div className="relative w-full mb-1 flex items-end justify-center">
@@ -419,6 +532,8 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
 
           </div>
         </div>
+        
+        {/* A borda e os adornos agora são renderizados 100% via SVG Premium acima, removendo a gambiarra da imagem PNG */}
       </Link>
 
       {/* Admin Actions Overlay (External bottom) - Hidden on Mobile */}

@@ -625,7 +625,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
         player_data = []
         for p in players:
             win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
-            avatar_url = f"/media/{p.avatar}" if p.avatar else None
+            avatar_url = request.build_absolute_uri(p.avatar.url) if p.avatar else None
 
             player_data.append({
                 'id': p.id,

@@ -34,6 +34,7 @@ export function EvaluationsPage() {
       search: debouncedSearch || undefined,
       status: 'active',
       page_size: 500,  // Lista auxiliar — busca todos os atletas ativos de uma vez
+      include_guests: 'true', // Permitir avaliar convidados
     }),
   });
 
@@ -58,19 +59,21 @@ export function EvaluationsPage() {
         <p className="page-subtitle">Avaliação técnica e acompanhamento de desempenho dos atletas.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-96 bg-red/5 blur-[120px] rounded-full pointer-events-none -z-10" />
+
         {/* Player list */}
-        <div className={`lg:col-span-1 card p-4 space-y-3 ${selectedPlayer ? 'hidden lg:block' : 'block'}`}>
+        <div className={`lg:col-span-1 relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-lg space-y-4 ${selectedPlayer ? 'hidden lg:block' : 'block'}`}>
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               placeholder="Buscar atleta..."
               value={searchPlayer}
               onChange={(e) => setSearchPlayer(e.target.value)}
-              className="input w-full pl-8 text-sm"
+              className="input-glass w-full pl-9 h-10 text-sm"
             />
           </div>
-          <div className="space-y-1 max-h-[600px] overflow-y-auto">
+          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
             {loadingPlayers ? (
               <p className="text-text-muted text-sm text-center py-4">Carregando...</p>
             ) : players.length === 0 ? (
@@ -80,10 +83,10 @@ export function EvaluationsPage() {
                 <button
                   key={player.id}
                   onClick={() => { setSelectedPlayer(player); setShowForm(false); }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left border
                     ${selectedPlayer?.id === player.id
-                      ? 'bg-red/10 border border-red/30'
-                      : 'hover:bg-surface'
+                      ? 'bg-red/10 border-red/30 shadow-[0_0_15px_rgba(217,4,41,0.1)]'
+                      : 'bg-surface/20 border-white/5 hover:bg-surface/40 hover:border-white/10'
                     }`}
                 >
                   <Avatar name={player.display_name} src={player.avatar_url} size="sm" />
@@ -110,7 +113,7 @@ export function EvaluationsPage() {
           ) : (
             <>
               {/* Player header + new evaluation button */}
-              <div className="card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setSelectedPlayer(null)}
@@ -169,8 +172,10 @@ export function EvaluationsPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
-                      className="card p-5"
+                      className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-5 shadow-lg overflow-hidden group hover:border-white/10 transition-colors"
                     >
+                      <div className="absolute inset-0 bg-gradient-to-r from-red/0 via-red/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                      <div className="relative z-10">
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <p className="text-text-primary font-medium text-sm">{formatDate(eval_.date)}</p>
@@ -192,8 +197,9 @@ export function EvaluationsPage() {
                         ))}
                       </div>
                       {eval_.notes && (
-                        <p className="text-text-muted text-xs mt-3 border-t border-border pt-3">{eval_.notes}</p>
+                        <p className="text-text-muted text-xs mt-3 border-t border-white/10 pt-3">{eval_.notes}</p>
                       )}
+                      </div>
                     </motion.div>
                   ))}
                 </div>
@@ -241,7 +247,7 @@ function EvaluationForm({ playerId, initialValues, onSuccess, onCancel }: {
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="card p-6 border-red/20"
+      className="relative bg-surface/40 backdrop-blur-xl border border-red/20 rounded-2xl p-6 shadow-[0_0_30px_rgba(217,4,41,0.1)] overflow-hidden"
     >
       <h3 className="font-display text-base tracking-wider text-text-primary mb-4 flex items-center gap-2">
         <Star size={14} className="text-red" />
@@ -253,7 +259,7 @@ function EvaluationForm({ playerId, initialValues, onSuccess, onCancel }: {
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="input w-full mt-1"
+          className="input-glass w-full mt-1 text-sm h-10"
         />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -280,7 +286,7 @@ function EvaluationForm({ playerId, initialValues, onSuccess, onCancel }: {
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         rows={2}
-        className="input w-full resize-none mb-4 text-sm"
+        className="input-glass w-full resize-none mb-4 text-sm p-3"
       />
       <div className="flex gap-2 justify-end">
         <button onClick={onCancel} className="btn-secondary text-sm">Cancelar</button>

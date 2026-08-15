@@ -111,7 +111,7 @@ export interface Player {
   consecutive_absences: number;
   badges?: PlayerBadge[];
   elo: number;
-  elo_tier: 'rookie' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite';
+  elo_tier: 'rookie' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite' | 'challenger';
   elo_tier_data?: {
     tier: {
       name: string;

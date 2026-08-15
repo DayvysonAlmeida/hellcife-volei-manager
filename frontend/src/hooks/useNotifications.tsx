@@ -30,8 +30,6 @@ function requestBrowserNotificationPermission() {
         </div>
       </div>
     ), { duration: 15000, id: 'browser-notif-req', position: 'top-center' });
-  } else if ('Notification' in window && Notification.permission === 'denied') {
-    console.warn('Permissão de notificações do navegador bloqueada pelo usuário.');
   }
 }
 
@@ -124,17 +122,38 @@ export function useNotifications() {
       };
       const icon = iconMap[n.type] || '🔔';
 
-      // Toast in-app
-      toast.success(`${n.title}`, {
-        icon,
-        duration: 6000,
-        position: 'top-right',
-        style: {
-          background: '#18181b',
-          color: '#fff',
-          border: '1px solid #3f3f46',
-        },
-      });
+      // Toast in-app (Estilo WhatsApp)
+      toast.custom((t) => (
+        <div
+          className={`${
+            t.visible ? 'animate-enter' : 'animate-leave'
+          } max-w-sm w-full bg-surface-highlight/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] border border-border rounded-xl pointer-events-auto flex ring-1 ring-black ring-opacity-5 overflow-hidden`}
+        >
+          <div className="flex-1 w-0 p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 pt-0.5 text-xl">
+                {icon}
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-bold text-text-primary">
+                  {n.title}
+                </p>
+                <p className="mt-1 text-xs text-text-muted line-clamp-2">
+                  {n.message}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex border-l border-border">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="w-full border border-transparent rounded-none rounded-r-xl p-4 flex items-center justify-center text-sm font-medium text-text-muted hover:text-text-primary hover:bg-white/5 focus:outline-none transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      ), { duration: 6000, position: 'top-right' });
 
       // Notificação nativa do navegador (funciona mesmo com app em 2º plano)
       showBrowserNotification(n.title, n.message, n.type);

@@ -25,6 +25,7 @@ const TeamsPage = lazy(() => import('@/pages/TeamsPage').then(m => ({ default: m
 const MatchesPage = lazy(() => import('@/pages/MatchesPage').then(m => ({ default: m.MatchesPage })));
 const MatchFormPage = lazy(() => import('@/pages/MatchFormPage').then(m => ({ default: m.MatchFormPage })));
 const StarsSystemPage = lazy(() => import('@/pages/StarsSystemPage').then(m => ({ default: m.StarsSystemPage })));
+const EloSystemPage = lazy(() => import('@/pages/EloSystemPage').then(m => ({ default: m.EloSystemPage })));
 const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => ({ default: m.LeaderboardPage })));
 const AdminSubscriptionsPage = lazy(() => import('@/pages/subscriptions/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })));
 const AdminPlansPage = lazy(() => import('@/pages/subscriptions/AdminPlansPage').then(m => ({ default: m.AdminPlansPage })));
@@ -95,6 +96,7 @@ function App() {
               <Route path="plans" element={<PlansPage />} />
               <Route path="regulation" element={<RegulationPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="elo-system" element={<EloSystemPage />} />
             </Route>
 
             {/* ── Painel Admin / Moderador ────────────────────────── */}
@@ -123,6 +125,7 @@ function App() {
               <Route path="matches/new" element={<MatchFormPage />} />
               <Route path="matches/:id/edit" element={<MatchFormPage />} />
               <Route path="stars-system" element={<StarsSystemPage />} />
+              <Route path="elo-system" element={<EloSystemPage />} />
               <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
               <Route path="plans" element={<AdminPlansPage />} />
               <Route path="finance" element={<FinanceDashboardPage />} />

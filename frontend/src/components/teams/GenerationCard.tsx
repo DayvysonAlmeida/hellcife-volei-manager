@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Trash2, Lock, UserCheck, Zap, Loader2, Shuffle, Plus, X, ArrowRightLeft, Trophy, History, Swords } from 'lucide-react';
+import { Trash2, Lock, UserCheck, Zap, Loader2, Shuffle, Plus, X, ArrowRightLeft, Trophy, History, Swords, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { teamsService } from '@/services';
 import { formatDate } from '@/lib/utils';
@@ -156,29 +156,39 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
         </div>
         
         {!gen.is_locked && (
-          <div className={`p-2 flex flex-col sm:flex-row justify-between items-center gap-2 ${!isComplete ? 'bg-yellow-500/10' : ''}`}>
-            <div className="flex-1 text-center sm:text-left">
-              {!isComplete ? (
-                <span className="text-[10px] text-yellow-500 font-bold">
-                  ⚠️ {unassignedCount} jogadores aguardando
-                </span>
-              ) : checkinCount > 0 ? (
-                <span className="text-[10px] text-green-500 font-bold">
-                  ✓ Todos alocados
-                </span>
-              ) : null}
+          <div className={`p-3 flex flex-col md:flex-row justify-between items-center gap-4 ${!isComplete ? 'bg-yellow-500/10' : ''}`}>
+            <div className="flex-1 text-center md:text-left">
+              {isComplete ? (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] text-green-500 font-bold flex items-center gap-1.5 justify-center md:justify-start">
+                    <Check size={14} /> Todos os jogadores da quadra estão nos times
+                  </span>
+                  <span className="text-[10px] text-text-muted leading-tight mt-1">
+                    Para adicionar novos jogadores, certifique-se primeiro de que ele está confirmado no <strong className="text-text-primary">Circuito</strong>, depois confirme a presença dele na <strong className="text-text-primary">Tiragem de Falta</strong> e volte aqui.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] text-yellow-500 font-bold flex items-center gap-1.5 justify-center md:justify-start">
+                    ⚠️ {unassignedCount} jogador{unassignedCount > 1 ? 'es' : ''} aguardando na quadra
+                  </span>
+                  <span className="text-[10px] text-text-muted leading-tight mt-1">
+                    Você tirou a falta de novos jogadores! Clique em <strong className="text-text-primary">Completar</strong> para preencher as vagas vazias, ou <strong className="text-text-primary">Embaralhar</strong> para refazer o sorteio do zero.
+                  </span>
+                </div>
+              )}
             </div>
             
-            <div className="flex w-full sm:w-auto items-center gap-2">
+            <div className="flex w-full md:w-auto items-center gap-2 mt-2 md:mt-0">
               {!isComplete && (
                 <button 
                   onClick={() => autoAllocateMutation.mutate(gen.id)}
                   disabled={autoAllocateMutation.isPending || shuffleMutation.isPending}
-                  className="flex-1 sm:flex-none text-[10px] bg-red text-white hover:bg-red/90 px-3 py-1.5 rounded font-bold uppercase shadow-neon-red flex items-center justify-center gap-1.5 transition-all"
+                  className="flex-1 md:flex-none text-[11px] bg-red text-white hover:bg-red/90 px-4 py-2 rounded font-bold shadow-neon-red flex items-center justify-center gap-1.5 transition-all"
                   title="Mantém os times atuais e apenas preenche as vagas vazias"
                 >
-                  {autoAllocateMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
-                  Completar
+                  {autoAllocateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                  COMPLETAR
                 </button>
               )}
               <button 
@@ -186,15 +196,15 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
                   onConfirmDialog({
                     isOpen: true,
                     title: 'Embaralhar Jogadores',
-                    desc: 'Tem certeza que deseja embaralhar TODOS os jogadores presentes na quadra?',
+                    desc: 'Tem certeza que deseja embaralhar TODOS os jogadores presentes na quadra (Isso refará todos os times)?',
                     onConfirm: () => shuffleMutation.mutate(gen.id)
                   });
                 }}
                 disabled={shuffleMutation.isPending || autoAllocateMutation.isPending}
-                className="flex-1 sm:flex-none text-[10px] bg-blue text-white hover:bg-blue/90 px-3 py-1.5 rounded font-bold uppercase shadow-neon-blue flex items-center justify-center gap-1.5 transition-all"
+                className="flex-1 md:flex-none text-[11px] bg-blue text-white hover:bg-blue/90 px-4 py-2 rounded font-bold shadow-neon-blue flex items-center justify-center gap-1.5 transition-all"
               >
-                {shuffleMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Shuffle size={12} />}
-                Embaralhar
+                {shuffleMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Shuffle size={14} />}
+                EMBARALHAR
               </button>
             </div>
           </div>
@@ -203,16 +213,6 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
       
       <div className="flex items-center justify-between mt-2 mb-2">
         <h3 className="font-display text-xs text-text-muted">TIMES GERADOS</h3>
-        {canEdit && !gen.is_locked && (
-          <button
-            onClick={() => addTeamMutation.mutate(gen.id)}
-            disabled={addTeamMutation.isPending}
-            className="text-[10px] py-1 px-2 flex items-center gap-1 rounded bg-surface border border-border-subtle hover:border-red hover:text-red transition-all"
-          >
-            <Plus size={10} />
-            Add Time
-          </button>
-        )}
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -271,8 +271,11 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
                       )}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-[10px] text-text-muted font-bold w-4 text-right">{p.player_overall}</span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="scale-75 origin-right">
+                      <PositionBadge position={allPlayers.find((ap: any) => ap.id === p.player)?.main_position || 'universal'} />
+                    </div>
+                    <span className="text-[10px] text-text-muted font-bold w-5 text-right">{p.player_overall}</span>
                     {canEdit && !gen.is_locked && (
                       <div className="relative">
                         <select 
@@ -300,28 +303,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
                 </div>
               ))}
 
-              {canEdit && !gen.is_locked && (
-                <div className="mt-1 pt-1 border-t border-border-subtle px-1">
-                  <select
-                    className="w-full bg-transparent text-[10px] text-text-muted outline-none cursor-pointer hover:text-text-primary transition-colors"
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        addPlayerMutation.mutate({ genId: gen.id, playerId: Number(e.target.value), teamId: team.id });
-                        e.target.value = '';
-                      }
-                    }}
-                    disabled={addPlayerMutation.isPending}
-                  >
-                    <option value="">+ Adicionar Jogador</option>
-                    {allPlayers
-                      .filter((p: any) => !gen.teams.some((t: any) => t.team_players.some((tp: any) => tp.player === p.id)))
-                      .sort((a: any, b: any) => a.display_name.localeCompare(b.display_name))
-                      .map((p: any) => (
-                        <option key={p.id} value={p.id}>{p.display_name} ({p.overall})</option>
-                      ))}
-                  </select>
-                </div>
-              )}
+
             </div>
           </div>
         ))}

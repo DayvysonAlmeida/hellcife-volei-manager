@@ -53,6 +53,7 @@ const adminNavGroups = [
       { to: '/players', icon: Users, label: 'Atletas' },
       { to: '/evaluations', icon: TrendingUp, label: 'Avaliações' },
       { to: '/stars-system', icon: Star, label: 'Sistema de Estrelas' },
+      { to: '/elo-system', icon: BarChart3, label: 'Sistema de Elo' },
     ]
   },
   {
@@ -85,6 +86,7 @@ const playerNavGroups = [
     title: 'Clube',
     items: [
       { to: '/athlete/plans', icon: Star, label: 'Planos' },
+      { to: '/athlete/elo-system', icon: BarChart3, label: 'Sistema de Elo' },
       { to: '/athlete/regulation', icon: ScrollText, label: 'Regulamento' },
     ]
   }

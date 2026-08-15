@@ -52,16 +52,22 @@ export function TeamsPage() {
   const todayStr = new Date().toLocaleDateString('en-CA');
   
   const { upcomingGameDays, pastGameDays } = useMemo(() => {
-    const upcomingGameDays = gameDays?.filter(gd => !gd.is_closed && gd.date >= todayStr) || [];
-    const pastGameDays = gameDays?.filter(gd => gd.is_closed || gd.date < todayStr) || [];
-    return { upcomingGameDays, pastGameDays };
+    const active = gameDays?.filter(gd => !gd.is_closed && gd.date >= todayStr) || [];
+    const past = gameDays?.filter(gd => gd.is_closed || gd.date < todayStr) || [];
+    
+    // Peladas ativas: a mais próxima primeiro (ordem cronológica)
+    active.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Histórico: a mais recente primeiro (ordem reversa)
+    past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    return { upcomingGameDays: active, pastGameDays: past };
   }, [gameDays, todayStr]);
 
-  // Auto-selecionar o próximo jogo se nenhum estiver selecionado
+  // Auto-selecionar a pelada mais próxima se nenhuma estiver selecionada
   useEffect(() => {
     if (gameDays.length > 0 && selectedGameDayId === null) {
       if (upcomingGameDays.length > 0) {
-        setSelectedGameDayId(upcomingGameDays[upcomingGameDays.length - 1].id);
+        setSelectedGameDayId(upcomingGameDays[0].id);
       }
     }
   }, [gameDays.length, selectedGameDayId, upcomingGameDays]);
@@ -119,7 +125,7 @@ export function TeamsPage() {
     return (
       <div className="space-y-4">
         <h1 className="page-title">Geração de Times (Pelada)</h1>
-        <div className="card p-8 text-center">
+        <div className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-8 text-center shadow-lg">
           <Shuffle size={48} className="text-red mx-auto mb-4 opacity-50" />
           <p className="text-text-muted">Apenas administradores e moderadores podem gerar times.</p>
         </div>
@@ -168,7 +174,8 @@ export function TeamsPage() {
         onConfirm={confirmDialog.onConfirm}
       />
 
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start relative">
+        <div className="absolute -top-10 -left-10 w-40 h-40 bg-red/10 blur-[60px] rounded-full pointer-events-none -z-10" />
         <div>
           <h1 className="page-title">Geração de Times (Pelada)</h1>
           <p className="page-subtitle">Aqui você sorteia os times com base na presença (balanceando Overall, Posição e Sexo), e pode ir preenchendo as vagas livremente de acordo com quem vai chegando para adaptar o jogo atual.</p>
@@ -189,7 +196,7 @@ export function TeamsPage() {
           onClick={() => setActiveTab('gerador')}
           className={`flex-1 py-2 px-4 rounded-lg font-bold text-sm transition-all ${
             activeTab === 'gerador'
-              ? 'bg-red text-white shadow-neon-red'
+              ? 'bg-red text-white shadow-[0_0_15px_rgba(217,4,41,0.3)]'
               : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
           }`}
         >
@@ -199,7 +206,7 @@ export function TeamsPage() {
           onClick={() => setActiveTab('historico')}
           className={`flex-1 py-2 px-4 rounded-lg font-bold text-sm transition-all ${
             activeTab === 'historico'
-              ? 'bg-red text-white shadow-neon-red'
+              ? 'bg-red text-white shadow-[0_0_15px_rgba(217,4,41,0.3)]'
               : 'text-text-muted hover:text-text-primary hover:bg-surface-hover'
           }`}
         >
@@ -210,7 +217,7 @@ export function TeamsPage() {
       {activeTab === 'gerador' && (
         <div className="space-y-4">
           {/* Config */}
-          <div className="card p-4 md:p-5">
+          <div className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 md:p-5 shadow-lg">
             <h2 className="font-display text-xs tracking-wider text-text-primary mb-3">CONFIGURAÇÃO DO SORTEIO</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Modality */}
@@ -221,10 +228,10 @@ export function TeamsPage() {
                     <button
                       key={m}
                       onClick={() => setModality(m)}
-                      className={`px-3 py-1.5 rounded text-xs font-bold transition-all
+                      className={`px-3 py-1.5 rounded text-xs font-bold transition-all border
                         ${modality === m
-                          ? 'bg-red text-white shadow-neon-red'
-                          : 'bg-surface border border-border text-text-muted hover:border-border-subtle'
+                          ? 'bg-red/10 border-red/30 text-red shadow-[0_0_10px_rgba(217,4,41,0.15)]'
+                          : 'bg-surface/20 border-white/5 text-text-muted hover:border-white/10'
                         }`}
                     >
                       {m}v{m}
@@ -239,7 +246,7 @@ export function TeamsPage() {
                   Dia de jogo (Filtra quem está na quadra)
                 </label>
                 <select
-                  className="input w-full text-xs py-1.5 px-3 h-auto"
+                  className="input-glass w-full text-xs py-1.5 px-3 h-auto"
                   value={selectedGameDayId || ''}
                   onChange={(e) => setSelectedGameDayId(Number(e.target.value) || null)}
                 >
@@ -314,7 +321,7 @@ export function TeamsPage() {
 
       {/* Error */}
       {generateMutation.isError && (
-        <div className="card p-4 border-red/20 text-red text-sm">
+        <div className="relative bg-red/10 backdrop-blur-md border border-red/20 rounded-2xl p-4 text-red text-sm shadow-[0_0_15px_rgba(217,4,41,0.1)]">
           {(generateMutation.error as any)?.response?.data?.detail || 'Erro ao gerar times. Verifique se há atletas suficientes para a modalidade escolhida.'}
         </div>
       )}
@@ -329,7 +336,7 @@ export function TeamsPage() {
             className="space-y-4"
           >
             {/* Summary */}
-            <div className="card p-4 flex items-center gap-6 flex-wrap">
+            <div className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex items-center gap-6 flex-wrap shadow-lg">
               <div className="flex items-center gap-2">
                 <Users size={16} className="text-red" />
                 <span className="text-text-secondary text-sm">{result.total_players} atletas</span>
@@ -395,7 +402,7 @@ export function TeamsPage() {
               </div>
             </div>
           ) : (
-            <div className="card p-8 text-center text-text-muted">
+            <div className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-8 text-center text-text-muted shadow-lg">
               Nenhum histórico encontrado.
             </div>
           )}

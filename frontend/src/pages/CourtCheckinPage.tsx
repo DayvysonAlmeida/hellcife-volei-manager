@@ -8,9 +8,10 @@ import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 
 import { attendanceService } from '@/services';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
 import { useAuth } from '@/store/AuthContext';
 import { GameDayListSidebar } from '@/components/attendance/GameDayListSidebar';
+import { ChevronLeft } from 'lucide-react';
 
 export function CourtCheckinPage() {
   const { user } = useAuth();
@@ -28,28 +29,19 @@ export function CourtCheckinPage() {
   const gameDays = gameDaysData?.results || [];
 
   const { openGameDays, closedGameDays } = useMemo(() => {
-    return { 
-      openGameDays: gameDays.filter((gd: any) => !gd.is_closed),
-      closedGameDays: gameDays.filter((gd: any) => gd.is_closed)
-    };
+    const open = gameDays.filter((gd: any) => !gd.is_closed);
+    const closed = gameDays.filter((gd: any) => gd.is_closed);
+    
+    // Circuitos abertos: data mais próxima primeiro (ascendente)
+    open.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    // Histórico: mais recentes primeiro (descendente)
+    closed.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return { openGameDays: open, closedGameDays: closed };
   }, [gameDays]);
 
-  // Auto-selecionar ao carregar ou trocar de aba
-  useEffect(() => {
-    if (activeTab === 'ativo') {
-      if (openGameDays.length > 0 && (!selectedGameDayId || closedGameDays.some((gd: any) => gd.id === selectedGameDayId))) {
-        setSelectedGameDayId(openGameDays[0].id);
-      } else if (openGameDays.length === 0) {
-        setSelectedGameDayId(null);
-      }
-    } else {
-      if (closedGameDays.length > 0 && (!selectedGameDayId || openGameDays.some((gd: any) => gd.id === selectedGameDayId))) {
-        setSelectedGameDayId(closedGameDays[0].id);
-      } else if (closedGameDays.length === 0) {
-        setSelectedGameDayId(null);
-      }
-    }
-  }, [activeTab, openGameDays, closedGameDays, selectedGameDayId]);
+  // Auto-seleção removida para respeitar o padrão Master-Detail no mobile.
 
   const handleSelectGameDay = (id: number | null) => {
     setSelectedGameDayId(id);
@@ -114,26 +106,33 @@ export function CourtCheckinPage() {
     if (!gameDayDetail) return { playersList: [], arrivedCount: 0 };
     
     // Pegamos APENAS os jogadores que confirmaram no circuito (present=true)
-    let filtered = gameDayDetail.attendances.filter(a => a.present);
+    const confirmedPlayers = gameDayDetail.attendances.filter((a: any) => a.present);
+    const confirmedPlayerIds = new Set(confirmedPlayers.map((a: any) => a.player));
+    
+    // Set de IDs que já chegaram E ainda estão confirmados no circuito
+    const arrivedIds = new Set(
+      gameDayDetail.court_checkins
+        .map((c: any) => c.player)
+        .filter((id: number) => confirmedPlayerIds.has(id))
+    );
+    
+    let filtered = confirmedPlayers;
     
     if (searchTerm) {
       const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(a => a.player_name.toLowerCase().includes(lower));
+      filtered = filtered.filter((a: any) => a.player_name.toLowerCase().includes(lower));
     }
     
     // Ordena alfabeticamente
-    filtered.sort((a, b) => a.player_name.localeCompare(b.player_name));
+    filtered.sort((a: any, b: any) => a.player_name.localeCompare(b.player_name));
     
-    // Set de IDs que já chegaram
-    const arrivedIds = new Set(gameDayDetail.court_checkins.map(c => c.player));
-    
-    const list = filtered.map(att => ({
+    const list = filtered.map((att: any) => ({
       ...att,
       arrived: arrivedIds.has(att.player)
     }));
 
     // Se quisermos ordenar: primeiro os que NÃO chegaram, depois os que chegaram
-    list.sort((a, b) => {
+    list.sort((a: any, b: any) => {
       if (a.arrived === b.arrived) return a.player_name.localeCompare(b.player_name);
       return a.arrived ? 1 : -1;
     });
@@ -164,7 +163,7 @@ export function CourtCheckinPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Lado Esquerdo: Seleção do Gameday e Status */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className={cn("lg:col-span-1 space-y-4", selectedGameDayId ? "hidden lg:block" : "block")}>
           <GameDayListSidebar
             isLoading={loadingGameDays}
             gameDays={gameDays}
@@ -178,36 +177,69 @@ export function CourtCheckinPage() {
             fullText="COMPLETO"
             countType="court"
           />
-
-          {gameDayDetail && (
-            <div className="card p-6 text-center shadow-lg border-red/10 bg-gradient-to-br from-surface to-red/5">
-              <ClipboardList size={32} className="text-red mx-auto mb-3 opacity-80" />
-              <p className="text-text-muted text-[10px] font-black uppercase tracking-widest mb-3">Status da Quadra</p>
-              <div className="flex justify-center items-center gap-6">
-                <div className="text-center group">
-                  <p className="text-4xl font-display text-text-primary group-hover:scale-110 transition-transform">{gameDayDetail.total_present}</p>
-                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mt-1">No Circuito</p>
-                </div>
-                <div className="h-10 w-px bg-border/80"></div>
-                <div className="text-center group">
-                  <p className="text-4xl font-display text-green-500 group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">{arrivedCount}</p>
-                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mt-1">Chegaram</p>
-                </div>
-              </div>
-              {gameDayDetail.total_present > 0 && arrivedCount === gameDayDetail.total_present && (
-                <div className="mt-4 pt-3 border-t border-border/50 animate-in fade-in zoom-in duration-300">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/20 text-green-500 text-xs font-black uppercase tracking-widest shadow-[0_0_10px_rgba(34,197,94,0.2)]">
-                    <Check size={14} /> QUADRA COMPLETA
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Lado Direito: Lista de Jogadores Confirmados */}
-        <div className="lg:col-span-3">
-          <div className="card p-0 overflow-hidden">
+        <div className={cn("lg:col-span-3", !selectedGameDayId ? "hidden lg:block" : "block")}>
+          {!selectedGameDayId ? (
+            <div className="card flex flex-col items-center justify-center py-24 text-center h-full min-h-[400px]">
+              <CalendarCheck size={48} className="text-red mx-auto mb-4 opacity-30" />
+              <p className="text-text-muted font-medium mt-4">Selecione um circuito na lista para iniciar a tiragem de faltas.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <button
+                onClick={() => handleSelectGameDay(null)}
+                className="lg:hidden w-fit p-2 -ml-2 rounded-xl text-text-muted hover:bg-white/5 hover:text-white transition-colors flex items-center gap-1 font-black uppercase tracking-widest text-[10px]"
+              >
+                <ChevronLeft size={16} />
+                Voltar aos circuitos
+              </button>
+
+              {gameDayDetail && (
+                <div className="card p-4 sm:p-6 shadow-sm border-red/10 bg-gradient-to-r from-surface to-red/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 w-full sm:w-auto">
+                    <div className="w-12 h-12 rounded-full bg-red/10 flex items-center justify-center text-red flex-shrink-0">
+                      <ClipboardList size={24} />
+                    </div>
+                    <div className="text-left flex-1 min-w-0">
+                      <p className="text-text-primary font-display text-lg sm:text-xl uppercase tracking-widest truncate">{gameDayDetail.location || 'PELADA'}</p>
+                      <p className="text-text-muted text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-1.5 mt-1">
+                        <CalendarCheck size={12} className="text-red flex-shrink-0" />
+                        {(() => {
+                          const dateObj = new Date(`${gameDayDetail.date}T12:00:00`);
+                          const dayName = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+                          const dayNum = dateObj.toLocaleDateString('pt-BR', { day: '2-digit' });
+                          const month = dateObj.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+                          return `${dayName}., ${dayNum} ${month}`;
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-6 w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t border-white/5 sm:border-none">
+                    <div className="text-center group">
+                      <p className="text-3xl font-display text-text-primary group-hover:scale-110 transition-transform">{gameDayDetail.total_present}</p>
+                      <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mt-1">No Circuito</p>
+                    </div>
+                    <div className="h-8 w-px bg-border/80"></div>
+                    <div className="text-center group relative">
+                      <p className="text-3xl font-display text-green-500 group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">{arrivedCount}</p>
+                      <p className="text-[9px] font-black text-green-500/80 uppercase tracking-widest mt-1">Chegaram</p>
+                      {gameDayDetail.total_present > 0 && arrivedCount === gameDayDetail.total_present && (
+                        <div className="absolute -top-1 -right-4 animate-bounce">
+                          <span className="flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 items-center justify-center text-white"><Check size={8}/></span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="card p-0 overflow-hidden">
             <div className="p-4 border-b border-border bg-surface-hover flex flex-col lg:flex-row gap-4 justify-between items-center">
               <h2 className="font-display text-base tracking-wider text-text-primary flex items-center gap-2">
                 <CalendarCheck size={16} className="text-red" />
@@ -302,6 +334,8 @@ export function CourtCheckinPage() {
               </div>
             )}
           </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

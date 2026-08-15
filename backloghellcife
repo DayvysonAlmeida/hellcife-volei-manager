@@ -1,0 +1,541 @@
+# ETAPA 2 — Gestão de Produto: Hellcife Vôlei Manager
+
+> **Objetivo**: Transformar o backlog inflado da Etapa 1 em um plano realista, controlável e orientado a entrega.
+> **Regra**: NENHUM código será alterado. Este documento é puramente de produto e arquitetura.
+
+---
+
+## 1. BACKLOG REVISADO
+
+Revisei cada item da Etapa 1 com as 8 perguntas-filtro. Abaixo, apenas o que sobreviveu.
+
+### Itens REMOVIDOS e por quê
+
+| Item original | Motivo da remoção |
+|---|---|
+| Analytics (GA/Plausible) | Boa prática genérica, não necessário agora |
+| Internacionalização (i18n) | Produto é 100% PT-BR, público brasileiro. Futuro distante |
+| SSO / Login Social | Não há demanda do piloto, é melhoria futura |
+| Prometheus / Grafana / Sentry | Observabilidade é P3, não bloqueia nada |
+| Stripe / PayPal | Asaas já funciona. Troca de gateway é futuro |
+| API pública | Não existe cliente externo consumindo a API |
+| Subdomínio por comunidade | Decisão arquitetural prematura. Multi-tenant pode funcionar com filtro |
+| Exportação CSV | Nice-to-have. Não bloqueia nenhum fluxo |
+| Marketplace de plugins | Futurismo puro |
+| Feature flags | Complexidade desnecessária para o estágio atual |
+| Dashboard SaaS (MRR, churn) | Não há clientes suficientes para justificar |
+| Rate-limiting no login | Importante, mas não bloqueia — é P2 |
+| ARIA labels completos | Melhoria UX/UI, não bloqueia |
+| Design System completo (tokens) | Melhoria UX/UI incremental, não bloqueia |
+
+### Backlog que sobreviveu
+
+| ID | Título | Categoria | Prioridade |
+|---|---|---|---|
+| **B-001** | Criar modelo Community e vincular Player/User a ele | C - SaaS | P0 |
+| **B-002** | Filtrar TODAS as queries por `community_id` (isolamento de dados) | C - SaaS | P0 |
+| **B-003** | Definir roles por comunidade (owner, admin, moderator, player) | C - SaaS | P0 |
+| **B-004** | Garantir que recuperação de senha funciona end-to-end | B - Piloto | P0 |
+| **B-005** | Verificar/corrigir fluxo completo de partida (criar → resultado → Elo) | B - Piloto | P0 |
+| **B-006** | Verificar/corrigir fluxo de check-in → presença → faltas consecutivas | B - Piloto | P0 |
+| **B-007** | Badges: criar badges iniciais no banco (seed data) | B - Piloto | P1 |
+| **B-008** | Notificações: verificar que UI de inbox funciona com dados reais | B - Piloto | P1 |
+| **B-009** | Planos: garantir que CRUD de planos funciona (admin) | B - Piloto | P1 |
+| **B-010** | Assinaturas: verificar fluxo Asaas (criar assinatura → webhook → status) | B - Piloto | P1 |
+| **B-011** | Transformar valores fixos do algoritmo 70/30 em configurações | C - SaaS | P1 |
+| **B-012** | Transformar regras de pontuação Elo (+20/-10) em configurações | C - SaaS | P2 |
+| **B-013** | Transformar regras de falta (limite 10) em configuração por comunidade | C - SaaS | P2 |
+| **B-014** | Planos: limitar recursos por plano (max jogadores, max partidas/mês) | C - SaaS | P1 |
+| **B-015** | Migrar banco de SQLite para PostgreSQL (Neon) em produção | C - SaaS | P1 |
+| **B-016** | Corrigir código duplicado em `add_result` e `quick_create` (matches/views.py) | A - Bug/TD | P2 |
+| **B-017** | Padronizar mensagens de erro nos formulários (toast) | D - Melhoria | P3 |
+| **B-018** | Verificar responsividade do dashboard admin em mobile | D - Melhoria | P3 |
+| **B-019** | Criar documentação básica de deploy (README atualizado) | B - Piloto | P2 |
+
+---
+
+## 2. CINCO GRANDES CATEGORIAS
+
+| Categoria | Itens |
+|---|---|
+| **A — Bug / Problema Atual** | B-016 |
+| **B — Necessário para Finalizar o Piloto** | B-004, B-005, B-006, B-007, B-008, B-009, B-010, B-019 |
+| **C — Necessário para Transformar em SaaS** | B-001, B-002, B-003, B-011, B-012, B-013, B-014, B-015 |
+| **D — Melhoria Futura** | B-017, B-018 |
+| **E — Ideia / Não Priorizada** | (todos os itens removidos na seção acima) |
+
+---
+
+## 3. MVP CORE
+
+> **Pergunta-guia**: o que é necessário para UMA comunidade usar o sistema de ponta a ponta?
+
+### Fluxo crítico e status
+
+| # | Passo do fluxo | Existe? | Funciona? | Observação |
+|---|---|---|---|---|
+| 1 | Admin cria/possui uma comunidade | ❌ NÃO | — | Hoje o sistema é single-tenant. Não existe modelo `Community`. Mas o piloto **funciona sem ele** porque há só uma comunidade |
+| 2 | Comunidade possui atletas | ✅ SIM | ✅ | `Player` model completo, CRUD, avatar, posições |
+| 3 | Atletas participam de partidas | ✅ SIM | ✅ | `Match`, `MatchTeam`, `MatchPlayer` |
+| 4 | Atletas fazem check-in | ✅ SIM | ✅ | `GameDay`, `Attendance`, `CourtCheckin` |
+| 5 | Admin monta/sorteia equipes | ✅ SIM | ✅ | `algorithm.py` → `smart_draft` + `generate_teams` |
+| 6 | Partida acontece | ✅ SIM | ✅ | Bracket + placar na UI |
+| 7 | Resultado é registrado | ✅ SIM | ✅ | `add_result` e `quick_create` |
+| 8 | Elo/estatísticas são atualizados | ✅ SIM | ✅ | `recalculate_elo` chamado automaticamente |
+| 9 | Atleta visualiza desempenho | ✅ SIM | ✅ | Dashboard, perfil, Elo badge, badges, rankings |
+| 10 | Admin visualiza comunidade | ✅ SIM | ✅ | Dashboard admin, leaderboard, presença |
+
+### Conclusão do MVP CORE
+
+> **O MVP CORE para o piloto (single-tenant) JÁ EXISTE e está funcional.**
+
+O que falta validar são **detalhes de completude** (items B-004 a B-010), não funcionalidades novas.
+
+O passo 1 (Community) só é necessário quando o produto deixar de ser single-tenant.
+
+---
+
+## 4. SaaS FOUNDATION
+
+> O que precisa existir **arquiteturalmente** para o sistema suportar múltiplas comunidades?
+
+### 4.1 Modelo `Community`
+
+```
+Community
+├── id
+├── name
+├── slug (único, para URL)
+├── owner (FK → User)
+├── plan (FK → Plan, nullable)
+├── logo_url
+├── config (JSONField — parâmetros configuráveis)
+│   ├── elo_win_points: 20
+│   ├── elo_loss_points: 10
+│   ├── elo_start: 500
+│   ├── elo_min: 100
+│   ├── max_absences_before_inactive: 10
+│   ├── team_algorithm_weights: { overall: 0.7, elo: 0.3 }
+│   └── ...
+├── is_active
+├── created_at
+└── updated_at
+```
+
+### 4.2 Relações que precisam de `community_id`
+
+| Modelo | Mudança necessária |
+|---|---|
+| `Player` | Adicionar `community = FK(Community)` |
+| `GameDay` | Adicionar `community = FK(Community)` |
+| `Match` | Herda via `GameDay.community` ou FK direta |
+| `TeamGeneration` | Herda via `GameDay.community` ou FK direta |
+| `Notification` | Herda via `User → Player → Community` |
+| `Badge` | Pode ser global OU por comunidade (`community = FK nullable`) |
+| `HallOfFameEntry` | Adicionar `community = FK(Community)` |
+| `UserSubscription` | Mudar de `player` para `community` (quem paga é a comunidade, não o jogador) **[PRECISA VALIDAR]** |
+
+### 4.3 Permissões por comunidade
+
+| Role | O que pode fazer |
+|---|---|
+| **owner** | Tudo na sua comunidade. Gerencia plano/assinatura |
+| **admin** | Gerencia jogadores, partidas, equipes, presença |
+| **moderator** | Registra resultados, faz check-in |
+| **player** | Vê seu dashboard, faz check-in, vê perfil |
+
+> Atual: `User.profile` é global (`admin`, `moderator`, `player`). Para SaaS, precisa ser **por comunidade** (tabela `CommunityMembership`).
+
+### 4.4 Isolamento de dados
+
+- **Estratégia recomendada**: Row-level filtering (`community_id` em todas as queries)
+- **NÃO** usar schema-per-tenant (complexo demais para o estágio atual)
+- Middleware que injeta `request.community` baseado no User logado
+
+### 4.5 Planos e limites
+
+| Recurso limitável | Exemplo |
+|---|---|
+| Máximo de jogadores ativos | Free: 20, Pro: 100, Enterprise: ilimitado |
+| Máximo de partidas por mês | Free: 10, Pro: 50, Enterprise: ilimitado |
+| Máximo de admins/moderadores | Free: 1, Pro: 3, Enterprise: ilimitado |
+| Armazenamento de avatares | Free: 100MB, Pro: 1GB |
+
+### 4.6 Pagamento
+
+- **Quem paga?** A comunidade (owner), não o jogador individual
+- **Modelo atual**: `UserSubscription` liga ao `Player` → precisa mudar para `Community`
+- **[PRECISA VALIDAR]** com o usuário: no piloto, quem paga é o jogador (mensalidade da pelada) ou é o dono do grupo?
+
+> **ATENÇÃO**: A decisão "quem paga" muda completamente o modelo de assinaturas. Isso precisa ser validado antes de qualquer implementação SaaS.
+
+---
+
+## 5. PILOTO vs PRODUTO SaaS vs CONFIGURÁVEL
+
+| Funcionalidade | Piloto | SaaS | Deve ser configurável? |
+|---|---|---|---|
+| **Algoritmo de times (smart_draft)** | Separa setters, mulheres, balanceia por overall | Mesmo algoritmo, pesos diferentes | ✅ SIM — pesos e critérios por comunidade |
+| **Regras Elo (+20 vitória, -10 derrota)** | Valores fixos em `elo_service.py` | Cada comunidade pode ter seus valores | ✅ SIM — `community.config.elo_win_points` |
+| **Faixas de Elo (Iniciante→Elite)** | Faixas fixas em `elo_service.py` | Pode variar por contexto | ❌ NÃO por agora — manter fixo, customizar depois |
+| **Badges (condições)** | Condições fixas: `total_matches`, `total_mvp`, etc. | Mesmas condições para todos | ❌ NÃO — badges são globais por padrão |
+| **Ranking / Leaderboard** | Ranking único global | Ranking por comunidade | ✅ SIM — automaticamente isolado por `community_id` |
+| **Presença (faltas consecutivas)** | Limite fixo: 10 faltas → inativo | Cada comunidade pode ter seu limite | ✅ SIM — `community.config.max_absences` |
+| **Quantidade de atletas** | Sem limite | Limitado por plano | ✅ SIM — `plan.max_players` |
+| **Regras de partida (modalidades)** | 2x2 até 6x6 | Idem | ❌ NÃO — universais do vôlei |
+| **Identidade visual** | Logo/cores fixos "HellCife" | Cada comunidade com seu logo/cores | ✅ SIM — `community.logo_url`, `community.config.colors` |
+| **Permissões** | 3 perfis globais (admin/moderator/player) | Perfis por comunidade | ✅ SIM — `CommunityMembership.role` |
+| **Planos/assinaturas** | Planos fixos do HellCife | Planos definidos pelo SaaS (plataforma) | ✅ SIM — mas é plano da plataforma, não da comunidade |
+| **Sistema de estrelas** | Específico do HellCife (mvp_stars, attack_stars, etc.) | Pode ser gamificação genérica | ❓ **[PRECISA VALIDAR]** se outras comunidades usariam o mesmo sistema |
+| **Hall of Fame** | Funciona para 1 comunidade | Precisa filtrar por comunidade | ✅ SIM — automaticamente isolado |
+| **Avaliações (Evaluation)** | 13 fundamentos de vôlei | Universais para vôlei | ❌ NÃO — são fundamentos padrão |
+
+---
+
+## 6. ÉPICOS
+
+| Epic | Nome | Escopo |
+|---|---|---|
+| **E01** | Estabilização do Piloto | Garantir que todos os fluxos existentes funcionam end-to-end sem bugs |
+| **E02** | Comunidades | Modelo `Community`, vínculo com User/Player, isolamento |
+| **E03** | Permissões por Comunidade | `CommunityMembership`, roles, middleware |
+| **E04** | Configuração por Comunidade | `community.config` (Elo, faltas, algoritmo) |
+| **E05** | Planos e Limites | Quotas por plano, enforcement nos endpoints |
+| **E06** | Pagamentos SaaS | Quem paga é a comunidade; ajustar modelo |
+| **E07** | Qualidade | Código duplicado, testes mínimos, documentação |
+
+> **Épicos que NÃO foram criados** (vs. Etapa 1):
+> - Épico de UX/UI → itens individuais dentro de E01
+> - Épico de Segurança → rate-limiting e HSTS já existem; é P3
+> - Épico de Dashboard → dashboard já existe e funciona
+> - Épico de Gamificação → badges e Elo já existem e funcionam
+
+---
+
+## 7. PRIORIZAÇÃO FINAL
+
+| Prioridade | Significado | Itens |
+|---|---|---|
+| **P0 — Bloqueia o produto** | Sem isso, o piloto não pode ser validado ou o SaaS não existe | B-001, B-002, B-003, B-004, B-005, B-006 |
+| **P1 — Necessário para a próxima versão** | Importante para completude e confiança | B-007, B-008, B-009, B-010, B-011, B-014, B-015 |
+| **P2 — Importante** | Melhora qualidade mas não bloqueia | B-012, B-013, B-016, B-019 |
+| **P3 — Futuro** | Nice-to-have | B-017, B-018 |
+
+---
+
+## 8. SPRINTS
+
+### SPRINT 01 — Validação do Piloto
+**Objetivo**: Garantir que o sistema atual funciona de ponta a ponta sem erros.
+**Duração**: 1 semana
+
+| # | Tarefa | Item |
+|---|---|---|
+| 1 | Testar fluxo completo: criar GameDay → check-in → gerar times → partida → resultado → Elo atualizado | B-005, B-006 |
+| 2 | Testar recuperação de senha end-to-end (com e sem SMTP) | B-004 |
+| 3 | Verificar UI de notificações com dados reais | B-008 |
+| 4 | Criar badges iniciais no banco (seed/fixture) | B-007 |
+| 5 | Documentar bugs encontrados durante a validação | — |
+
+**DONE quando**: Todo o fluxo de 10 passos (seção 3) funciona sem erro. Bugs documentados.
+
+---
+
+### SPRINT 02 — Completar Financeiro do Piloto
+**Objetivo**: Garantir que o módulo de assinaturas e planos funciona.
+**Duração**: 1 semana
+
+| # | Tarefa | Item |
+|---|---|---|
+| 1 | Testar CRUD de planos no admin | B-009 |
+| 2 | Testar fluxo de assinatura Asaas (sandbox): criar → pagar → webhook → status | B-010 |
+| 3 | Corrigir bugs encontrados na Sprint 01 | — |
+| 4 | Atualizar README com instruções de setup e deploy | B-019 |
+
+**DONE quando**: Um atleta consegue assinar um plano, pagar via Asaas sandbox, e o status reflete no sistema.
+
+---
+
+### SPRINT 03 — Limpeza Técnica
+**Objetivo**: Resolver débitos técnicos que impactam manutenibilidade.
+**Duração**: 1 semana
+
+| # | Tarefa | Item |
+|---|---|---|
+| 1 | Extrair código duplicado de `add_result`/`quick_create` para função compartilhada | B-016 |
+| 2 | Migrar banco de produção para PostgreSQL (Neon) | B-015 |
+| 3 | Criar testes mínimos para `elo_service.recalculate_elo` (3-5 testes) | — |
+| 4 | Criar testes mínimos para `check_and_award_badges` (2-3 testes) | — |
+
+**DONE quando**: Código duplicado eliminado. DB rodando em Postgres. Testes passando.
+
+---
+
+### SPRINT 04 — SaaS Foundation: Community
+**Objetivo**: Criar a base arquitetural para multi-tenant.
+**Duração**: 2 semanas
+
+| # | Tarefa | Item |
+|---|---|---|
+| 1 | Criar modelo `Community` (name, slug, owner, config, is_active) | B-001 |
+| 2 | Criar `CommunityMembership` (user, community, role) | B-003 |
+| 3 | Adicionar `community` FK em `Player`, `GameDay`, `HallOfFameEntry` | B-002 |
+| 4 | Criar middleware que injeta `request.community` | B-002 |
+| 5 | Filtrar queries principais por `community_id` | B-002 |
+| 6 | Migrar dados existentes para a comunidade "HellCife" (migration de dados) | B-002 |
+
+**DONE quando**: Todas as queries retornam dados apenas da comunidade do usuário logado. Criar uma segunda comunidade de teste não vaza dados.
+
+---
+
+### SPRINT 05 — SaaS Foundation: Configuração e Planos
+**Objetivo**: Tornar regras de negócio configuráveis e limitar por plano.
+**Duração**: 1 semana
+
+| # | Tarefa | Item |
+|---|---|---|
+| 1 | Implementar `community.config` (JSONField) com valores padrão | B-011, B-012, B-013 |
+| 2 | Elo service lê config da comunidade em vez de constantes | B-012 |
+| 3 | Algoritmo de times lê pesos da config da comunidade | B-011 |
+| 4 | Limite de faltas lê config da comunidade | B-013 |
+| 5 | Adicionar `max_players`, `max_matches_month` ao modelo `Plan` | B-014 |
+| 6 | Enforcement: bloquear criação de player/partida acima do limite | B-014 |
+
+**DONE quando**: Duas comunidades podem ter regras de Elo e limites de jogadores diferentes.
+
+---
+
+## 9. DEFINITION OF DONE
+
+### DoD — FEATURE
+- [ ] Funcionalidade implementada conforme critérios de aceite
+- [ ] Fluxo principal funcionando (happy path)
+- [ ] Tratamento básico de erro (mensagem clara ao usuário)
+- [ ] Responsividade verificada (desktop + mobile)
+- [ ] Backend ↔ Frontend integrados e funcionando
+- [ ] Sem erro crítico conhecido (500, crash, perda de dados)
+
+### DoD — BUG
+- [ ] Bug reproduzido e causa identificada
+- [ ] Correção aplicada
+- [ ] Fluxo afetado testado manualmente
+- [ ] Sem regressão nos fluxos adjacentes
+
+### DoD — UX/UI
+- [ ] Alteração visual implementada
+- [ ] Verificada em desktop e mobile
+- [ ] Consistente com o padrão visual existente
+- [ ] Sem quebra de layout
+
+### DoD — TECH DEBT
+- [ ] Refatoração aplicada
+- [ ] Comportamento externo inalterado (sem regressão)
+- [ ] Código antigo removido (não duplicado)
+
+---
+
+## 10. CHANGE CONTROL
+
+```
+┌──────────────┐
+│  NOVA IDEIA   │
+└──────┬───────┘
+       ▼
+┌──────────────────┐
+│ REGISTRAR NO     │
+│ BACKLOG          │
+│ (com descrição)  │
+└──────┬───────────┘
+       ▼
+┌──────────────────┐
+│ CLASSIFICAR      │
+│ A/B/C/D/E        │
+└──────┬───────────┘
+       ▼
+┌──────────────────┐
+│ AVALIAR IMPACTO  │
+│ - Bloqueia algo? │
+│ - Quanto tempo?  │
+│ - Depende de quê?│
+└──────┬───────────┘
+       ▼
+┌──────────────────┐
+│ PRIORIZAR        │
+│ P0/P1/P2/P3      │
+└──────┬───────────┘
+       ▼
+┌──────────────────┐
+│ DECIDIR VERSÃO   │
+│ 0.1 / 0.2 / 0.5  │
+│ / 1.0 / Futuro   │
+└──────┬───────────┘
+       ▼
+┌──────────────────┐
+│ SPRINT PLANNING  │
+│ (só entra se     │
+│  houver vaga)    │
+└──────────────────┘
+```
+
+### Regras
+
+1. **Nova ideia NÃO interrompe sprint em andamento** — vai para o backlog
+2. Se for bug crítico (P0, crash em produção): pode entrar imediatamente como hotfix
+3. Mudança de requisito em tarefa IN PROGRESS: avaliar impacto. Se > 2h de retrabalho, volta ao backlog como item novo
+4. Redesign de tela concluída: só com justificativa documentada (bug de usabilidade, feedback de usuário real)
+5. "Ideia legal" ≠ prioridade alta. Classificar como E e revisar no próximo planning
+
+---
+
+## 11. FEATURE FREEZE
+
+### Conceito: FROZEN 🧊
+
+Quando uma funcionalidade é marcada como **DONE** em uma sprint e validada:
+
+1. Ela recebe o status **FROZEN** naquela versão
+2. **Permitido**: correções de bug, ajustes de texto, pequenos fixes visuais
+3. **Não permitido**: redesign, adição de campos, mudança de fluxo, reestilização completa
+4. Para "descongelar", é necessário criar um **novo item no backlog** com justificativa
+
+### Funcionalidades atualmente FROZEN (v2.0)
+
+| Funcionalidade | Motivo |
+|---|---|
+| Sistema Elo (cálculo, tiers, UI) | Completo, validado, funcionando |
+| PlayerCard (estilo LoL) | Finalizado conforme pedido do usuário |
+| Dashboard do Atleta (saudação, stats, Elo badge) | Completo |
+| Perfil do Atleta (MyProfilePage) | Completo |
+| Algoritmo de times (smart_draft) | Funcional |
+| Sistema de estrelas | Funcional |
+| Check-in de presença (UI + backend) | Funcional |
+| Bracket / Chaveamento | Funcional |
+
+> **Estas funcionalidades NÃO devem ser redesenhadas** a menos que um bug crítico ou feedback de usuário real justifique.
+
+---
+
+## 12. ROADMAP REALISTA
+
+### VERSÃO 0.1 — PILOTO (Estado Atual)
+
+**Objetivo**: Sistema funcional para 1 comunidade (HellCife).
+**Status**: ✅ Basicamente pronto. Falta validação final.
+
+| O que tem | Status |
+|---|---|
+| Cadastro de jogadores | ✅ |
+| Avaliações (13 fundamentos) | ✅ |
+| Check-in / Presença / Faltas | ✅ |
+| Geração de times balanceados | ✅ |
+| Registro de partidas e resultados | ✅ |
+| Sistema Elo | ✅ |
+| Badges / Troféus | ✅ (motor funcional, falta seed de badges) |
+| Dashboard admin | ✅ |
+| Dashboard atleta | ✅ |
+| Notificações | ✅ (backend funcional, UI precisa validar) |
+| Hall of Fame | ✅ |
+| Assinaturas / Planos | ⚠️ (precisa validar fluxo Asaas) |
+| Recuperação de senha | ⚠️ (precisa validar end-to-end) |
+
+**Sprints**: 01 e 02
+**Resultado**: Piloto validado, pronto para uso real.
+
+---
+
+### VERSÃO 0.2 — PILOTO VALIDADO
+
+**Objetivo**: Resolver débitos técnicos e preparar base para SaaS.
+
+| O que entra |
+|---|
+| Código duplicado corrigido |
+| PostgreSQL em produção |
+| Testes mínimos para Elo e Badges |
+| README atualizado |
+
+**Sprint**: 03
+**Resultado**: Base de código limpa, banco pronto para produção.
+
+---
+
+### VERSÃO 0.5 — SaaS FOUNDATION
+
+**Objetivo**: Sistema suporta múltiplas comunidades com dados isolados.
+
+| O que entra |
+|---|
+| Modelo `Community` + `CommunityMembership` |
+| `community_id` em todos os modelos relevantes |
+| Middleware de isolamento |
+| Migração de dados do piloto |
+| Roles por comunidade |
+
+**Sprint**: 04
+**Resultado**: Duas comunidades podem coexistir sem vazamento de dados.
+
+---
+
+### VERSÃO 1.0 — SaaS MVP
+
+**Objetivo**: Produto comercializável. Uma nova comunidade pode se cadastrar e usar.
+
+| O que entra |
+|---|
+| Configurações por comunidade (Elo, faltas, algoritmo) |
+| Limites por plano (max jogadores, partidas) |
+| Fluxo de onboarding para nova comunidade |
+| Pagamento por comunidade (não por jogador) **[PRECISA VALIDAR]** |
+
+**Sprint**: 05 + sprint de onboarding (a definir)
+**Resultado**: Produto pronto para vender para outras comunidades de vôlei.
+
+---
+
+## 13. 🚫 COISAS QUE NÃO DEVEMOS FAZER AGORA
+
+> **Esta é a seção mais importante do documento.** Cada item abaixo é tentador, mas deve ser explicitamente adiado.
+
+| Ideia tentadora | Por que NÃO fazer agora |
+|---|---|
+| **Redesenhar o PlayerCard** | Já foi feito 3x. Está FROZEN. Qualquer mudança é desperdício |
+| **Adicionar novos campos ao perfil do atleta** | O modelo `Player` já tem 30+ campos. Suficiente para o MVP |
+| **Criar app mobile nativo** | O frontend web já funciona em mobile. App nativo é v2.0+ |
+| **Integrar Google Analytics** | Não há tráfego suficiente para justificar. Foco é funcionalidade |
+| **Implementar i18n (inglês, espanhol)** | Público é 100% brasileiro. Completamente desnecessário agora |
+| **Criar API pública documentada** | Não existe cliente externo. Swagger/Redoc já existe para dev |
+| **Adicionar SSO / Login com Google** | Login com email funciona. SSO é melhoria futura |
+| **Implementar sistema de chat** | Fora do escopo do produto. Use WhatsApp/Telegram |
+| **Criar relatórios PDF/Excel** | Nice-to-have. CSV simples pode ser adicionado depois |
+| **Implementar Stripe/PayPal** | Asaas funciona no Brasil. Não há cliente internacional |
+| **Dashboard com gráficos avançados (Chart.js, Recharts)** | O dashboard atual já tem as métricas necessárias |
+| **Testes E2E (Cypress, Playwright)** | Proporcionalmente caro demais para o estágio. Testes unitários bastam |
+| **CI/CD com GitHub Actions** | Pode ser feito, mas não bloqueia nada. Deploy manual é OK por agora |
+| **Feature flags (LaunchDarkly, Unleash)** | Zero necessidade com < 100 usuários |
+| **Observabilidade avançada (Sentry, Datadog)** | Logs do console são suficientes para o piloto |
+| **Refatorar todo o CSS para Design System** | Funciona como está. Padronizar incrementalmente |
+| **Adicionar mais categorias de badges** | As 5 condições atuais são suficientes. Expandir depois com dados reais |
+| **Criar sistema de convites por link** | O admin cadastra manualmente. Suficiente para o piloto |
+| **Implementar WebSockets para notificações em tempo real** | Polling ou refresh manual é suficiente |
+| **Criar histórico de variação de Elo (gráfico temporal)** | Legal, mas é melhoria visual, não funcionalidade core |
+| **Edição manual de times (drag-and-drop)** | O algoritmo gera e pronto. Edição manual é futuro |
+
+> **Regra de ouro**: Se não bloqueia o fluxo dos 10 passos do MVP, não entra agora.
+
+---
+
+## Resumo
+
+| Entregável | Status |
+|---|---|
+| ✅ Backlog revisado (19 itens vs. 25+ da Etapa 1) | Pronto |
+| ✅ MVP CORE (já existe, precisa validar) | Pronto |
+| ✅ SaaS FOUNDATION (arquitetura definida) | Pronto |
+| ✅ PILOTO vs SaaS vs CONFIGURÁVEL (14 funcionalidades mapeadas) | Pronto |
+| ✅ 7 Épicos (vs. 15 da Etapa 1) | Pronto |
+| ✅ 5 Sprints definidas | Pronto |
+| ✅ Definition of Done (4 tipos) | Pronto |
+| ✅ Change Control (fluxo + 5 regras) | Pronto |
+| ✅ Feature Freeze (8 funcionalidades FROZEN) | Pronto |
+| ✅ Roadmap 0.1 → 1.0 | Pronto |
+| ✅ "Coisas que NÃO devemos fazer agora" (21 itens) | Pronto |

@@ -20,6 +20,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.action == 'list':
             # Para listagem: usar annotations ao invés de properties (evita N+1)
+            from django.db.models import F
             return GameDay.objects.all().annotate(
                 _total_present=Count('attendances', filter=Q(attendances__present=True), distinct=True),
                 _total_paid=Count('attendances', filter=Q(attendances__has_paid=True), distinct=True),
@@ -41,6 +42,27 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_attendance', 'initialize', 'add_guest', 'reorder_waitlist']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
+
+    def retrieve(self, request, *args, **kwargs):
+        """Retorna o detalhe do GameDay. Se estiver aberto, auto-sincroniza jogadores novos ativos na lista."""
+        instance = self.get_object()
+        
+        if not instance.is_closed:
+            base_players = Player.objects.filter(is_guest=False, status='active')
+            existing_attendances = set(instance.attendances.values_list('player_id', flat=True))
+            
+            new_attendances = []
+            for p in base_players:
+                if p.id not in existing_attendances:
+                    new_attendances.append(Attendance(gameday=instance, player=p, present=False))
+                    
+            if new_attendances:
+                Attendance.objects.bulk_create(new_attendances)
+                # Recarrega a instância usando o queryset para prefetch correto
+                instance = self.get_queryset().get(pk=instance.pk)
+                
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='add-guest')
     def add_guest(self, request, pk=None):

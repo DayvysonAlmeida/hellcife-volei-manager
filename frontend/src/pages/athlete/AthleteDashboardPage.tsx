@@ -165,7 +165,8 @@ export function AthleteDashboardPage() {
                   silver:  { icon: '🥈', name: 'Prata',     color: '#CBD5E1', glow: 'rgba(203,213,225,0.5)', pulse: false },
                   gold:    { icon: '🥇', name: 'Ouro',      color: '#FDE68A', glow: 'rgba(253,230,138,0.6)', pulse: false },
                   diamond: { icon: '💎', name: 'Diamante',  color: '#67E8F9', glow: 'rgba(103,232,249,0.7)', pulse: true  },
-                  elite:   { icon: '🔥', name: 'Elite',     color: '#E879F9', glow: 'rgba(232,121,249,0.8)', pulse: true  },
+                  elite:   { icon: '🔮', name: 'Elite',     color: '#E879F9', glow: 'rgba(232,121,249,0.8)', pulse: true  },
+                  challenger:{ icon: '👑', name: 'Desafiante', color: '#DC2626', glow: 'rgba(220,38,38,0.9)', pulse: true },
                 };
                 const tier = tierMeta[player.elo_tier ?? 'silver'] ?? tierMeta.silver;
                 return (

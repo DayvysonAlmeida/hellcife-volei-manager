@@ -8,8 +8,9 @@ export function NextCircuitCard({ nextCircuit }: { nextCircuit: any }) {
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex-1 bg-gradient-to-br from-red/20 via-surface to-surface border-2 border-red/30 rounded-2xl p-6 relative overflow-hidden shadow-[0_0_30px_rgba(217,4,41,0.15)] flex flex-col justify-between"
+            className="flex-1 bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-6 relative overflow-hidden group hover:border-red/20 transition-all hover:shadow-[0_0_30px_rgba(217,4,41,0.15)] flex flex-col justify-between"
           >
+            <div className="absolute top-0 right-0 w-48 h-48 bg-red/10 blur-[60px] rounded-full pointer-events-none -z-10 group-hover:bg-red/20 transition-all" />
             <div className="absolute -right-6 -top-6 text-red/5">
               <Flame size={120} />
             </div>

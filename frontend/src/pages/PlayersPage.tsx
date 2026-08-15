@@ -174,44 +174,50 @@ export function PlayersPage() {
 
       {/* Filters & Search */}
       <div className="card p-4">
-        <div className="flex flex-col md:flex-row gap-3">
+        <div className="flex flex-col gap-4">
           
           {/* Top row: Search + Mobile Filter Toggle + View Mode */}
-          <div className="flex items-center gap-2 w-full md:w-auto md:flex-1">
-            <div className="relative flex-1">
+          <div className="flex items-center justify-between gap-3 w-full">
+            <div className="relative flex-1 max-w-2xl">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
                 type="text"
-                placeholder="Buscar atleta..."
+                placeholder="Buscar atleta pelo nome..."
                 value={search}
                 onChange={handleSearchChange}
-                className="input-glass pl-9 h-10"
+                className="input-glass pl-9 h-10 w-full"
               />
             </div>
-            <button 
-              onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className="btn-secondary h-10 px-3 md:hidden flex items-center justify-center gap-2"
-            >
-              <Filter size={16} className={showMobileFilters ? "text-red" : ""} />
-            </button>
-            <div className="hidden md:flex items-center gap-1 bg-surface rounded-lg p-1 border border-border h-10">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={cn('p-1.5 rounded transition-all', viewMode === 'grid' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+            
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowMobileFilters(!showMobileFilters)}
+                className="btn-secondary h-10 px-3 md:hidden flex items-center justify-center gap-2"
               >
-                <Grid size={16} />
+                <Filter size={16} className={showMobileFilters ? "text-red" : ""} />
               </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={cn('p-1.5 rounded transition-all', viewMode === 'list' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
-              >
-                <List size={16} />
-              </button>
+              
+              <div className="hidden md:flex items-center gap-1 bg-surface rounded-lg p-1 border border-border h-10">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={cn('p-1.5 rounded transition-all', viewMode === 'grid' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+                  title="Visualização em Grade"
+                >
+                  <Grid size={16} />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn('p-1.5 rounded transition-all', viewMode === 'list' ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary')}
+                  title="Visualização em Lista"
+                >
+                  <List size={16} />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Filters Row (Collapsible on Mobile) */}
-          <div className={cn("grid grid-cols-2 sm:grid-cols-4 md:flex md:flex-row flex-wrap gap-2 w-full md:w-auto", !showMobileFilters && "hidden md:flex")}>
+          {/* Filters Row (Collapsible on Mobile, Grid on Desktop) */}
+          <div className={cn("grid grid-cols-2 md:grid-cols-4 gap-3 w-full", !showMobileFilters && "hidden md:grid")}>
             
             {/* Sorting */}
             <select
@@ -308,7 +314,7 @@ export function PlayersPage() {
           icon="🏐"
         />
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-8 pb-10">
           {players.map((player, idx) => (
             <PlayerCard
               key={player.id}
