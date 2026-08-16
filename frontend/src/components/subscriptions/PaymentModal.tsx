@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, CheckCircle2, Loader2, QrCode } from 'lucide-react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 
 interface PaymentModalProps {
@@ -10,6 +11,7 @@ interface PaymentModalProps {
   paymentUrl?: string;
   amount: number | string;
   isProcessing: boolean;
+  paymentId?: string;
   onSuccess?: () => void;
 }
 
@@ -20,6 +22,7 @@ export function PaymentModal({
   paymentUrl,
   amount,
   isProcessing,
+  paymentId,
   onSuccess,
 }: PaymentModalProps) {
   const [isCopied, copy] = useCopyToClipboard();
@@ -30,7 +33,7 @@ export function PaymentModal({
   
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <motion.div
@@ -137,7 +140,21 @@ export function PaymentModal({
                 {/* Botão de simulação de sucesso (APENAS PARA TESTE LOCAL) */}
                 {import.meta.env.DEV && (
                    <button 
-                     onClick={() => setSuccessMode(true)}
+                     onClick={async () => {
+                       if (paymentId) {
+                         import('@/lib/api').then(({ default: api }) => {
+                           const isSub = paymentId.startsWith('sub_');
+                           api.post('/subscriptions/webhook/asaas/', {
+                             event: 'PAYMENT_RECEIVED',
+                             payment: { 
+                               id: paymentId,
+                               subscription: isSub ? paymentId : undefined
+                             }
+                           }).catch(console.error);
+                         });
+                       }
+                       setSuccessMode(true);
+                     }}
                      className="w-full text-xs text-text-muted hover:text-emerald-400 mt-2 text-center"
                    >
                      [Dev] Simular Pagamento Concluído
@@ -148,6 +165,7 @@ export function PaymentModal({
           )}
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

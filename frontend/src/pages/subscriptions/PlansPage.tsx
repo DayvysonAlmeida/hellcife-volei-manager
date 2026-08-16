@@ -127,7 +127,9 @@ export const PlansPage = () => {
             <div className="w-full md:w-auto bg-black/30 rounded-xl p-6 border border-white/5 space-y-4">
                <div className="flex justify-between gap-6">
                  <span className="text-text-muted uppercase text-xs font-bold tracking-widest">Créditos Disponíveis</span>
-                 <span className="text-white font-black text-xl">{activeSub.current_cycle?.credits_balance || 0}</span>
+                 <span className="text-white font-black text-xl">
+                   {activeSub.total_credits_available !== undefined ? activeSub.total_credits_available : (activeSub.current_cycle?.credits_balance || 0)}
+                 </span>
                </div>
                <div className="flex justify-between gap-6 border-t border-white/10 pt-4">
                  <span className="text-text-muted uppercase text-xs font-bold tracking-widest">Prioridades Restantes</span>
@@ -140,7 +142,8 @@ export const PlansPage = () => {
         </div>
       )}
 
-      {!activeSub && (plans.length === 0 ? (
+      {/* Planos Disponíveis */}
+      {plans.length === 0 ? (
         <div className="text-center p-12 bg-surface/50 backdrop-blur-sm border border-border/50 rounded-2xl">
           <p className="text-text-muted text-lg">Nenhum plano disponível no momento.</p>
         </div>
@@ -170,16 +173,25 @@ export const PlansPage = () => {
                 ))}
               </ul>
 
-              <button 
-                onClick={() => setSelectedPlan(plan)}
-                className="w-full py-4 rounded-xl font-bold bg-surface-highlight hover:bg-red hover:text-white text-text-primary transition-all flex items-center justify-center gap-2 group-hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]"
-              >
-                Escolher Plano <ArrowRight size={18} />
-              </button>
+              {activeSub?.plan?.id === plan.id ? (
+                <button 
+                  disabled
+                  className="w-full py-4 rounded-xl font-black tracking-widest uppercase bg-green-500/10 text-green-400 border border-green-500/20 cursor-default flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={18} /> Plano Atual
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setSelectedPlan(plan)}
+                  className="w-full py-4 rounded-xl font-bold bg-surface-highlight hover:bg-red hover:text-white text-text-primary transition-all flex items-center justify-center gap-2 group-hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+                >
+                  {activeSub ? 'Mudar para este' : 'Escolher Plano'} <ArrowRight size={18} />
+                </button>
+              )}
             </div>
           ))}
         </div>
-      ))}
+      )}
 
       {/* Modal de Checkout / CPF */}
       <AnimatePresence>

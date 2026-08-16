@@ -20,11 +20,11 @@ class SubscriptionService:
     @staticmethod
     def get_total_credits_available(player):
         """Retorna o total de créditos disponíveis (plano + avulsos)."""
+        total = getattr(player, 'standalone_credits', Decimal('0.0'))
         cycle = SubscriptionService.get_current_cycle(player)
-        if not cycle:
-            return Decimal('0.0')
-            
-        return cycle.credits_balance
+        if cycle:
+            total += cycle.credits_balance
+        return total
 
     @staticmethod
     def add_extra_credits(player, amount, price_paid, asaas_payment_id=None):
@@ -55,7 +55,8 @@ class SubscriptionService:
         Verifica se o jogador tem acesso na janela de prioridade de 24h.
         Retorna: (pode_acessar, usa_prioridade_do_ciclo)
         """
-        time_diff = timezone.now() - gameday.created_at
+        base_time = gameday.published_at if getattr(gameday, 'published_at', None) else gameday.created_at
+        time_diff = timezone.now() - base_time
         is_priority_window = time_diff.total_seconds() < 86400 # 24 horas
         
         if not is_priority_window:
@@ -81,44 +82,57 @@ class SubscriptionService:
         Retorna: (credits_used, used_priority)
         Deve ser chamado de dentro de uma transaction.atomic() na view.
         """
-        can_access, uses_priority = SubscriptionService.check_priority_access(player, gameday)
-        if not can_access:
-            raise ValueError("Lista na janela exclusiva de prioridade (24h) e você não possui prioridades disponíveis.")
+        uses_priority = False
             
         credit_cost = gameday.credit_cost
         if not SubscriptionService.has_enough_credits(player, credit_cost):
             raise ValueError(f"Créditos insuficientes. Você precisa de {credit_cost} créditos.")
             
         cycle = SubscriptionService.get_current_cycle(player)
+        remaining_to_debit = Decimal(str(credit_cost))
         
-        # Debita créditos
-        cycle.credits_balance -= credit_cost
+        if cycle and cycle.credits_balance > 0:
+            if cycle.credits_balance >= remaining_to_debit:
+                cycle.credits_balance -= remaining_to_debit
+                remaining_to_debit = Decimal('0.0')
+            else:
+                remaining_to_debit -= cycle.credits_balance
+                cycle.credits_balance = Decimal('0.0')
+            
+        if remaining_to_debit > 0:
+            player.standalone_credits -= remaining_to_debit
+            player.save(update_fields=['standalone_credits'])
         
         # Debita prioridade (se aplicável e se não for infinita)
-        if uses_priority and not cycle.subscription.plan.has_unlimited_priority:
+        if cycle and uses_priority and not cycle.subscription.plan.has_unlimited_priority:
             cycle.priorities_used += 1
             
-        cycle.save()
+        if cycle:
+            cycle.save()
         
         return credit_cost, uses_priority
 
     @staticmethod
     def refund_attendance(player, attendance):
         """Estorna os créditos e prioridade quando o usuário sai da lista (cancelamento válido)."""
-        cycle = SubscriptionService.get_current_cycle(player)
-        if not cycle:
-            return # Se ciclo já fechou ou acabou a assinatura, não há onde devolver?
-            
         with transaction.atomic():
             if attendance.credits_used > 0:
-                cycle.credits_balance += attendance.credits_used
+                cycle = SubscriptionService.get_current_cycle(player)
+                if cycle:
+                    cycle.credits_balance += attendance.credits_used
+                    cycle.save()
+                else:
+                    player.standalone_credits += attendance.credits_used
+                    player.save(update_fields=['standalone_credits'])
                 attendance.credits_used = Decimal('0.0')
                 
-            if attendance.used_priority and cycle.priorities_used > 0:
-                cycle.priorities_used -= 1
+            if attendance.used_priority:
+                cycle = SubscriptionService.get_current_cycle(player)
+                if cycle and cycle.priorities_used > 0:
+                    cycle.priorities_used -= 1
+                    cycle.save()
                 attendance.used_priority = False
                 
-            cycle.save()
             attendance.save()
 
     @staticmethod

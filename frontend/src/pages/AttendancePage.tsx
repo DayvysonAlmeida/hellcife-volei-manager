@@ -55,8 +55,8 @@ export function AttendancePage() {
     return { activeGameDays: active, historyGameDays: history };
   }, [gameDays, todayStr]);
 
-  const { presentAttendances, absentAttendances, waitlistAttendances, totalPaid } = useMemo(() => {
-    if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0 };
+  const { presentAttendances, absentAttendances, waitlistAttendances, totalPaid, totalCreditUsers, totalCreditsUsed } = useMemo(() => {
+    if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0, totalCreditUsers: 0, totalCreditsUsed: 0 };
     
     let filtered = gameDayDetail.attendances;
     if (searchTerm) {
@@ -83,8 +83,10 @@ export function AttendancePage() {
     });
 
     const totalPaid = gameDayDetail.attendances.filter(a => a.has_paid).length;
+    const totalCreditUsers = gameDayDetail.attendances.filter(a => a.used_credit).length;
+    const totalCreditsUsed = gameDayDetail.attendances.reduce((sum, a) => sum + (Number(a.credits_used) || (a.used_credit ? 1 : 0)), 0);
     
-    return { presentAttendances: present, absentAttendances: absent, waitlistAttendances: waitlist, totalPaid };
+    return { presentAttendances: present, absentAttendances: absent, waitlistAttendances: waitlist, totalPaid, totalCreditUsers, totalCreditsUsed };
   }, [gameDayDetail, searchTerm]);
 
   const { courtPrice, rateio, totalCollected, remaining } = useMemo(() => {
@@ -482,22 +484,24 @@ export function AttendancePage() {
                     <Users size={14} className="text-white/20 mt-2 sm:mt-4 group-hover:text-green-500/40 transition-colors self-end" />
                   </div>
 
-                  {/* Card 2: Pagaram */}
+                  {/* Card 2: Créditos Usados / Pagaram */}
                   <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl p-2.5 sm:p-4 flex flex-col justify-between">
                     <div>
                       <div className="flex items-baseline gap-0.5">
-                        <div className="font-display text-2xl sm:text-4xl text-emerald-400 leading-none">
-                          {totalPaid}
+                        <div className="font-display text-2xl sm:text-4xl text-amber-500 leading-none">
+                          {totalCreditsUsed}
                         </div>
                         <div className="font-display text-sm sm:text-xl text-white/20 leading-none">
-                          /{gameDayDetail.total_present}
+                          crd.
                         </div>
                       </div>
                       <div className="text-[9px] sm:text-xs font-bold text-white uppercase tracking-widest mt-1">
-                        Pagaram
+                        Créditos Usados
                       </div>
                     </div>
-                    <DollarSign size={14} className="text-white/20 mt-2 sm:mt-4 self-end" />
+                    <div className="flex items-center gap-1.5 mt-2 sm:mt-4 self-end text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-white/50">
+                      <span className="text-emerald-400">{totalPaid}</span> Pagaram <DollarSign size={10} className="text-emerald-400" />
+                    </div>
                   </div>
 
                   {/* Card 3: Arrecadado e Rateio (Ocupa linha inteira) */}

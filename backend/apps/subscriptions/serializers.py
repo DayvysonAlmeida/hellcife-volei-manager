@@ -16,6 +16,8 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
     plan_id = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.all(), source='plan', write_only=True, required=False)
     current_cycle = serializers.SerializerMethodField()
     player_name = serializers.CharField(source='player.name', read_only=True)
+    total_credits_available = serializers.SerializerMethodField()
+    standalone_credits = serializers.IntegerField(source='player.standalone_credits', read_only=True)
     
     class Meta:
         model = UserSubscription
@@ -27,6 +29,10 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
         if cycle:
             return SubscriptionCycleSerializer(cycle).data
         return None
+
+    def get_total_credits_available(self, obj):
+        from .services import SubscriptionService
+        return SubscriptionService.get_total_credits_available(obj.player)
 
 class ExtraCreditPurchaseSerializer(serializers.ModelSerializer):
     class Meta:

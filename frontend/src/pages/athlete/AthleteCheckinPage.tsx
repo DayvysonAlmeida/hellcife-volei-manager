@@ -7,10 +7,12 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { PageLoading } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
+import { PaymentModal } from '@/components/subscriptions/PaymentModal';
 import { PositionBadge } from '@/components/ui/Badges';
 import { LocationMapModal } from '@/components/ui/LocationMapModal';
-import { formatDate } from '@/lib/utils';
 import { cn, getPositionClass } from '@/lib/utils';
+import { createPortal } from 'react-dom';
+import { CircuitCard } from '@/components/attendance/CircuitCard';
 
 // ─── Card expandido de check-in ────────────────────────────────────────────────
 function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any }) {
@@ -21,6 +23,13 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState('Outro');
   const [useFreeGuest, setUseFreeGuest] = useState(false);
+  
+  // Compra de Crédito no Check-in
+  const [showBuyCredit, setShowBuyCredit] = useState(false);
+  const [cpf, setCpf] = useState('');
+  const [creditError, setCreditError] = useState('');
+  const [isBuying, setIsBuying] = useState(false);
+  const [paymentData, setPaymentData] = useState<any>(null);
 
   const { data: circuitDetail } = useQuery({
     queryKey: ['athlete-circuit-detail', circuit.id],
@@ -44,7 +53,8 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
 
   const currentCycle = sub?.current_cycle;
   const plan = sub?.plan;
-  const hasCredits = sub?.status === 'active' && currentCycle && Number(currentCycle.credits_balance) >= 1;
+  const totalCredits = sub?.total_credits_available || 0;
+  const hasCredits = totalCredits >= 1;
   const freeGuestsUsed = currentCycle ? currentCycle.free_guests_used : 0;
   const freeGuestsTotal = plan ? plan.free_guests : 0;
   const guestsAvailable = freeGuestsTotal - freeGuestsUsed >= 0 ? freeGuestsTotal - freeGuestsUsed : 0;
@@ -121,6 +131,38 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
       toast.error(err.response?.data?.detail || 'Erro ao cancelar presença.');
     },
   });
+
+  const handleBuyCredit = async () => {
+    setCreditError('');
+    setIsBuying(true);
+    try {
+      const response = await api.post('/subscriptions/user-subscriptions/buy_extra_credits/', {
+        amount: 1,
+        price_paid: 10.00,
+        cpf: cpf.replace(/\D/g, '')
+      });
+      setPaymentData({
+        amount: 10.00,
+        pixCopyPaste: response.data.pix_copy_paste,
+        paymentUrl: response.data.payment_url,
+        paymentId: response.data.payment_id
+      });
+      setShowBuyCredit(false);
+    } catch (err: any) {
+      const apiError = err.response?.data?.error || 'Erro ao gerar cobrança.';
+      setCreditError(apiError);
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
+  const handleCheckinClick = () => {
+    if (circuit.credit_cost > 0 && !hasCredits) {
+      setShowBuyCredit(true);
+    } else {
+      checkinMutation.mutate(myPlayer.id);
+    }
+  };
 
   const myAttendance = myPlayer && circuitDetail?.players?.find((p: any) => p.id === myPlayer.id);
   const amPresent = myAttendance?.present;
@@ -234,18 +276,18 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               {!amPresent && !amWaitlist && (
                 <motion.button
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => checkinMutation.mutate(myPlayer.id)}
+                  onClick={handleCheckinClick}
                   disabled={checkinMutation.isPending}
-                  className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-black tracking-widest uppercase rounded-xl transition-all border ${hasCredits ? 'bg-red hover:bg-red-hover text-white border-red shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'bg-surface-hover hover:bg-surface-highlight text-text-primary border-border hover:border-text-muted shadow-lg'}`}
+                  className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-black tracking-widest uppercase rounded-xl transition-all border ${hasCredits ? 'bg-red hover:bg-red-hover text-white border-red shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'bg-amber-500 hover:bg-amber-400 text-amber-950 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]'}`}
                 >
                   {checkinMutation.isPending ? (
                     <Loader2 size={18} className="animate-spin" />
                   ) : hasCredits ? (
                     <Zap size={18} className="text-white fill-white/20" />
                   ) : (
-                    <CalendarCheck size={18} />
+                    <Wallet size={18} />
                   )}
-                  {hasCredits ? 'Usar 1 Crédito' : 'Confirmar Presença'}
+                  {hasCredits ? 'Usar 1 Crédito' : 'Comprar Crédito & Entrar'}
                 </motion.button>
               )}
 
@@ -562,6 +604,84 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
           </div>
         </div>
       )}
+
+      {/* Modal Compra de Crédito Check-in */}
+      {showBuyCredit && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-surface border border-amber-500/30 shadow-[0_0_40px_rgba(245,158,11,0.15)] rounded-2xl w-full max-w-sm overflow-hidden p-6 relative"
+            >
+              <button onClick={() => setShowBuyCredit(false)} className="absolute top-4 right-4 text-text-muted hover:text-white transition-colors">
+                <X size={20} />
+              </button>
+              
+              <div className="flex flex-col items-center text-center mb-6">
+                <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center justify-center mb-3">
+                  <Zap size={24} className="text-amber-500" />
+                </div>
+                <h3 className="text-xl font-black text-white uppercase tracking-wider mb-1">Sem Créditos!</h3>
+                <p className="text-text-secondary text-sm">Você precisa de 1 crédito para confirmar sua presença neste circuito.</p>
+              </div>
+
+              <div className="bg-black/30 rounded-xl p-4 mb-5 border border-white/5">
+                <div className="flex justify-between items-center text-sm font-bold text-white mb-2">
+                  <span>1 Crédito Avulso</span>
+                  <span className="text-amber-500">R$ 10,00</span>
+                </div>
+                {creditError && (
+                  <div className="mt-3">
+                    <p className="text-red text-xs font-bold mb-2 text-left">{creditError}</p>
+                    {creditError.toLowerCase().includes('obrigatório') && (
+                      <input 
+                        type="text"
+                        value={cpf}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '');
+                          setCpf(val.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"));
+                        }}
+                        placeholder="Digite seu CPF"
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-500/50 outline-none"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button 
+                onClick={handleBuyCredit}
+                disabled={isBuying}
+                className="w-full btn-primary bg-amber-500 hover:bg-amber-400 text-amber-950 font-black tracking-widest uppercase shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2 py-3.5 disabled:opacity-50"
+              >
+                {isBuying ? <Loader2 size={18} className="animate-spin" /> : 'Gerar PIX de R$ 10'}
+              </button>
+            </motion.div>
+          </div>
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Payment Modal PIX */}
+      {paymentData && (
+        <PaymentModal 
+          isOpen={!!paymentData}
+          onClose={() => setPaymentData(null)}
+          pixCopyPaste={paymentData.pixCopyPaste}
+          paymentUrl={paymentData.paymentUrl}
+          amount={paymentData.amount}
+          paymentId={paymentData.paymentId}
+          isProcessing={false}
+          onSuccess={() => {
+            // Após o PIX ser pago (simulado na interface), a tela pode atualizar para ele confirmar presença
+            qc.invalidateQueries({ queryKey: ['my_subscription'] });
+            qc.invalidateQueries({ queryKey: ['athlete-me'] });
+            toast.success('Pagamento confirmado! Agora é só confirmar presença.');
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -599,73 +719,27 @@ function CircuitSummaryCard({
   const time = circuit.time ? ` às ${circuit.time.slice(0, 5)}` : '';
   const dateFormatted = `${dayName}., ${dayNum} ${month}${time}`;
 
+  const getStatusBadge = () => {
+    if (amPresent) {
+      if (hasPaid) return <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold flex items-center gap-1"><Check size={8} /> PAGO</span>;
+      return <span className="text-[8px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30 font-bold flex items-center gap-1"><Check size={8} /> CONFIRMADO</span>;
+    }
+    if (isWaitlist) {
+      return <span className="text-[8px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-bold flex items-center gap-1"><Clock size={8} /> FILA</span>;
+    }
+    return <span className="text-[8px] px-1.5 py-0.5 rounded bg-surface-highlight text-text-muted border border-border/50 font-medium">PENDENTE</span>;
+  };
+
   return (
-    <div className="card overflow-hidden">
-      {/* Cabeçalho clicável */}
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 p-4 text-left hover:bg-surface-highlight/30 transition-colors"
-      >
-        {/* Indicador status */}
-        <div className={cn(
-          'w-2 h-2 rounded-full flex-shrink-0 mt-1 self-start',
-          isExpanded ? 'bg-green-400 animate-pulse' : 'bg-green-400/50'
-        )} />
-
-        {/* Infos principais */}
-        <div className="flex-1 min-w-0">
-          <p className="font-display text-sm text-text-primary tracking-wider leading-none truncate">
-            {circuit.location || 'PELADA'}
-          </p>
-          <p className="text-text-muted text-[11px] mt-1 capitalize flex items-center gap-1">
-            <Clock size={10} /> {dateFormatted}
-          </p>
-          
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {amPresent ? (
-              <>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30 font-bold flex items-center gap-1">
-                  <Check size={10} /> Confirmado
-                </span>
-                {hasPaid ? (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold flex items-center gap-1">
-                    <Check size={10} /> Pago
-                  </span>
-                ) : (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-red/20 text-red border border-red/30 font-bold flex items-center gap-1">
-                    <X size={10} /> Não Pago
-                  </span>
-                )}
-              </>
-            ) : isWaitlist ? (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-bold flex items-center gap-1">
-                <Clock size={10} /> Fila de Espera
-              </span>
-            ) : (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-highlight text-text-muted border border-border/50 font-medium">
-                Pendente
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Contagem + seta */}
-        <div className="flex items-center gap-2 flex-shrink-0 self-start">
-          <div className="text-right">
-            <p className="font-display text-xl text-green-400 leading-none drop-shadow-[0_0_8px_rgba(74,222,128,0.3)]">{totalPresent}</p>
-            <p className="text-text-muted text-[9px] uppercase tracking-wider mt-0.5">
-              {circuit.max_players ? `/ ${circuit.max_players}` : 'conf.'}
-            </p>
-          </div>
-          <ChevronDown
-            size={16}
-            className={cn(
-              'text-text-muted transition-transform duration-300 flex-shrink-0 mt-0.5',
-              isExpanded && 'rotate-180'
-            )}
-          />
-        </div>
-      </button>
+    <div className="flex flex-col gap-1.5">
+      {/* Cabeçalho clicável (CircuitCard) */}
+      <div className={cn("transition-all duration-300 ring-2 rounded-xl", isExpanded ? "ring-red/50 shadow-[0_0_15px_rgba(217,4,41,0.2)]" : "ring-transparent hover:ring-white/10")}>
+        <CircuitCard 
+          gameDay={circuit} 
+          onClick={onToggle} 
+          badge={getStatusBadge()}
+        />
+      </div>
 
       {/* Conteúdo expandido */}
       <AnimatePresence initial={false}>

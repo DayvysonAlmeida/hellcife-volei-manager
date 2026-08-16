@@ -59,8 +59,6 @@ const adminNavGroups = [
   {
     title: 'Clube',
     items: [
-      { to: '/subscriptions', icon: Crown, label: 'Assinaturas' },
-      { to: '/plans', icon: Zap, label: 'Planos (Admin)' },
       { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
     ]
   }
@@ -83,9 +81,15 @@ const playerNavGroups = [
     ]
   },
   {
+    title: 'Financeiro',
+    items: [
+      { to: '/athlete/wallet', icon: Activity, label: 'Minha Assinatura' },
+      { to: '/athlete/plans', icon: CreditCard, label: 'Planos & Créditos' },
+    ]
+  },
+  {
     title: 'Clube',
     items: [
-      { to: '/athlete/plans', icon: Star, label: 'Planos' },
       { to: '/athlete/elo-system', icon: BarChart3, label: 'Sistema de Elo' },
       { to: '/athlete/regulation', icon: ScrollText, label: 'Regulamento' },
     ]

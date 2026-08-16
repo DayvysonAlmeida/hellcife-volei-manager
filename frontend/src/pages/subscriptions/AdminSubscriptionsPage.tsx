@@ -234,19 +234,20 @@ export const AdminSubscriptionsPage = () => {
                     <th className="px-6 py-5 font-bold">Plano</th>
                     <th className="px-6 py-5 font-bold">Status</th>
                     <th className="px-6 py-5 font-bold">Próxima Fatura</th>
+                    <th className="px-6 py-5 font-bold">Créditos Disp.</th>
                     <th className="px-6 py-5 font-bold text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/50">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center">
+                      <td colSpan={6} className="px-6 py-12 text-center">
                         <div className="w-8 h-8 border-4 border-red border-t-transparent rounded-full animate-spin mx-auto" />
                       </td>
                     </tr>
                   ) : subs?.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center">
+                      <td colSpan={6} className="px-6 py-12 text-center">
                         <ShieldAlert size={48} className="text-text-muted mx-auto mb-4 opacity-50" />
                         <p className="text-text-secondary text-lg font-bold uppercase">Nenhuma Assinatura Encontrada</p>
                       </td>
@@ -286,6 +287,16 @@ export const AdminSubscriptionsPage = () => {
                         </td>
                         <td className="px-6 py-5 text-sm font-mono text-text-secondary">
                           {sub.next_billing_date ? new Date(sub.next_billing_date).toLocaleDateString('pt-BR') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col">
+                            <span className="text-white font-bold">{Math.floor(sub.total_credits_available || 0)} totais</span>
+                            {sub.standalone_credits > 0 && (
+                              <span className="text-[10px] text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 mt-1 w-fit">
+                                +{sub.standalone_credits} avulsos
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-5 text-right">
                           <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">

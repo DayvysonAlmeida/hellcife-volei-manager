@@ -53,6 +53,24 @@ class UserSubscription(models.Model):
         verbose_name = 'Assinatura do Usuário'
         verbose_name_plural = 'Assinaturas dos Usuários'
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._original_status = self.status
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        # Se mudou para 'active' (ou é novo) e não tem ciclo ativo, gera o ciclo e deposita os créditos
+        if self.status == 'active' and (is_new or self._original_status != 'active'):
+            from apps.subscriptions.services import SubscriptionService
+            today = timezone.now().date()
+            current_cycle = self.cycles.filter(is_active=True, start_date__lte=today, end_date__gte=today).first()
+            if not current_cycle:
+                SubscriptionService.renew_cycle(self)
+                
+        self._original_status = self.status
+
     def __str__(self):
         return f'{self.player} - {self.plan.name}'
 
@@ -76,7 +94,7 @@ class SubscriptionCycle(models.Model):
 
 class ExtraCreditPurchase(models.Model):
     player = models.ForeignKey('players.Player', on_delete=models.CASCADE, related_name='extra_credits')
-    cycle = models.ForeignKey(SubscriptionCycle, on_delete=models.CASCADE, related_name='extra_credits')
+    cycle = models.ForeignKey(SubscriptionCycle, on_delete=models.CASCADE, related_name='extra_credits', null=True, blank=True)
     credits_amount = models.DecimalField(max_digits=4, decimal_places=1)
     price_paid = models.DecimalField(max_digits=6, decimal_places=2)
     asaas_payment_id = models.CharField(max_length=100, blank=True, null=True)

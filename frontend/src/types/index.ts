@@ -280,6 +280,7 @@ export interface Attendance {
   player_name: string;
   credits_used?: number | string;
   used_priority?: boolean;
+  used_credit?: boolean;
   player_avatar?: string;
   player_position: Position;
   player_shirt?: number;

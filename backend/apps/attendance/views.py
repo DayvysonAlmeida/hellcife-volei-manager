@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q
+from django.utils import timezone
 
 from .models import GameDay, Attendance, CourtCheckin
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
@@ -116,6 +117,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
         ])
 
         if gameday.is_published:
+            gameday.published_at = timezone.now()
+            gameday.save(update_fields=['published_at'])
             self._send_publish_notification(gameday)
 
     def _send_publish_notification(self, gameday):
@@ -165,6 +168,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
         # Envia notificação APENAS se o status is_published mudou de False para True
         if not was_published and gameday.is_published:
+            gameday.published_at = timezone.now()
+            gameday.save(update_fields=['published_at'])
             self._send_publish_notification(gameday)
 
         # Removido o _process_attendance_and_absences para usar apenas o sync_absences_logic() via Sincronizar Faltas ou Lock.
@@ -451,10 +456,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
         from apps.subscriptions.services import SubscriptionService
         from django.db import transaction
         
-        # Verifica se pode acessar (janela de 24h etc)
-        can_access, uses_priority = SubscriptionService.check_priority_access(attendance.player, gameday)
-        if not can_access:
-            return Response({'detail': 'Lista na janela exclusiva de prioridade (24h) e você não possui prioridades disponíveis.'}, status=status.HTTP_400_BAD_REQUEST)
+        # Prioridade de 24h removida conforme regra de negócio (todos são membros)
+        uses_priority = False
             
         if attendance.player.is_guest:
             if not attendance.is_waitlist:

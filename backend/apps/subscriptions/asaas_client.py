@@ -1,5 +1,6 @@
 import requests
 import json
+import uuid
 from django.conf import settings
 
 class AsaasClient:
@@ -13,7 +14,7 @@ class AsaasClient:
 
     def create_customer(self, name, cpfCnpj, email, phone=None):
         if not self.api_key:
-            return {"id": "cus_mock_" + cpfCnpj[:6], "object": "customer"}
+            return {"id": f"cus_mock_{uuid.uuid4().hex[:8]}", "object": "customer"}
             
         url = f"{self.api_url}/customers"
         payload = {
@@ -38,7 +39,7 @@ class AsaasClient:
     def create_subscription(self, customer_id, value, nextDueDate, description):
         if not self.api_key:
             return {
-                "id": "sub_mock_" + customer_id[-6:],
+                "id": f"sub_mock_{uuid.uuid4().hex[:8]}",
                 "invoiceUrl": "https://sandbox.asaas.com/mock/invoice/sub"
             }
             
@@ -62,10 +63,20 @@ class AsaasClient:
             pass
         raise Exception(f"Asaas Error ({response.status_code}): {error_msg}")
 
+    def cancel_subscription(self, subscription_id):
+        if not self.api_key:
+            return True
+            
+        url = f"{self.api_url}/subscriptions/{subscription_id}"
+        response = requests.delete(url, headers=self.headers)
+        if response.status_code in [200, 204]:
+            return True
+        return False
+
     def create_payment(self, customer_id, value, dueDate, description):
         if not self.api_key:
             return {
-                "id": "pay_mock_" + customer_id[-6:],
+                "id": f"pay_mock_{uuid.uuid4().hex[:8]}",
                 "invoiceUrl": "https://sandbox.asaas.com/mock/invoice/pay"
             }
             

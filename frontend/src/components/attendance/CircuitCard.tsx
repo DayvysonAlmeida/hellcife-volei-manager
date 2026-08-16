@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils';
 interface CircuitCardProps {
   gameDay: GameDay;
   onClick: () => void;
+  badge?: React.ReactNode;
 }
 
-export function CircuitCard({ gameDay, onClick }: CircuitCardProps) {
+export function CircuitCard({ gameDay, onClick, badge }: CircuitCardProps) {
   const dateObj = new Date(gameDay.date);
   
   // Ajuste do fuso para não dar problema no dia da semana
@@ -87,8 +88,9 @@ export function CircuitCard({ gameDay, onClick }: CircuitCardProps) {
 
       {/* Coluna Central: Data e Local */}
       <div className="flex-1 p-3 flex flex-col justify-center border-r border-[#2a2a2a] relative">
-        <h3 className={`text-[10px] font-black uppercase tracking-widest ${dayColor} mb-0.5`}>
-          {dayOfWeek}
+        <h3 className={`flex items-center justify-between text-[10px] font-black uppercase tracking-widest ${dayColor} mb-0.5`}>
+          <span>{dayOfWeek}</span>
+          {badge && <div>{badge}</div>}
         </h3>
         <p className="text-xl sm:text-2xl font-black text-white leading-none tracking-tight">
           {formattedDate}

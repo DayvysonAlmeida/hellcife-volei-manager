@@ -13,6 +13,7 @@ class GameDay(models.Model):
     pix_key = models.CharField(max_length=200, blank=True, null=True, verbose_name='Chave PIX', help_text='Chave PIX opcional para recebimento do rateio.')
     is_closed = models.BooleanField(default=False, verbose_name='Encerrado', help_text='Se verdadeiro, o circuito e todas as suas peladas estão encerrados')
     is_published = models.BooleanField(default=False, verbose_name='Publicado', help_text='Se verdadeiro, o circuito fica visível para os atletas')
+    published_at = models.DateTimeField(null=True, blank=True, verbose_name='Data de Publicação', help_text='A data em que o circuito foi publicado para os atletas')
     is_full_notified = models.BooleanField(default=False, help_text='Garante que a notificação de lotação seja enviada apenas uma vez')
     created_by = models.ForeignKey(
         'core.User', on_delete=models.SET_NULL, null=True,

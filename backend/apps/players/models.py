@@ -52,6 +52,7 @@ class Player(models.Model):
     instagram = models.CharField(max_length=100, blank=True, null=True, verbose_name='Instagram')
     avatar = models.FileField(upload_to='avatars/', blank=True, null=True, verbose_name='Foto do Jogador')
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
+    standalone_credits = models.DecimalField(max_digits=4, decimal_places=1, default=0.0, verbose_name='Créditos Avulsos')
 
     # Sistema de Estrelas — cada categoria tem 0–5 estrelas
     # Total (mvp + ataque + defesa) = mini_stars (0–15)

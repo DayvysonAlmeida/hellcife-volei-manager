@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, RefreshCw, Check, Users, DollarSign, X, GripVertical, Clock } from 'lucide-react';
+import { Search, Plus, RefreshCw, Check, Users, DollarSign, X, GripVertical, Clock, Zap } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import {
@@ -192,7 +192,12 @@ export function AttendanceList({
           {/* Status Text (Pago / Aguardando / Pendente) */}
           <div className="flex flex-col items-end sm:items-start min-h-[16px]">
             {isPresent && (
-              isPaid ? (
+              att.used_credit ? (
+                <div className="flex items-center gap-1 text-amber-500">
+                  <Zap size={12} className="fill-amber-500/20" strokeWidth={3} />
+                  <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Plano</span>
+                </div>
+              ) : isPaid ? (
                 <div className="flex items-center gap-1 text-green-500">
                   <Check size={12} strokeWidth={3} />
                   <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Pago</span>

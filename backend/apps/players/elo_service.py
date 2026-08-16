@@ -28,10 +28,20 @@ ELO_MIN = 100
 
 ELO_TIERS = [
     {
+        'name': 'Desafiante',
+        'key': 'challenger',
+        'min': 1000,
+        'max': None,
+        'color': '#DC2626',       # vermelho
+        'text_color': '#FEF2F2',
+        'icon': '👑',
+        'gradient': 'from-red-600 to-rose-600',
+    },
+    {
         'name': 'Elite',
         'key': 'elite',
         'min': 900,
-        'max': None,
+        'max': 999,
         'color': '#9333EA',       # roxo
         'text_color': '#F3E8FF',
         'icon': '🔥',

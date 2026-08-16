@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib import messages
-from .models import Player, StarHistory
+from .models import Player, StarHistory, Badge, PlayerBadge
 
 
 @admin.action(description='Marcar selecionados como Ativos')
@@ -68,4 +68,21 @@ class StarHistoryAdmin(admin.ModelAdmin):
     list_select_related = ['player']
     autocomplete_fields = ['player']
     date_hierarchy = 'created_at'
+
+
+@admin.register(Badge)
+class BadgeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'condition_type', 'condition_value']
+    list_filter = ['condition_type']
+    search_fields = ['name', 'description']
+    ordering = ['name']
+
+
+@admin.register(PlayerBadge)
+class PlayerBadgeAdmin(admin.ModelAdmin):
+    list_display = ['player', 'badge', 'awarded_at']
+    list_filter = ['badge', 'awarded_at']
+    search_fields = ['player__name', 'badge__name']
+    ordering = ['-awarded_at']
+    autocomplete_fields = ['player']
 

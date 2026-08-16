@@ -21,6 +21,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
   const [newLocation, setNewLocation] = useState(initialData?.location || '');
   const [newMaxPlayers, setNewMaxPlayers] = useState<number | ''>(initialData?.max_players || '');
   const [newCourtPrice, setNewCourtPrice] = useState<number | ''>(initialData?.court_price || '');
+  const [newCreditCost, setNewCreditCost] = useState<number | ''>(initialData?.credit_cost !== undefined ? Number(initialData.credit_cost) : 1.0);
   const [newPixKey, setNewPixKey] = useState(initialData?.pix_key || '');
 
   const saveMutation = useMutation({
@@ -32,6 +33,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
         location: newLocation,
         max_players: newMaxPlayers === '' ? undefined : newMaxPlayers,
         court_price: newCourtPrice === '' ? undefined : newCourtPrice,
+        credit_cost: newCreditCost === '' ? 1.0 : newCreditCost,
         pix_key: newPixKey || undefined,
       };
       
@@ -143,6 +145,22 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
             placeholder="Ex: CPF, E-mail ou Telefone"
             value={newPixKey}
             onChange={(e) => setNewPixKey(e.target.value)}
+            className="input w-full mt-1"
+          />
+        </div>
+        <div className="sm:col-span-1">
+          <label className="text-text-muted text-xs uppercase tracking-wider">
+            Custo em Créditos
+          </label>
+          <input
+            type="number"
+            step="0.5"
+            placeholder="Ex: 1.0"
+            value={newCreditCost}
+            onChange={(e) =>
+              setNewCreditCost(e.target.value === '' ? '' : Number(e.target.value))
+            }
+            min={0}
             className="input w-full mt-1"
           />
         </div>

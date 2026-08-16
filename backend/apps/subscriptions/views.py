@@ -14,7 +14,7 @@ class PlanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff:
+        if getattr(user, 'profile', '') in ['admin', 'moderator'] or getattr(user, 'is_staff', False):
             return Plan.objects.all()
         return Plan.objects.filter(is_active=True)
 
@@ -37,10 +37,16 @@ class PlanViewSet(viewsets.ModelViewSet):
             return Response({'error': 'CPF é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
             
         existing_sub = UserSubscription.objects.filter(player=player, status__in=['active', 'PENDING_PAYMENT']).first()
-        if existing_sub:
-            return Response({'error': f'Você já possui uma assinatura com status {existing_sub.get_status_display()}.'}, status=status.HTTP_400_BAD_REQUEST)
+        if existing_sub and existing_sub.plan == plan:
+            return Response({'error': f'Você já possui o plano {plan.name} ativo.'}, status=status.HTTP_400_BAD_REQUEST)
 
         client = AsaasClient()
+        
+        if existing_sub and existing_sub.asaas_subscription_id:
+            try:
+                client.cancel_subscription(existing_sub.asaas_subscription_id)
+            except Exception as e:
+                print("Aviso: Falha ao cancelar assinatura antiga no Asaas:", str(e))
         
         # 1. Recuperar ou criar Customer
         try:
@@ -54,8 +60,13 @@ class PlanViewSet(viewsets.ModelViewSet):
                 customer.customer_id = asaas_cust['id']
                 customer.cpf = cpf
                 customer.save()
+            except django.db.utils.IntegrityError:
+                return Response({'error': 'Este CPF já está sendo utilizado por outra conta no sistema.'}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 import traceback; traceback.print_exc()
+                error_str = str(e).lower()
+                if 'cpf' in error_str or 'cnpj' in error_str:
+                    return Response({'error': 'O CPF informado já está vinculado a outra conta no Asaas.'}, status=status.HTTP_400_BAD_REQUEST)
                 return Response({'error': f'Erro ao criar cliente no Asaas: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
         # 2. Criar Subscrição no Asaas
@@ -103,13 +114,22 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
         player = getattr(request.user, 'player_profile', None)
         if not player:
             return Response({'error': 'Perfil de jogador não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-            
-        try:
-            subscription = UserSubscription.objects.get(player=player)
+        from apps.subscriptions.services import SubscriptionService
+        
+        subscription = UserSubscription.objects.filter(player=player).exclude(status='canceled').order_by('-id').first()
+        if subscription:
             serializer = self.get_serializer(subscription)
-            return Response(serializer.data)
-        except UserSubscription.DoesNotExist:
-            return Response({'error': 'Assinatura não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+            data = serializer.data
+        else:
+            data = {
+                'plan': None, 
+                'status': 'inactive', 
+                'current_cycle': None
+            }
+            
+        data['total_credits_available'] = SubscriptionService.get_total_credits_available(player)
+        data['standalone_credits'] = player.standalone_credits
+        return Response(data)
             
     @action(detail=False, methods=['post'])
     def buy_extra_credits(self, request):
@@ -135,8 +155,13 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
                 customer.customer_id = asaas_cust['id']
                 customer.cpf = cpf
                 customer.save()
+            except django.db.utils.IntegrityError:
+                return Response({'error': 'Este CPF já está sendo utilizado por outra conta no sistema.'}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 import traceback; traceback.print_exc()
+                error_str = str(e).lower()
+                if 'cpf' in error_str or 'cnpj' in error_str:
+                    return Response({'error': 'O CPF informado já está vinculado a outra conta no Asaas.'}, status=status.HTTP_400_BAD_REQUEST)
                 return Response({'error': f'Erro Asaas ao criar cliente: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
         due_date = timezone.now().strftime('%Y-%m-%d')
@@ -163,11 +188,11 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
             pix_copy_paste=qr_data.get('payload'),
             status='PENDING'
         )
-        
         return Response({
             'message': 'Cobrança PIX gerada com sucesso.',
             'payment_url': pay_data.get('invoiceUrl'),
-            'pix_copy_paste': qr_data.get('payload')
+            'pix_copy_paste': qr_data.get('payload'),
+            'payment_id': pay_data.get('id')
         }, status=status.HTTP_201_CREATED)
 
 class AsaasWebhookView(views.APIView):
@@ -199,6 +224,9 @@ class AsaasWebhookView(views.APIView):
                         if purchase.cycle:
                             purchase.cycle.credits_balance += purchase.credits_amount
                             purchase.cycle.save()
+                        else:
+                            purchase.player.standalone_credits += purchase.credits_amount
+                            purchase.player.save(update_fields=['standalone_credits'])
                 except ExtraCreditPurchase.DoesNotExist:
                     pass
         elif event == 'PAYMENT_OVERDUE':

@@ -41,6 +41,7 @@ const MyProfilePage = lazy(() => import('@/pages/athlete/MyProfilePage').then(m 
 const AthleteCheckinPage = lazy(() => import('@/pages/athlete/AthleteCheckinPage').then(m => ({ default: m.AthleteCheckinPage })));
 const AthleteMatchesPage = lazy(() => import('@/pages/athlete/AthleteMatchesPage').then(m => ({ default: m.AthleteMatchesPage })));
 const PlansPage = lazy(() => import('@/pages/subscriptions/PlansPage').then(m => ({ default: m.PlansPage })));
+const WalletPage = lazy(() => import('@/pages/athlete/WalletPage').then(m => ({ default: m.WalletPage })));
 
 function App() {
   return (
@@ -94,6 +95,7 @@ function App() {
               <Route path="checkin" element={<AthleteCheckinPage />} />
               <Route path="matches" element={<AthleteMatchesPage />} />
               <Route path="plans" element={<PlansPage />} />
+              <Route path="wallet" element={<WalletPage />} />
               <Route path="regulation" element={<RegulationPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="elo-system" element={<EloSystemPage />} />
