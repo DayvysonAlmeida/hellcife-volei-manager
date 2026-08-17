@@ -33,6 +33,26 @@ def unjustify_attendances(modeladmin, request, queryset):
     updated = queryset.update(is_justified=False)
     modeladmin.message_user(request, f'{updated} justificativas foram removidas.', messages.WARNING)
 
+@admin.action(description='Marcar NA QUADRA (Criar Tiragem de Falta)')
+def court_checkin_add(modeladmin, request, queryset):
+    from django.contrib import messages
+    from apps.attendance.models import CourtCheckin
+    count = 0
+    for att in queryset:
+        obj, created = CourtCheckin.objects.get_or_create(gameday=att.gameday, player=att.player)
+        if created:
+            count += 1
+            # Como ele foi pra quadra, removemos a falta no-show se existir
+            if att.was_no_show:
+                att.was_no_show = False
+                att.save(update_fields=['was_no_show'])
+    
+    # Chama o recálculo do motor para ele zerar as faltas de quem entrou na quadra
+    from apps.attendance.views import sync_absences_logic
+    sync_absences_logic()
+    
+    modeladmin.message_user(request, f'{count} jogadores marcados na quadra com sucesso! Faltas recalculadas.', messages.SUCCESS)
+
 
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
@@ -43,7 +63,7 @@ class AttendanceAdmin(admin.ModelAdmin):
     search_fields = ['player__name', 'player__nickname', 'gameday__description']
     autocomplete_fields = ['player', 'gameday']
     date_hierarchy = 'checked_at'
-    actions = [justify_attendances, unjustify_attendances]
+    actions = [justify_attendances, unjustify_attendances, court_checkin_add]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -59,3 +79,11 @@ class AttendanceAdmin(admin.ModelAdmin):
     court_checkin_status.boolean = True
     court_checkin_status.short_description = 'Na Quadra?'
     court_checkin_status.admin_order_field = 'arrived_at_court'
+
+@admin.register(CourtCheckin)
+class CourtCheckinAdmin(admin.ModelAdmin):
+    list_display = ['player', 'gameday', 'arrived_at']
+    list_filter = ['gameday']
+    search_fields = ['player__name', 'player__nickname', 'gameday__description']
+    autocomplete_fields = ['player', 'gameday']
+    date_hierarchy = 'arrived_at'
