@@ -297,6 +297,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
             attendance.waitlist_joined_at = None
             attendance.save()
         else:
+            # Bloquear jogadores inativos de se inscreverem
+            if attendance.player.status == 'inactive':
+                return Response({'detail': 'Sua conta está inativa por excesso de faltas. Procure a administração para regularizar.'}, status=status.HTTP_403_FORBIDDEN)
+                
             if attendance.player.is_guest:
                 attendance.is_waitlist = True
                 attendance.waitlist_joined_at = timezone.now()
