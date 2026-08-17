@@ -545,7 +545,6 @@ def sync_absences_logic():
     for p in players_qs:
         p.consecutive_absences = 0
         
-    Attendance.objects.all().update(was_no_show=False)
     attendances_to_update = []
     
     # Agrupar circuitos por data
@@ -576,20 +575,39 @@ def sync_absences_logic():
         for g in finished_gamedays:
             g_checkin_pids = set(c.player_id for c in g.court_checkins.all())
             for att in g.attendances.all():
-                if att.present and att.player_id not in g_checkin_pids:
-                    att.was_no_show = True
+                # O jogador ganha falta se estava inscrito, NÃO teve check-in físico E não teve falta justificada
+                should_be_no_show = att.present and (att.player_id not in g_checkin_pids) and not att.is_justified
+                
+                # Atualizar apenas se o status estiver divergente
+                if att.was_no_show != should_be_no_show:
+                    att.was_no_show = should_be_no_show
                     attendances_to_update.append(att)
+                    
+        # Quem tem falta justificada hoje (para proteção das faltas consecutivas)
+        daily_justified_pids = set()
+        for g in finished_gamedays:
+            daily_justified_pids.update(
+                att.player_id for att in g.attendances.all() if att.is_justified
+            )
                     
         # Atualizar faltas dos jogadores para este dia
         for p in players_qs:
             if p.created_at.date() > date:
                 continue
                 
+            # Verifica se essa data já foi "perdoada" pelo reset
+            if p.absences_reset_date and date <= p.absences_reset_date:
+                p.consecutive_absences = 0
+                continue
+                
             if p.id in daily_checkin_pids:
                 # Foi na quadra. Zera!
                 p.consecutive_absences = 0
+            elif p.id in daily_justified_pids:
+                # Tem falta justificada neste dia. O sistema não zera, mas protege para não aumentar.
+                pass
             elif finished_gamedays:
-                # Não foi na quadra (ou não se inscreveu ou deu no-show)
+                # Não foi na quadra nem teve justificativa
                 p.consecutive_absences += 1
                 if p.consecutive_absences >= 10:
                     p.status = 'inactive'

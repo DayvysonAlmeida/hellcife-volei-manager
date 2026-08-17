@@ -59,8 +59,9 @@ def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id:
 
 def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
     """
-    Distribui jogadores em times usando um algoritmo guloso inteligente.
-    Garante separação de levantadores, mulheres e balanceia por overall.
+    Distribui jogadores em times usando um algoritmo inteligente.
+    Garante separação de levantadores e mulheres, incluindo no time de sobra,
+    mas força o preenchimento dos times principais primeiro.
     """
     n_teams = math.ceil(len(players) / team_size)
     if n_teams < 1:
@@ -71,11 +72,11 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
         limit = len(players)
     
     draft_players = players[:limit]
-    leftover_players = players[limit:] # Com ceil, leftover_players sempre será vazio!
-
+    
+    # O time de sobras fará parte do draft para receber levantadores/meninas se necessário
     teams = [[] for _ in range(n_teams)]
     
-    # Separar os grupos (do draft_players apenas)
+    # Separar os grupos
     setters = [p for p in draft_players if p['main_position'] == 'setter' or p['secondary_position'] == 'setter']
     women = [p for p in draft_players if p.get('gender') == 'F' and p not in setters]
     others = [p for p in draft_players if p not in setters and p not in women]
@@ -85,37 +86,41 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
     women.sort(key=lambda x: x['overall'], reverse=True)
     others.sort(key=lambda x: x['overall'], reverse=True)
 
+    # Identificar quantos times completos devem existir
+    full_teams = len(players) // team_size
+    
+    # Trava de capacidade absoluta de cada time (ex: 4, 4, 4, 1)
+    capacities = []
+    for i in range(n_teams):
+        if i < full_teams:
+            capacities.append(team_size)
+        else:
+            capacities.append(len(players) % team_size)
+
     def assign_to_best_team(player, group_type):
-        best_team = None
-        best_score = float('inf')
-        
-        for team in teams:
-            count_in_team = len(team)
-            if count_in_team >= team_size:
-                continue
-                
-            avg_overall = sum(p['overall'] for p in team) / count_in_team if count_in_team > 0 else 0
-            penalty = 0
+        # Filtra apenas os times que ainda não bateram sua capacidade estrita
+        available_teams = [t for i, t in enumerate(teams) if len(t) < capacities[i]]
+        if not available_teams:
+            available_teams = teams
+
+        def get_team_priority(team):
+            count_total = len(team)
+            sum_overall = sum(p['overall'] for p in team)
+            # Verifica se é um time extra (sobra). 
+            # Isso força o algoritmo a preencher os times principais primeiro ao distribuir os "outros"
+            is_extra = 1 if teams.index(team) >= full_teams else 0
             
             if group_type == 'setter':
                 setter_count = sum(1 for p in team if p['main_position'] == 'setter' or p['secondary_position'] == 'setter')
-                penalty += setter_count * 1000
+                return (setter_count, is_extra, count_total, sum_overall)
             elif group_type == 'woman':
                 woman_count = sum(1 for p in team if p.get('gender') == 'F')
-                penalty += woman_count * 1000
-                
-            # Score: menor é melhor. Considera penalidade, tenta encher igualmente (count * 100), e desempata por avg_overall
-            score = penalty + (count_in_team * 100) + avg_overall
-            
-            if score < best_score:
-                best_score = score
-                best_team = team
-                
-        if best_team is None:
-            # Fallback se todos estiverem cheios (não deve acontecer devido ao limit, mas por segurança)
-            teams.sort(key=lambda t: (len(t), sum(p['overall'] for p in t) / len(t) if len(t) > 0 else 0))
-            best_team = teams[0]
-            
+                return (woman_count, is_extra, count_total, sum_overall)
+            else:
+                return (is_extra, count_total, sum_overall)
+
+        available_teams.sort(key=get_team_priority)
+        best_team = available_teams[0]
         best_team.append(player)
 
     for p in setters:
@@ -124,14 +129,6 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
         assign_to_best_team(p, 'woman')
     for p in others:
         assign_to_best_team(p, 'other')
-
-    # Cria times extras para quem sobrou (em blocos de team_size)
-    if leftover_players:
-        extra_teams_count = math.ceil(len(leftover_players) / team_size)
-        for i in range(extra_teams_count):
-            start = i * team_size
-            end = start + team_size
-            teams.append(leftover_players[start:end])
 
     return teams
 

@@ -83,6 +83,11 @@ class Player(models.Model):
         verbose_name='Faltas Consecutivas',
         help_text='Quantos circuitos fechados seguidos este jogador não fez check-in na quadra.'
     )
+    absences_reset_date = models.DateField(
+        null=True, blank=True,
+        verbose_name='Ponto de Reset',
+        help_text='Data em que as faltas consecutivas foram zeradas manualmente. Faltas anteriores a essa data serão ignoradas.'
+    )
 
     # Totais absolutos para o Dashboard (não são resetados ao virar grande estrela)
     total_mvp = models.PositiveIntegerField(default=0, verbose_name='Total MVP')

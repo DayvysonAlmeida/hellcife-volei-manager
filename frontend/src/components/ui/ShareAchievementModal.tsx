@@ -93,7 +93,7 @@ export function ShareAchievementModal({
     return new Blob([ab], { type: mimeString });
   };
 
-  // Converte fetch -> data URL para imagens locais (sem CORS)
+  // Converte blob -> data URL via FileReader
   const toDataUrl = (blob: Blob): Promise<string> =>
     new Promise(resolve => {
       const reader = new FileReader();
@@ -101,9 +101,17 @@ export function ShareAchievementModal({
       reader.readAsDataURL(blob);
     });
 
-  // Converte URL de imagem externa -> data URL via canvas (compatível com iOS Safari)
-  // Estratégia: Image() → canvas → toDataURL() é o método mais confiável no WebKit
-  const imageUrlToDataUrl = (url: string): Promise<string> =>
+  // Estratégia 1 (desktop/Android): fetch() com CORS — mais rápido e confiável onde há suporte
+  const fetchCorsToDataUrl = async (url: string): Promise<string> => {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return toDataUrl(blob);
+  };
+
+  // Estratégia 2 (iOS Safari): Image() + canvas — WebKit não suporta fetch CORS para canvas
+  // ATENÇÃO: sem cache-buster na URL para não quebrar o cache do Cloudinary
+  const imgCanvasToDataUrl = (url: string): Promise<string> =>
     new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -117,13 +125,11 @@ export function ShareAchievementModal({
           ctx.drawImage(img, 0, 0);
           resolve(canvas.toDataURL('image/png'));
         } catch {
-          // Canvas taint: CORS bloqueou mesmo com crossOrigin='anonymous'
           reject(new Error('Canvas tainted'));
         }
       };
       img.onerror = () => reject(new Error('Image load failed'));
-      // Adiciona timestamp para evitar cache que ignora CORS headers no iOS
-      img.src = url.includes('?') ? `${url}&_cb=${Date.now()}` : `${url}?_cb=${Date.now()}`;
+      img.src = url;
     });
 
   // Gera avatar de iniciais via canvas como fallback (sem depender de CORS)
@@ -136,7 +142,6 @@ export function ShareAchievementModal({
     canvas.height = size;
     const ctx = canvas.getContext('2d');
     if (!ctx) return '';
-    // Fundo degradê escuro (estilo do card, não laranja)
     const grad = ctx.createLinearGradient(0, 0, size, size);
     grad.addColorStop(0, '#1a0a0a');
     grad.addColorStop(0.5, '#2d0808');
@@ -145,13 +150,11 @@ export function ShareAchievementModal({
     ctx.beginPath();
     ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
     ctx.fill();
-    // Borda sutil
     ctx.strokeStyle = 'rgba(220, 38, 38, 0.6)';
     ctx.lineWidth = 8;
     ctx.beginPath();
     ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
     ctx.stroke();
-    // Iniciais
     ctx.fillStyle = '#fff';
     ctx.font = `900 ${size * 0.38}px Inter, sans-serif`;
     ctx.textAlign = 'center';
@@ -187,16 +190,25 @@ export function ShareAchievementModal({
         if (r2.status === 'fulfilled') setTubaraoFuriaDataUrl(r2.value);
         if (r3.status === 'fulfilled') setTextoHellcifeDataUrl(r3.value);
 
-        // Avatar: tenta Image()→canvas (iOS-friendly), senão gera iniciais via canvas
+        // Avatar — 3 estratégias em cascata:
+        // 1. fetch CORS (desktop/Android) → 2. Image+canvas (iOS) → 3. Iniciais (fallback final)
         if (cardProps.avatarUrl) {
           try {
-            const dataUrl = await imageUrlToDataUrl(cardProps.avatarUrl);
+            // Estratégia 1: fetch CORS — funciona no desktop e Android
+            const dataUrl = await fetchCorsToDataUrl(cardProps.avatarUrl);
             if (!cancelled) setAvatarDataUrl(dataUrl);
           } catch {
-            // CORS bloqueado no iOS: gera avatar de iniciais via canvas (sem laranja!)
-            console.warn('Avatar CORS bloqueado — usando iniciais como fallback');
-            const initialsUrl = generateInitialsDataUrl(cardProps.athleteName);
-            if (!cancelled && initialsUrl) setAvatarDataUrl(initialsUrl);
+            // Estratégia 1 falhou (provavelmente iOS) — tenta Image+canvas
+            try {
+              console.info('fetch CORS falhou, tentando Image+canvas (iOS)...');
+              const dataUrl = await imgCanvasToDataUrl(cardProps.avatarUrl);
+              if (!cancelled) setAvatarDataUrl(dataUrl);
+            } catch {
+              // Ambos falharam (CORS bloqueado totalmente) — usa iniciais via canvas
+              console.warn('Avatar CORS bloqueado — usando iniciais como fallback');
+              const initialsUrl = generateInitialsDataUrl(cardProps.athleteName);
+              if (!cancelled && initialsUrl) setAvatarDataUrl(initialsUrl);
+            }
           }
         }
       } catch (e) {
