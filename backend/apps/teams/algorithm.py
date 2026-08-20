@@ -97,16 +97,22 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
       2. Menor número de jogadores no time (distribuição uniforme)
       3. Menor score médio composto (balanceamento de overall+elo)
     """
-    n_teams = math.ceil(len(players) / team_size)
-    if n_teams < 1:
-        n_teams = 1
+    capacities = []
+    total = len(players)
+    while total > 0:
+        if total >= team_size:
+            capacities.append(team_size)
+            total -= team_size
+        else:
+            capacities.append(total)
+            total -= total
+            
+    n_teams = len(capacities)
+    if n_teams == 0:
+        return []
 
-    limit = n_teams * team_size
-    if len(players) < team_size:
-        limit = len(players)
-
-    draft_players = players[:limit]
-    leftover_players = players[limit:]  # Com ceil, sempre será vazio
+    # Como distribuiremos todos de forma controlada, draft_players é toda a lista
+    draft_players = players
 
     teams: List[List[Dict]] = [[] for _ in range(n_teams)]
 
@@ -129,9 +135,11 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
         # Tupla: (penalidade, count, avg_score) — menor é melhor
         best_key = (float('inf'), float('inf'), float('inf'))
 
-        for team in teams:
+        for i, team in enumerate(teams):
             count = len(team)
-            if count >= team_size:
+            max_cap = capacities[i]
+            
+            if count >= max_cap:
                 continue
 
             avg_score = (
@@ -151,16 +159,20 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
                 woman_count = sum(1 for p in team if p.get('gender') == 'F')
                 penalty += woman_count * 1000
 
+            # Uso de fill_ratio assegura que os times sejam preenchidos de forma equilibrada em %.
+            # Isso evita que times incompletos "roubem" posições prioritárias.
+            fill_ratio = count / max_cap if max_cap > 0 else 1.0
+            
             # Critério hierárquico — tuple comparison garante desempate justo
-            key = (penalty, count, avg_score)
+            key = (penalty, fill_ratio, avg_score)
 
             if key < best_key:
                 best_key = key
                 best_team = team
 
         if best_team is None:
-            # Fallback: time com menos jogadores
-            best_team = min(teams, key=lambda t: len(t))
+            # Fallback: time com menor percentual de preenchimento
+            best_team = min(teams, key=lambda t: len(t) / capacities[teams.index(t)] if capacities[teams.index(t)] > 0 else float('inf'))
 
         best_team.append(player)
 
@@ -171,14 +183,6 @@ def smart_draft(players: List[Dict], team_size: int) -> List[List[Dict]]:
         assign_to_best_team(p)
     for p in others:
         assign_to_best_team(p)
-
-    # Cria times extras para quem sobrou (raro — apenas se ceil falhar)
-    if leftover_players:
-        extra_teams_count = math.ceil(len(leftover_players) / team_size)
-        for i in range(extra_teams_count):
-            start = i * team_size
-            end = start + team_size
-            teams.append(leftover_players[start:end])
 
     return teams
 
