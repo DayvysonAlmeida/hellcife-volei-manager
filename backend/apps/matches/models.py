@@ -81,6 +81,8 @@ class MatchPlayer(models.Model):
     best_libero = models.BooleanField(default=False, verbose_name='Melhor Líbero', db_index=True)
     best_blocker = models.BooleanField(default=False, verbose_name='Melhor Blocador', db_index=True)
     best_opposite = models.BooleanField(default=False, verbose_name='Melhor Oposto', db_index=True)
+    is_borrowed = models.BooleanField(default=False, verbose_name='Emprestado')
+    borrowed_from_team_name = models.CharField(max_length=50, blank=True, null=True, verbose_name='Emprestado do time')
 
     class Meta:
         verbose_name = 'Jogador na partida'

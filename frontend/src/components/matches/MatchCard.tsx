@@ -283,8 +283,13 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
                                 <Avatar name={mp.player_name} src={mp.player_avatar} size="sm" />
                                 <span className="text-xs text-text-secondary truncate flex-1 flex items-center gap-1">
                                   {mp.player_name}
-                                  {mp.player_is_guest && (
-                                    <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold hidden sm:inline-block">
+                                  {mp.is_borrowed && (
+                                    <span className="text-[9px] bg-yellow-500/20 text-yellow-500 px-1 py-0.5 rounded uppercase font-bold inline-block ml-1">
+                                      Emprestado
+                                    </span>
+                                  )}
+                                  {mp.player_is_guest && !mp.is_borrowed && (
+                                    <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold inline-block ml-1">
                                       Convidado {mp.player_invited_by ? `por: ${mp.player_invited_by}` : ''}
                                     </span>
                                   )}

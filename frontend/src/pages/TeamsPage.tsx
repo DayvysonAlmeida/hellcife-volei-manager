@@ -124,7 +124,7 @@ export function TeamsPage() {
   useEffect(() => {
     if (gameDays.length > 0 && selectedGameDayId === null) {
       if (upcomingGameDays.length > 0) {
-        setSelectedGameDayId(upcomingGameDays[upcomingGameDays.length - 1].id);
+        setSelectedGameDayId(upcomingGameDays[0].id);
       }
     }
   }, [gameDays.length, selectedGameDayId, upcomingGameDays]);

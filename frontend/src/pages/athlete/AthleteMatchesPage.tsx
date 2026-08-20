@@ -95,7 +95,19 @@ function MatchCard({ match }: { match: any }) {
                 {(team.match_players || []).map((mp: any) => (
                   <div key={mp.id} className="flex items-center gap-2.5">
                     <Avatar name={mp.player_name} src={mp.player_avatar} size="sm" />
-                    <span className="text-text-primary text-sm flex-1">{mp.player_name}</span>
+                    <span className="text-text-primary text-sm flex-1 flex items-center gap-1.5">
+                      {mp.player_name}
+                      {mp.is_borrowed && (
+                        <span className="text-[9px] bg-yellow-500/20 text-yellow-500 px-1 py-0.5 rounded uppercase font-bold inline-block">
+                          Emprestado
+                        </span>
+                      )}
+                      {mp.player_is_guest && !mp.is_borrowed && (
+                        <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase font-bold inline-block">
+                          Convidado {mp.player_invited_by ? `por: ${mp.player_invited_by}` : ''}
+                        </span>
+                      )}
+                    </span>
                     <div className="flex items-center gap-2">
                       {mp.mvp && (
                         <span className="flex items-center gap-1 text-yellow-400 text-xs">

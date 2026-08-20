@@ -64,6 +64,8 @@ class MatchViewSet(viewsets.ModelViewSet):
                 winner=not is_draw and team_data.get('score', 0) == max_score,
                 team_id=team_data.get('team_id'),
             )
+            borrowed_ids = team_data.get('borrowed_ids', [])
+
             # Adiciona jogadores ao time usando bulk_create (super rápido)
             match_players = []
             for player_id in team_data.get('player_ids', []):
@@ -78,7 +80,9 @@ class MatchViewSet(viewsets.ModelViewSet):
                     best_setter=player_id in team_data.get('best_setter_ids', []),
                     best_libero=player_id in team_data.get('best_libero_ids', []),
                     best_blocker=player_id in team_data.get('best_blocker_ids', []),
-                    best_opposite=player_id in team_data.get('best_opposite_ids', [])
+                    best_opposite=player_id in team_data.get('best_opposite_ids', []),
+                    is_borrowed=player_id in borrowed_ids,
+                    borrowed_from_team_name=None  # A ser implementado pelo frontend futuramente
                 ))
             MatchPlayer.objects.bulk_create(match_players)
 
@@ -117,6 +121,8 @@ class MatchViewSet(viewsets.ModelViewSet):
                 winner=not is_draw and team_data.get('score', 0) == max_score,
                 team_id=team_data.get('team_id'),
             )
+            borrowed_ids = team_data.get('borrowed_ids', [])
+
             # Adiciona jogadores ao time usando bulk_create (super rápido)
             match_players = []
             for player_id in team_data.get('player_ids', []):
@@ -131,7 +137,9 @@ class MatchViewSet(viewsets.ModelViewSet):
                     best_setter=player_id in team_data.get('best_setter_ids', []),
                     best_libero=player_id in team_data.get('best_libero_ids', []),
                     best_blocker=player_id in team_data.get('best_blocker_ids', []),
-                    best_opposite=player_id in team_data.get('best_opposite_ids', [])
+                    best_opposite=player_id in team_data.get('best_opposite_ids', []),
+                    is_borrowed=player_id in borrowed_ids,
+                    borrowed_from_team_name=None  # A ser implementado pelo frontend futuramente
                 ))
             MatchPlayer.objects.bulk_create(match_players)
 
