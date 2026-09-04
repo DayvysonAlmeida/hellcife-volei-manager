@@ -605,8 +605,9 @@ def sync_absences_logic():
                 continue
                 
             if p.id in daily_checkin_pids:
-                # Foi na quadra. Zera!
+                # Foi na quadra. Zera e reativa!
                 p.consecutive_absences = 0
+                p.status = 'active'
             elif p.id in daily_justified_pids:
                 # Tem falta justificada neste dia. O sistema não zera, mas protege para não aumentar.
                 pass

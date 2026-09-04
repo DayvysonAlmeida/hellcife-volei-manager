@@ -39,6 +39,7 @@ class Command(BaseCommand):
                     
                 if p.id in court_checkins_pids:
                     p.consecutive_absences = 0
+                    p.status = 'active'
                 else:
                     p.consecutive_absences += 1
                     if p.consecutive_absences >= 10:

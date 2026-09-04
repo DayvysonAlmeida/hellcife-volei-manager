@@ -110,6 +110,11 @@ class PlayerViewSet(viewsets.ModelViewSet):
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
 
+    def perform_create(self, serializer):
+        player = serializer.save()
+        if player.status == 'active' and not player.is_guest:
+            self._add_to_open_gamedays(player)
+
     def perform_update(self, serializer):
         """Ao reativar um jogador (inactive → active), zera as faltas consecutivas automaticamente."""
         instance = self.get_object()
@@ -117,10 +122,24 @@ class PlayerViewSet(viewsets.ModelViewSet):
         new_status = serializer.validated_data.get('status', old_status)
 
         extra_fields = {}
+        reactivated = False
         if old_status != 'active' and new_status == 'active':
             extra_fields['consecutive_absences'] = 0
+            reactivated = True
 
-        serializer.save(**extra_fields)
+        player = serializer.save(**extra_fields)
+        if reactivated and not player.is_guest:
+            self._add_to_open_gamedays(player)
+
+    def _add_to_open_gamedays(self, player):
+        from apps.attendance.models import GameDay, Attendance
+        open_gamedays = GameDay.objects.filter(is_closed=False)
+        attendances = []
+        for gameday in open_gamedays:
+            if not Attendance.objects.filter(gameday=gameday, player=player).exists():
+                attendances.append(Attendance(gameday=gameday, player=player, present=False))
+        if attendances:
+            Attendance.objects.bulk_create(attendances)
 
     @action(detail=True, methods=['patch'], url_path='update_stars')
     def update_stars(self, request, pk=None):
