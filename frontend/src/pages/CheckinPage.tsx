@@ -154,16 +154,22 @@ export function CheckinPage() {
                       <Wallet size={18} />
                       Rateio: R$ {pricePerPlayer.replace('.', ',')}
                     </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(gameday.pix_key || 'hellcifevolei@gmail.com');
-                        toast.success('Chave PIX copiada!');
-                      }}
-                      className="w-full bg-green-500/10 border border-green-500/40 hover:bg-green-500/20 hover:border-green-500 transition-colors text-green-500 font-bold rounded-lg py-2 flex items-center justify-center gap-2 text-xs sm:text-sm shadow-[0_0_8px_rgba(22,163,74,0.2)]"
-                    >
-                      <Copy size={16} />
-                      Copiar PIX
-                    </button>
+                    {(() => {
+                      const activePixKey = gameday.pix_key?.trim();
+                      const keyToCopy = activePixKey || 'hellcifevolei@gmail.com';
+                      return (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(keyToCopy);
+                            toast.success(activePixKey ? `Chave PIX copiada: ${activePixKey}` : 'Chave PIX copiada!');
+                          }}
+                          className="w-full bg-green-500/10 border border-green-500/40 hover:bg-green-500/20 hover:border-green-500 transition-colors text-green-500 font-bold rounded-lg py-2 flex items-center justify-center gap-2 text-xs sm:text-sm shadow-[0_0_8px_rgba(22,163,74,0.2)]"
+                        >
+                          <Copy size={16} />
+                          {activePixKey ? `Copiar PIX (${activePixKey})` : 'Copiar PIX'}
+                        </button>
+                      );
+                    })()}
                   </>
                 ) : (
                   <div className="flex items-center gap-2 text-center text-xs sm:text-sm font-medium text-green-500/80">

@@ -160,15 +160,21 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                 <div className="flex items-center gap-2 text-green-400 font-bold text-xs">
                   <Wallet size={14} /> Rateio: R$ {pricePerPlayer}
                 </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(circuit.pix_key || 'hellcifevolei@gmail.com');
-                    toast.success('Chave PIX copiada! 💸');
-                  }}
-                  className="w-full bg-green-500/10 border border-green-500/30 hover:bg-green-500/20 text-green-400 font-bold rounded flex items-center justify-center gap-2 py-1.5 text-xs transition-colors"
-                >
-                  <Copy size={13} /> Copiar PIX ({circuit.pix_key || 'hellcifevolei@gmail.com'})
-                </button>
+                {(() => {
+                  const activePixKey = circuitDetail?.gameday?.pix_key?.trim() || circuit.pix_key?.trim();
+                  const keyToCopy = activePixKey || 'hellcifevolei@gmail.com';
+                  return (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(keyToCopy);
+                        toast.success(activePixKey ? `Chave PIX copiada: ${activePixKey} 💸` : 'Chave PIX copiada! 💸');
+                      }}
+                      className="w-full bg-green-500/10 border border-green-500/30 hover:bg-green-500/20 text-green-400 font-bold rounded flex items-center justify-center gap-2 py-1.5 text-xs transition-colors"
+                    >
+                      <Copy size={13} /> {activePixKey ? `Copiar PIX (${activePixKey})` : 'Copiar PIX'}
+                    </button>
+                  );
+                })()}
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2 text-green-400/70 text-[10px] bg-green-500/5 border border-green-500/10 rounded p-2">

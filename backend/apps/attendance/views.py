@@ -399,6 +399,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'total_present': sum(1 for a in attendances if a.present),
                 'max_players': gameday.max_players,
                 'court_price': gameday.court_price,
+                'pix_key': gameday.pix_key,
                 'time': gameday.time,
                 'time_end': gameday.time_end,
                 'is_closed': gameday.is_closed

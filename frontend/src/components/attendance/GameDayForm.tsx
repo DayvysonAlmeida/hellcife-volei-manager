@@ -32,7 +32,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
         location: newLocation,
         max_players: newMaxPlayers === '' ? undefined : newMaxPlayers,
         court_price: newCourtPrice === '' ? undefined : newCourtPrice,
-        pix_key: newPixKey || undefined,
+        pix_key: newPixKey ? newPixKey.trim() : '',
       };
       
       if (initialData) {
