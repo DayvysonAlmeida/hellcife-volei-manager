@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q
+from django.utils import timezone
 
 from .models import GameDay, Attendance, CourtCheckin
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
@@ -18,16 +19,30 @@ class GameDayViewSet(viewsets.ModelViewSet):
     ordering = ['-date']
 
     def get_queryset(self):
+        qs = GameDay.objects.all()
+        if self.request.query_params.get('active_only') == 'true':
+            now = timezone.localtime()
+            min_date = now.date()
+            if now.hour < 6:
+                min_date = min_date - timezone.timedelta(days=1)
+            qs = qs.filter(is_closed=False, date__gte=min_date)
+
         if self.action == 'list':
             # Para listagem: usar annotations ao invés de properties (evita N+1)
-            return GameDay.objects.all().annotate(
+            return qs.annotate(
                 _total_present=Count('attendances', filter=Q(attendances__present=True), distinct=True),
                 _total_paid=Count('attendances', filter=Q(attendances__has_paid=True), distinct=True),
                 _total_players=Count('attendances', distinct=True),
                 _total_court_checkins=Count('court_checkins', distinct=True)
             ).order_by('-date')
         # Para detail: prefetch completo com os jogadores
-        return GameDay.objects.all().prefetch_related('attendances__player')
+        return qs.prefetch_related('attendances__player')
+
+    def perform_update(self, serializer):
+        was_closed = serializer.instance.is_closed
+        instance = serializer.save()
+        if not was_closed and instance.is_closed:
+            sync_absences_logic()
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -385,7 +400,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'max_players': gameday.max_players,
                 'court_price': gameday.court_price,
                 'time': gameday.time,
-                'time_end': gameday.time_end
+                'time_end': gameday.time_end,
+                'is_closed': gameday.is_closed
             },
             'players': players_data
         })
@@ -395,6 +411,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
         """Endpoint público para o próprio jogador fazer check-in."""
         from django.utils import timezone
         gameday = self.get_object()
+        
+        if gameday.is_closed:
+            return Response({'detail': 'As inscrições para este circuito já foram encerradas pela organização.'}, status=status.HTTP_400_BAD_REQUEST)
+
         player_id = request.data.get('player_id')
         
         if not player_id:

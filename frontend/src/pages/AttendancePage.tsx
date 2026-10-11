@@ -1,14 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarCheck, ChevronLeft, Plus, Share2, Edit2, Lock, Swords, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, Plus, Share2, Edit2, Lock, Swords, RefreshCw, Eye, EyeOff, Clock, Users, DollarSign, X, ClipboardCheck } from 'lucide-react';
 
 import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { GameDayForm } from '@/components/attendance/GameDayForm';
 import { GuestModal } from '@/components/attendance/GuestModal';
 import { AttendanceList } from '@/components/attendance/AttendanceList';
-import { GameDayListSidebar } from '@/components/attendance/GameDayListSidebar';
+import { CircuitCard } from '@/components/attendance/CircuitCard';
 
 import { attendanceService } from '@/services';
 import { formatDate, cn } from '@/lib/utils';
@@ -46,15 +46,17 @@ export function AttendancePage() {
   // A auto-seleção foi removida para garantir que no mobile o usuário veja a lista de circuitos primeiro.
 
   const { activeGameDays, historyGameDays } = useMemo(() => {
-    const active = gameDays
-      .filter(gd => !gd.is_closed && gd.date >= todayStr)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    const history = gameDays.filter(gd => gd.is_closed || gd.date < todayStr);
+    const active = gameDays.filter(gd => !gd.is_closed);
+    const history = gameDays.filter(gd => gd.is_closed);
+    
+    active.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
     return { activeGameDays: active, historyGameDays: history };
-  }, [gameDays, todayStr]);
+  }, [gameDays]);
 
-  const { presentAttendances, absentAttendances, waitlistAttendances, totalPaid } = useMemo(() => {
-    if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0 };
+  const { presentAttendances, absentAttendances, waitlistAttendances, totalPaid, totalCreditUsers, totalCreditsUsed } = useMemo(() => {
+    if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0, totalCreditUsers: 0, totalCreditsUsed: 0 };
     
     let filtered = gameDayDetail.attendances;
     if (searchTerm) {
@@ -94,7 +96,7 @@ export function AttendancePage() {
     return { courtPrice: cp, rateio: rat, totalCollected: coll, remaining: rem };
   }, [gameDayDetail, totalPaid]);
 
-  const isClosedGameday = !!gameDayDetail?.is_closed || (!!gameDayDetail?.date && gameDayDetail.date < todayStr);
+  const isClosedGameday = !!gameDayDetail?.is_closed;
   const showEditControls = canEdit && !isClosedGameday;
 
   // Mutations
@@ -225,6 +227,22 @@ export function AttendancePage() {
     }
   });
 
+  const toggleCloseMutation = useMutation({
+    mutationFn: (is_closed: boolean) => attendanceService.updateGameDay(selectedGameDay!.id, { is_closed }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+      if (data.is_closed) {
+        toast.success('Circuito encerrado! Inscrições finalizadas e presenças consolidadas.');
+      } else {
+        toast.success('Circuito reaberto com sucesso!');
+      }
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar status de encerramento.');
+    }
+  });
+
   const _handleEditLimit = () => {
     if (!gameDayDetail) return;
     const currentLimit = gameDayDetail.max_players || 0;
@@ -250,167 +268,327 @@ export function AttendancePage() {
         onConfirm={confirmDialog.onConfirm}
       />
 
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="page-title">Criação de Circuitos</h1>
-          <p className="page-subtitle max-w-3xl">Aqui é onde criamos o circuito e lançamos quem vai participar de acordo com a quantidade de vagas. As pessoas confirmam presença no link público e os administradores gerenciam a lista (incluindo convidados e pagamentos).</p>
+      {!selectedGameDay && (
+        <div className="flex flex-col mb-6 relative">
+          <div className="absolute -top-8 -left-8 w-32 h-32 bg-red/20 blur-[40px] rounded-full pointer-events-none" />
+          
+          <div className="flex justify-between items-start w-full relative z-10 mb-4">
+            <div>
+              <div className="flex flex-col items-start mb-2">
+                 <span className="text-xl font-black uppercase tracking-tighter text-red drop-shadow-md">HELLCIFE</span>
+                 <span className="text-xs font-black uppercase tracking-[0.2em] text-blue-500 -mt-1 drop-shadow-md">VÔLEI</span>
+              </div>
+              <h1 className="font-display italic text-[48px] sm:text-[56px] text-white uppercase tracking-tight leading-[0.9] drop-shadow-md">
+                CRIAÇÃO DE<br /> <span className="text-red">CIRCUITOS</span>
+              </h1>
+            </div>
+            
+            {canEdit && (
+              <button 
+                onClick={() => setShowNewForm(!showNewForm)} 
+                className="bg-[#5a0000] hover:bg-red-700 text-white px-4 sm:px-5 py-3 sm:py-4 rounded-[20px] flex items-center justify-center gap-2 font-display uppercase tracking-wider text-sm sm:text-base transition-all border-2 border-red shadow-[0_0_20px_rgba(217,4,41,0.25)] flex-shrink-0 mt-6"
+              >
+                <span className="text-4xl sm:text-5xl font-light leading-none mb-1">+</span>
+                <div className="flex flex-col items-start leading-none text-left">
+                  <span>NOVO</span>
+                  <span>CIRCUITO</span>
+                </div>
+              </button>
+            )}
+          </div>
+          
+          <p className="text-white/60 text-xs mt-1 font-medium max-w-xl leading-relaxed relative z-10">
+            Aqui é onde criamos o circuito e lançamos quem vai participar de acordo com a quantidade de vagas. As pessoas confirmam presença no link público e os administradores gerenciam a lista (incluindo convidados e pagamentos).
+          </p>
         </div>
-        {canEdit && (
-          <div className="flex gap-2 flex-col sm:flex-row mt-4 sm:mt-0">
-            <button onClick={() => setShowNewForm(!showNewForm)} className="btn-primary flex items-center justify-center gap-2 px-6">
-              <Plus size={18} />
-              Novo Circuito
+      )}
+
+      {showNewForm && !selectedGameDay && <GameDayForm onClose={() => setShowNewForm(false)} />}
+
+      {!selectedGameDay ? (
+        <div className="space-y-6 relative z-10">
+          {/* Tabs */}
+          <div className="flex w-full rounded-2xl bg-black border border-[#222] p-1 h-[52px]">
+            <button
+              onClick={() => setCircuitTab('active')}
+              className={`flex-1 flex items-center justify-center rounded-xl font-black uppercase tracking-widest text-xs transition-all ${
+                circuitTab === 'active' 
+                  ? 'bg-[#2a0000] text-white border border-red/50 shadow-lg' 
+                  : 'text-white/40 hover:text-white'
+              }`}
+            >
+              ABERTOS ({activeGameDays.length})
+            </button>
+            <button
+              onClick={() => setCircuitTab('history')}
+              className={`flex-1 flex items-center justify-center rounded-xl font-black uppercase tracking-widest text-xs transition-all ${
+                circuitTab === 'history' 
+                  ? 'bg-[#2a0000] text-white border border-red/50 shadow-lg' 
+                  : 'text-white/40 hover:text-white'
+              }`}
+            >
+              HISTÓRICO ({historyGameDays.length})
             </button>
           </div>
-        )}
-      </div>
 
-      {showNewForm && <GameDayForm onClose={() => setShowNewForm(false)} />}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Game days list */}
-        <div className={`lg:col-span-1 ${selectedGameDay ? 'hidden lg:block' : 'block'}`}>
-          <GameDayListSidebar
-            isLoading={isLoading}
-            gameDays={gameDays}
-            activeGameDays={activeGameDays}
-            historyGameDays={historyGameDays}
-            selectedGameDayId={selectedGameDay?.id || null}
-            onSelectGameDay={(gd) => setSelectedGameDay(gd)}
-            circuitTab={circuitTab}
-            setCircuitTab={setCircuitTab}
-            canEdit={canEdit}
-            onDeleteGameDay={(id) => {
-              setConfirmDialog({
-                isOpen: true,
-                title: 'Excluir Circuito',
-                desc: 'Tem certeza que deseja excluir este circuito? Todos os dados de presença serão perdidos.',
-                onConfirm: () => deleteGameDayMutation.mutate(id)
-              });
-            }}
-            isDeleting={deleteGameDayMutation.isPending}
-          />
-        </div>
-
-        {/* Attendance detail */}
-        <div className={`lg:col-span-2 ${!selectedGameDay ? 'hidden lg:block' : 'block'}`}>
-          {!selectedGameDay ? (
-            <div className="card flex items-center justify-center py-24">
-              <div className="text-center">
-                <CalendarCheck size={40} className="text-red mx-auto mb-4 opacity-50" />
-                <p className="text-text-muted">Selecione um dia de jogo para gerenciar a presença</p>
+          {/* List */}
+          <div className="grid grid-cols-1 gap-4 pb-12">
+            {(circuitTab === 'active' ? activeGameDays : historyGameDays).map(gd => {
+              const isPastDate = gd.date < todayStr;
+              const badge = gd.is_closed ? (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-red/20 text-red border border-red/30 font-bold">
+                  ENCERRADO
+                </span>
+              ) : isPastDate ? (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold flex items-center gap-1">
+                  <Clock size={8} /> EM ANDAMENTO
+                </span>
+              ) : null;
+              return <CircuitCard key={gd.id} gameDay={gd} onClick={() => setSelectedGameDay(gd)} badge={badge} />;
+            })}
+            {(circuitTab === 'active' ? activeGameDays : historyGameDays).length === 0 && (
+              <div className="text-center py-12 text-text-muted bg-surface/30 rounded-2xl border border-border/50">
+                Nenhum circuito encontrado nesta categoria.
               </div>
-            </div>
-          ) : loadingDetail ? (
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="w-full">
+          {loadingDetail ? (
             <PageLoading />
           ) : gameDayDetail ? (
-            <div className="card p-5 space-y-4">
-              {isClosedGameday && (
+            <div className="sm:card sm:p-5 flex flex-col gap-4">
+              {isClosedGameday ? (
                 <div className="bg-red/10 border border-red/20 text-red text-center py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
-                  <Lock size={14} />
-                  Circuito encerrado — Exibindo histórico
+                  <Lock size={14} /> Circuito encerrado — Presenças e faltas consolidadas
                 </div>
-              )}
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <button
-                    onClick={() => setSelectedGameDay(null)}
-                    className="lg:hidden mt-1 px-3 py-1.5 -ml-2 rounded-lg text-text-muted hover:bg-surface hover:text-text-primary transition-colors flex items-center gap-1 font-medium text-sm"
-                  >
-                    <ChevronLeft size={20} />
-                    Voltar aos Circuitos
-                  </button>
-                  <div>
-                    <div className="flex items-center gap-4">
-                      <h2 className="font-display text-xl tracking-wider text-text-primary flex items-center gap-2">
-                        {formatDate(gameDayDetail.date)} {gameDayDetail.time ? `- ${gameDayDetail.time.slice(0, 5)}` : ''} {gameDayDetail.time_end ? `às ${gameDayDetail.time_end.slice(0, 5)}` : ''}
-                      </h2>
-                      {showEditControls && (
-                        <button
-                          onClick={() => setShowEditForm(!showEditForm)}
-                          className="btn-ghost p-1 text-text-muted hover:text-red transition-colors"
-                          title="Editar Circuito"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                    {gameDayDetail.location && (
-                      <p className="text-text-muted text-sm">{gameDayDetail.location}</p>
-                    )}
+              ) : gameDayDetail.date < todayStr ? (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-center py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+                  <Clock size={14} /> Circuito em andamento — O horário previsto passou, mas a lista permanece aberta para edições e conferência de pagamentos.
+                </div>
+              ) : null}
+              {/* Novo Header Layout */}
+              <div className="flex flex-col gap-6">
+                
+                {/* Botão de Voltar e Cabeçalho Principal */}
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex flex-col gap-4 flex-1">
                     <button
-                      onClick={() => {
-                        const url = `${window.location.origin}/checkin/${gameDayDetail.id}`;
-                        navigator.clipboard.writeText(url);
-                        toast.success('Link de check-in copiado!');
-                      }}
-                      className="mt-2 text-xs text-red flex items-center gap-1 hover:underline font-medium"
+                      onClick={() => setSelectedGameDay(null)}
+                      className="flex items-center text-text-muted hover:text-white transition-colors w-fit gap-1 text-[10px] sm:text-xs font-bold uppercase tracking-widest bg-surface/50 hover:bg-surface px-2 py-1 rounded-lg border border-border"
                     >
-                      <Share2 size={12} />
-                      Copiar link público de check-in
+                      <ChevronLeft size={16} /> Voltar
                     </button>
-                    {showEditControls && (
+
+                    <h2 className="font-display text-4xl sm:text-5xl uppercase tracking-tighter text-white leading-[0.9] drop-shadow-md">
+                      {gameDayDetail.location || 'ARENA BELO GOL'}
+                    </h2>
+                    
+                    <div className="flex flex-col gap-1.5 text-text-muted font-medium text-xs">
+                      <div className="flex items-center gap-2">
+                        <CalendarCheck size={14} className="text-white/40" />
+                        <span className="uppercase tracking-widest font-black text-white/80">
+                          {(() => {
+                            const dateObj = new Date(`${gameDayDetail.date}T12:00:00`);
+                            const dayName = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').substring(0,3);
+                            const dayNum = dateObj.toLocaleDateString('pt-BR', { day: '2-digit' });
+                            const month = dateObj.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').substring(0,3);
+                            const year = dateObj.toLocaleDateString('pt-BR', { year: 'numeric' });
+                            return `${dayName} • ${dayNum} ${month} ${year}`;
+                          })()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} className="text-white/40" />
+                        <span className="uppercase tracking-widest font-black text-white/80">
+                          {gameDayDetail.time ? gameDayDetail.time.slice(0, 5) : '00:00'} às {gameDayDetail.time_end ? gameDayDetail.time_end.slice(0, 5) : '23:59'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Imagem no canto superior direito */}
+                  <div className="relative w-28 h-20 sm:w-48 sm:h-32 rounded-2xl overflow-hidden border border-[#2a2a2a] shadow-lg flex-shrink-0 mt-4 sm:mt-0">
+                     <div 
+                        className="absolute inset-0 bg-cover bg-center mix-blend-screen opacity-80"
+                        style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?q=80&w=600&auto=format&fit=crop")' }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+                      
+                      {/* Botões de Ação sobre a imagem (Editar, etc) */}
+                      {showEditControls && (
+                        <div className="absolute top-2 right-2 flex flex-col gap-1.5">
+                          <button
+                            onClick={() => setShowEditForm(!showEditForm)}
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white hover:bg-white hover:text-black transition-colors shadow-lg"
+                            title="Editar Circuito"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                          
+                          {canEdit && (
+                            <button
+                              onClick={() => {
+                                setConfirmDialog({
+                                  isOpen: true,
+                                  title: 'Excluir Circuito',
+                                  desc: 'Tem certeza que deseja excluir este circuito? Todos os dados de presença serão perdidos.',
+                                  onConfirm: () => deleteGameDayMutation.mutate(gameDayDetail.id)
+                                });
+                              }}
+                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/60 backdrop-blur-md border border-red/30 flex items-center justify-center text-red hover:bg-red hover:text-white transition-colors shadow-lg"
+                              title="Excluir"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                  </div>
+                </div>
+
+                {/* BOTOES DE AÇÃO COMPLEMENTARES */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#222]">
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/checkin/${gameDayDetail.id}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success('Link de check-in copiado!');
+                    }}
+                    className="text-[10px] bg-red/10 hover:bg-red/20 hover:shadow-[0_0_15px_rgba(217,4,41,0.2)] text-red border border-red/20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all font-black uppercase tracking-widest"
+                  >
+                    <Share2 size={12} strokeWidth={3} />
+                    Link Inscrição
+                  </button>
+                  
+                  {showEditControls && (
+                    <>
                       <button
                         onClick={() => publishMutation.mutate(!gameDayDetail.is_published)}
                         disabled={publishMutation.isPending}
                         className={cn(
-                          "mt-2 text-xs flex items-center gap-1 font-medium px-2 py-1 rounded-md transition-colors",
+                          "text-[10px] flex items-center gap-1.5 font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all border",
                           gameDayDetail.is_published 
-                            ? "bg-green-500/10 text-green-500 hover:bg-green-500/20" 
-                            : "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20"
+                            ? "bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20 hover:shadow-[0_0_15px_rgba(34,197,94,0.2)]" 
+                            : "bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/20 hover:shadow-[0_0_15px_rgba(234,179,8,0.2)]"
                         )}
                       >
-                        {gameDayDetail.is_published ? <Eye size={12} /> : <EyeOff size={12} />}
-                        {gameDayDetail.is_published ? 'Circuito Publicado' : 'Publicar Circuito (invisível)'}
+                        {gameDayDetail.is_published ? <Eye size={12} strokeWidth={3} /> : <EyeOff size={12} strokeWidth={3} />}
+                        {gameDayDetail.is_published ? 'Publicado' : 'Oculto'}
                       </button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-6 self-center sm:self-start">
-                  {Number(gameDayDetail.court_price) > 0 && (
-                    <div className="text-center flex flex-col items-center">
-                      <p className="font-display text-3xl text-green-500">{totalPaid}</p>
-                      <p className="text-text-muted text-[10px] uppercase tracking-wider mb-3">Pagaram</p>
-                    </div>
+                      
+                      <Link
+                        to="/teams"
+                        className="text-[10px] bg-blue-500/10 text-blue-500 border border-blue-500/20 hover:bg-blue-500/20 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all font-black uppercase tracking-widest"
+                      >
+                        <ClipboardCheck size={12} strokeWidth={3} />
+                        Tirar Faltas
+                      </Link>
+                    </>
                   )}
-                  <div className="text-center flex flex-col items-center group relative">
-                    <p className="font-display text-3xl text-red">{gameDayDetail.total_present}</p>
-                    <p className="text-text-muted text-[10px] uppercase tracking-wider mb-3 flex items-center justify-center gap-1">
-                      de {gameDayDetail.max_players ? gameDayDetail.max_players : 'ILIMITADO'} presentes
-                    </p>
-                  </div>
-                  {showEditControls && (
-                    <Link
-                      to="/teams"
-                      className="btn-primary py-1.5 px-4 text-xs flex items-center gap-2 rounded-lg h-10 ml-2"
+
+                  {canEdit && (
+                    <button
+                      onClick={() => {
+                        if (!gameDayDetail.is_closed) {
+                          setConfirmDialog({
+                            isOpen: true,
+                            title: 'Encerrar Circuito',
+                            desc: 'Tem certeza que deseja encerrar este circuito? As inscrições serão finalizadas e as presenças/faltas serão consolidadas.',
+                            onConfirm: () => toggleCloseMutation.mutate(true)
+                          });
+                        } else {
+                          toggleCloseMutation.mutate(false);
+                        }
+                      }}
+                      disabled={toggleCloseMutation.isPending}
+                      className={cn(
+                        "text-[10px] flex items-center gap-1.5 font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all border",
+                        gameDayDetail.is_closed
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                          : "bg-red/10 text-red border-red/30 hover:bg-red/20 hover:shadow-[0_0_15px_rgba(217,4,41,0.2)]"
+                      )}
                     >
-                      <Swords size={14} />
-                      <span className="hidden sm:inline">Times</span>
-                    </Link>
+                      {gameDayDetail.is_closed ? <RefreshCw size={12} strokeWidth={3} /> : <Lock size={12} strokeWidth={3} />}
+                      {gameDayDetail.is_closed ? 'Reabrir Circuito' : 'Encerrar Circuito'}
+                    </button>
                   )}
+                </div>
+
+                {/* CARDS DE ESTATÍSTICAS (Baseado no Print) */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 mt-2">
+                  {/* Card 1: Presentes */}
+                  <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl p-2.5 sm:p-4 flex flex-col justify-between cursor-pointer hover:border-green-500/50 transition-colors group" onClick={_handleEditLimit}>
+                    <div>
+                      <div className="flex items-baseline gap-0.5">
+                        <div className="font-display text-2xl sm:text-4xl text-green-500 leading-none">
+                          {gameDayDetail.total_present}
+                        </div>
+                        {(gameDayDetail.max_players ?? 0) > 0 && (
+                          <div className="font-display text-sm sm:text-xl text-white/20 leading-none">
+                            /{gameDayDetail.max_players}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-[9px] sm:text-xs font-bold text-white uppercase tracking-widest mt-1">
+                        Confirmados
+                      </div>
+                    </div>
+                    <Users size={14} className="text-white/20 mt-2 sm:mt-4 group-hover:text-green-500/40 transition-colors self-end" />
+                  </div>
+
+                  {/* Card 2: Pagamentos Confirmados */}
+                  <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl p-2.5 sm:p-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-baseline gap-0.5">
+                        <div className="font-display text-2xl sm:text-4xl text-emerald-400 leading-none">
+                          {totalPaid}
+                        </div>
+                        <div className="font-display text-sm sm:text-xl text-white/20 leading-none">
+                          /{gameDayDetail.total_present}
+                        </div>
+                      </div>
+                      <div className="text-[9px] sm:text-xs font-bold text-white uppercase tracking-widest mt-1">
+                        Pagaram Rateio
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2 sm:mt-4 self-end text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-white/50">
+                      <span className="text-emerald-400">{Math.max(0, gameDayDetail.total_present - totalPaid)}</span> pendentes <DollarSign size={10} className="text-emerald-400" />
+                    </div>
+                  </div>
+
+                  {/* Card 3: Arrecadado e Rateio (Ocupa linha inteira) */}
+                  <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl p-3 sm:p-4 flex flex-col justify-between col-span-2">
+                    <div className="flex justify-between items-start w-full">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] sm:text-xs font-bold text-white/60 uppercase tracking-widest">Arrecadado</span>
+                        <span className="font-bold text-base sm:text-xl text-green-500">R$ {totalCollected.toFixed(2).replace('.', ',')}</span>
+                        {courtPrice > 0 && (
+                          <span className="text-[8px] sm:text-[9px] text-white/40 uppercase font-black mt-0.5">META: R$ {courtPrice.toFixed(2).replace('.', ',')}</span>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase">R$ {rateio.toFixed(2).replace('.', ',')}</span>
+                        <span className="text-[7px] sm:text-[8px] text-white/40 uppercase font-black">por atleta</span>
+                      </div>
+                    </div>
+                    
+                    {/* Barra de Progresso */}
+                    <div className="w-full mt-3 sm:mt-4 flex items-center gap-2">
+                      <div className="flex-1 h-1.5 sm:h-2 bg-[#222] rounded-full overflow-hidden relative">
+                        <div 
+                          className="absolute left-0 top-0 h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.5)]" 
+                          style={{ width: `${courtPrice > 0 ? Math.min(100, (totalCollected / courtPrice) * 100) : 0}%` }}
+                        />
+                      </div>
+                      <span className="text-[9px] sm:text-[10px] font-black text-white/60">
+                        {courtPrice > 0 ? Math.round((totalCollected / courtPrice) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              
-              {gameDayDetail.court_price && (
-                <div className="p-3 bg-surface-hover rounded-xl border border-border flex items-center justify-between text-sm flex-wrap gap-4">
-                  <div className="flex-1 min-w-[100px]">
-                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Valor da Quadra</p>
-                    <p className="font-bold text-text-primary">R$ {courtPrice.toFixed(2).replace('.', ',')}</p>
-                  </div>
-                  <div className="flex-1 min-w-[100px]">
-                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Rateio (Por Atleta)</p>
-                    <p className="font-bold text-text-primary">R$ {rateio.toFixed(2).replace('.', ',')}</p>
-                  </div>
-                  <div className="flex-1 min-w-[100px]">
-                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Arrecadado</p>
-                    <p className="font-bold text-green-500">R$ {totalCollected.toFixed(2).replace('.', ',')}</p>
-                  </div>
-                  <div className="flex-1 min-w-[100px]">
-                    <p className="text-text-muted text-[10px] uppercase tracking-wider">Falta Arrecadar</p>
-                    <p className="font-bold text-red">R$ {remaining.toFixed(2).replace('.', ',')}</p>
-                  </div>
-                </div>
-              )}
 
               {showEditForm && canEdit && (
                 <div className="mt-4 border-t border-border pt-4">
@@ -418,54 +596,55 @@ export function AttendancePage() {
                 </div>
               )}
 
-              <div className="divider" />
-
-              <AttendanceList
-                presentAttendances={presentAttendances}
-                absentAttendances={absentAttendances}
-                waitlistAttendances={waitlistAttendances}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                showEditControls={showEditControls}
-                onAddGuestClick={() => setShowGuestModal(true)}
-                onRefreshClick={() => refreshMutation.mutate()}
-                isRefreshing={refreshMutation.isPending}
-                onPromoteWaitlist={() => promoteWaitlistMutation.mutate()}
-                isPromoting={promoteWaitlistMutation.isPending}
-                onSaveClick={() => {
-                  toast.success('Lista de presença salva com sucesso!');
-                  navigate('/teams');
-                }}
-                onTogglePresence={(playerId) => toggleMutation.mutate({ gamedayId: gameDayDetail.id, playerId })}
-                onTogglePayment={(playerId) => togglePaymentMutation.mutate({ gamedayId: gameDayDetail.id, playerId })}
-                isTogglingPresence={(playerId) => toggleMutation.isPending && toggleMutation.variables?.playerId === playerId}
-                isTogglingPayment={(playerId) => togglePaymentMutation.isPending && togglePaymentMutation.variables?.playerId === playerId}
-                onCheckAll={() => {
-                  if (gameDayDetail) {
-                    bulkPaymentMutation.mutate({ gamedayId: gameDayDetail.id, actionType: 'check_all' });
-                  }
-                }}
-                onUncheckAll={() => {
-                  if (gameDayDetail) {
-                    bulkPaymentMutation.mutate({ gamedayId: gameDayDetail.id, actionType: 'uncheck_all' });
-                  }
-                }}
-                isBulkLoading={bulkPaymentMutation.isPending}
-                showPaymentControls={Number(gameDayDetail.court_price) > 0}
-                gamedayId={gameDayDetail.id}
-                onReorderWaitlist={(gdId, attIds) => {
-                  attendanceService.reorderWaitlist(gdId, attIds).then(() => {
-                    toast.success('Fila reordenada!');
-                    qc.invalidateQueries({ queryKey: ['gameday-detail'] });
-                  }).catch(() => {
-                    toast.error('Erro ao reordenar a fila.');
-                  });
-                }}
-              />
+              <div className="mt-8 bg-gradient-to-br from-[#0c0c0c] to-[#050505] border-y sm:border sm:border-[#2a2a2a] border-[#222] sm:rounded-3xl p-4 sm:p-6 shadow-[0_15px_40px_-10px_rgba(0,0,0,0.8)] relative overflow-hidden -mx-4 sm:mx-0">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red via-transparent to-transparent opacity-20" />
+                <AttendanceList
+                  presentAttendances={presentAttendances}
+                  absentAttendances={absentAttendances}
+                  waitlistAttendances={waitlistAttendances}
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  showEditControls={showEditControls}
+                  onAddGuestClick={() => setShowGuestModal(true)}
+                  onRefreshClick={() => refreshMutation.mutate()}
+                  isRefreshing={refreshMutation.isPending}
+                  onPromoteWaitlist={() => promoteWaitlistMutation.mutate()}
+                  isPromoting={promoteWaitlistMutation.isPending}
+                  onSaveClick={() => {
+                    toast.success('Lista de presença salva com sucesso!');
+                    navigate('/court-checkin');
+                  }}
+                  onTogglePresence={(playerId) => toggleMutation.mutate({ gamedayId: gameDayDetail.id, playerId })}
+                  onTogglePayment={(playerId) => togglePaymentMutation.mutate({ gamedayId: gameDayDetail.id, playerId })}
+                  isTogglingPresence={(playerId) => toggleMutation.isPending && toggleMutation.variables?.playerId === playerId}
+                  isTogglingPayment={(playerId) => togglePaymentMutation.isPending && togglePaymentMutation.variables?.playerId === playerId}
+                  onCheckAll={() => {
+                    if (gameDayDetail) {
+                      bulkPaymentMutation.mutate({ gamedayId: gameDayDetail.id, actionType: 'check_all' });
+                    }
+                  }}
+                  onUncheckAll={() => {
+                    if (gameDayDetail) {
+                      bulkPaymentMutation.mutate({ gamedayId: gameDayDetail.id, actionType: 'uncheck_all' });
+                    }
+                  }}
+                  isBulkLoading={bulkPaymentMutation.isPending}
+                  showPaymentControls={Number(gameDayDetail.court_price) > 0}
+                  gamedayId={gameDayDetail.id}
+                  onReorderWaitlist={(gdId, attIds) => {
+                    attendanceService.reorderWaitlist(gdId, attIds).then(() => {
+                      toast.success('Fila reordenada!');
+                      qc.invalidateQueries({ queryKey: ['gameday-detail'] });
+                    }).catch(() => {
+                      toast.error('Erro ao reordenar a fila.');
+                    });
+                  }}
+                />
+              </div>
             </div>
           ) : null}
         </div>
-      </div>
+      )}
 
       <GuestModal
         isOpen={showGuestModal}
