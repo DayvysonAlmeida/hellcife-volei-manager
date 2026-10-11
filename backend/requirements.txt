@@ -15,3 +15,7 @@ whitenoise==6.8.2
 # Storage em Nuvem
 cloudinary==1.41.0
 django-cloudinary-storage==0.3.0
+
+# Integrações e Utilitários
+requests==2.32.3
+python-dateutil==2.9.0.post0

@@ -776,7 +776,7 @@ export function AthleteCheckinPage() {
   const { data: openCircuits, isLoading } = useQuery({
     queryKey: ['athlete-open-circuits'],
     queryFn: async () => {
-      const res = await api.get(`/attendance/gamedays/?is_closed=false&is_published=true&ordering=date`);
+      const res = await api.get(`/attendance/gamedays/?is_closed=false&is_published=true&active_only=true&ordering=date`);
       return res.data.results || res.data;
     },
   });
@@ -789,6 +789,22 @@ export function AthleteCheckinPage() {
   if (isLoading || isLoadingProfile) return <PageLoading />;
 
   let circuitsToDisplay = openCircuits ? [...openCircuits] : [];
+
+  // Filtragem inteligente: não exibe circuitos finalizados ou passados,
+  // mas mantém circuitos que passaram um pouco do horário ou da meia-noite (madrugada até 06:00).
+  const now = new Date();
+  const todayStr = now.toLocaleDateString('en-CA');
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toLocaleDateString('en-CA');
+  const isEarlyMorning = now.getHours() < 6;
+
+  circuitsToDisplay = circuitsToDisplay.filter((c: any) => {
+    if (c.is_closed) return false;
+    if (c.date >= todayStr) return true;
+    if (isEarlyMorning && c.date === yesterdayStr) return true;
+    return false;
+  });
   
   // Garante a ordenação: datas mais próximas primeiro (crescente)
   circuitsToDisplay.sort((a: any, b: any) => {

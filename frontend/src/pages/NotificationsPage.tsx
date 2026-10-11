@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Bell, Check, Gift, Medal, Info, AlertTriangle, Trash2, BellOff, Filter, Send, Loader2
+  Bell, Check, Gift, Medal, Info, AlertTriangle, Trash2, BellOff, Filter, Send, Loader2, CircleDollarSign
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/store/AuthContext';
@@ -11,13 +11,14 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
 
-type FilterType = 'all' | 'system' | 'prize' | 'circuit' | 'alert';
+type FilterType = 'all' | 'system' | 'prize' | 'circuit' | 'alert' | 'financial';
 
 const ICONS: Record<string, React.ElementType> = {
   prize: Gift,
   circuit: Medal,
   system: Info,
   alert: AlertTriangle,
+  financial: CircleDollarSign,
 };
 
 const COLORS: Record<string, string> = {
@@ -25,6 +26,7 @@ const COLORS: Record<string, string> = {
   circuit: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
   system: 'text-gray-300 bg-gray-500/10 border-gray-500/30',
   alert: 'text-red-400 bg-red-500/10 border-red-500/30',
+  financial: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
 };
 
 const FILTER_LABELS: Record<FilterType, string> = {
@@ -33,6 +35,7 @@ const FILTER_LABELS: Record<FilterType, string> = {
   prize: 'Prêmios',
   circuit: 'Circuito',
   alert: 'Alertas',
+  financial: 'Financeiro',
 };
 
 const FILTER_ICONS: Record<FilterType, React.ElementType> = {
@@ -41,7 +44,9 @@ const FILTER_ICONS: Record<FilterType, React.ElementType> = {
   prize: Gift,
   circuit: Medal,
   alert: AlertTriangle,
+  financial: CircleDollarSign,
 };
+
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);

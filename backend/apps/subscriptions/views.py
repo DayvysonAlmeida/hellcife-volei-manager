@@ -1,9 +1,13 @@
+import hmac
+from decimal import Decimal, InvalidOperation
 from rest_framework import viewsets, status, views
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.conf import settings
+from django.db import IntegrityError
 from django.utils import timezone
 from datetime import timedelta
+from apps.core.permissions import IsAdminOrModerator
 from .models import Plan, UserSubscription, AsaasCustomer, ExtraCreditPurchase, SubscriptionCycle
 from .serializers import PlanSerializer, UserSubscriptionSerializer
 from .services import SubscriptionService
@@ -60,7 +64,7 @@ class PlanViewSet(viewsets.ModelViewSet):
                 customer.customer_id = asaas_cust['id']
                 customer.cpf = cpf
                 customer.save()
-            except django.db.utils.IntegrityError:
+            except IntegrityError:
                 return Response({'error': 'Este CPF já está sendo utilizado por outra conta no sistema.'}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 import traceback; traceback.print_exc()
@@ -102,10 +106,18 @@ class PlanViewSet(viewsets.ModelViewSet):
 
 class UserSubscriptionViewSet(viewsets.ModelViewSet):
     serializer_class = UserSubscriptionSerializer
-    
+
+    def get_permissions(self):
+        from rest_framework.permissions import IsAuthenticated
+        # Atletas só podem ler a própria assinatura e comprar créditos.
+        # Qualquer alteração direta no registro é restrita a admin/moderador.
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrModerator()]
+        return [IsAuthenticated()]
+
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff:
+        if user.is_staff or getattr(user, 'profile', '') in ['admin', 'moderator']:
             return UserSubscription.objects.all()
         return UserSubscription.objects.filter(player__user=user)
         
@@ -137,8 +149,25 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
         if not player:
              return Response({'error': 'Perfil de jogador não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
              
-        amount = request.data.get('amount')
-        price_paid = request.data.get('price_paid', 0)
+        # Valida a quantidade enviada pelo cliente
+        try:
+            amount = Decimal(str(request.data.get('amount', 1)))
+        except (InvalidOperation, ValueError):
+            return Response({'error': 'Quantidade de créditos inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if (
+            not amount.is_finite()
+            or amount <= 0
+            or amount > Decimal('20')
+            or amount != amount.quantize(Decimal('0.1'))
+        ):
+            return Response(
+                {'error': 'Quantidade de créditos inválida (permitido de 0.1 a 20).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # O preço é SEMPRE calculado no servidor; o valor enviado pelo cliente é ignorado.
+        price_paid = (amount * Decimal(str(settings.EXTRA_CREDIT_UNIT_PRICE))).quantize(Decimal('0.01'))
         cpf = request.data.get('cpf')
 
         client = AsaasClient()
@@ -155,7 +184,7 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
                 customer.customer_id = asaas_cust['id']
                 customer.cpf = cpf
                 customer.save()
-            except django.db.utils.IntegrityError:
+            except IntegrityError:
                 return Response({'error': 'Este CPF já está sendo utilizado por outra conta no sistema.'}, status=status.HTTP_400_BAD_REQUEST)
             except Exception as e:
                 import traceback; traceback.print_exc()
@@ -200,6 +229,17 @@ class AsaasWebhookView(views.APIView):
     permission_classes = []
 
     def post(self, request):
+        # Autenticação do webhook: o Asaas envia o token configurado no painel
+        # no header 'asaas-access-token'.
+        expected_token = settings.ASAAS_WEBHOOK_TOKEN
+        if expected_token:
+            received_token = request.headers.get('asaas-access-token', '')
+            if not hmac.compare_digest(received_token.encode(), expected_token.encode()):
+                return Response({'error': 'Token inválido.'}, status=status.HTTP_401_UNAUTHORIZED)
+        elif not settings.DEBUG:
+            # Em produção, sem token configurado, recusa tudo (fail closed).
+            return Response({'error': 'Webhook não configurado.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         event = request.data.get('event')
         payment = request.data.get('payment', {})
         

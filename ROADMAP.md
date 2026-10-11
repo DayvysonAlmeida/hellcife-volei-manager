@@ -12,10 +12,14 @@
 | ✅ handleEditLimit | Renomeado para _handleEditLimit (sinaliza que é intencional) |
 | ✅ useNotifications polling | staleTime: 0 + intervalo 60s → 30s |
 | ✅ Notificações nativas | Web Notifications API |
-| ✅ NotificationsPage | Nova página com filtros por tipo |
+| ✅ NotificationsPage | Nova página com filtros por tipo (incluindo financeiro) |
 | ✅ Rotas /notifications | Adicionadas ao painel admin e ao portal do atleta |
 | ✅ NotificationBell | Link "Ver todas" no dropdown leva para a página dedicada |
 | ✅ Botão Excluir Atleta | Adicionado no formulário de edição de jogador |
+| ✅ Requirements & Docker | Adicionados requests e python-dateutil; removidos Procfile e build.sh legados |
+| ✅ Limpeza players/views.py | Removidas duplicações acidentais e corrigido reset_password |
+| ✅ Badges & Conquistas | Modelos Badge, checagem automática e Sala de Troféus implementados |
+| ✅ Módulo Financeiro | Gestão Asaas, Dashboard financeiro e confirmações de PIX implementados |
 
 ---
 
@@ -24,8 +28,8 @@
 ### 🔴 FASE 1 — Infraestrutura e DevOps
 - [x] Atualizar settings.py (RENDER → Cloud Run)
 - [x] Atualizar README.md
-- [x] Remover render.yaml da raiz do projeto (arquivo obsoleto)
-- [x] Criar .env.example com todas as variáveis necessárias
+- [x] Remover arquivos obsoletos do Render (render.yaml, Procfile, build.sh)
+- [x] Criar .env.example com todas as variáveis necessárias (incluindo EXTRA_CREDIT_UNIT_PRICE)
 - [ ] Configurar CI/CD (GitHub Actions)
 - [ ] Health Check endpoint (/api/health/) para o Cloud Run
 - [x] Remover/mover arquivos de debug da raiz (debug_absences.py, test_api.py, test_rank.py, test_stats_rank.py)
@@ -52,7 +56,7 @@
 #### 3.2 — Notificações 🔔
 - [x] Página dedicada de notificações com filtros por tipo
 - [x] Marcar todas como lidas
-- [x] Filtrar por tipo (sistema, prêmio, circuito, alerta)
+- [x] Filtrar por tipo (sistema, prêmio, circuito, alerta, financeiro)
 - [x] Notificações nativas do navegador (Web Notifications API)
 - [x] Polling corrigido (staleTime 0 + 30s)
 - [x] GlobalAnnouncement via admin — garantir que admins consigam enviar aviso para todos os atletas de forma fácil
@@ -66,7 +70,7 @@
 #### 4.1 — Portal do Atleta
 - [x] Compartilhar conquista nas redes sociais (ShareAchievementModal integrado)
 - [x] Histórico de avaliações visual: gráfico de evolução do overall no `/athlete/profile` (Já implementado em MyProfilePage)
-- [ ] Emblemas/badges desbloqueáveis por marcos ("10 jogos", "primeira grande estrela", "5 vitórias seguidas")
+- [x] Emblemas/badges desbloqueáveis por marcos (Badge, PlayerBadge, TrophyRoom e check_and_award_badges automático)
 
 #### 4.2 — Painel Admin
 - [x] Editar partida (`/matches/:id/edit`): formulário reutiliza MatchFormPage com carregamento de dados existentes
@@ -90,9 +94,9 @@
 #### 5.2 — Pagamentos, Assinaturas e Rateio 💰
 - [x] Criação do módulo de assinaturas/planos (`apps/subscriptions`)
 - [x] Integração com gateway de pagamentos (Asaas)
-- [ ] Atleta confirma pagamento PIX (`payment_claimed` no Portal do Atleta)
-- [ ] Admin confirma recebimento (`has_paid`)
-- [ ] Relatório financeiro por circuito e por mês
+- [x] Atleta confirma pagamento PIX (`payment_claimed` no Portal do Atleta)
+- [x] Admin confirma recebimento (`has_paid`, `toggle_payment` e `bulk_payment`)
+- [x] Relatório financeiro por circuito e por mês (`FinanceDashboardPage` e endpoint `/api/subscriptions/finance/`)
 
 #### 5.3 — Notificações Push (PWA) 📲
 - [ ] Implementar Web Push API no backend (django-push-notifications ou similar)
@@ -118,7 +122,8 @@
 | 🔴 Fase 1 — Infra | 5 | 7 | 71% |
 | 🟠 Fase 2 — Dívida Técnica | 9 | 9 | 100% ✅ |
 | 🟡 Fase 3 — Features Faltantes | 8 | 11 | 73% |
-| 🟢 Fase 4 — UX/UI | 5 | 10 | 50% |
-| 🔵 Fase 5 — Avançado | 3 | 12 | 25% |
+| 🟢 Fase 4 — UX/UI | 6 | 10 | 60% |
+| 🔵 Fase 5 — Avançado | 5 | 12 | 42% |
 | ⚪ Fase 6 — Qualidade | 0 | 6 | 0% |
+
 

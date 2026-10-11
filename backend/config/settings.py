@@ -11,6 +11,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me')
 DEBUG = config('DEBUG', default=True, cast=bool)
+
+# Segurança: em produção a SECRET_KEY padrão (insegura) nunca pode ser usada
+if not DEBUG and SECRET_KEY == 'django-insecure-change-me':
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured('Defina a variável de ambiente SECRET_KEY quando DEBUG=False.')
+
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 # Google Cloud Run: adiciona o hostname do serviço automaticamente
@@ -143,6 +149,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ASAAS_API_KEY = config('ASAAS_API_KEY', default='')
 ASAAS_API_URL = config('ASAAS_API_URL', default='https://sandbox.asaas.com/api/v3')
 ASAAS_WEBHOOK_TOKEN = config('ASAAS_WEBHOOK_TOKEN', default='')
+
+# Preço unitário do crédito avulso (calculado no servidor, nunca vindo do cliente)
+EXTRA_CREDIT_UNIT_PRICE = config('EXTRA_CREDIT_UNIT_PRICE', default='10.00')
 
 # Email Backend
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

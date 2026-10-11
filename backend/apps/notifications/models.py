@@ -9,6 +9,7 @@ class Notification(models.Model):
         ('prize', 'Prêmio'),
         ('circuit', 'Circuito'),
         ('alert', 'Alerta'),
+        ('financial', 'Financeiro'),
     )
 
     user = models.ForeignKey(

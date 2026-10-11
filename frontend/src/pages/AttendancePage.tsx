@@ -46,14 +46,14 @@ export function AttendancePage() {
   // A auto-seleção foi removida para garantir que no mobile o usuário veja a lista de circuitos primeiro.
 
   const { activeGameDays, historyGameDays } = useMemo(() => {
-    const active = gameDays.filter(gd => !gd.is_closed && gd.date >= todayStr);
-    const history = gameDays.filter(gd => gd.is_closed || gd.date < todayStr);
+    const active = gameDays.filter(gd => !gd.is_closed);
+    const history = gameDays.filter(gd => gd.is_closed);
     
     active.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
     return { activeGameDays: active, historyGameDays: history };
-  }, [gameDays, todayStr]);
+  }, [gameDays]);
 
   const { presentAttendances, absentAttendances, waitlistAttendances, totalPaid, totalCreditUsers, totalCreditsUsed } = useMemo(() => {
     if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0, totalCreditUsers: 0, totalCreditsUsed: 0 };
@@ -98,7 +98,7 @@ export function AttendancePage() {
     return { courtPrice: cp, rateio: rat, totalCollected: coll, remaining: rem };
   }, [gameDayDetail, totalPaid]);
 
-  const isClosedGameday = !!gameDayDetail?.is_closed || (!!gameDayDetail?.date && gameDayDetail.date < todayStr);
+  const isClosedGameday = !!gameDayDetail?.is_closed;
   const showEditControls = canEdit && !isClosedGameday;
 
   // Mutations
@@ -229,6 +229,22 @@ export function AttendancePage() {
     }
   });
 
+  const toggleCloseMutation = useMutation({
+    mutationFn: (is_closed: boolean) => attendanceService.updateGameDay(selectedGameDay!.id, { is_closed }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
+      qc.invalidateQueries({ queryKey: ['gamedays'] });
+      if (data.is_closed) {
+        toast.success('Circuito encerrado! Inscrições finalizadas e presenças consolidadas.');
+      } else {
+        toast.success('Circuito reaberto com sucesso!');
+      }
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar status de encerramento.');
+    }
+  });
+
   const _handleEditLimit = () => {
     if (!gameDayDetail) return;
     const currentLimit = gameDayDetail.max_players || 0;
@@ -319,9 +335,19 @@ export function AttendancePage() {
 
           {/* List */}
           <div className="grid grid-cols-1 gap-4 pb-12">
-            {(circuitTab === 'active' ? activeGameDays : historyGameDays).map(gd => (
-              <CircuitCard key={gd.id} gameDay={gd} onClick={() => setSelectedGameDay(gd)} />
-            ))}
+            {(circuitTab === 'active' ? activeGameDays : historyGameDays).map(gd => {
+              const isPastDate = gd.date < todayStr;
+              const badge = gd.is_closed ? (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-red/20 text-red border border-red/30 font-bold">
+                  ENCERRADO
+                </span>
+              ) : isPastDate ? (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold flex items-center gap-1">
+                  <Clock size={8} /> EM ANDAMENTO
+                </span>
+              ) : null;
+              return <CircuitCard key={gd.id} gameDay={gd} onClick={() => setSelectedGameDay(gd)} badge={badge} />;
+            })}
             {(circuitTab === 'active' ? activeGameDays : historyGameDays).length === 0 && (
               <div className="text-center py-12 text-text-muted bg-surface/30 rounded-2xl border border-border/50">
                 Nenhum circuito encontrado nesta categoria.
@@ -335,12 +361,15 @@ export function AttendancePage() {
             <PageLoading />
           ) : gameDayDetail ? (
             <div className="sm:card sm:p-5 flex flex-col gap-4">
-              {isClosedGameday && (
+              {isClosedGameday ? (
                 <div className="bg-red/10 border border-red/20 text-red text-center py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
-                  <Lock size={14} />
-                  Circuito encerrado — Exibindo histórico
+                  <Lock size={14} /> Circuito encerrado — Presenças e faltas consolidadas
                 </div>
-              )}
+              ) : gameDayDetail.date < todayStr ? (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-center py-2 rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+                  <Clock size={14} /> Circuito em andamento — O horário previsto passou, mas a lista permanece aberta para edições e conferência de pagamentos.
+                </div>
+              ) : null}
               {/* Novo Header Layout */}
               <div className="flex flex-col gap-6">
                 
@@ -459,6 +488,33 @@ export function AttendancePage() {
                         Tirar Faltas
                       </Link>
                     </>
+                  )}
+
+                  {canEdit && (
+                    <button
+                      onClick={() => {
+                        if (!gameDayDetail.is_closed) {
+                          setConfirmDialog({
+                            isOpen: true,
+                            title: 'Encerrar Circuito',
+                            desc: 'Tem certeza que deseja encerrar este circuito? As inscrições serão finalizadas e as presenças/faltas serão consolidadas.',
+                            onConfirm: () => toggleCloseMutation.mutate(true)
+                          });
+                        } else {
+                          toggleCloseMutation.mutate(false);
+                        }
+                      }}
+                      disabled={toggleCloseMutation.isPending}
+                      className={cn(
+                        "text-[10px] flex items-center gap-1.5 font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all border",
+                        gameDayDetail.is_closed
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 hover:shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                          : "bg-red/10 text-red border-red/30 hover:bg-red/20 hover:shadow-[0_0_15px_rgba(217,4,41,0.2)]"
+                      )}
+                    >
+                      {gameDayDetail.is_closed ? <RefreshCw size={12} strokeWidth={3} /> : <Lock size={12} strokeWidth={3} />}
+                      {gameDayDetail.is_closed ? 'Reabrir Circuito' : 'Encerrar Circuito'}
+                    </button>
                   )}
                 </div>
 

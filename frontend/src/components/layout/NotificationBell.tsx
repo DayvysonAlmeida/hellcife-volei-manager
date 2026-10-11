@@ -1,24 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Check, Gift, Medal, Info, AlertTriangle } from 'lucide-react';
+import { Bell, Check, Gift, Medal, Info, AlertTriangle, CircleDollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
 
-const ICONS = {
+const ICONS: Record<Notification['type'], React.ElementType> = {
   prize: Gift,
   circuit: Medal,
   system: Info,
   alert: AlertTriangle,
+  financial: CircleDollarSign,
 };
 
-const COLORS = {
+const COLORS: Record<Notification['type'], string> = {
   prize: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20',
   circuit: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
   system: 'text-gray-300 bg-gray-500/10 border-gray-500/20',
   alert: 'text-red bg-red/10 border-red/20',
+  financial: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
 };
+
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);

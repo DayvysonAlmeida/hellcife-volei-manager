@@ -19,17 +19,32 @@ class GameDayViewSet(viewsets.ModelViewSet):
     ordering = ['-date']
 
     def get_queryset(self):
+        qs = GameDay.objects.all()
+        if self.request.query_params.get('active_only') == 'true':
+            # Tolerância para madrugadas: circuitos de ontem se ainda for antes das 06:00
+            now = timezone.localtime()
+            min_date = now.date()
+            if now.hour < 6:
+                min_date = min_date - timezone.timedelta(days=1)
+            qs = qs.filter(is_closed=False, date__gte=min_date)
+
         if self.action == 'list':
             # Para listagem: usar annotations ao invés de properties (evita N+1)
-            from django.db.models import F
-            return GameDay.objects.all().annotate(
+            return qs.annotate(
                 _total_present=Count('attendances', filter=Q(attendances__present=True), distinct=True),
                 _total_paid=Count('attendances', filter=Q(attendances__has_paid=True), distinct=True),
                 _total_players=Count('attendances', distinct=True),
                 _total_court_checkins=Count('court_checkins', distinct=True)
             ).order_by('-date')
         # Para detail: prefetch completo com os jogadores
-        return GameDay.objects.all().prefetch_related('attendances__player')
+        return qs.prefetch_related('attendances__player')
+
+    def perform_update(self, serializer):
+        was_closed = serializer.instance.is_closed
+        instance = serializer.save()
+        # Se o circuito foi fechado agora, sincroniza faltas automaticamente
+        if not was_closed and instance.is_closed:
+            sync_absences_logic()
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -431,7 +446,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'max_players': gameday.max_players,
                 'court_price': gameday.court_price,
                 'time': gameday.time,
-                'time_end': gameday.time_end
+                'time_end': gameday.time_end,
+                'is_closed': gameday.is_closed
             },
             'players': players_data
         })
@@ -441,6 +457,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
         """Endpoint público para o próprio jogador fazer check-in."""
         from django.utils import timezone
         gameday = self.get_object()
+        
+        if gameday.is_closed:
+            return Response({'detail': 'As inscrições para este circuito já foram encerradas pela organização.'}, status=status.HTTP_400_BAD_REQUEST)
+
         player_id = request.data.get('player_id')
         
         if not player_id:
@@ -516,6 +536,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def cancel_checkin(self, request, pk=None):
         """Endpoint público para o atleta cancelar seu check-in."""
         gameday = self.get_object()
+        
+        if gameday.is_closed:
+            return Response({'detail': 'Este circuito já foi encerrado pela organização.'}, status=status.HTTP_400_BAD_REQUEST)
+
         player_id = request.data.get('player_id')
         
         if not player_id:
@@ -548,6 +572,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
         """Endpoint público para atleta adicionar convidado."""
         from django.utils import timezone
         gameday = self.get_object()
+        
+        if gameday.is_closed:
+            return Response({'detail': 'As inscrições para este circuito já foram encerradas pela organização.'}, status=status.HTTP_400_BAD_REQUEST)
+
         player_id = request.data.get('player_id')
         name = request.data.get('name')
         main_position = request.data.get('main_position', 'Outro')

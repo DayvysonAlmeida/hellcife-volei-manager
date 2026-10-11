@@ -124,6 +124,7 @@ Configure as seguintes variáveis no console do Cloud Run (ou via `gcloud`):
 | `ASAAS_API_KEY` | Chave da API do Asaas |
 | `ASAAS_API_URL` | URL base da API do Asaas (Sandbox ou Produção) |
 | `ASAAS_WEBHOOK_TOKEN` | Token para validação de webhooks do Asaas |
+| `EXTRA_CREDIT_UNIT_PRICE` | Preço unitário do crédito avulso (ex: 10.00) |
 
 ### Processo de Build e Deploy
 
