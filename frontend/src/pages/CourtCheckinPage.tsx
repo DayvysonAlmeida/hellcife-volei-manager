@@ -29,7 +29,7 @@ export function CourtCheckinPage() {
   const gameDays = gameDaysData?.results || [];
 
   const { openGameDays, closedGameDays } = useMemo(() => {
-    const open = gameDays.filter((gd: any) => !gd.is_closed);
+    const open = gameDays.filter((gd: any) => !gd.is_closed).sort((a: any, b: any) => a.date.localeCompare(b.date));
     const closed = gameDays.filter((gd: any) => gd.is_closed);
     
     // Circuitos abertos: data mais próxima primeiro (ascendente)

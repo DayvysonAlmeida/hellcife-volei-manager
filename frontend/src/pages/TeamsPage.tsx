@@ -52,7 +52,9 @@ export function TeamsPage() {
   const todayStr = new Date().toLocaleDateString('en-CA');
   
   const { upcomingGameDays, pastGameDays } = useMemo(() => {
-    const active = gameDays?.filter(gd => !gd.is_closed && gd.date >= todayStr) || [];
+    // A API devolve do mais novo para o mais antigo; o próximo circuito vem primeiro
+    const active = (gameDays?.filter(gd => !gd.is_closed && gd.date >= todayStr) || [])
+      .sort((a, b) => a.date.localeCompare(b.date));
     const past = gameDays?.filter(gd => gd.is_closed || gd.date < todayStr) || [];
     
     // Peladas ativas: a mais próxima primeiro (ordem cronológica)

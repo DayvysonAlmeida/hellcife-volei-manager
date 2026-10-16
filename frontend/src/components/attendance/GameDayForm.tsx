@@ -65,7 +65,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
         max_players: newMaxPlayers === '' ? undefined : newMaxPlayers,
         court_price: newCourtPrice === '' ? undefined : newCourtPrice,
         credit_cost: newCreditCost === '' ? 0 : newCreditCost,
-        pix_key: newPixKey || undefined,
+        pix_key: newPixKey.trim(), // vazio limpa a chave (volta a usar a chave do grupo)
         pricing_type: pricingType,
         price_per_person: pricePerPerson === '' ? null : pricePerPerson,
         requires_prepayment: requiresPrepayment,
