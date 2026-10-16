@@ -32,6 +32,7 @@ const AdminSubscriptionsPage = lazy(() => import('@/pages/subscriptions/AdminSub
 const AdminPlansPage = lazy(() => import('@/pages/subscriptions/AdminPlansPage').then(m => ({ default: m.AdminPlansPage })));
 const FinanceDashboardPage = lazy(() => import('@/pages/subscriptions/FinanceDashboardPage').then(m => ({ default: m.FinanceDashboardPage })));
 const RegulationPage = lazy(() => import('@/pages/RegulationPage').then(m => ({ default: m.RegulationPage })));
+const CircuitFinancePage = lazy(() => import('@/pages/finance/CircuitFinancePage').then(m => ({ default: m.CircuitFinancePage })));
 const RegulationAdminPage = lazy(() => import('@/pages/RegulationAdminPage').then(m => ({ default: m.RegulationAdminPage })));
 const CheckinPage = lazy(() => import('@/pages/CheckinPage').then(m => ({ default: m.CheckinPage })));
 const BracketPage = lazy(() => import('@/pages/BracketPage').then(m => ({ default: m.BracketPage })));
@@ -134,6 +135,7 @@ function App() {
               <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
               <Route path="plans" element={<AdminPlansPage />} />
               <Route path="finance" element={<FinanceDashboardPage />} />
+              <Route path="finance/circuits" element={<CircuitFinancePage />} />
               <Route path="regulation" element={<RegulationPage />} />
               <Route path="regulation/edit" element={<RegulationAdminPage />} />
               <Route path="hall-of-fame" element={<HallOfFamePage />} />

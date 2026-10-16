@@ -91,3 +91,8 @@ export function getAvatarColor(name: string): string {
   const index = name.charCodeAt(0) % colors.length;
   return colors[index];
 }
+
+/** Formata valor em reais. Aceita número ou string decimal vinda da API ("12.50"). */
+export function formatBRL(value: number | string | null | undefined): string {
+  return Number(value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}

@@ -1,7 +1,15 @@
 import { useState } from 'react';
-import { Search, Plus, RefreshCw, Check, Users, DollarSign, X, GripVertical, Clock, Zap } from 'lucide-react';
+import { Search, Plus, RefreshCw, Check, DollarSign, X, GripVertical, Clock, Zap, BadgeCheck } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
+import { formatBRL } from '@/lib/utils';
+
+function reservationDeadline(reservedUntil?: string | null) {
+  if (!reservedUntil) return 'sem prazo';
+  const d = new Date(reservedUntil);
+  if (d.getTime() <= Date.now()) return 'prazo vencido';
+  return `até ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+}
 import {
   DndContext,
   closestCenter,
@@ -56,6 +64,7 @@ function SortableWaitlistCard({ att, idx, renderCard, showEditControls }: {
 
 interface AttendanceListProps {
   presentAttendances: any[];
+  reservedAttendances: any[];
   absentAttendances: any[];
   waitlistAttendances: any[];
   searchTerm: string;
@@ -68,7 +77,8 @@ interface AttendanceListProps {
   isPromoting: boolean;
   onSaveClick: () => void;
   onTogglePresence: (playerId: number) => void;
-  onTogglePayment: (playerId: number) => void;
+  /** Clique no botão de pagamento: confirma (abre modal) ou desfaz, conforme o estado. */
+  onPaymentClick: (att: any) => void;
   isTogglingPresence: (playerId: number) => boolean;
   isTogglingPayment: (playerId: number) => boolean;
   onCheckAll: () => void;
@@ -81,6 +91,7 @@ interface AttendanceListProps {
 
 export function AttendanceList({
   presentAttendances,
+  reservedAttendances,
   absentAttendances,
   waitlistAttendances,
   searchTerm,
@@ -93,7 +104,7 @@ export function AttendanceList({
   isPromoting,
   onSaveClick,
   onTogglePresence,
-  onTogglePayment,
+  onPaymentClick,
   isTogglingPresence,
   isTogglingPayment,
   onCheckAll,
@@ -116,6 +127,7 @@ export function AttendanceList({
     return true;
   });
 
+  const showReserved = filterMode !== 'confirmed';
   const showWaitlist = filterMode === 'all';
   const showAbsent = filterMode === 'all';
 
@@ -135,6 +147,7 @@ export function AttendanceList({
   const renderAttendanceCard = (att: any, index?: number, isWaitlist?: boolean) => {
     const isPresent = att.present;
     const isPaid = att.has_paid;
+    const isReserved = att.is_reserved;
 
     return (
       <div
@@ -145,6 +158,8 @@ export function AttendanceList({
               ? 'bg-[#0a0a0a] border-[#222] opacity-50 grayscale'
               : isPresent
               ? 'bg-gradient-to-br from-[#161616] to-[#0a0a0a] border-[#333] hover:border-green-500/40 hover:shadow-[0_0_15px_rgba(34,197,94,0.15)]'
+              : isReserved
+              ? 'bg-gradient-to-br from-[#1a1206] to-[#0a0a0a] border-orange-500/30 hover:border-orange-500/60'
               : isWaitlist
               ? 'bg-gradient-to-br from-[#161616] to-[#0a0a0a] border-[#333] hover:border-yellow-500/40 hover:shadow-[0_0_15px_rgba(234,179,8,0.15)]'
               : 'bg-[#0a0a0a] border-[#222] hover:border-[#444]'
@@ -191,11 +206,32 @@ export function AttendanceList({
           
           {/* Status Text (Pago / Aguardando / Pendente) */}
           <div className="flex flex-col items-end sm:items-start min-h-[16px]">
+            {isReserved && (
+              att.payment_claimed ? (
+                <div className="flex items-center gap-1 text-orange-500 animate-pulse">
+                  <DollarSign size={12} strokeWidth={3} />
+                  <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Avisou · {formatBRL(att.amount_due)}</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-end sm:items-start text-orange-400">
+                  <div className="flex items-center gap-1">
+                    <Clock size={12} strokeWidth={3} />
+                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">{formatBRL(att.amount_due)}</span>
+                  </div>
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-orange-400/60">{reservationDeadline(att.reserved_until)}</span>
+                </div>
+              )
+            )}
             {isPresent && (
               att.used_credit ? (
                 <div className="flex items-center gap-1 text-amber-500">
                   <Zap size={12} className="fill-amber-500/20" strokeWidth={3} />
                   <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Plano</span>
+                </div>
+              ) : isPaid && att.paid_method === 'exempt' ? (
+                <div className="flex items-center gap-1 text-sky-400">
+                  <BadgeCheck size={12} strokeWidth={3} />
+                  <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Isento</span>
                 </div>
               ) : isPaid ? (
                 <div className="flex items-center gap-1 text-green-500">
@@ -207,12 +243,14 @@ export function AttendanceList({
                   <DollarSign size={12} strokeWidth={3} />
                   <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Avisou</span>
                 </div>
-              ) : (
+              ) : showPaymentControls ? (
                 <div className="flex items-center gap-1 text-red">
                   <DollarSign size={12} strokeWidth={3} />
-                  <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">Pendente</span>
+                  <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
+                    {att.amount_due != null ? formatBRL(att.amount_due) : 'Pendente'}
+                  </span>
                 </div>
-              )
+              ) : null
             )}
           </div>
 
@@ -220,9 +258,9 @@ export function AttendanceList({
           <div className="flex items-center gap-2 mt-1 sm:mt-0">
             {showEditControls ? (
               <>
-                {showPaymentControls && (
+                {showPaymentControls && (isPresent || isReserved) && !att.used_credit && (
                   <button
-                    onClick={() => onTogglePayment(att.player)}
+                    onClick={() => onPaymentClick(att)}
                     disabled={isTogglingPayment(att.player)}
                     className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 hover:scale-110 active:scale-95 ${
                       att.has_paid
@@ -231,7 +269,7 @@ export function AttendanceList({
                         ? 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.4)]'
                         : 'bg-[#111] border border-[#333] text-white/40 hover:border-green-500 hover:text-green-500 hover:bg-green-500/10'
                     }`}
-                    title={att.payment_claimed ? "Atleta avisou que pagou. Clique para confirmar." : "Alternar Pagamento"}
+                    title={att.has_paid ? 'Desfazer pagamento' : att.payment_claimed ? 'Atleta avisou que pagou. Clique para confirmar.' : 'Confirmar pagamento'}
                   >
                     <DollarSign size={14} strokeWidth={3} />
                   </button>
@@ -240,15 +278,15 @@ export function AttendanceList({
                   onClick={() => onTogglePresence(att.player)}
                   disabled={isTogglingPresence(att.player)}
                   className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0 hover:scale-110 active:scale-95 ${
-                    att.is_waitlist
+                    att.is_waitlist || isReserved
                       ? 'bg-[#111] border border-red/50 text-red hover:bg-red hover:text-white hover:shadow-[0_0_15px_rgba(217,4,41,0.4)]'
                       : att.present
                       ? 'bg-red text-white shadow-[0_0_15px_rgba(217,4,41,0.4)] border border-red'
                       : 'bg-[#111] border border-[#333] text-white/40 hover:border-red hover:text-red hover:bg-red/10'
                   }`}
-                  title={att.is_waitlist ? "Remover da Fila" : "Alternar Presença"}
+                  title={att.is_waitlist ? 'Remover da Fila' : isReserved ? 'Cancelar reserva' : 'Alternar Presença'}
                 >
-                  {att.is_waitlist ? <X size={14} strokeWidth={3} /> : <Check size={14} strokeWidth={3} />}
+                  {att.is_waitlist || isReserved ? <X size={14} strokeWidth={3} /> : <Check size={14} strokeWidth={3} />}
                 </button>
               </>
             ) : (
@@ -357,7 +395,7 @@ export function AttendanceList({
                   : 'bg-transparent text-white/40 border-[#333] hover:border-white/20 hover:text-white'
               }`}
             >
-              Todos ({presentAttendances.length + waitlistAttendances.length + absentAttendances.length})
+              Todos ({presentAttendances.length + reservedAttendances.length + waitlistAttendances.length + absentAttendances.length})
             </button>
             <button
               onClick={() => setFilterMode('confirmed')}
@@ -396,6 +434,19 @@ export function AttendanceList({
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {filteredPresent.map((att) => renderAttendanceCard(att))}
+            </div>
+          </div>
+        )}
+
+        {/* Seção Reservados (aguardando pagamento) */}
+        {showReserved && reservedAttendances.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xs font-black text-orange-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2 drop-shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+              RESERVADOS · AGUARDANDO PAGAMENTO • {reservedAttendances.length}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {reservedAttendances.map((att) => renderAttendanceCard(att))}
             </div>
           </div>
         )}
@@ -442,7 +493,7 @@ export function AttendanceList({
           </div>
         )}
 
-        {presentAttendances.length === 0 && absentAttendances.length === 0 && waitlistAttendances.length === 0 && (
+        {presentAttendances.length === 0 && reservedAttendances.length === 0 && absentAttendances.length === 0 && waitlistAttendances.length === 0 && (
           <p className="text-text-muted text-center py-8">
             {searchTerm
               ? `Nenhum jogador encontrado com "${searchTerm}".`

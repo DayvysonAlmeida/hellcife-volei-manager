@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import GameDay, Attendance, CourtCheckin
+from .models import GameDay, Attendance, AttendancePayment, CourtCheckin
 
 
 class AttendanceInline(admin.TabularInline):
@@ -35,3 +35,13 @@ class CourtCheckinAdmin(admin.ModelAdmin):
     search_fields = ['player__name']
     autocomplete_fields = ['player', 'gameday']
     ordering = ['-gameday__date', 'arrived_at']
+
+
+@admin.register(AttendancePayment)
+class AttendancePaymentAdmin(admin.ModelAdmin):
+    list_display = ['attendance', 'amount', 'method', 'status', 'paid_at', 'confirmed_by']
+    list_filter = ['method', 'status']
+    search_fields = ['attendance__player__name', 'asaas_payment_id']
+    list_select_related = ['attendance__player', 'attendance__gameday', 'confirmed_by']
+    date_hierarchy = 'paid_at'
+    raw_id_fields = ['attendance']

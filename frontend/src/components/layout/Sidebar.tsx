@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Zap, Bell, Activity, CreditCard, Award } from 'lucide-react';
+import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Zap, Bell, Activity, CreditCard, Award, Wallet } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
@@ -43,6 +43,7 @@ const adminNavGroups = [
     title: 'Plano & Financeiro',
     items: [
       { to: '/finance', icon: Activity, label: 'Painel Financeiro' },
+      { to: '/finance/circuits', icon: Wallet, label: 'Cobranças' },
       { to: '/plans', icon: CreditCard, label: 'Planos de Assinatura' },
       { to: '/subscriptions', icon: Crown, label: 'Assinaturas' },
     ]
@@ -218,6 +219,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                 <NavLink
                   key={to}
                   to={to}
+                  end={to === '/finance'} // senão fica ativo junto com /finance/circuits
                   onClick={() => onMobileClose()} // Fecha menu no mobile ao clicar
                   className={({ isActive }) => cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer group',

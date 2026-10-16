@@ -33,7 +33,9 @@ export function CircuitCard({ gameDay, onClick, badge }: CircuitCardProps) {
 
   const maxPlayers = gameDay.max_players || 16;
   const totalPresent = gameDay.total_present || 0;
-  const availableSlots = Math.max(0, maxPlayers - totalPresent);
+  // Reservas aguardando pagamento também ocupam vaga
+  const totalReserved = gameDay.total_reserved || 0;
+  const availableSlots = Math.max(0, maxPlayers - totalPresent - totalReserved);
   const isAlmostFull = availableSlots > 0 && availableSlots <= 3;
   const isFull = availableSlots === 0;
 
@@ -42,7 +44,7 @@ export function CircuitCard({ gameDay, onClick, badge }: CircuitCardProps) {
     const slots = [];
     for (let i = 0; i < maxPlayers; i++) {
       slots.push(
-        <div key={i} className={`flex items-center justify-center ${i < totalPresent ? (isFriday ? 'text-blue-500' : 'text-red') : 'text-white/20'}`}>
+        <div key={i} className={`flex items-center justify-center ${i < totalPresent ? (isFriday ? 'text-blue-500' : 'text-red') : i < totalPresent + totalReserved ? 'text-orange-400' : 'text-white/20'}`}>
           <User size={10} className="fill-current" />
         </div>
       );

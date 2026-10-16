@@ -268,6 +268,13 @@ export interface GameDay {
   total_court_checkins?: number;
   is_closed?: boolean;
   is_published?: boolean;
+  pricing_type?: PricingType;
+  price_per_person?: Money | null;
+  suggested_price_per_person?: Money | null;
+  effective_price_per_person?: Money;
+  requires_prepayment?: boolean;
+  reservation_hold_minutes?: number | null;
+  total_reserved?: number;
   attendances: Attendance[];
   court_checkins: CourtCheckin[];
   created_at: string;
@@ -298,6 +305,66 @@ export interface Attendance {
   waitlist_joined_at?: string | null;
   gameday_date?: string;
   gameday_location?: string;
+  is_reserved?: boolean;
+  reserved_until?: string | null;
+  amount_due?: Money | null;
+  paid_method?: 'pix_manual' | 'pix_asaas' | 'cash' | 'exempt' | 'legacy' | null;
+}
+
+// ==================== Financeiro dos Circuitos ====================
+/** Valores monetários chegam do DRF como string decimal ("12.50"). */
+export type Money = string | number;
+export type PricingType = 'split' | 'fixed';
+export type ManualPaymentMethod = 'pix_manual' | 'cash' | 'exempt';
+
+export interface CircuitFinanceSummary {
+  pricing_type: PricingType;
+  price_per_person: Money;
+  suggested_price_per_person: Money | null;
+  requires_prepayment: boolean;
+  confirmed: number;
+  reserved: number;
+  paid: number;
+  exempt: number;
+  claimed: number;
+  pending: number;
+  expected: Money;
+  collected: Money;
+  outstanding: Money;
+  court_cost: Money;
+  balance: Money;
+}
+
+export interface FinanceAttendanceRow {
+  attendance_id: number;
+  player_id: number;
+  player_name: string;
+  player_avatar: string | null;
+  player_is_guest: boolean;
+  gameday_id: number;
+  gameday_date: string;
+  gameday_location: string | null;
+  gameday_is_closed: boolean;
+  amount_due: Money;
+  is_reserved: boolean;
+  reserved_until: string | null;
+  payment_claimed: boolean;
+}
+
+export interface FinanceOverview {
+  month: string;
+  received: Money;
+  circuits_received: Money;
+  extras_received: Money;
+  court_costs: Money;
+  balance: Money;
+  outstanding: Money;
+  payments_count: number;
+  pending_claims: number;
+  plans: { active_subscriptions: number; mrr_estimate: Money };
+  circuits: Array<CircuitFinanceSummary & { id: number; date: string; location: string | null; is_closed: boolean }>;
+  by_location: Array<{ label: string; collected: Money; court_cost: Money; circuits: number }>;
+  series: Array<{ month: string; received: Money; court_costs: Money }>;
 }
 
 // ==================== Dashboard ====================

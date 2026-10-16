@@ -10,9 +10,10 @@ import { Avatar } from '@/components/ui/Avatar';
 import { PaymentModal } from '@/components/subscriptions/PaymentModal';
 import { PositionBadge } from '@/components/ui/Badges';
 import { LocationMapModal } from '@/components/ui/LocationMapModal';
-import { cn, getPositionClass } from '@/lib/utils';
+import { cn, getPositionClass, formatBRL } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { CircuitCard } from '@/components/attendance/CircuitCard';
+import { CopyPixButton, ReservationCountdown } from '@/components/attendance/ReservationInfo';
 
 // ─── Card expandido de check-in ────────────────────────────────────────────────
 function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any }) {
@@ -65,6 +66,8 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
     onSuccess: (res) => {
       if (res.present) {
         toast.success('Presença confirmada! Nos vemos na quadra! 🏐', { duration: 4000 });
+      } else if (res.is_reserved) {
+        toast.success('Vaga reservada! Faça o PIX para confirmar. 💸', { duration: 5000 });
       } else if (res.is_waitlist) {
         toast('Você entrou na Fila de Espera!', { icon: '⏳' });
       }
@@ -122,8 +125,8 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   const cancelMutation = useMutation({
     mutationFn: (playerId: number) =>
       api.post(`/attendance/gamedays/${circuit.id}/cancel-checkin/`, { player_id: playerId }).then(r => r.data),
-    onSuccess: () => {
-      toast.success('Presença cancelada com sucesso.');
+    onSuccess: (res) => {
+      toast.success(res?.detail || 'Presença cancelada com sucesso.');
       qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit.id] });
       qc.invalidateQueries({ queryKey: ['athlete-open-circuits'] });
     },
@@ -157,7 +160,7 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   };
 
   const handleCheckinClick = () => {
-    if (circuit.credit_cost > 0 && !hasCredits) {
+    if (usesCredits && !hasCredits && !needsPayment) {
       setShowBuyCredit(true);
     } else {
       checkinMutation.mutate(myPlayer.id);
@@ -167,11 +170,16 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   const myAttendance = myPlayer && circuitDetail?.players?.find((p: any) => p.id === myPlayer.id);
   const amPresent = myAttendance?.present;
   const amWaitlist = myAttendance?.is_waitlist;
+  const amReserved = myAttendance?.is_reserved;
 
-  const safePrice = circuit.court_price ? Number(String(circuit.court_price).replace(',', '.')) : 0;
-  const pricePerPlayer = safePrice > 0 && circuitDetail?.gameday?.total_present > 0
-    ? (safePrice / circuitDetail.gameday.total_present).toFixed(2)
-    : null;
+  // Cobrança vem do backend (valor por pessoa já calculado: rateio ou taxa do evento)
+  const gd = circuitDetail?.gameday;
+  const price = Number(gd?.price_per_person ?? 0);
+  const myDue = myAttendance?.amount_due != null ? Number(myAttendance.amount_due) : price;
+  const usesCredits = Number(gd?.credit_cost ?? circuit.credit_cost ?? 0) > 0;
+  const needsPayment = !!gd?.requires_prepayment && price > 0;
+  const pixKey = gd?.pix_key || circuit.pix_key || 'hellcifevolei@gmail.com';
+  const showPayment = myDue > 0 && (amPresent || amReserved) && !myAttendance?.has_paid && !myAttendance?.used_credit;
 
   const presentPlayers = circuitDetail?.players?.filter((p: any) => p.present) || [];
   const validOveralls = presentPlayers.filter((p: any) => p.latest_overall > 0);
@@ -224,11 +232,20 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-green-500/20 text-green-400 border border-green-500/30">
                       <Check size={12} /> Confirmado
                     </span>
-                    {safePrice === 0 && (
+                    {price === 0 && (
                       <button onClick={() => cancelMutation.mutate(myPlayer.id)} disabled={cancelMutation.isPending} className="p-1.5 text-red hover:bg-red/10 rounded-lg transition-colors" title="Cancelar Presença">
                         {cancelMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
                       </button>
                     )}
+                  </div>
+                ) : amReserved ? (
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                      <Clock size={12} /> Reservado
+                    </span>
+                    <button onClick={() => cancelMutation.mutate(myPlayer.id)} disabled={cancelMutation.isPending} className="p-1.5 text-red hover:bg-red/10 rounded-lg transition-colors" title="Cancelar Reserva">
+                      {cancelMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                    </button>
                   </div>
                 ) : amWaitlist ? (
                   <div className="flex items-center gap-2">
@@ -248,54 +265,78 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
             </div>
 
             <div className="space-y-3 relative z-10">
-              {safePrice > 0 && (amPresent || amWaitlist) && (
-                <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                  {circuitDetail?.gameday?.total_present > 0 ? (
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 text-green-400 font-bold text-sm">
-                        <Wallet size={16} /> R$ {pricePerPlayer}
-                      </div>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(circuit.pix_key || 'hellcifevolei@gmail.com');
-                          toast.success('Chave PIX copiada! 💸');
-                        }}
-                        className="bg-green-500/10 hover:bg-green-500/20 text-green-400 font-bold rounded-lg px-3 py-1.5 text-xs transition-colors flex items-center gap-1.5"
-                      >
-                        <Copy size={12} /> Copiar PIX
-                      </button>
+              {showPayment && (
+                <div className="bg-black/20 rounded-xl p-3 border border-white/5 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col">
+                      <span className="flex items-center gap-2 text-green-400 font-bold text-sm">
+                        <Wallet size={16} /> {formatBRL(myDue)}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold">
+                        {gd?.pricing_type === 'fixed' ? 'Taxa do evento' : 'Rateio da quadra'}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2 text-white/40 text-[10px] py-1">
-                      <Wallet size={12} /> Rateio será exibido com mais confirmados
-                    </div>
+                    <CopyPixButton pixKey={pixKey} />
+                  </div>
+                  {amReserved && (
+                    <p className="text-[11px] font-bold">
+                      {myAttendance?.payment_claimed ? (
+                        <span className="text-amber-400">Aviso enviado — sua vaga fica segura até a conferência.</span>
+                      ) : myAttendance?.reserved_until ? (
+                        <><ReservationCountdown until={myAttendance.reserved_until} /> <span className="text-white/50">para confirmar sua vaga.</span></>
+                      ) : (
+                        <span className="text-white/50">Faça o PIX para confirmar sua vaga.</span>
+                      )}
+                    </p>
                   )}
                 </div>
               )}
 
-              {!amPresent && !amWaitlist && (
+              {amWaitlist && price > 0 && (
+                <p className="text-[11px] text-white/40 text-center">
+                  Valor {formatBRL(price)} — você paga quando abrir uma vaga para você.
+                </p>
+              )}
+
+              {!amPresent && !amWaitlist && !amReserved && (
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={handleCheckinClick}
                   disabled={checkinMutation.isPending}
-                  className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-black tracking-widest uppercase rounded-xl transition-all border ${hasCredits ? 'bg-red hover:bg-red-hover text-white border-red shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'bg-amber-500 hover:bg-amber-400 text-amber-950 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]'}`}
+                  className={`w-full flex items-center justify-center gap-2 py-3.5 text-sm font-black tracking-widest uppercase rounded-xl transition-all border ${!usesCredits || hasCredits || needsPayment ? 'bg-red hover:bg-red-hover text-white border-red shadow-[0_0_20px_rgba(239,68,68,0.3)]' : 'bg-amber-500 hover:bg-amber-400 text-amber-950 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]'}`}
                 >
                   {checkinMutation.isPending ? (
                     <Loader2 size={18} className="animate-spin" />
-                  ) : hasCredits ? (
+                  ) : usesCredits && hasCredits ? (
                     <Zap size={18} className="text-white fill-white/20" />
-                  ) : (
+                  ) : needsPayment ? (
                     <Wallet size={18} />
+                  ) : usesCredits ? (
+                    <Wallet size={18} />
+                  ) : (
+                    <Check size={18} />
                   )}
-                  {hasCredits ? 'Usar 1 Crédito' : 'Comprar Crédito & Entrar'}
+                  {usesCredits && hasCredits
+                    ? 'Usar 1 Crédito'
+                    : needsPayment
+                    ? `Reservar vaga · ${formatBRL(price)}`
+                    : usesCredits
+                    ? 'Comprar Crédito & Entrar'
+                    : 'Confirmar presença'}
                 </motion.button>
               )}
 
-              {amPresent && !myAttendance?.has_paid && (
+              {showPayment && (
                 <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                  <div className="flex-1 text-center bg-green-500/10 text-green-400 rounded-xl py-3 text-xs font-bold border border-green-500/20 flex items-center justify-center">
-                    ✅ Vaga Garantida
-                  </div>
+                  {amPresent ? (
+                    <div className="flex-1 text-center bg-green-500/10 text-green-400 rounded-xl py-3 text-xs font-bold border border-green-500/20 flex items-center justify-center">
+                      ✅ Vaga Garantida
+                    </div>
+                  ) : (
+                    <div className="flex-1 text-center bg-orange-500/10 text-orange-400 rounded-xl py-3 text-xs font-bold border border-orange-500/20 flex items-center justify-center">
+                      ⏳ Vaga Reservada
+                    </div>
+                  )}
                   {myAttendance?.payment_claimed ? (
                     <div className="flex-1 text-center bg-orange-500/10 text-orange-400 rounded-xl py-3 text-xs font-black tracking-wider uppercase border border-orange-500/30 flex items-center justify-center animate-pulse">
                       Em Análise
@@ -723,6 +764,11 @@ function CircuitSummaryCard({
     if (amPresent) {
       if (hasPaid) return <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold flex items-center gap-1"><Check size={8} /> PAGO</span>;
       return <span className="text-[8px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/30 font-bold flex items-center gap-1"><Check size={8} /> CONFIRMADO</span>;
+    }
+    if (myAttendance?.is_reserved) {
+      return myAttendance.payment_claimed
+        ? <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold flex items-center gap-1"><Clock size={8} /> EM ANÁLISE</span>
+        : <span className="text-[8px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold flex items-center gap-1"><Clock size={8} /> RESERVADO</span>;
     }
     if (isWaitlist) {
       return <span className="text-[8px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-bold flex items-center gap-1"><Clock size={8} /> FILA</span>;

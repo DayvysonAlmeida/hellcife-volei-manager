@@ -9,9 +9,11 @@ import { GameDayForm } from '@/components/attendance/GameDayForm';
 import { GuestModal } from '@/components/attendance/GuestModal';
 import { AttendanceList } from '@/components/attendance/AttendanceList';
 import { CircuitCard } from '@/components/attendance/CircuitCard';
+import { PaymentConfirmModal, type PaymentTarget } from '@/components/attendance/PaymentConfirmModal';
+import { invalidatePaymentQueries } from '@/lib/paymentQueries';
 
 import { attendanceService } from '@/services';
-import { formatDate, cn } from '@/lib/utils';
+import { formatDate, cn, formatBRL } from '@/lib/utils';
 import type { GameDay } from '@/types';
 import { useAuth } from '@/store/AuthContext';
 import toast from 'react-hot-toast';
@@ -30,6 +32,7 @@ export function AttendancePage() {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
   const [searchTerm, setSearchTerm] = useState('');
   const [circuitTab, setCircuitTab] = useState<'active' | 'history'>('active');
+  const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
 
   const { data: gameDaysData, isLoading } = useQuery({
     queryKey: ['gamedays'],
@@ -41,6 +44,12 @@ export function AttendancePage() {
     queryKey: ['gameday', selectedGameDay?.id],
     queryFn: () => attendanceService.getGameDay(selectedGameDay!.id),
     enabled: !!selectedGameDay,
+  });
+
+  const { data: finance } = useQuery({
+    queryKey: ['gameday-finance', selectedGameDay?.id],
+    queryFn: () => attendanceService.getFinance(selectedGameDay!.id),
+    enabled: !!selectedGameDay && canEdit,
   });
 
   // A auto-seleção foi removida para garantir que no mobile o usuário veja a lista de circuitos primeiro.
@@ -55,8 +64,8 @@ export function AttendancePage() {
     return { activeGameDays: active, historyGameDays: history };
   }, [gameDays]);
 
-  const { presentAttendances, absentAttendances, waitlistAttendances, totalPaid, totalCreditUsers, totalCreditsUsed } = useMemo(() => {
-    if (!gameDayDetail) return { presentAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0, totalCreditUsers: 0, totalCreditsUsed: 0 };
+  const { presentAttendances, reservedAttendances, absentAttendances, waitlistAttendances, totalPaid, totalCreditUsers, totalCreditsUsed } = useMemo(() => {
+    if (!gameDayDetail) return { presentAttendances: [], reservedAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0, totalCreditUsers: 0, totalCreditsUsed: 0 };
     
     let filtered = gameDayDetail.attendances;
     if (searchTerm) {
@@ -71,7 +80,8 @@ export function AttendancePage() {
     filtered.sort((a, b) => a.player_name.localeCompare(b.player_name));
     
     const present = filtered.filter(a => a.present);
-    const absent = filtered.filter(a => !a.present && !a.is_waitlist);
+    const reserved = filtered.filter(a => a.is_reserved);
+    const absent = filtered.filter(a => !a.present && !a.is_waitlist && !a.is_reserved);
     
     // Fila de espera: ordenar por membro primeiro, depois por ordem de chegada
     const waitlist = filtered.filter(a => !a.present && a.is_waitlist).sort((a: any, b: any) => {
@@ -86,17 +96,15 @@ export function AttendancePage() {
     const totalCreditUsers = gameDayDetail.attendances.filter(a => a.used_credit).length;
     const totalCreditsUsed = gameDayDetail.attendances.reduce((sum, a) => sum + (Number(a.credits_used) || (a.used_credit ? 1 : 0)), 0);
     
-    return { presentAttendances: present, absentAttendances: absent, waitlistAttendances: waitlist, totalPaid, totalCreditUsers, totalCreditsUsed };
+    return { presentAttendances: present, reservedAttendances: reserved, absentAttendances: absent, waitlistAttendances: waitlist, totalPaid, totalCreditUsers, totalCreditsUsed };
   }, [gameDayDetail, searchTerm]);
 
-  const { courtPrice, rateio, totalCollected, remaining } = useMemo(() => {
-    if (!gameDayDetail || !gameDayDetail.court_price) return { courtPrice: 0, rateio: 0, totalCollected: 0, remaining: 0 };
-    const cp = Number(gameDayDetail.court_price);
-    const rat = gameDayDetail.total_present > 0 ? cp / gameDayDetail.total_present : 0;
-    const coll = totalPaid * rat;
-    const rem = Math.max(0, cp - coll);
-    return { courtPrice: cp, rateio: rat, totalCollected: coll, remaining: rem };
-  }, [gameDayDetail, totalPaid]);
+  const collected = Number(finance?.collected ?? 0);
+  const courtCost = Number(finance?.court_cost ?? 0);
+  // Meta da barra: custo da quadra; sem custo, o total previsto
+  const goal = courtCost > 0 ? courtCost : Number(finance?.expected ?? 0);
+  const goalPct = goal > 0 ? Math.min(100, Math.round((collected / goal) * 100)) : 0;
+  const balance = Number(finance?.balance ?? 0);
 
   const isClosedGameday = !!gameDayDetail?.is_closed;
   const showEditControls = canEdit && !isClosedGameday;
@@ -114,7 +122,9 @@ export function AttendancePage() {
         return {
           ...old,
           attendances: old.attendances.map((att: any) => 
-            att.player === playerId ? { ...att, present: !att.present } : att
+            att.player !== playerId ? att
+              : att.is_reserved ? { ...att, is_reserved: false }
+              : { ...att, present: !att.present }
           )
         };
       });
@@ -124,18 +134,14 @@ export function AttendancePage() {
       qc.setQueryData(['gameday', selectedGameDay?.id], context?.previousGameday);
       toast.error('Erro ao marcar presença.');
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
-      qc.invalidateQueries({ queryKey: ['gamedays'] });
-    },
+    onSettled: (_data, _err, { gamedayId }) => invalidatePaymentQueries(qc, gamedayId),
   });
 
   const bulkPaymentMutation = useMutation({
     mutationFn: ({ gamedayId, actionType }: { gamedayId: number, actionType: 'check_all' | 'uncheck_all' }) =>
       attendanceService.bulkPayment(gamedayId, actionType),
     onSuccess: (_, { gamedayId }) => {
-      qc.invalidateQueries({ queryKey: ['gameday', gamedayId] });
-      qc.invalidateQueries({ queryKey: ['gamedays'] });
+      invalidatePaymentQueries(qc, gamedayId);
       toast.success('Lista atualizada com sucesso!');
     },
     onError: () => toast.error('Erro ao processar atualização em lote.')
@@ -153,7 +159,7 @@ export function AttendancePage() {
         return {
           ...old,
           attendances: old.attendances.map((att: any) => 
-            att.player === playerId ? { ...att, paid: !att.paid } : att
+            att.player === playerId ? { ...att, has_paid: !att.has_paid } : att
           )
         };
       });
@@ -163,10 +169,7 @@ export function AttendancePage() {
       qc.setQueryData(['gameday', selectedGameDay?.id], context?.previousGameday);
       toast.error('Erro ao registrar pagamento.');
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
-      qc.invalidateQueries({ queryKey: ['gamedays'] });
-    },
+    onSettled: (_data, _err, { gamedayId }) => invalidatePaymentQueries(qc, gamedayId),
   });
 
   const refreshMutation = useMutation({
@@ -560,35 +563,59 @@ export function AttendancePage() {
                     </div>
                   </div>
 
-                  {/* Card 3: Arrecadado e Rateio (Ocupa linha inteira) */}
-                  <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl p-3 sm:p-4 flex flex-col justify-between col-span-2">
-                    <div className="flex justify-between items-start w-full">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] sm:text-xs font-bold text-white/60 uppercase tracking-widest">Arrecadado</span>
-                        <span className="font-bold text-base sm:text-xl text-green-500">R$ {totalCollected.toFixed(2).replace('.', ',')}</span>
-                        {courtPrice > 0 && (
-                          <span className="text-[8px] sm:text-[9px] text-white/40 uppercase font-black mt-0.5">META: R$ {courtPrice.toFixed(2).replace('.', ',')}</span>
-                        )}
+                  {/* Card 3: Financeiro do circuito (Ocupa linha inteira) */}
+                  {finance && (Number(finance.price_per_person) > 0 || courtCost > 0) && (
+                    <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl p-3 sm:p-4 flex flex-col gap-3 col-span-2">
+                      <div className="flex justify-between items-start w-full gap-3">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] sm:text-xs font-bold text-white/60 uppercase tracking-widest">Arrecadado</span>
+                          <span className="font-bold text-base sm:text-xl text-green-500">{formatBRL(collected)}</span>
+                          {goal > 0 && (
+                            <span className="text-[8px] sm:text-[9px] text-white/40 uppercase font-black mt-0.5">
+                              {courtCost > 0 ? 'Quadra' : 'Previsto'}: {formatBRL(goal)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end text-right">
+                          <span className="text-[9px] sm:text-[10px] font-bold text-white/60 uppercase">
+                            {formatBRL(finance.price_per_person)} <span className="text-white/40">/ atleta</span>
+                          </span>
+                          <span className="text-[7px] sm:text-[8px] text-white/40 uppercase font-black">
+                            {finance.pricing_type === 'fixed' ? 'Taxa do evento' : 'Rateio'}
+                            {finance.requires_prepayment ? ' · pagamento antecipado' : ''}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <span className="text-[9px] sm:text-[10px] font-bold text-white/40 uppercase">R$ {rateio.toFixed(2).replace('.', ',')}</span>
-                        <span className="text-[7px] sm:text-[8px] text-white/40 uppercase font-black">por atleta</span>
+
+                      <div className="w-full flex items-center gap-2">
+                        <div className="flex-1 h-1.5 sm:h-2 bg-[#222] rounded-full overflow-hidden relative">
+                          <div
+                            className="absolute left-0 top-0 h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.5)]"
+                            style={{ width: `${goalPct}%` }}
+                          />
+                        </div>
+                        <span className="text-[9px] sm:text-[10px] font-black text-white/60">{goalPct}%</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg bg-white/[0.03] py-1.5">
+                          <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-white/40">A receber</p>
+                          <p className="text-xs sm:text-sm font-bold text-orange-400">{formatBRL(finance.outstanding)}</p>
+                          <p className="text-[8px] text-white/30">{finance.pending} pendente{finance.pending === 1 ? '' : 's'}</p>
+                        </div>
+                        <div className="rounded-lg bg-white/[0.03] py-1.5">
+                          <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-white/40">Avisaram</p>
+                          <p className="text-xs sm:text-sm font-bold text-amber-400">{finance.claimed}</p>
+                          <p className="text-[8px] text-white/30">para conferir</p>
+                        </div>
+                        <div className="rounded-lg bg-white/[0.03] py-1.5">
+                          <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-white/40">Saldo</p>
+                          <p className={cn('text-xs sm:text-sm font-bold', balance >= 0 ? 'text-green-400' : 'text-red')}>{formatBRL(balance)}</p>
+                          <p className="text-[8px] text-white/30">arrecadado − quadra</p>
+                        </div>
                       </div>
                     </div>
-                    
-                    {/* Barra de Progresso */}
-                    <div className="w-full mt-3 sm:mt-4 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 sm:h-2 bg-[#222] rounded-full overflow-hidden relative">
-                        <div 
-                          className="absolute left-0 top-0 h-full bg-green-500 transition-all duration-1000 shadow-[0_0_10px_rgba(34,197,94,0.5)]" 
-                          style={{ width: `${courtPrice > 0 ? Math.min(100, (totalCollected / courtPrice) * 100) : 0}%` }}
-                        />
-                      </div>
-                      <span className="text-[9px] sm:text-[10px] font-black text-white/60">
-                        {courtPrice > 0 ? Math.round((totalCollected / courtPrice) * 100) : 0}%
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -602,6 +629,7 @@ export function AttendancePage() {
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red via-transparent to-transparent opacity-20" />
                 <AttendanceList
                   presentAttendances={presentAttendances}
+                  reservedAttendances={reservedAttendances}
                   absentAttendances={absentAttendances}
                   waitlistAttendances={waitlistAttendances}
                   searchTerm={searchTerm}
@@ -617,7 +645,25 @@ export function AttendancePage() {
                     navigate('/court-checkin');
                   }}
                   onTogglePresence={(playerId) => toggleMutation.mutate({ gamedayId: gameDayDetail.id, playerId })}
-                  onTogglePayment={(playerId) => togglePaymentMutation.mutate({ gamedayId: gameDayDetail.id, playerId })}
+                  onPaymentClick={(att) => {
+                    if (att.has_paid) {
+                      setConfirmDialog({
+                        isOpen: true,
+                        title: 'Desfazer pagamento?',
+                        desc: `O pagamento de ${att.player_name} será marcado como cancelado no histórico.`,
+                        onConfirm: () => togglePaymentMutation.mutate({ gamedayId: gameDayDetail.id, playerId: att.player }),
+                      });
+                    } else {
+                      setPaymentTarget({
+                        gamedayId: gameDayDetail.id,
+                        playerId: att.player,
+                        playerName: att.player_name,
+                        amountDue: att.amount_due ?? gameDayDetail.effective_price_per_person,
+                        claimed: att.payment_claimed,
+                        isReserved: att.is_reserved,
+                      });
+                    }
+                  }}
                   isTogglingPresence={(playerId) => toggleMutation.isPending && toggleMutation.variables?.playerId === playerId}
                   isTogglingPayment={(playerId) => togglePaymentMutation.isPending && togglePaymentMutation.variables?.playerId === playerId}
                   onCheckAll={() => {
@@ -631,7 +677,7 @@ export function AttendancePage() {
                     }
                   }}
                   isBulkLoading={bulkPaymentMutation.isPending}
-                  showPaymentControls={Number(gameDayDetail.court_price) > 0}
+                  showPaymentControls={Number(gameDayDetail.effective_price_per_person) > 0 || Number(gameDayDetail.court_price) > 0}
                   gamedayId={gameDayDetail.id}
                   onReorderWaitlist={(gdId, attIds) => {
                     attendanceService.reorderWaitlist(gdId, attIds).then(() => {
@@ -647,6 +693,8 @@ export function AttendancePage() {
           ) : null}
         </div>
       )}
+
+      <PaymentConfirmModal target={paymentTarget} onClose={() => setPaymentTarget(null)} />
 
       <GuestModal
         isOpen={showGuestModal}

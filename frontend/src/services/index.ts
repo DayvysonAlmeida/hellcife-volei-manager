@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText } from '@/types';
+import type { DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText, CircuitFinanceSummary, FinanceAttendanceRow, FinanceOverview, ManualPaymentMethod } from '@/types';
 
 export const dashboardService = {
   get: () => api.get<DashboardData>('/dashboard/').then(r => r.data),
@@ -87,6 +87,26 @@ export const attendanceService = {
 
   reorderWaitlist: (gamedayId: number, attendanceIds: number[]) =>
     api.post(`/attendance/gamedays/${gamedayId}/reorder-waitlist/`, { attendance_ids: attendanceIds }).then(r => r.data),
+
+  confirmPayment: (gamedayId: number, playerId: number, method: ManualPaymentMethod, amount?: number) =>
+    api.post(`/attendance/gamedays/${gamedayId}/confirm-payment/`, { player_id: playerId, method, amount }).then(r => r.data),
+
+  revertPayment: (gamedayId: number, playerId: number) =>
+    api.post(`/attendance/gamedays/${gamedayId}/revert-payment/`, { player_id: playerId }).then(r => r.data),
+
+  getFinance: (gamedayId: number) =>
+    api.get<CircuitFinanceSummary>(`/attendance/gamedays/${gamedayId}/finance/`).then(r => r.data),
+};
+
+export const circuitFinanceService = {
+  overview: (month?: string) =>
+    api.get<FinanceOverview>('/attendance/finance/overview/', { params: month ? { month } : {} }).then(r => r.data),
+
+  claims: () =>
+    api.get<FinanceAttendanceRow[]>('/attendance/finance/claims/').then(r => r.data),
+
+  debtors: (days = 60) =>
+    api.get<FinanceAttendanceRow[]>('/attendance/finance/debtors/', { params: { days } }).then(r => r.data),
 };
 
 export const teamsService = {

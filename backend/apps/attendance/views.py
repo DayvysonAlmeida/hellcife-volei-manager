@@ -6,10 +6,27 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q
 from django.utils import timezone
 
-from .models import GameDay, Attendance, CourtCheckin
+from .models import GameDay, Attendance, AttendancePayment, CourtCheckin
+from .payments import CircuitPaymentService
+from . import finance
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
 from apps.players.models import Player
 from apps.core.permissions import IsAdminOrModerator
+
+
+def _deny_unless_self(request, player_id):
+    """
+    Ações que mexem na inscrição/pagamento de alguém exigem login e só valem para o próprio
+    atleta (ou admin/moderador). Retorna None se permitido, senão a Response de erro.
+    """
+    user = request.user
+    if not user.is_authenticated:
+        return Response({'detail': 'Entre na sua conta para fazer isso.'}, status=status.HTTP_401_UNAUTHORIZED)
+    if getattr(user, 'profile', None) in ('admin', 'moderator'):
+        return None
+    if Player.objects.filter(id=player_id, user=user).exists():
+        return None
+    return Response({'detail': 'Você só pode fazer isso na sua própria inscrição.'}, status=status.HTTP_403_FORBIDDEN)
 
 
 class GameDayViewSet(viewsets.ModelViewSet):
@@ -34,10 +51,15 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 _total_present=Count('attendances', filter=Q(attendances__present=True), distinct=True),
                 _total_paid=Count('attendances', filter=Q(attendances__has_paid=True), distinct=True),
                 _total_players=Count('attendances', distinct=True),
-                _total_court_checkins=Count('court_checkins', distinct=True)
+                _total_court_checkins=Count('court_checkins', distinct=True),
+                _total_reserved=Count('attendances', distinct=True, filter=Q(attendances__is_reserved=True) & (
+                    Q(attendances__payment_claimed=True)
+                    | Q(attendances__reserved_until__isnull=True)
+                    | Q(attendances__reserved_until__gt=timezone.now())
+                )),
             ).order_by('-date')
         # Para detail: prefetch completo com os jogadores
-        return qs.prefetch_related('attendances__player')
+        return qs.prefetch_related('attendances__player', 'attendances__payments')
 
     def perform_update(self, serializer):
         was_closed = serializer.instance.is_closed
@@ -55,9 +77,20 @@ class GameDayViewSet(viewsets.ModelViewSet):
         from rest_framework.permissions import AllowAny
         if self.action in ['checkin_info', 'public_checkin', 'cancel_checkin', 'claim_payment', 'public_add_guest']:
             return [AllowAny()]
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_attendance', 'initialize', 'add_guest', 'reorder_waitlist']:
+        if self.action in [
+            'create', 'update', 'partial_update', 'destroy', 'bulk_attendance', 'initialize', 'add_guest',
+            'reorder_waitlist', 'toggle_attendance', 'toggle_payment', 'bulk_payment', 'promote_waitlist',
+            'refresh_list', 'process_past_absences', 'confirm_payment', 'revert_payment', 'finance_summary',
+        ]:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
+
+    def get_object(self):
+        obj = super().get_object()
+        # Reservas vencidas são liberadas sempre que o circuito é acessado (não há worker em segundo plano)
+        if obj.requires_prepayment and CircuitPaymentService.expire_reservations(obj):
+            obj = super().get_object()
+        return obj
 
     def retrieve(self, request, *args, **kwargs):
         """Retorna o detalhe do GameDay. Se estiver aberto, auto-sincroniza jogadores novos ativos na lista."""
@@ -152,9 +185,22 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if notifications:
             Notification.objects.bulk_create(notifications)
 
+    @staticmethod
+    def _reservation_payload(attendance, detail):
+        return {
+            'present': False,
+            'is_waitlist': False,
+            'is_reserved': True,
+            'reserved_until': attendance.reserved_until,
+            'amount_due': attendance.amount_due,
+            'pix_key': attendance.gameday.pix_key,
+            'player_id': attendance.player_id,
+            'detail': detail,
+        }
+
     def _check_and_notify_full_circuit(self, gameday):
         if gameday.max_players and not gameday.is_full_notified:
-            if gameday.total_present >= gameday.max_players:
+            if gameday.occupied_spots >= gameday.max_players:
                 from apps.notifications.models import Notification
                 gameday.is_full_notified = True
                 gameday.save(update_fields=['is_full_notified'])
@@ -178,8 +224,12 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = self.get_object()
         was_published = instance.is_published
+        old_price = instance.effective_price_per_person
 
         gameday = serializer.save()
+
+        if gameday.effective_price_per_person != old_price:
+            CircuitPaymentService.update_pending_amounts(gameday)
 
         # Envia notificação APENAS se o status is_published mudou de False para True
         if not was_published and gameday.is_published:
@@ -231,9 +281,11 @@ class GameDayViewSet(viewsets.ModelViewSet):
         action_type = request.data.get('action_type') # 'check_all' ou 'uncheck_all'
         
         if action_type == 'check_all':
-            Attendance.objects.filter(gameday=gameday, present=True).update(has_paid=True)
+            for att in gameday.attendances.filter(present=True, has_paid=False):
+                CircuitPaymentService.confirm_payment(att, AttendancePayment.METHOD_PIX_MANUAL, confirmed_by=request.user)
         elif action_type == 'uncheck_all':
-            Attendance.objects.filter(gameday=gameday, present=True).update(has_paid=False)
+            for att in gameday.attendances.filter(present=True, has_paid=True):
+                CircuitPaymentService.revert_payment(att)
             
         return Response({'detail': 'Pagamentos atualizados em lote com sucesso.'})
 
@@ -339,6 +391,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
             attendance.used_credit = False
             attendance.has_paid = False
             attendance.save()
+        elif attendance.is_reserved:
+            CircuitPaymentService.release(attendance)
         elif attendance.is_waitlist:
             attendance.is_waitlist = False
             attendance.waitlist_joined_at = None
@@ -349,7 +403,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 attendance.waitlist_joined_at = timezone.now()
                 attendance.present = False
                 attendance.save()
-            elif gameday.max_players and gameday.total_present >= gameday.max_players:
+            elif gameday.max_players and gameday.occupied_spots >= gameday.max_players:
                 attendance.is_waitlist = True
                 attendance.waitlist_joined_at = timezone.now()
                 attendance.present = False
@@ -359,8 +413,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 attendance.is_waitlist = False
                 attendance.waitlist_joined_at = None
                 
-                # Uso de Crédito pelo Admin Toggle
-                if not attendance.used_credit:
+                # Uso de Crédito pelo Admin Toggle (só em circuitos que cobram créditos)
+                if not attendance.used_credit and gameday.credit_cost > 0:
                     from apps.subscriptions.services import SubscriptionService
                     from django.db import transaction
                     try:
@@ -389,18 +443,13 @@ class GameDayViewSet(viewsets.ModelViewSet):
         attendance, _ = Attendance.objects.get_or_create(
             gameday=gameday, player_id=player_id
         )
-        attendance.has_paid = not attendance.has_paid
-        attendance.save()
-        
-        if attendance.has_paid and getattr(attendance.player, 'user', None) and attendance.player.user.is_active:
-            from apps.notifications.models import Notification
-            Notification.objects.create(
-                user=attendance.player.user,
-                title='Pagamento Confirmado! 💰',
-                message='Seu pagamento foi recebido com sucesso. Obrigado e vamos pro jogo! 🏐',
-                type='financial'
+        if attendance.has_paid:
+            CircuitPaymentService.revert_payment(attendance)
+        else:
+            CircuitPaymentService.confirm_payment(
+                attendance, AttendancePayment.METHOD_PIX_MANUAL, confirmed_by=request.user
             )
-            
+        attendance.refresh_from_db()
         return Response({'has_paid': attendance.has_paid, 'player_id': player_id})
 
     @action(detail=True, methods=['get'], url_path='checkin-info')
@@ -430,6 +479,9 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'payment_claimed': att.payment_claimed if att else False,
                 'used_credit': att.used_credit if att else False,
                 'is_priority': att.is_priority if att else False,
+                'is_reserved': att.is_reserved if att else False,
+                'reserved_until': att.reserved_until if att else None,
+                'amount_due': att.amount_due if att else None,
                 'main_position': p.main_position,
                 'is_guest': p.is_guest,
                 'invited_by': p.invited_by,
@@ -445,6 +497,13 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'total_present': sum(1 for a in attendances if a.present),
                 'max_players': gameday.max_players,
                 'court_price': gameday.court_price,
+                'pix_key': gameday.pix_key,
+                'credit_cost': gameday.credit_cost,
+                'pricing_type': gameday.pricing_type,
+                'price_per_person': gameday.effective_price_per_person,
+                'requires_prepayment': gameday.requires_prepayment,
+                'reservation_hold_minutes': gameday.reservation_hold_minutes,
+                'total_reserved': gameday.total_reserved,
                 'time': gameday.time,
                 'time_end': gameday.time_end,
                 'is_closed': gameday.is_closed
@@ -472,6 +531,9 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
         if attendance.present:
             return Response({'detail': 'Você já confirmou sua presença! Para cancelar, fale com a organização.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if attendance.is_reserved:
+            return Response(self._reservation_payload(attendance, 'Sua vaga já está reservada. Falta só o pagamento!'))
             
         from apps.subscriptions.services import SubscriptionService
         from django.db import transaction
@@ -491,7 +553,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'detail': 'Como convidado, você foi para a Fila de Espera (Prioridade dos membros).'
             })
             
-        if gameday.max_players and gameday.total_present >= gameday.max_players:
+        if gameday.max_players and gameday.occupied_spots >= gameday.max_players:
             if not attendance.is_waitlist:
                 attendance.is_waitlist = True
                 attendance.waitlist_joined_at = timezone.now()
@@ -512,15 +574,24 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'detail': detail_msg
             })
                 
-        # Debita créditos e salva presença confirmada
+        uses_credits = gameday.credit_cost > 0
+        has_credit = uses_credits and SubscriptionService.has_enough_credits(attendance.player, gameday.credit_cost)
+
+        # Circuito com pagamento antecipado: reserva a vaga até o pagamento ser confirmado
+        if CircuitPaymentService.needs_payment(gameday) and not has_credit:
+            CircuitPaymentService.reserve(attendance)
+            return Response(self._reservation_payload(attendance, 'Vaga reservada! Faça o pagamento para confirmar sua presença.'))
+
+        # Debita créditos (se o circuito cobra créditos) e salva presença confirmada
         try:
             with transaction.atomic():
-                credit_cost, used_priority = SubscriptionService.process_attendance_checkin(attendance.player, gameday)
-                attendance.credits_used = credit_cost
-                attendance.used_priority = used_priority
-                attendance.used_credit = True
-                attendance.has_paid = True
-                
+                if uses_credits:
+                    credit_cost, used_priority = SubscriptionService.process_attendance_checkin(attendance.player, gameday)
+                    attendance.credits_used = credit_cost
+                    attendance.used_priority = used_priority
+                    attendance.used_credit = True
+                    attendance.has_paid = True
+
                 attendance.present = True
                 attendance.is_waitlist = False
                 attendance.waitlist_joined_at = None
@@ -544,11 +615,17 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if not player_id:
             return Response({'detail': 'ID do jogador não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+        if denied := _deny_unless_self(request, player_id):
+            return denied
 
         attendance = Attendance.objects.filter(gameday=gameday, player_id=player_id).first()
         
         if not attendance:
             return Response({'detail': 'Nenhuma inscrição encontrada para este jogador.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if attendance.is_reserved:
+            CircuitPaymentService.release(attendance)
+            return Response({'detail': 'Sua reserva foi cancelada.', 'player_id': player_id})
 
         if gameday.court_price and gameday.court_price > 0 and attendance.present:
             return Response({'detail': 'Este é um circuito pago. Para cancelar sua presença confirmada, fale com a organização.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -583,6 +660,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if not player_id or not name:
             return Response({'detail': 'Jogador e Nome do convidado são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+        if use_free_guest and (denied := _deny_unless_self(request, player_id)):
+            return denied
             
         inviting_player = Player.objects.filter(id=player_id).first()
         if not inviting_player:
@@ -631,7 +710,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         """Promove o próximo da fila de espera para presença confirmada."""
         gameday = self.get_object()
         
-        if gameday.max_players and gameday.total_present >= gameday.max_players:
+        if gameday.max_players and gameday.occupied_spots >= gameday.max_players:
             return Response({'detail': 'A lista principal está lotada! Alguém precisa sair ou o limite de jogadores aumentar para poder promover da fila.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Promover priorizando is_priority=True, depois membro normal (is_guest=False), depois ordem de chegada
@@ -659,16 +738,76 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if not player_id:
             return Response({'detail': 'ID do jogador não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+        if denied := _deny_unless_self(request, player_id):
+            return denied
             
         try:
             attendance = gameday.attendances.get(player_id=player_id)
         except Attendance.DoesNotExist:
             return Response({'detail': 'Você não está na lista deste circuito.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
+        if attendance.has_paid:
+            return Response({'detail': 'Seu pagamento já foi confirmado.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not (attendance.present or attendance.is_reserved):
+            return Response({'detail': 'Você não tem vaga neste circuito.'}, status=status.HTTP_400_BAD_REQUEST)
+
         attendance.payment_claimed = True
         attendance.save()
         
         return Response({'detail': 'Aviso de pagamento enviado com sucesso! O administrador irá confirmar em breve.', 'payment_claimed': True})
+
+    def _get_attendance(self, gameday, player_id):
+        if not player_id:
+            return None
+        return gameday.attendances.filter(player_id=player_id).select_related('player__user').first()
+
+    @action(detail=True, methods=['post'], url_path='confirm-payment')
+    def confirm_payment(self, request, pk=None):
+        """Admin confirma o pagamento (PIX na chave, dinheiro ou isenção). Confirma a vaga se estava reservada."""
+        gameday = self.get_object()
+        attendance = self._get_attendance(gameday, request.data.get('player_id'))
+        if not attendance:
+            return Response({'detail': 'Jogador não está na lista deste circuito.'}, status=status.HTTP_400_BAD_REQUEST)
+        if attendance.has_paid:
+            return Response({'detail': 'Pagamento já confirmado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        method = request.data.get('method', AttendancePayment.METHOD_PIX_MANUAL)
+        if method not in AttendancePayment.MANUAL_METHODS:
+            return Response({'detail': 'Forma de pagamento inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        amount = request.data.get('amount')
+        if amount is not None:
+            from decimal import Decimal, InvalidOperation
+            try:
+                amount = Decimal(str(amount))
+            except InvalidOperation:
+                return Response({'detail': 'Valor inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            if amount < 0:
+                return Response({'detail': 'Valor inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payment = CircuitPaymentService.confirm_payment(attendance, method, amount=amount, confirmed_by=request.user)
+        return Response({
+            'detail': 'Pagamento confirmado.',
+            'player_id': attendance.player_id,
+            'payment_id': payment.id,
+            'amount': payment.amount,
+            'method': payment.method,
+        })
+
+    @action(detail=True, methods=['post'], url_path='revert-payment')
+    def revert_payment(self, request, pk=None):
+        """Admin desfaz uma confirmação de pagamento feita por engano."""
+        gameday = self.get_object()
+        attendance = self._get_attendance(gameday, request.data.get('player_id'))
+        if not attendance:
+            return Response({'detail': 'Jogador não está na lista deste circuito.'}, status=status.HTTP_400_BAD_REQUEST)
+        CircuitPaymentService.revert_payment(attendance)
+        return Response({'detail': 'Pagamento desfeito.', 'player_id': attendance.player_id})
+
+    @action(detail=True, methods=['get'], url_path='finance')
+    def finance_summary(self, request, pk=None):
+        """Resumo financeiro do circuito (previsto, arrecadado, a receber, saldo)."""
+        return Response(CircuitPaymentService.summary(self.get_object()))
 
     @action(detail=True, methods=['post'], url_path='reorder-waitlist')
     def reorder_waitlist(self, request, pk=None):
@@ -698,6 +837,34 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         return Response({'detail': f'Fila reordenada com sucesso! ({len(to_update)} atualizados)'})
 
+
+
+
+class CircuitFinanceViewSet(viewsets.ViewSet):
+    """Relatórios financeiros dos circuitos (somente admin/moderador)."""
+    permission_classes = [IsAdminOrModerator]
+
+    @action(detail=False, methods=['get'])
+    def overview(self, request):
+        from datetime import datetime
+        month_param = request.query_params.get('month')
+        try:
+            month = datetime.strptime(month_param, '%Y-%m').date() if month_param else timezone.localdate()
+        except ValueError:
+            return Response({'detail': 'Mês inválido. Use o formato AAAA-MM.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(finance.overview(month))
+
+    @action(detail=False, methods=['get'])
+    def claims(self, request):
+        return Response(finance.payment_claims())
+
+    @action(detail=False, methods=['get'])
+    def debtors(self, request):
+        try:
+            days = min(max(int(request.query_params.get('days', 60)), 1), 365)
+        except ValueError:
+            days = 60
+        return Response(finance.debtors(days))
 
 
 def sync_absences_logic():
@@ -771,7 +938,7 @@ def sync_absences_logic():
 
 
 class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Attendance.objects.all().select_related('player', 'gameday')
+    queryset = Attendance.objects.all().select_related('player', 'gameday').prefetch_related('payments')
     serializer_class = AttendanceSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]

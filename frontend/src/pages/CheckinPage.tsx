@@ -1,14 +1,22 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, CalendarCheck, Loader2, Copy, Wallet, Search, Flame, Zap, Crown } from 'lucide-react';
+import { Check, CalendarCheck, Loader2, Wallet, Search, Flame, Zap, Crown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { PageLoading } from '@/components/ui/Loading';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatBRL } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Avatar } from '@/components/ui/Avatar';
 import { LocationMapModal } from '@/components/ui/LocationMapModal';
+import { CopyPixButton, ReservationCountdown } from '@/components/attendance/ReservationInfo';
+import * as Dialog from '@radix-ui/react-dialog';
+
+interface ReservationResult {
+  playerName: string;
+  amountDue: number;
+  reservedUntil: string | null;
+}
 
 export function CheckinPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +24,7 @@ export function CheckinPage() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'members' | 'guests'>('members');
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: number; name: string } | null>(null);
+  const [reservation, setReservation] = useState<ReservationResult | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['public-checkin', id],
@@ -26,9 +35,16 @@ export function CheckinPage() {
   const checkinMutation = useMutation({
     mutationFn: (playerId: number) => 
       api.post(`/attendance/gamedays/${id}/public-checkin/`, { player_id: playerId }).then(r => r.data),
-    onSuccess: (res) => {
+    onSuccess: (res, playerId) => {
       if (res.present) {
         toast.success('Presença confirmada!', { icon: '✅' });
+      } else if (res.is_reserved) {
+        const player = data?.players?.find((p: any) => p.id === playerId);
+        setReservation({
+          playerName: player?.name || 'Atleta',
+          amountDue: Number(res.amount_due ?? 0),
+          reservedUntil: res.reserved_until ?? null,
+        });
       } else if (res.is_waitlist) {
         toast.success(res.detail || 'Você entrou na Fila de Espera!', { icon: '⏳', style: { border: '1px solid #eab308' } });
       } else {
@@ -72,16 +88,16 @@ export function CheckinPage() {
     }
     return 0;
   });
-  const absentPlayers = filteredPlayers.filter((p: any) => !p.present && !p.is_waitlist);
+  const reservedPlayers = filteredPlayers.filter((p: any) => p.is_reserved);
+  const absentPlayers = filteredPlayers.filter((p: any) => !p.present && !p.is_waitlist && !p.is_reserved);
   const absentMembers = absentPlayers.filter((p: any) => !p.is_guest);
   const absentGuests = absentPlayers.filter((p: any) => p.is_guest);
   const displayedAbsent = activeTab === 'members' ? absentMembers : absentGuests;
 
-  const safeCourtPrice = gameday.court_price ? Number(String(gameday.court_price).replace(',', '.')) : 0;
-
-  const pricePerPlayer = safeCourtPrice > 0 && gameday.total_present > 0 
-    ? (safeCourtPrice / gameday.total_present).toFixed(2) 
-    : '0.00';
+  // Valor por pessoa vem do backend (rateio ou taxa do evento)
+  const price = Number(gameday.price_per_person ?? 0);
+  const needsPayment = !!gameday.requires_prepayment && price > 0;
+  const pixKey = gameday.pix_key || 'hellcifevolei@gmail.com';
 
   return (
     <div className="min-h-screen pb-10 bg-[#050508] animate-fade-in text-white selection:bg-red/30">
@@ -147,31 +163,19 @@ export function CheckinPage() {
               {gameday.total_present} / {gameday.max_players || '∞'} confirmados
             </span>
 
-            {safeCourtPrice > 0 && (
+            {price > 0 && (
               <div className="bg-card-gradient border border-green-500/30 text-green-500 p-2 sm:p-4 rounded-xl w-full flex flex-col items-center justify-center gap-2 shadow-card mt-1">
-                {gameday.total_present > 0 ? (
-                  <>
-                    <div className="flex items-center gap-2 font-bold text-base sm:text-lg">
-                      <Wallet size={18} />
-                      Rateio: R$ {pricePerPlayer.replace('.', ',')}
-                    </div>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(gameday.pix_key || 'hellcifevolei@gmail.com');
-                        toast.success('Chave PIX copiada!');
-                      }}
-                      className="w-full bg-green-500/10 border border-green-500/40 hover:bg-green-500/20 hover:border-green-500 transition-colors text-green-500 font-bold rounded-lg py-2 flex items-center justify-center gap-2 text-xs sm:text-sm shadow-[0_0_8px_rgba(22,163,74,0.2)]"
-                    >
-                      <Copy size={16} />
-                      Copiar PIX
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-2 text-center text-xs sm:text-sm font-medium text-green-500/80">
-                    <Wallet size={16} />
-                    Rateio após check-in
-                  </div>
+                <div className="flex items-center gap-2 font-bold text-base sm:text-lg">
+                  <Wallet size={18} />
+                  {gameday.pricing_type === 'fixed' ? 'Taxa' : 'Rateio'}: {formatBRL(price)}
+                </div>
+                {needsPayment && (
+                  <p className="text-[11px] sm:text-xs text-green-500/80 text-center">
+                    Sua vaga fica reservada e é confirmada quando o pagamento for confirmado
+                    {gameday.reservation_hold_minutes ? ` (prazo de ${gameday.reservation_hold_minutes >= 60 ? `${gameday.reservation_hold_minutes / 60}h` : `${gameday.reservation_hold_minutes}min`})` : ''}.
+                  </p>
                 )}
+                <CopyPixButton pixKey={pixKey} className="w-full py-2 text-xs sm:text-sm border border-green-500/40" />
               </div>
             )}
           </div>
@@ -256,6 +260,40 @@ export function CheckinPage() {
                       </div>
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-red shadow-neon-red">
                         <Check size={20} className="text-white" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {reservedPlayers.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-4 ml-2 mt-8 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+                  Aguardando pagamento ({reservedPlayers.length})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {reservedPlayers.map((player: any) => (
+                    <div
+                      key={player.id}
+                      className="w-full flex items-center justify-between p-3 rounded-xl border-2 bg-card-gradient border-orange-500/30"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar name={player.name} src={player.avatar_url} size="md" className="ring-2 ring-orange-500/40" />
+                        <div className="flex flex-col items-start text-left min-w-0">
+                          <span className="font-bold text-base text-orange-300 tracking-wide truncate">{player.name}</span>
+                          {player.is_guest && (
+                            <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5 w-fit">
+                              Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-[10px] font-bold uppercase text-right">
+                        {player.payment_claimed
+                          ? <span className="text-amber-400">Em análise</span>
+                          : <ReservationCountdown until={player.reserved_until} />}
                       </div>
                     </div>
                   ))}
@@ -363,13 +401,41 @@ export function CheckinPage() {
         )}
       </div>
 
+      <Dialog.Root open={!!reservation} onOpenChange={(open) => !open && setReservation(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[92%] max-w-sm bg-surface border border-orange-500/30 p-6 rounded-2xl shadow-2xl text-center">
+            <Dialog.Title className="font-display text-2xl tracking-wider text-text-primary">Vaga reservada! ⏳</Dialog.Title>
+            <Dialog.Description className="text-text-secondary text-sm mt-2">
+              <strong className="text-text-primary">{reservation?.playerName}</strong>, faça o PIX de{' '}
+              <strong className="text-green-400">{formatBRL(reservation?.amountDue)}</strong> para confirmar a vaga.
+            </Dialog.Description>
+            {reservation?.reservedUntil && (
+              <p className="mt-3 text-sm font-bold"><ReservationCountdown until={reservation.reservedUntil} /></p>
+            )}
+            <CopyPixButton pixKey={pixKey} className="w-full mt-4 py-3 text-sm border border-green-500/40" />
+            <p className="text-[11px] text-text-muted mt-4">
+              Depois de pagar, avise pelo app em <Link to="/login" className="text-red font-bold hover:underline">Entrar</Link>{' '}
+              (Check-in → "Já paguei") ou mostre o comprovante para a organização.
+            </p>
+            <Dialog.Close asChild>
+              <button className="btn-secondary w-full mt-4 py-2 text-sm font-bold">Fechar</button>
+            </Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
       <ConfirmDialog
         isOpen={!!selectedPlayer}
         onOpenChange={(open) => !open && setSelectedPlayer(null)}
-        title="Confirmar Presença"
-        description={selectedPlayer ? `Tem certeza que deseja confirmar a presença de ${selectedPlayer.name} nesta pelada?` : ''}
+        title={needsPayment ? 'Reservar Vaga' : 'Confirmar Presença'}
+        description={
+          !selectedPlayer ? '' : needsPayment
+            ? `Reservar a vaga de ${selectedPlayer.name}? O valor é ${formatBRL(price)} via PIX, e a vaga só é confirmada depois do pagamento.`
+            : `Tem certeza que deseja confirmar a presença de ${selectedPlayer.name} nesta pelada?`
+        }
         onConfirm={() => selectedPlayer && checkinMutation.mutate(selectedPlayer.id)}
-        confirmText="Confirmar Presença"
+        confirmText={needsPayment ? 'Reservar' : 'Confirmar Presença'}
         cancelText="Cancelar"
         isDestructive={false}
       />
