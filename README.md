@@ -5,15 +5,17 @@ Um sistema completo de gerenciamento para o time Hellcife Vôlei. Esta aplicaç�
 ## 🚀 Funcionalidades
 
 O sistema está dividido em vários módulos no backend que refletem as funcionalidades principais:
-- **Players (Jogadores)**: Gestão de perfis e dados de jogadores.
-- **Teams (Times)**: Gerenciamento de escalações e equipes balanceadas por overall.
-- **Matches (Partidas)**: Registro e acompanhamento de jogos, placares e estatísticas.
-- **Attendance (Presenças)**: Controle de presença nos circuitos, fila de espera e check-in na quadra.
+- **Players (Jogadores)**: Gestão de perfis e dados de jogadores, sistema de Elo e badges.
+- **Teams (Times)**: Gerenciamento de escalações e equipes balanceadas por overall. Na pelada, quem vai embora sai do sorteio (Embaralhar/Completar) sem perder a presença na quadra, e pode voltar depois.
+- **Matches (Partidas)**: Registro de jogos, placares e estatísticas, incluindo jogadores emprestados de outro time.
+- **Attendance (Presenças e Cobrança)**: Controle de presença nos circuitos, fila de espera e check-in na quadra. Cobrança por circuito com rateio do custo da quadra ou taxa fixa por pessoa (eventos), reserva de vaga com prazo até o pagamento e confirmação manual (PIX, dinheiro ou isento).
 - **Evaluations (Avaliações)**: Avaliação de desempenho técnico com 13 fundamentos e cálculo de overall automático.
 - **Stars System (Estrelas)**: Sistema de premiação por categorias (MVP, Ataque, Defesa, etc.) com mini e grandes estrelas.
 - **Notifications (Notificações)**: Notificações individuais e avisos globais para todos os atletas.
 - **Subscriptions (Assinaturas)**: Gestão de planos, assinaturas e integração com Asaas para pagamentos via PIX.
-- **Hall of Fame**: Destaques, premiações e jogadores notáveis por categoria e ano.
+- **Financeiro**: Painel com recebido, custos de quadra, saldo e evolução mensal (`/finance`), e tela de cobranças com pagamentos informados e pendências (`/finance/circuits`).
+- **Hall of Fame e Regulamento**: Hall da Fama por categoria e ano; regulamento editável pelo admin em `/regulation/edit`.
+- **Compartilhamento**: Cards de conquista (Fire Shark, Grande/Mini Estrela, Gladiadores) gerados no formato Stories para as redes sociais.
 
 ## 💻 Tecnologias e Stack
 
@@ -72,8 +74,9 @@ venv\Scripts\activate
 # Instale as dependências
 pip install -r requirements.txt
 
-# Configure as variáveis de ambiente (copie o .env.example)
-copy .env.example .env
+# Configure as variáveis de ambiente (o .env.example fica na raiz do repositório)
+copy ..\.env.example .env
+# (Para Linux/Mac: cp ../.env.example .env)
 # Edite o .env com suas configurações locais
 
 # Rode as migrações do banco de dados
@@ -84,6 +87,12 @@ python manage.py runserver
 ```
 
 A API estará disponível em `http://127.0.0.1:8000/`. A documentação Swagger fica em `/api/schema/swagger-ui/`.
+
+Para rodar os testes do backend:
+
+```bash
+python manage.py test apps
+```
 
 ### 2. Frontend (React/Vite)
 
@@ -99,7 +108,7 @@ npm install
 npm run dev
 ```
 
-O Frontend estará disponível (normalmente) em `http://localhost:5173/`.
+O Frontend estará disponível (normalmente) em `http://localhost:5173/`. Em desenvolvimento, as chamadas para `/api` são redirecionadas para o backend em `http://127.0.0.1:8000`.
 
 ## 🐳 Deploy no Google Cloud Run
 
@@ -125,6 +134,14 @@ Configure as seguintes variáveis no console do Cloud Run (ou via `gcloud`):
 | `ASAAS_API_URL` | URL base da API do Asaas (Sandbox ou Produção) |
 | `ASAAS_WEBHOOK_TOKEN` | Token para validação de webhooks do Asaas |
 | `EXTRA_CREDIT_UNIT_PRICE` | Preço unitário do crédito avulso (ex: 10.00) |
+| `FRONTEND_URL` | URL do frontend, usada nos links enviados por e-mail (ex: redefinição de senha) |
+| `SECURE_SSL_REDIRECT` | Redireciona HTTP para HTTPS quando `DEBUG=False` (padrão: `True`) |
+| `EMAIL_HOST` | Servidor SMTP (padrão: `smtp.gmail.com`) |
+| `EMAIL_PORT` | Porta SMTP (padrão: `587`) |
+| `EMAIL_USE_TLS` | Usa TLS no SMTP (padrão: `True`) |
+| `EMAIL_HOST_USER` | Usuário do SMTP |
+| `EMAIL_HOST_PASSWORD` | Senha (ou senha de app) do SMTP |
+| `DEFAULT_FROM_EMAIL` | Remetente dos e-mails enviados pelo sistema |
 
 ### Processo de Build e Deploy
 

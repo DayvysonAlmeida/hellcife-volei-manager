@@ -1,32 +1,34 @@
-# React + TypeScript + Vite
+# Hellcife Vôlei Manager — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+SPA em React 19 + TypeScript + Vite, instalável como PWA. Visão geral do projeto, backend e deploy no [README principal](../README.md).
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install       # instala as dependências
+npm run dev       # servidor de desenvolvimento em http://localhost:5173
+npm run build     # checagem de tipos (tsc -b) + build de produção em dist/
+npm run preview   # serve o build localmente
+npm run lint      # Oxlint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## API
+
+O endereço da API vem de `VITE_API_URL` (padrão: `/api`).
+
+- **Desenvolvimento:** o Vite redireciona `/api` para o backend em `http://127.0.0.1:8000` (ver `vite.config.ts`), então não é preciso configurar nada.
+- **Produção:** `VITE_API_URL` é definida em `.env.production`, apontando para o Cloud Run.
+
+## Estrutura
+
+| Pasta | Conteúdo |
+|---|---|
+| `src/pages/` | Telas do painel admin; `athlete/` (portal do atleta), `finance/` e `subscriptions/` |
+| `src/components/` | Componentes por domínio (`attendance/`, `teams/`, `athlete/`, `layout/`, `ui/`...) |
+| `src/services/` | Chamadas à API agrupadas por recurso (axios) |
+| `src/lib/` | Utilitários: cliente da API, formatação (`formatBRL`), queries de pagamento, reservas |
+| `src/store/` | Contextos de autenticação e de tema |
+| `src/types/` | Tipos compartilhados das respostas da API |
+| `src/hooks/`, `src/routes/` | Hooks e proteção de rotas |
+
+Estado de servidor com TanStack Query; estilos com Tailwind CSS. As fontes e paletas seguem a pasta de inspiração do projeto.
