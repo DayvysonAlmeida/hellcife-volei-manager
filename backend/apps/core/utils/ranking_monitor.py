@@ -1,7 +1,6 @@
 import logging
 from django.core.cache import cache
-from django.db.models import Count, Q
-from apps.players.models import Player
+from apps.players.rankings import stars_ranking, wins_ranking
 from apps.notifications.models import Notification
 from apps.core.models import User
 
@@ -16,11 +15,8 @@ def check_rank_changes():
         notifications_to_create = []
         all_players_qs = User.objects.filter(profile='player', is_active=True)
         
-        # 1. Ranking de Vitórias (Win Rate)
-        qs_wins = Player.objects.filter(is_guest=False).annotate(
-            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
-            total_matches=Count('match_appearances', distinct=True),
-        ).filter(total_matches__gte=1).order_by('-wins', '-total_matches')
+        # 1. Ranking de Vitórias (Gladiadores) — mesma regra das telas
+        qs_wins = wins_ranking()
         
         if qs_wins.exists():
             top_winner = qs_wins.first()
@@ -42,7 +38,7 @@ def check_rank_changes():
                 cache.set('leader_win_rate', top_winner.id, timeout=None)
 
         # 2. Ranking de Estrelas
-        qs_stars = Player.objects.filter(is_guest=False).exclude(big_stars=0, mini_stars=0).order_by('-big_stars', '-mini_stars')
+        qs_stars = stars_ranking()
         if qs_stars.exists():
             top_star = qs_stars.first()
             previous_top_star_id = cache.get('leader_stars')

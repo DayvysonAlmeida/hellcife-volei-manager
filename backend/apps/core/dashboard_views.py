@@ -11,6 +11,7 @@ from apps.players.models import Player
 from apps.attendance.models import Attendance
 from apps.matches.models import MatchPlayer
 from apps.halloffame.models import HallOfFameEntry
+from apps.players.rankings import fire_shark_ranking, stars_ranking, wins_ranking
 
 
 class DashboardView(APIView):
@@ -79,11 +80,7 @@ class DashboardView(APIView):
         ]
 
         # Maiores Vencedores (Jogadores com mais vitórias nas partidas)
-        top_winners_qs = (
-            Player.objects.filter(status='active', match_appearances__match_team__winner=True)
-            .annotate(wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True)))
-            .order_by('-wins')[:10]
-        )
+        top_winners_qs = wins_ranking().filter(wins__gt=0)[:10]
         
         top_winners = []
         for p in top_winners_qs:
@@ -101,29 +98,19 @@ class DashboardView(APIView):
         # -------------------------------------------------------------
         # Ranking Fire Shark (Aproveitamento Global - Min 10 jogos)
         # -------------------------------------------------------------
-        qs_fire = Player.objects.filter(status='active', is_guest=False).annotate(
-            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
-            total_matches=Count('match_appearances', distinct=True),
-        ).filter(total_matches__gte=10)
-        
-        fire_list = []
-        for p in qs_fire:
-            win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
-            # Média Bayesiana (K=10, media_geral=0.5 -> 10 * 0.5 = 5)
-            bayesian_score = ((p.wins + 5) / (p.total_matches + 10)) * 100
-            
-            fire_list.append({
+        fire_list = [
+            {
                 'id': p.id,
                 'name': p.display_name,
                 'avatar_url': p.avatar_url,
                 'position': p.main_position,
                 'wins': p.wins,
                 'total_matches': p.total_matches,
-                'win_rate': round(win_rate, 1),
-                'score': round(bayesian_score, 1)
-            })
-            
-        fire_list.sort(key=lambda x: (x['score'], x['wins']), reverse=True)
+                'win_rate': round(p.win_rate, 1),
+                'score': round(p.fire_score, 1),
+            }
+            for p in fire_shark_ranking()
+        ]
         fire_sharks = fire_list[:10]
 
         # -------------------------------------------------------------
@@ -170,10 +157,7 @@ class DashboardView(APIView):
 
 
         # 4. Top Estrelas — top 10 ordenados por big_stars desc, depois mini_stars desc
-        top_stars_qs = (
-            Player.objects.filter(status='active', is_guest=False)
-            .order_by('-big_stars', '-mini_stars', 'name')[:10]
-        )
+        top_stars_qs = stars_ranking()[:10]
         top_stars = []
         for p in top_stars_qs:
             top_stars.append({

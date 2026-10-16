@@ -14,6 +14,7 @@ from .serializers import (
     BadgeSerializer
 )
 from .filters import PlayerFilter
+from .rankings import fire_shark_positions, fire_shark_ranking, ranked_players, stars_ranking, wins_positions, wins_ranking
 from apps.core.permissions import IsAdminOrModerator
 from apps.evaluations.models import Evaluation
 from apps.matches.models import MatchPlayer
@@ -77,36 +78,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         if self.action == 'list':
             # Calcula o rank global absoluto imune a paginação e filtros (DenseRank)
-            global_qs = Player.objects.annotate(
-                w=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True)
-            ).filter(w__gt=0).values('id', 'w').order_by('-w')
-            
-            ranks = {}
-            current_rank = 1
-            last_w = None
-            for p in global_qs:
-                if last_w is not None and p['w'] < last_w:
-                    current_rank += 1
-                ranks[p['id']] = current_rank
-                last_w = p['w']
-            context['global_win_ranks'] = ranks
-
-            # Calcula o rank Fire Shark global (Win Rate com mín 10 jogos)
-            fs_qs = Player.objects.annotate(
-                w=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
-                tm=Count('match_appearances', distinct=True)
-            ).filter(tm__gte=10).values('id', 'w', 'tm')
-            
-            fs_list = []
-            for p in fs_qs:
-                score = ((p['w'] + 5) / (p['tm'] + 10)) * 100
-                fs_list.append({'id': p['id'], 'score': score, 'w': p['w']})
-                
-            fs_list.sort(key=lambda x: (x['score'], x['w']), reverse=True)
-            fs_ranks = {}
-            for idx, p in enumerate(fs_list):
-                fs_ranks[p['id']] = idx + 1
-            context['global_fire_sharks'] = fs_ranks
+            context['global_win_ranks'] = wins_positions()
+            context['global_fire_sharks'] = fire_shark_positions()
         return context
 
     def get_permissions(self):
@@ -293,10 +266,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='dashboard-stats')
     def dashboard_stats(self, request):
-        qs_wins = Player.objects.filter(is_guest=False).annotate(
-            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
-            total_matches=Count('match_appearances', distinct=True),
-        ).filter(total_matches__gte=1).order_by('-wins', '-total_matches')[:10]
+        qs_wins = wins_ranking()[:10]
         
         top_wins = []
         for p in qs_wins:
@@ -310,31 +280,20 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 'win_rate': round(win_rate, 1)
             })
 
-        qs_fire = Player.objects.filter(is_guest=False).annotate(
-            wins=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
-            total_matches=Count('match_appearances', distinct=True),
-        ).filter(total_matches__gte=10)
-        
-        fire_list = []
-        for p in qs_fire:
-            win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
-            # Média Bayesiana (K=10, media_geral=0.5 -> 10 * 0.5 = 5)
-            bayesian_score = ((p.wins + 5) / (p.total_matches + 10)) * 100
-            
-            fire_list.append({
+        fire_sharks = [
+            {
                 'id': p.id,
                 'name': p.display_name,
                 'avatar_url': p.avatar_url,
                 'wins': p.wins,
                 'total_matches': p.total_matches,
-                'win_rate': round(win_rate, 1),
-                'score': round(bayesian_score, 1)
-            })
-            
-        fire_list.sort(key=lambda x: (x['score'], x['wins']), reverse=True)
-        fire_sharks = fire_list[:10]
+                'win_rate': round(p.win_rate, 1),
+                'score': round(p.fire_score, 1),
+            }
+            for p in fire_shark_ranking()[:10]
+        ]
 
-        qs_stars = Player.objects.filter(is_guest=False).exclude(big_stars=0, mini_stars=0).order_by('-big_stars', '-mini_stars')[:10]
+        qs_stars = stars_ranking()[:10]
         top_stars = []
         for p in qs_stars:
             top_stars.append({
@@ -409,7 +368,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
         # Uma única query com annotations para overall, stats de partidas
         players = (
-            Player.objects.filter(status='active')
+            ranked_players()  # ativos e sem convidados, como todos os rankings
             .annotate(
                 annotated_overall=Coalesce(latest_overall_subquery(), 0.0),
                 total_matches=Count('match_appearances', distinct=True),
@@ -493,27 +452,13 @@ class PlayerViewSet(viewsets.ModelViewSet):
         from apps.evaluations.models import Evaluation
         from apps.players.models import StarHistory
         latest_eval = Evaluation.objects.filter(player=OuterRef('pk')).order_by('-date', '-id').values('overall')[:1]
-        qs_players = Player.objects.filter(status='active', is_guest=False).annotate(
-            annotated_overall=Coalesce(Subquery(latest_eval), 0.0),
-            wins_count=Count('match_appearances', filter=Q(match_appearances__match_team__winner=True), distinct=True),
-            total_matches_count=Count('match_appearances', distinct=True)
-        )
+        qs_players = ranked_players().annotate(annotated_overall=Coalesce(Subquery(latest_eval), 0.0))
 
         player_overall = player.latest_overall or 0.0
         overall_rank = qs_players.filter(annotated_overall__gt=player_overall).count() + 1 if player_overall > 0 else None
 
-        win_rank = None
-        if total_matches >= 10:
-            bayesian_score = ((wins + 5) / (total_matches + 10)) * 100
-            better_count = 0
-            # Calcula ranking dos gladiadores
-            for p in qs_players.filter(total_matches_count__gte=10):
-                p_score = ((p.wins_count + 5) / (p.total_matches_count + 10)) * 100
-                if p_score > bayesian_score:
-                    better_count += 1
-                elif p_score == bayesian_score and p.wins_count > wins:
-                    better_count += 1
-            win_rank = better_count + 1
+        # Posição no Fire Shark (mesma regra de todas as telas; inativo/convidado não tem posição)
+        win_rank = fire_shark_positions().get(player.id)
 
         last_star = StarHistory.objects.filter(player=player, action='add').exclude(category='promotion').order_by('-created_at').first()
         latest_mini_star = last_star.category if last_star else None
