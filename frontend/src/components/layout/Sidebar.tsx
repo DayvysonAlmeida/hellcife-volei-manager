@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Zap, Bell, Activity, CreditCard, Award, Wallet } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { cn } from '@/lib/utils';
+import { ONLINE_PAYMENTS } from '@/lib/features';
 import { useEffect, useState } from 'react';
 
 // Tipagem para o evento de Instalação do PWA
@@ -66,6 +67,9 @@ const adminNavGroups = [
   }
 ];
 
+// Rotas que têm sub-rotas no menu: só ficam ativas na rota exata
+const EXACT_MATCH_ROUTES = ['/finance', '/athlete', '/attendance'];
+
 const playerNavGroups = [
   {
     title: 'Visão Geral',
@@ -82,13 +86,14 @@ const playerNavGroups = [
       { to: '/athlete/matches', icon: Swords, label: 'Jogos' },
     ]
   },
-  {
+  // Planos e assinatura só aparecem quando os pagamentos online estiverem ativos
+  ...(ONLINE_PAYMENTS ? [{
     title: 'Financeiro',
     items: [
       { to: '/athlete/wallet', icon: Activity, label: 'Minha Assinatura' },
       { to: '/athlete/plans', icon: CreditCard, label: 'Planos & Créditos' },
     ]
-  },
+  }] : []),
   {
     title: 'Clube',
     items: [
@@ -219,7 +224,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                 <NavLink
                   key={to}
                   to={to}
-                  end={to === '/finance'} // senão fica ativo junto com /finance/circuits
+                  end={EXACT_MATCH_ROUTES.includes(to)} // senão fica ativo junto com as sub-rotas
                   onClick={() => onMobileClose()} // Fecha menu no mobile ao clicar
                   className={({ isActive }) => cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer group',

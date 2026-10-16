@@ -141,7 +141,7 @@ export function EloSystemPage() {
           </div>
           <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-2">Como ganho pontos?</h3>
           <p className="text-white/50 text-xs leading-relaxed">
-            Seu Elo é atualizado após cada circuito/partida que você joga. Vitórias contra times mais fortes rendem mais pontos do que vitórias contra times mais fracos.
+            Seu Elo é atualizado a cada partida registrada. Toda vitória vale +20 pontos.
           </p>
         </div>
         <div className="bg-[#0a0a0a] border border-[#2a2a2a] p-5 rounded-2xl">
@@ -150,7 +150,7 @@ export function EloSystemPage() {
           </div>
           <h3 className="text-white font-bold text-sm uppercase tracking-wider mb-2">Como perco pontos?</h3>
           <p className="text-white/50 text-xs leading-relaxed">
-            A mesma regra se aplica: derrotas tiram pontos do seu Elo. Se seu time era o favorito (maior Elo médio), a penalidade de pontos na derrota será maior!
+            Cada derrota tira 10 pontos do seu Elo. Ele nunca fica abaixo de 100, então sempre dá para recuperar.
           </p>
         </div>
         <div className="bg-[#0a0a0a] border border-[#2a2a2a] p-5 rounded-2xl">

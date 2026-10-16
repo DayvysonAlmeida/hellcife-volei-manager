@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.cache import cache
+from django.db import transaction
 
 from .models import Match, MatchTeam, MatchPlayer
 from .serializers import MatchSerializer, MatchListSerializer, MatchWriteSerializer, MatchTeamSerializer
@@ -11,6 +12,23 @@ from apps.core.permissions import IsAdminOrModerator
 
 
 AWARD_FIELDS = ['mvp', 'best_attacker', 'best_server', 'best_defender', 'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
+
+
+def _create_match_teams(match, teams_data):
+    """Cria os times da partida (com vencedor/empate) e seus jogadores."""
+    scores = [t.get('score', 0) for t in teams_data]
+    max_score = max(scores, default=0)
+    is_draw = scores.count(max_score) > 1  # Empate: mais de 1 time com a pontuação máxima
+    for team_data in teams_data:
+        mt = MatchTeam.objects.create(
+            match=match,
+            team_name=team_data.get('team_name', ''),
+            color_hex=team_data.get('color_hex', ''),
+            score=team_data.get('score', 0),
+            winner=not is_draw and team_data.get('score', 0) == max_score,
+            team_id=team_data.get('team_id'),
+        )
+        _create_match_players(match, mt, team_data)
 
 
 def _create_match_players(match, match_team, team_data):
@@ -67,23 +85,14 @@ class MatchViewSet(viewsets.ModelViewSet):
         match = self.get_object()
         teams_data = request.data.get('teams', [])
 
-        # Limpa resultado anterior
-        MatchTeam.objects.filter(match=match).delete()
-        MatchPlayer.objects.filter(match=match).delete()
+        # Quem estava no resultado anterior também tem o Elo recalculado (pode ter saído da partida)
+        previous_player_ids = set(MatchPlayer.objects.filter(match=match).values_list('player_id', flat=True))
 
-        max_score = max((t.get('score', 0) for t in teams_data), default=0)
-        scores = [t.get('score', 0) for t in teams_data]
-        is_draw = scores.count(max_score) > 1  # Empate: mais de 1 time com a pontuação máxima
-        for team_data in teams_data:
-            mt = MatchTeam.objects.create(
-                match=match,
-                team_name=team_data.get('team_name', ''),
-                color_hex=team_data.get('color_hex', ''),
-                score=team_data.get('score', 0),
-                winner=not is_draw and team_data.get('score', 0) == max_score,
-                team_id=team_data.get('team_id'),
-            )
-            _create_match_players(match, mt, team_data)
+        # Tudo ou nada: se algo falhar, o resultado anterior continua intacto
+        with transaction.atomic():
+            MatchTeam.objects.filter(match=match).delete()
+            MatchPlayer.objects.filter(match=match).delete()
+            _create_match_teams(match, teams_data)
 
         # Invalidar cache do dashboard
         cache.delete('dashboard_data')
@@ -94,7 +103,7 @@ class MatchViewSet(viewsets.ModelViewSet):
         # Recalcular Elo de todos os jogadores da partida
         from apps.players.elo_service import recalculate_elo
         from apps.players.models import Player
-        all_player_ids = set()
+        all_player_ids = set(previous_player_ids)
         for team_data in teams_data:
             all_player_ids.update(team_data.get('player_ids', []))
         for pid in all_player_ids:
@@ -114,25 +123,13 @@ class MatchViewSet(viewsets.ModelViewSet):
         if not match_data or not teams_data:
             return Response({'detail': 'Dados de partida e times são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Cria a partida
         serializer = MatchWriteSerializer(data=match_data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        match = serializer.save()
 
-        # 2. Cria os times e resultados
-        max_score = max((t.get('score', 0) for t in teams_data), default=0)
-        scores = [t.get('score', 0) for t in teams_data]
-        is_draw = scores.count(max_score) > 1  # Empate: mais de 1 time com a pontuação máxima
-        for team_data in teams_data:
-            mt = MatchTeam.objects.create(
-                match=match,
-                team_name=team_data.get('team_name', ''),
-                color_hex=team_data.get('color_hex', ''),
-                score=team_data.get('score', 0),
-                winner=not is_draw and team_data.get('score', 0) == max_score,
-                team_id=team_data.get('team_id'),
-            )
-            _create_match_players(match, mt, team_data)
+        # Partida, times e jogadores numa transação só: se algo falhar, não sobra partida sem jogadores
+        with transaction.atomic():
+            match = serializer.save()
+            _create_match_teams(match, teams_data)
 
         # Invalidar cache do dashboard
         cache.delete('dashboard_data')
