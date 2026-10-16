@@ -178,4 +178,7 @@ export const hallOfFameService = {
 
   delete: (id: number) =>
     api.delete(`/hall-of-fame/${id}/`),
+
+  byYear: (year?: number) =>
+    api.get<HallOfFameEntry[]>('/hall-of-fame/', { params: year ? { year } : {} }).then(r => r.data),
 };

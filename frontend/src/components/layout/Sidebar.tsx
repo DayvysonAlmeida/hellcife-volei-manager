@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Zap, Bell, Activity, CreditCard } from 'lucide-react';
+import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Zap, Bell, Activity, CreditCard, Award } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
@@ -60,6 +60,7 @@ const adminNavGroups = [
     title: 'Clube',
     items: [
       { to: '/regulation', icon: ScrollText, label: 'Regulamento' },
+      { to: '/hall-of-fame', icon: Award, label: 'Hall da Fama' },
     ]
   }
 ];
@@ -92,6 +93,7 @@ const playerNavGroups = [
     items: [
       { to: '/athlete/elo-system', icon: BarChart3, label: 'Sistema de Elo' },
       { to: '/athlete/regulation', icon: ScrollText, label: 'Regulamento' },
+      { to: '/athlete/hall-of-fame', icon: Award, label: 'Hall da Fama' },
     ]
   }
 ];
