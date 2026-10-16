@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, CalendarCheck, Loader2, Wallet, Search, Flame, Zap, Crown } from 'lucide-react';
+import { Check, CalendarCheck, Loader2, Wallet, Search, Flame, Zap, Crown, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
+import { useAuth } from '@/store/AuthContext';
 import { PageLoading } from '@/components/ui/Loading';
 import { formatDate, formatBRL } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -24,6 +25,10 @@ export function CheckinPage() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'members' | 'guests'>('members');
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: number; name: string } | null>(null);
+  // Atleta com conta no app confirma pelo próprio login
+  const [loginPrompt, setLoginPrompt] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [reservation, setReservation] = useState<ReservationResult | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -364,7 +369,9 @@ export function CheckinPage() {
                     displayedAbsent.map((player: any) => (
                       <button
                         key={player.id}
-                        onClick={() => setSelectedPlayer({ id: player.id, name: player.name })}
+                        onClick={() => player.has_account && !isAuthenticated
+                          ? setLoginPrompt(player.name)
+                          : setSelectedPlayer({ id: player.id, name: player.name })}
                         disabled={checkinMutation.isPending}
                         className={`w-full flex items-center justify-between p-3 rounded-xl border border-border/50 transition-all bg-card-gradient shadow-card group hover:shadow-neon ${activeTab === 'guests' ? 'hover:border-blue/50 hover:shadow-neon-blue' : 'hover:border-red/50 hover:shadow-neon-red'}`}
                       >
@@ -382,6 +389,11 @@ export function CheckinPage() {
                             {player.is_guest && (
                               <span className="text-[10px] bg-blue/10 text-blue px-1.5 py-0.5 rounded uppercase font-bold mt-0.5 w-fit">
                                 Convidado {player.invited_by ? `por: ${player.invited_by}` : ''}
+                              </span>
+                            )}
+                            {player.has_account && !isAuthenticated && (
+                              <span className="text-[10px] text-text-muted mt-0.5 flex items-center gap-1">
+                                <Smartphone size={10} /> Confirme pelo app
                               </span>
                             )}
                           </div>
@@ -437,6 +449,17 @@ export function CheckinPage() {
         onConfirm={() => selectedPlayer && checkinMutation.mutate(selectedPlayer.id)}
         confirmText={needsPayment ? 'Reservar' : 'Confirmar Presença'}
         cancelText="Cancelar"
+        isDestructive={false}
+      />
+
+      <ConfirmDialog
+        isOpen={!!loginPrompt}
+        onOpenChange={(open) => !open && setLoginPrompt(null)}
+        title="Confirme pelo app"
+        description={`${loginPrompt ?? ''} tem conta no app. Entre com o seu login para confirmar a presença.`}
+        onConfirm={() => navigate('/login')}
+        confirmText="Entrar"
+        cancelText="Voltar"
         isDestructive={false}
       />
     </div>

@@ -52,7 +52,11 @@ class CircuitApiTestCase(TestCase):
         return Attendance.objects.get(gameday=gd, player=player)
 
     def checkin(self, gd, player):
-        return self.client.post(f'{BASE}/{gd.id}/public-checkin/', {'player_id': player.id}, format='json')
+        """Check-in como o atleta faria: logado se tem conta no app, anônimo pelo link se não tem."""
+        client = APIClient()
+        if player.user_id:
+            client.force_authenticate(player.user)
+        return client.post(f'{BASE}/{gd.id}/public-checkin/', {'player_id': player.id}, format='json')
 
 
 class CheckinTests(CircuitApiTestCase):
@@ -245,13 +249,16 @@ class OwnershipTests(CircuitApiTestCase):
         self.p2.user = self.other_user
         self.p2.save()
         self.gd = self.make_gameday(court_price=Decimal('100'), requires_prepayment=True)
-        self.checkin(self.gd, self.p1)  # reservar continua aberto pelo link público
+        self.checkin(self.gd, self.p1)
 
     def post(self, action, **data):
         return self.client.post(f'{BASE}/{self.gd.id}/{action}/', {'player_id': self.p1.id, **data}, format='json')
 
-    def test_reserving_is_still_public(self):
+    def test_reserving_is_still_public_for_athletes_without_account(self):
         self.assertTrue(self.att(self.gd, self.p1).is_reserved)
+        response = self.client.post(f'{BASE}/{self.gd.id}/public-checkin/', {'player_id': self.p3.id}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.att(self.gd, self.p3).is_reserved)
 
     def test_anonymous_cannot_cancel_or_claim(self):
         self.assertEqual(self.post('cancel-checkin').status_code, 401)
@@ -460,3 +467,72 @@ class InactiveAndReactivationTests(CircuitApiTestCase):
         self.assertTrue(self.CourtCheckin.objects.filter(gameday=gd, player=self.p1).exists())
         self.p1.refresh_from_db()
         self.assertEqual(self.p1.status, 'active')
+
+
+class LinkedAccountCheckinTests(CircuitApiTestCase):
+    """Atleta com conta confirma pelo login; quem não tem conta segue usando o link do grupo."""
+
+    def setUp(self):
+        super().setUp()
+        self.other_user = User.objects.create_user('outra@x.com', 'senha-forte-123', name='Outra')
+        self.gd = self.make_gameday(max_players=10)
+
+    def post(self, player, action='public-checkin', **data):
+        return self.client.post(f'{BASE}/{self.gd.id}/{action}/', {'player_id': player.id, **data}, format='json')
+
+    def test_anonymous_cannot_check_in_athlete_with_account(self):
+        self.assertEqual(self.post(self.p1).status_code, 401)
+        self.assertFalse(self.att(self.gd, self.p1).present)
+
+    def test_other_athlete_cannot_check_in_athlete_with_account(self):
+        self.client.force_authenticate(self.other_user)
+        self.assertEqual(self.post(self.p1).status_code, 403)
+        self.assertFalse(self.att(self.gd, self.p1).present)
+
+    def test_owner_and_admin_can_check_in(self):
+        self.client.force_authenticate(self.athlete_user)
+        self.assertEqual(self.post(self.p1).status_code, 200)
+        self.assertTrue(self.att(self.gd, self.p1).present)
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self.post(self.p2).status_code, 200)
+
+    def test_athlete_without_account_still_uses_public_link(self):
+        self.assertEqual(self.post(self.p2).status_code, 200)
+        self.assertTrue(self.att(self.gd, self.p2).present)
+
+    def test_guest_invite_follows_the_same_rule(self):
+        self.assertEqual(self.post(self.p1, 'public-add-guest', name='Visitante').status_code, 401)
+        self.assertEqual(self.post(self.p2, 'public-add-guest', name='Amigo').status_code, 200)
+
+    def test_checkin_info_tells_who_has_account(self):
+        players = {p['id']: p for p in self.client.get(f'{BASE}/{self.gd.id}/checkin-info/').data['players']}
+        self.assertTrue(players[self.p1.id]['has_account'])
+        self.assertFalse(players[self.p2.id]['has_account'])
+
+
+class CloseCircuitTests(CircuitApiTestCase):
+    """Encerrar o circuito recalcula as faltas; publicar continua notificando."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_authenticate(self.admin)
+
+    def patch(self, gd, **data):
+        return self.client.patch(f'{BASE}/{gd.id}/', data, format='json')
+
+    def test_closing_recalculates_absences_once(self):
+        from unittest.mock import patch
+        gd = self.make_gameday()
+        with patch('apps.attendance.views.sync_absences_logic') as sync:
+            self.assertEqual(self.patch(gd, description='Ajuste').status_code, 200)
+            sync.assert_not_called()
+            self.assertEqual(self.patch(gd, is_closed=True).status_code, 200)
+            sync.assert_called_once()
+            self.patch(gd, description='Depois de fechado')
+            sync.assert_called_once()
+
+    def test_publishing_still_sets_published_at(self):
+        gd = self.make_gameday(is_published=False)
+        self.assertEqual(self.patch(gd, is_published=True).status_code, 200)
+        gd.refresh_from_db()
+        self.assertIsNotNone(gd.published_at)

@@ -29,6 +29,16 @@ def _deny_unless_self(request, player_id):
     return Response({'detail': 'Você só pode fazer isso na sua própria inscrição.'}, status=status.HTTP_403_FORBIDDEN)
 
 
+def _deny_if_linked_account(request, player_id):
+    """
+    Atleta com conta no app confirma pelo próprio login (ou pela organização).
+    Quem não tem conta continua usando o link do grupo.
+    """
+    if Player.objects.filter(id=player_id, user__isnull=False).exists():
+        return _deny_unless_self(request, player_id)
+    return None
+
+
 class GameDayViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
@@ -60,13 +70,6 @@ class GameDayViewSet(viewsets.ModelViewSet):
             ).order_by('-date')
         # Para detail: prefetch completo com os jogadores
         return qs.prefetch_related('attendances__player', 'attendances__payments')
-
-    def perform_update(self, serializer):
-        was_closed = serializer.instance.is_closed
-        instance = serializer.save()
-        # Se o circuito foi fechado agora, sincroniza faltas automaticamente
-        if not was_closed and instance.is_closed:
-            sync_absences_logic()
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -224,9 +227,14 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = self.get_object()
         was_published = instance.is_published
+        was_closed = instance.is_closed
         old_price = instance.effective_price_per_person
 
         gameday = serializer.save()
+
+        # Circuito encerrado agora: recalcula faltas (mesma regra do botão "Sincronizar faltas")
+        if not was_closed and gameday.is_closed:
+            sync_absences_logic()
 
         if gameday.effective_price_per_person != old_price:
             CircuitPaymentService.update_pending_amounts(gameday)
@@ -485,6 +493,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'main_position': p.main_position,
                 'is_guest': p.is_guest,
                 'invited_by': p.invited_by,
+                'has_account': p.user_id is not None,
                 'avatar_url': request.build_absolute_uri(p.avatar.url) if p.avatar else None
             })
             
@@ -524,6 +533,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if not player_id:
             return Response({'detail': 'ID do jogador não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+        if denied := _deny_if_linked_account(request, player_id):
+            return denied
 
         attendance, _ = Attendance.objects.get_or_create(
             gameday=gameday, player_id=player_id
@@ -666,7 +677,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if not player_id or not name:
             return Response({'detail': 'Jogador e Nome do convidado são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
-        if use_free_guest and (denied := _deny_unless_self(request, player_id)):
+        denied = _deny_unless_self(request, player_id) if use_free_guest else _deny_if_linked_account(request, player_id)
+        if denied:
             return denied
             
         inviting_player = Player.objects.filter(id=player_id).first()
