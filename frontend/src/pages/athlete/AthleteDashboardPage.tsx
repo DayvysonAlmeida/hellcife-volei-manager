@@ -78,6 +78,7 @@ export function AthleteDashboardPage() {
   // ── Checar se o atleta é o Fire Shark #1
   const fireSharkRankIndex = dashboard?.fire_sharks?.findIndex(p => p.id === player?.id) ?? -1;
   const isFireSharkRanked = fireSharkRankIndex !== -1;
+  const myWinsRankIndex = dashboard?.top_wins?.findIndex(p => p.id === player?.id) ?? -1;
 
   return (
     <div className="space-y-8 pb-10">
@@ -505,6 +506,32 @@ export function AthleteDashboardPage() {
               <Trophy size={24} className="text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
               <h2 className="font-display text-xl tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 font-bold">GLADIADORES</h2>
             </div>
+            {/* Compartilhar — aparece se o atleta estiver no Top 10 de vitórias */}
+            {myWinsRankIndex !== -1 && (
+              <button
+                onClick={() => {
+                  const me = dashboard!.top_wins[myWinsRankIndex];
+                  openShareModal({
+                    type: 'top_wins',
+                    athleteName: player?.display_name || user?.name || '',
+                    shirtNumber: player?.shirt_number,
+                    avatarUrl: player?.avatar_url || undefined,
+                    avatarInitial: (player?.display_name || user?.name || 'A').charAt(0),
+                    position: player?.main_position_display,
+                    overall: player?.latest_overall,
+                    wins: me.wins,
+                    winRate: me.win_rate,
+                    totalMatches: me.total_matches ?? stats?.total_matches,
+                    overallRank: stats?.overall_rank,
+                    winRank: myWinsRankIndex + 1,
+                  });
+                }}
+                className="absolute top-2 right-2 sm:top-3 sm:right-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-yellow-500/50 bg-black/40 hover:bg-black/60 text-gray-400 hover:text-yellow-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all duration-300 group/share backdrop-blur-sm"
+              >
+                <Share2 size={12} className="group-hover/share:-rotate-12 transition-transform" />
+                Compartilhar
+              </button>
+            )}
             <p className="text-[11px] text-gray-400/80 font-medium relative z-10 max-w-sm mt-1 uppercase tracking-wider">
               O RANKING DOS GUERREIROS COM MAIS VITÓRIAS <br className="hidden sm:block" />(A barra % reflete a taxa de vitórias sobre os jogos disputados)
             </p>
