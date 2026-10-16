@@ -14,7 +14,9 @@ from .serializers import (
     BadgeSerializer
 )
 from .filters import PlayerFilter
-from .rankings import fire_shark_positions, fire_shark_ranking, ranked_players, stars_ranking, wins_positions, wins_ranking
+from .rankings import (
+    fire_shark_positions, fire_shark_ranking, ranked_players, season_payload, stars_ranking, wins_positions, wins_ranking,
+)
 from apps.core.permissions import IsAdminOrModerator
 from apps.evaluations.models import Evaluation
 from apps.matches.models import MatchPlayer
@@ -341,7 +343,41 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'top_stars': top_stars,
             'recent_stars': recent_stars,
             'last_category_winners': last_category_winners,
-            'fire_sharks': fire_sharks
+            'fire_sharks': fire_sharks,
+            'season': season_payload(),
+        })
+
+    @action(detail=False, methods=['get'], url_path='seasons')
+    def seasons(self, request):
+        """Temporada atual e o pódio (Elo, Fire Shark e Gladiador) das temporadas encerradas."""
+        from .models import Season, SeasonStanding
+
+        current = season_payload()
+
+        def podium(season, field):
+            top = (SeasonStanding.objects.filter(season=season, **{f'{field}__isnull': False})
+                   .select_related('player').order_by(field)[:3])
+            return [{
+                'position': getattr(s, field), 'player_id': s.player_id, 'name': s.player.display_name,
+                'avatar_url': s.player.avatar_url, 'elo': s.elo, 'elo_tier': s.elo_tier, 'wins': s.wins,
+                'matches': s.matches, 'fire_score': s.fire_score,
+            } for s in top]
+
+        past = [{
+            'number': s.number, 'name': s.name, 'start_date': s.start_date, 'end_date': s.end_date,
+            'prize_notes': s.prize_notes,
+            'podium': {'elo': podium(s, 'elo_rank'), 'fire_shark': podium(s, 'fire_rank'), 'gladiator': podium(s, 'wins_rank')},
+        } for s in Season.objects.filter(finalized_at__isnull=False).order_by('-number')]
+        return Response({'current': current, 'past': past})
+
+    @action(detail=False, methods=['get'], url_path='elo-tiers')
+    def elo_tiers(self, request):
+        """Faixas do Elo e regras do cálculo, para as telas nunca divergirem do servidor."""
+        from .elo_service import ELO_K, ELO_K_PLACEMENT, ELO_MIN, ELO_START, ELO_TIERS, PLACEMENT_GAMES
+        return Response({
+            'tiers': ELO_TIERS,
+            'rules': {'start': ELO_START, 'k': ELO_K, 'k_placement': ELO_K_PLACEMENT,
+                      'placement_games': PLACEMENT_GAMES, 'min': ELO_MIN},
         })
 
     @action(detail=False, methods=['get'], url_path='stars-history')
@@ -594,7 +630,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
         from .elo_service import recalculate_elo as _recalc
         player = self.get_object()
-        new_elo = _recalc(player)
+        new_elo = _recalc(player)  # o Elo de um depende de todos: recalcula a temporada inteira
         return Response({'elo': new_elo, 'elo_tier': player.elo_tier})
 
     @action(detail=False, methods=['post'], url_path='recalculate-all-elos')
@@ -604,14 +640,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
         if not IsAdminOrModerator().has_permission(request, self):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
-        from .elo_service import recalculate_elo as _recalc
-        players = Player.objects.all()
-        updated = 0
-        for player in players:
-            _recalc(player)
-            updated += 1
-
-        return Response({'detail': f'Elo recalculado para {updated} jogadores.'})
+        from .elo_service import recalculate_all
+        recalculate_all()
+        return Response({'detail': f'Elo recalculado para {Player.objects.count()} jogadores.'})
 
 
 class BadgeViewSet(viewsets.ReadOnlyModelViewSet):

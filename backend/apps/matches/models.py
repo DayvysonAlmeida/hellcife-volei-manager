@@ -83,6 +83,10 @@ class MatchPlayer(models.Model):
     best_opposite = models.BooleanField(default=False, verbose_name='Melhor Oposto', db_index=True)
     is_borrowed = models.BooleanField(default=False, verbose_name='Emprestado')
     borrowed_from_team_name = models.CharField(max_length=50, blank=True, null=True, verbose_name='Emprestado do time')
+    elo_delta = models.FloatField(
+        null=True, blank=True, verbose_name='Elo ganho/perdido',
+        help_text='Quanto o Elo da temporada mudou nesta partida (ex.: +18 ou -14).',
+    )
 
     class Meta:
         verbose_name = 'Jogador na partida'

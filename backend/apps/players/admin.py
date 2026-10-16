@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib import messages
 from django.utils import timezone
-from .models import Player, StarHistory, Badge, PlayerBadge
+from .models import Player, StarHistory, Badge, PlayerBadge, Season, SeasonStanding
 
 
 @admin.action(description='Marcar selecionados como Ativos')
@@ -95,3 +95,22 @@ class PlayerBadgeAdmin(admin.ModelAdmin):
     ordering = ['-awarded_at']
     autocomplete_fields = ['player']
 
+
+@admin.register(Season)
+class SeasonAdmin(admin.ModelAdmin):
+    list_display = ['number', 'name', 'start_date', 'end_date', 'finalized_at']
+    readonly_fields = ['number', 'start_date', 'end_date', 'finalized_at']
+    fields = ['number', 'name', 'start_date', 'end_date', 'finalized_at', 'prize_notes']
+    ordering = ['-number']
+
+
+@admin.register(SeasonStanding)
+class SeasonStandingAdmin(admin.ModelAdmin):
+    list_display = ['season', 'player', 'elo', 'elo_tier', 'elo_rank', 'fire_rank', 'wins_rank', 'wins', 'matches']
+    list_filter = ['season']
+    search_fields = ['player__name', 'player__nickname']
+    list_select_related = ['season', 'player']
+    ordering = ['season', 'elo_rank']
+
+    def has_add_permission(self, request):
+        return False  # gerado automaticamente na virada da temporada

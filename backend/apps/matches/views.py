@@ -14,6 +14,13 @@ from apps.core.permissions import IsAdminOrModerator
 AWARD_FIELDS = ['mvp', 'best_attacker', 'best_server', 'best_defender', 'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
 
 
+def _refresh_elo():
+    """O Elo de cada um depende dos outros: qualquer mudança em partida refaz a temporada inteira."""
+    from apps.players.elo_service import recalculate_all
+    recalculate_all()
+    cache.delete('dashboard_data')
+
+
 def _create_match_teams(match, teams_data):
     """Cria os times da partida (com vencedor/empate) e seus jogadores."""
     scores = [t.get('score', 0) for t in teams_data]
@@ -60,6 +67,14 @@ class MatchViewSet(viewsets.ModelViewSet):
     ordering_fields = ['date', 'created_at']
     ordering = ['-created_at']
 
+    def perform_update(self, serializer):
+        serializer.save()
+        _refresh_elo()  # a data pode ter mudado, e com ela a ordem das partidas
+
+    def perform_destroy(self, instance):
+        instance.delete()
+        _refresh_elo()
+
     def get_queryset(self):
         qs = super().get_queryset()
         player_id = self.request.query_params.get('player_id')
@@ -85,9 +100,6 @@ class MatchViewSet(viewsets.ModelViewSet):
         match = self.get_object()
         teams_data = request.data.get('teams', [])
 
-        # Quem estava no resultado anterior também tem o Elo recalculado (pode ter saído da partida)
-        previous_player_ids = set(MatchPlayer.objects.filter(match=match).values_list('player_id', flat=True))
-
         # Tudo ou nada: se algo falhar, o resultado anterior continua intacto
         with transaction.atomic():
             MatchTeam.objects.filter(match=match).delete()
@@ -100,18 +112,7 @@ class MatchViewSet(viewsets.ModelViewSet):
         from apps.core.utils.ranking_monitor import check_rank_changes
         check_rank_changes()
 
-        # Recalcular Elo de todos os jogadores da partida
-        from apps.players.elo_service import recalculate_elo
-        from apps.players.models import Player
-        all_player_ids = set(previous_player_ids)
-        for team_data in teams_data:
-            all_player_ids.update(team_data.get('player_ids', []))
-        for pid in all_player_ids:
-            try:
-                recalculate_elo(Player.objects.get(pk=pid))
-            except Player.DoesNotExist:
-                pass
-
+        _refresh_elo()
         return Response({'detail': 'Resultado registrado com sucesso.'})
 
     @action(detail=False, methods=['post'], url_path='quick')
@@ -150,12 +151,6 @@ class MatchViewSet(viewsets.ModelViewSet):
             except Player.DoesNotExist:
                 pass
 
-        # Recalcular Elo de todos os jogadores da partida
-        from apps.players.elo_service import recalculate_elo
-        for pid in player_ids:
-            try:
-                recalculate_elo(Player.objects.get(pk=pid))
-            except Player.DoesNotExist:
-                pass
-
+        _refresh_elo()
+        match.refresh_from_db()
         return Response(MatchSerializer(match).data, status=status.HTTP_201_CREATED)

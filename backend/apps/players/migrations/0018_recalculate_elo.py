@@ -6,7 +6,10 @@ def recalculate_all(apps, schema_editor):
     Os campos de Elo nasceram com 500/silver para todos (0015). Recalcula a partir do
     histórico de partidas, com a mesma regra do elo_service, para o ranking já começar certo.
     """
-    from apps.players.elo_service import ELO_LOSS, ELO_MIN, ELO_START, ELO_WIN, get_elo_tier
+    from apps.players.elo_service import get_elo_tier
+
+    # Regra antiga (+20/-10), fixada aqui: a regra atual do Elo é aplicada pela migration 0020.
+    ELO_START, ELO_WIN, ELO_LOSS, ELO_MIN = 500, 20, -10, 100
 
     Player = apps.get_model('players', 'Player')
     MatchPlayer = apps.get_model('matches', 'MatchPlayer')

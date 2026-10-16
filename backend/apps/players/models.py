@@ -93,14 +93,19 @@ class Player(models.Model):
     # Sistema Elo — baseado em vitórias/derrotas nas partidas
     elo = models.FloatField(
         default=500.0,
-        verbose_name='Elo',
-        help_text='Rating Elo calculado com base no histórico de partidas. Vitória: +20, Derrota: -10. Mínimo: 100.'
+        verbose_name='Elo da temporada',
+        help_text='Elo da temporada atual (zera em 500 a cada temporada). Calculado pelas partidas da temporada.'
     )
     elo_tier = models.CharField(
         max_length=20,
         default='silver',
         verbose_name='Faixa Elo',
-        help_text='Faixa atual do jogador: rookie, bronze, silver, gold, diamond, elite.',
+        help_text='Faixa atual do jogador na temporada.',
+    )
+    elo_all_time = models.FloatField(
+        default=500.0,
+        verbose_name='Elo histórico',
+        help_text='Elo de todas as partidas, sem reset. Não aparece no app: usado só para equilibrar o sorteio dos times.',
     )
 
     # Totais absolutos para o Dashboard (não são resetados ao virar grande estrela)
@@ -241,3 +246,54 @@ class PlayerBadge(models.Model):
 
     def __str__(self):
         return f"{self.player.display_name} - {self.badge.name}"
+
+
+class Season(models.Model):
+    """
+    Temporada da ranqueada (Elo, Fire Shark e Gladiador). Semestral: janeiro-junho e julho-dezembro.
+    A número 0 é a pré-temporada (todo o histórico até o início da Temporada 1).
+    """
+    number = models.PositiveSmallIntegerField(unique=True, verbose_name='Número')
+    name = models.CharField(max_length=60, verbose_name='Nome')
+    start_date = models.DateField(null=True, blank=True, verbose_name='Início', help_text='Vazio na pré-temporada.')
+    end_date = models.DateField(verbose_name='Fim')
+    finalized_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='Encerrada em',
+        help_text='Preenchido quando o resultado final é salvo (na virada para a temporada seguinte).',
+    )
+    prize_notes = models.TextField(blank=True, verbose_name='Premiação', help_text='Texto livre sobre a premiação da temporada.')
+
+    class Meta:
+        verbose_name = 'Temporada'
+        verbose_name_plural = 'Temporadas'
+        ordering = ['-number']
+
+    def __str__(self):
+        return self.name
+
+    def contains(self, day) -> bool:
+        return (self.start_date is None or day >= self.start_date) and day <= self.end_date
+
+
+class SeasonStanding(models.Model):
+    """Resultado final de um atleta numa temporada encerrada."""
+    season = models.ForeignKey(Season, on_delete=models.CASCADE, related_name='standings', verbose_name='Temporada')
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='season_standings', verbose_name='Atleta')
+    elo = models.FloatField(verbose_name='Elo final')
+    elo_tier = models.CharField(max_length=20, verbose_name='Faixa final')
+    matches = models.PositiveIntegerField(default=0, verbose_name='Partidas')
+    wins = models.PositiveIntegerField(default=0, verbose_name='Vitórias')
+    point_balance = models.IntegerField(default=0, verbose_name='Saldo de pontos')
+    fire_score = models.FloatField(null=True, blank=True, verbose_name='Fire Shark')
+    elo_rank = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Posição no Elo')
+    fire_rank = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Posição no Fire Shark')
+    wins_rank = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Posição no Gladiador')
+
+    class Meta:
+        verbose_name = 'Resultado da temporada'
+        verbose_name_plural = 'Resultados das temporadas'
+        unique_together = ('season', 'player')
+        ordering = ['season', 'elo_rank']
+
+    def __str__(self):
+        return f'{self.season} — {self.player}'

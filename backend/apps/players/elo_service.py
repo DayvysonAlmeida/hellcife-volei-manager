@@ -1,26 +1,30 @@
 """
-Serviço de cálculo do Elo para o HellCife Vôlei Manager.
+Serviço do Elo do Hellcife Vôlei: Elo "de verdade", calculado por times.
 
 Regras:
-  - Elo inicial: 500
-  - Vitória:    +20
-  - Derrota:    -10
-  - Mínimo:     100
+  - Todo mundo começa a temporada com 500 (a média do grupo).
+  - Em cada partida, compara a média de Elo dos dois times:
+        esperado = 1 / (1 + 10 ** ((elo_do_adversário - elo_do_meu_time) / 400))
+        variação = K × (resultado - esperado)        resultado: 1 na vitória, 0 na derrota
+    Vencer o time favorito rende mais; perder para o azarão custa mais.
+  - K = 32. Nos 10 primeiros jogos de cada temporada (calibração), K = 48.
+  - Empate não altera o Elo. Mínimo: 100.
+  - O Elo da temporada zera a cada semestre. O Elo histórico (oculto) nunca zera
+    e é usado só para equilibrar o sorteio dos times.
 
-O Elo é baseado APENAS no resultado das partidas (winner=True/False).
-MVPs e destaques NÃO influenciam o Elo.
+O Elo é baseado APENAS no resultado das partidas: MVPs e destaques não influenciam.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from apps.players.models import Player
+from collections import defaultdict
+from statistics import mean
+from typing import Iterable
 
 ELO_START = 500
-ELO_WIN = 20
-ELO_LOSS = -10
+ELO_K = 32
+ELO_K_PLACEMENT = 48
+PLACEMENT_GAMES = 10
 ELO_MIN = 100
 
 
@@ -30,7 +34,7 @@ ELO_TIERS = [
     {
         'name': 'Desafiante',
         'key': 'challenger',
-        'min': 1000,
+        'min': 750,
         'max': None,
         'color': '#DC2626',       # vermelho
         'text_color': '#FEF2F2',
@@ -40,8 +44,8 @@ ELO_TIERS = [
     {
         'name': 'Elite',
         'key': 'elite',
-        'min': 900,
-        'max': 999,
+        'min': 650,
+        'max': 749,
         'color': '#9333EA',       # roxo
         'text_color': '#F3E8FF',
         'icon': '🔥',
@@ -50,8 +54,8 @@ ELO_TIERS = [
     {
         'name': 'Diamante',
         'key': 'diamond',
-        'min': 800,
-        'max': 899,
+        'min': 600,
+        'max': 649,
         'color': '#06B6D4',       # ciano
         'text_color': '#ECFEFF',
         'icon': '💎',
@@ -60,8 +64,8 @@ ELO_TIERS = [
     {
         'name': 'Ouro',
         'key': 'gold',
-        'min': 650,
-        'max': 799,
+        'min': 540,
+        'max': 599,
         'color': '#EAB308',       # amarelo
         'text_color': '#FEF9C3',
         'icon': '🥇',
@@ -70,8 +74,8 @@ ELO_TIERS = [
     {
         'name': 'Prata',
         'key': 'silver',
-        'min': 500,
-        'max': 649,
+        'min': 470,
+        'max': 539,
         'color': '#94A3B8',       # cinza-azulado
         'text_color': '#F1F5F9',
         'icon': '🥈',
@@ -80,8 +84,8 @@ ELO_TIERS = [
     {
         'name': 'Bronze',
         'key': 'bronze',
-        'min': 300,
-        'max': 499,
+        'min': 400,
+        'max': 469,
         'color': '#CD7C2F',       # bronze
         'text_color': '#FEF3C7',
         'icon': '🥉',
@@ -91,7 +95,7 @@ ELO_TIERS = [
         'name': 'Iniciante',
         'key': 'rookie',
         'min': 100,
-        'max': 299,
+        'max': 399,
         'color': '#6B7280',       # cinza
         'text_color': '#F3F4F6',
         'icon': '🪨',
@@ -124,7 +128,7 @@ def get_elo_progress(elo: float) -> dict:
     current_idx = ELO_TIERS.index(current)
 
     if current_idx == 0:
-        # Já é Elite — sem próximo tier
+        # Já é Desafiante: não há próxima faixa
         return {
             'tier': current,
             'next_tier': None,
@@ -150,42 +154,91 @@ def get_elo_progress(elo: float) -> dict:
 
 # ─── Cálculo principal ────────────────────────────────────────────────────────
 
-def recalculate_elo(player: 'Player') -> float:
+def replay(matches: Iterable, placement: bool = True):
     """
-    Recalcula o Elo do jogador a partir de TODAS as suas partidas históricas.
-    Salva `elo` e `elo_tier` diretamente no objeto e persiste no banco.
+    Refaz o Elo partida a partida, em ordem cronológica. Não acessa o banco.
 
-    Retorna o novo valor de Elo.
+    matches: [(match_id, [(time_venceu, [(match_player_id, player_id), ...]), (time_venceu, [...])]), ...]
+    Retorna (elo_por_jogador, variação_por_match_player).
+    """
+    elo = defaultdict(lambda: float(ELO_START))
+    games = defaultdict(int)
+    deltas = {}
+    for _match_id, teams in matches:
+        valid = len(teams) == 2 and all(players for _, players in teams) and teams[0][0] != teams[1][0]
+        if not valid:  # empate, time vazio ou formato inesperado: não altera o Elo
+            for _, players in teams:
+                for mp_id, _player_id in players:
+                    deltas[mp_id] = 0.0
+            continue
+        (won_a, team_a), (_won_b, team_b) = teams
+        avg_a = mean(elo[p] for _, p in team_a)
+        avg_b = mean(elo[p] for _, p in team_b)
+        expected_a = 1 / (1 + 10 ** ((avg_b - avg_a) / 400))
+        for players, result, expected in ((team_a, 1.0 if won_a else 0.0, expected_a),
+                                          (team_b, 0.0 if won_a else 1.0, 1 - expected_a)):
+            for mp_id, p in players:
+                k = ELO_K_PLACEMENT if placement and games[p] < PLACEMENT_GAMES else ELO_K
+                new = max(float(ELO_MIN), elo[p] + k * (result - expected))
+                deltas[mp_id] = round(new - elo[p], 2)
+                elo[p] = new
+                games[p] += 1
+    return dict(elo), deltas
+
+
+def load_matches(match_player_model, start_date=None, end_date=None):
+    """
+    Lê as partidas no formato do replay(), em ordem cronológica.
+    Recebe o model MatchPlayer (o real ou o histórico, dentro de migrations).
+    """
+    qs = match_player_model.objects.filter(match_team__isnull=False)
+    if start_date:
+        qs = qs.filter(match__date__gte=start_date)
+    if end_date:
+        qs = qs.filter(match__date__lte=end_date)
+    rows = qs.order_by('match__date', 'match__created_at', 'match_id', 'match_team_id', 'id').values_list(
+        'match_id', 'match_team_id', 'match_team__winner', 'id', 'player_id'
+    )
+    matches, index = [], {}
+    for match_id, team_id, won, mp_id, player_id in rows:
+        if match_id not in index:
+            index[match_id] = {}
+            matches.append((match_id, index[match_id]))
+        team = index[match_id].setdefault(team_id, (won, []))
+        team[1].append((mp_id, player_id))
+    return [(match_id, list(teams.values())) for match_id, teams in matches]
+
+
+def recalculate_all(season=None) -> None:
+    """
+    Recalcula o Elo de todos: o da temporada (com o +/- de cada partida) e o histórico oculto.
+    Como o Elo de um depende do Elo dos outros, sempre refaz a temporada inteira.
     """
     from apps.matches.models import MatchPlayer
+    from apps.players.models import Player
+    from .seasons import ensure_current_season
 
-    appearances = (
-        MatchPlayer.objects
-        .filter(player=player)
-        .select_related('match_team')
-        .order_by('match__date', 'match__created_at', 'id')
-    )
+    season = season or ensure_current_season()
+    season_elo, deltas = replay(load_matches(MatchPlayer, season.start_date, season.end_date))
+    all_time_elo, _ = replay(load_matches(MatchPlayer))
 
-    elo = float(ELO_START)
+    players = list(Player.objects.all())
+    for p in players:
+        p.elo = round(season_elo.get(p.id, float(ELO_START)), 2)
+        p.elo_tier = get_elo_tier(p.elo)['key']
+        p.elo_all_time = round(all_time_elo.get(p.id, float(ELO_START)), 2)
+    Player.objects.bulk_update(players, ['elo', 'elo_tier', 'elo_all_time'], batch_size=200)
 
-    for appearance in appearances:
-        if appearance.match_team is None:
-            continue  # partida sem time registrado — ignorar
+    to_update = list(MatchPlayer.objects.filter(id__in=deltas.keys()).only('id'))
+    for mp in to_update:
+        mp.elo_delta = deltas[mp.id]
+    MatchPlayer.objects.bulk_update(to_update, ['elo_delta'], batch_size=500)
 
-        if appearance.match_team.winner:
-            elo += ELO_WIN
-        else:
-            elo += ELO_LOSS
 
-        # Garantir mínimo
-        if elo < ELO_MIN:
-            elo = float(ELO_MIN)
-
-    tier = get_elo_tier(elo)
-
-    # Salva somente os dois campos para não sobrescrever outros
-    player.elo = round(elo, 2)
-    player.elo_tier = tier['key']
-    player.save(update_fields=['elo', 'elo_tier'])
-
+def recalculate_elo(player=None) -> float | None:
+    """Compatibilidade: o Elo de um jogador depende de todos, então recalcula tudo."""
+    recalculate_all()
+    if player is None:
+        return None
+    player.refresh_from_db(fields=['elo', 'elo_tier', 'elo_all_time'])
     return player.elo

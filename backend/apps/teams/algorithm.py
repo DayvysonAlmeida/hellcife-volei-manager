@@ -16,8 +16,9 @@ from apps.players.models import Player
 from apps.attendance.models import GameDay, Attendance, CourtCheckin
 
 # Faixas de normalização do Elo para escala 0–10 (mesmo range do overall)
-ELO_MIN = 100.0
-ELO_MAX = 1500.0
+# Faixa típica do Elo por times (média 500); fora dela o valor é limitado
+ELO_MIN = 300.0
+ELO_MAX = 800.0
 
 
 def _normalize_elo(elo: float) -> float:
@@ -56,7 +57,7 @@ def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id:
         else:
             overall = 5.0
 
-        composite = _composite_score(overall, p.elo)
+        composite = _composite_score(overall, p.elo_all_time)  # histórico: não zera na virada da temporada
 
         result.append({
             'id': p.id,
