@@ -1,8 +1,14 @@
 import api from '@/lib/api';
-import type { DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData } from '@/types';
+import type { DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText } from '@/types';
 
 export const dashboardService = {
   get: () => api.get<DashboardData>('/dashboard/').then(r => r.data),
+};
+
+export const regulationService = {
+  get: () => api.get<RegulationText>('/hall-of-fame/regulation/').then(r => r.data),
+  update: (payload: { title: string; content: string }) =>
+    api.put<RegulationText>('/hall-of-fame/regulation/1/', payload).then(r => r.data),
 };
 
 export const evaluationsService = {

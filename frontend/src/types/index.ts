@@ -542,6 +542,15 @@ export interface HallOfFameEntry {
   created_at: string;
 }
 
+export interface RegulationText {
+  id: number;
+  title: string;
+  content: string;
+  updated_at: string;
+  updated_by?: number;
+  updated_by_name?: string;
+}
+
 // ==================== Dashboard ====================
 export interface DashboardData {
   total_players: number;

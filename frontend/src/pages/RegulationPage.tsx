@@ -1,7 +1,25 @@
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { ScrollText, Shield, Star, Calendar, MapPin, Heart, AlertTriangle, Clock, AlertCircle, Info } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ScrollText, Edit3 } from 'lucide-react';
+import { regulationService } from '@/services';
+import { PageLoading, ErrorState } from '@/components/ui/Loading';
+import { useAuth } from '@/store/AuthContext';
+import { sanitizeHtml } from '@/lib/sanitizeHtml';
 
 export function RegulationPage() {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['regulation'],
+    queryFn: regulationService.get,
+    staleTime: 1000 * 60 * 5,
+  });
+  const { user } = useAuth();
+  const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
+
+  if (isLoading) return <PageLoading />;
+  if (error) return <ErrorState onRetry={refetch} />;
+  if (!data) return null;
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -18,263 +36,39 @@ export function RegulationPage() {
         <h2 className="text-xl text-text-secondary font-medium uppercase tracking-widest">
           HELLCIFE VÔLEI
         </h2>
+        <p className="text-xs text-text-muted mt-3">
+          Última atualização: {new Date(data.updated_at).toLocaleDateString('pt-BR')}
+          {data.updated_by_name ? ` · por ${data.updated_by_name}` : ''}
+        </p>
+        {canEdit && (
+          <Link
+            to="/regulation/edit"
+            className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg text-sm font-bold text-white bg-red hover:bg-red/90 transition-all"
+          >
+            <Edit3 size={16} />
+            Editar regulamento
+          </Link>
+        )}
       </motion.div>
 
-      {/* Intro */}
+      {/* Conteúdo Dinâmico (HTML vindo do banco) */}
       <motion.section
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className="card p-6 md:p-8"
       >
-        <div className="flex items-center gap-3 mb-4">
-          <Shield className="text-red" />
-          <h3 className="font-display text-2xl tracking-wider text-text-primary">APRESENTAÇÃO</h3>
-        </div>
-        <div className="space-y-4 text-text-secondary leading-relaxed">
-          <p>
-            O Hellcife Vôlei é uma comunidade esportiva dedicada à prática do voleibol, fundamentada nos valores de respeito, disciplina, comprometimento, meritocracia e espírito esportivo.
-          </p>
-          <p>
-            Nosso propósito é proporcionar um ambiente organizado, competitivo e saudável para o desenvolvimento técnico dos atletas, promovendo integração, evolução contínua e preparação para futuras competições.
-          </p>
-          <blockquote className="border-l-4 border-blue bg-blue/5 p-4 rounded-r-lg italic text-text-primary">
-            "A força de um grupo não está apenas em seus melhores jogadores, mas no compromisso coletivo com a excelência."
-          </blockquote>
-        </div>
+        <div
+          className="rich-content"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(data.content) }}
+        />
       </motion.section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Sistema de Estrelas */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="card p-6"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Star className="text-yellow-500" />
-            <h3 className="font-display text-xl tracking-wider text-text-primary">SISTEMA DE ESTRELAS</h3>
-          </div>
-          <div className="space-y-3 text-sm text-text-secondary">
-            <p className="font-medium text-text-primary">Todo integrante inicia sua trajetória no grupo com 1🌟.</p>
-            <p>O sistema tem como finalidade classificar os participantes de acordo com critérios de:</p>
-            <ul className="grid grid-cols-2 gap-2 list-disc list-inside mt-2 text-text-muted">
-              <li>Nível técnico</li>
-              <li>Desempenho</li>
-              <li>Frequência</li>
-              <li>Comprometimento</li>
-              <li>Antiguidade</li>
-              <li>Conduta esportiva</li>
-            </ul>
-            <p className="mt-3">As classificações promovem equilíbrio técnico nas equipes e reconhecimento da evolução individual.</p>
-          </div>
-        </motion.section>
-
-        {/* Princípios */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="card p-6 border-neon-blue-sm"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Heart className="text-blue" />
-            <h3 className="font-display text-xl tracking-wider text-text-primary">PRINCÍPIOS DO HELLCIFE</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              'Respeito', 'Lealdade', 'Comprometimento', 'Espírito esportivo',
-              'Evolução contínua', 'Meritocracia', 'Organização'
-            ].map((principio) => (
-              <div key={principio} className="flex items-center gap-2 text-sm text-text-secondary bg-surface-highlight p-2 rounded-lg">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue" />
-                {principio}
-              </div>
-            ))}
-          </div>
-        </motion.section>
-      </div>
-
-      {/* Programação e Locais */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="card p-6"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Calendar className="text-green-500" />
-            <h3 className="font-display text-xl tracking-wider text-text-primary">PROGRAMAÇÃO OFICIAL</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { dia: 'Segunda-feira', hora: 'Vago', tipo: '', local: '' },
-              { dia: 'Terça-feira', hora: '20h às 21h', tipo: 'Areia', local: 'Arena Deep' },
-              { dia: 'Quarta-feira', hora: 'Vago', tipo: '', local: '' },
-              { dia: 'Quinta-feira', hora: '19:30 às 21:30', tipo: 'Poliesportiva', local: 'Compaz Ariano Suassuna (Em Breve)' },
-              { dia: 'Sexta-feira', hora: '19:30 às 21:30', tipo: 'Areia', local: 'Arena Belo Gol/Prainha ZS' },
-              { dia: 'Sábado', hora: 'Vago', tipo: '', local: '' },
-              { dia: 'Domingo', hora: '10h às 12h', tipo: 'Areia', local: 'Compaz Miguel Arraes' },
-            ].map((prog) => (
-              <div key={prog.dia} className="flex flex-col p-4 rounded-xl bg-surface border border-border shadow-sm hover:border-red/30 transition-colors">
-                <div className="flex justify-between items-center border-b border-border/50 pb-2 mb-3">
-                  <span className="font-bold text-text-primary uppercase tracking-wider text-sm">{prog.dia}</span>
-                  {prog.hora === 'Vago' ? (
-                    <span className="text-[10px] uppercase text-text-muted italic font-bold">Livre</span>
-                  ) : (
-                    <span className="text-[10px] uppercase bg-green-900/40 text-green-400 px-2 py-0.5 rounded-full border border-green-800 font-bold tracking-wider">
-                      {prog.tipo}
-                    </span>
-                  )}
-                </div>
-
-                {prog.hora !== 'Vago' ? (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-start gap-2 text-text-secondary">
-                      <MapPin size={14} className="text-orange-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-xs font-medium leading-tight">{prog.local}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-text-primary">
-                      <Clock size={14} className="text-green-500 flex-shrink-0" />
-                      <span className="text-xs font-bold">{prog.hora}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-[52px] text-text-muted opacity-50">
-                    <span className="text-xs italic">— Sem atividades —</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </motion.section>
-
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="card p-6"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <MapPin className="text-orange-500" />
-            <h3 className="font-display text-xl tracking-wider text-text-primary">LOCAIS DE ATIVIDADE</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-text-secondary">
-            {[
-              'Prainha ZS', 'Belo Gol', 'Arena São Miguel', 'Arena Deep',
-              "Arena Mago's", 'Quadra Lagoa do Araçá (Em Andamento)', 'Quadra Compaz Miguel Arraes', 'Compaz Ariano Suassuna'
-            ].map((local) => (
-              <div key={local} className="flex items-center gap-2 p-2 rounded-lg hover:bg-surface transition-colors">
-                <MapPin size={14} className="text-orange-500/50" />
-                <span className="truncate">{local}</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-text-muted mt-4 italic">A administração poderá utilizar outros locais sempre que necessário.</p>
-        </motion.section>
-      </div>
-
-      {/* Regras e Penalidades */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="card p-6 md:p-8 border-neon-red-sm"
-      >
-        <div className="flex items-center gap-3 mb-6">
-          <AlertTriangle className="text-red" />
-          <h3 className="font-display text-2xl tracking-wider text-text-primary">CONDUTAS VEDADAS & PENALIDADES</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h4 className="font-medium text-red mb-3 flex items-center gap-2">
-              <AlertCircle size={16} /> Não toleramos:
-            </h4>
-            <ul className="space-y-2 text-sm text-text-secondary">
-              {[
-                'Racismo, Homofobia, Machismo, Misoginia',
-                'Qualquer forma de discriminação',
-                'Assédio ou intimidação',
-                'Comportamento antidesportivo',
-                'Ofensas ou ataques pessoais',
-                'Menosprezo ao nível técnico de outros atletas',
-                'Spam e divulgação não autorizada'
-              ].map((item, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="text-red font-bold mt-0.5">×</span>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="space-y-6">
-            <div>
-              <h4 className="font-medium text-yellow-500 mb-3 flex items-center gap-2">
-                <Clock size={16} /> Faltas sem Justificativa
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-3 p-2 bg-yellow-900/20 rounded border border-yellow-900/50">
-                  <div className="w-3 h-3 bg-yellow-500 rounded-sm" />
-                  <span className="text-text-secondary">1ª Ocorrência — Advertência</span>
-                </div>
-                <div className="flex items-center gap-3 p-2 bg-orange-900/20 rounded border border-orange-900/50">
-                  <div className="w-3 h-3 bg-orange-500 rounded-sm" />
-                  <span className="text-text-secondary">2ª Ocorrência — Afastamento</span>
-                </div>
-                <div className="flex items-center gap-3 p-2 bg-red-900/20 rounded border border-red-900/50">
-                  <div className="w-3 h-3 bg-red rounded-sm" />
-                  <span className="text-text-secondary">3ª Ocorrência — Exclusão</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Regras de Jogo & Listas */}
-      <motion.section
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-        className="card p-6 md:p-8"
-      >
-        <div className="flex items-center gap-3 mb-6">
-          <Info className="text-blue" />
-          <h3 className="font-display text-2xl tracking-wider text-text-primary">FORMATO E INSCRIÇÕES</h3>
-        </div>
-
-        <div className="space-y-6 text-sm text-text-secondary">
-          <div className="bg-surface p-4 rounded-xl border border-border">
-            <h4 className="font-display tracking-wider text-text-primary text-lg mb-3">FORMATO DOS JOGOS</h4>
-            <ul className="list-disc list-inside space-y-2 text-text-muted">
-              <li>Modalidades: 2x2, 3x3 (Exceção), 4x4.</li>
-              <li><strong>Areia:</strong> Rodízio de posição não é obrigatório, mas o rodízio de saque é.</li>
-              <li>A retirada de 2 times por 2 vitórias consecutivas está <strong>TERMINANTEMENTE</strong> condicionada à presença de 2 times fora de quadra para entrar. Devido à impreterível meritocracia dos vencedores.</li>
-              <li><strong>Quadra:</strong> Serão observadas as regras oficiais aplicáveis.</li>
-            </ul>
-          </div>
-
-          <div className="bg-surface p-4 rounded-xl border border-border">
-            <h4 className="font-display tracking-wider text-text-primary text-lg mb-3">LISTAS DE INSCRIÇÃO (Compaz Miguel Arraes)</h4>
-            <ul className="list-disc list-inside space-y-2 text-text-muted">
-              <li>A lista é liberada 72 horas antes para membros oficiais.</li>
-              <li>Convidados podem ser inseridos (no fim da lista) no meio-dia do dia anterior.</li>
-              <li>Convidados sobem na ordem se as vagas não forem preenchidas.</li>
-              <li><strong>Retirada do nome:</strong> Permitido apenas até as 09h do domingo (Compaz) ou 19h (Prainha ZS). Após o horário, o nome não pode ser removido.</li>
-            </ul>
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Footer */}
+      {/* Footer de versionamento */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
+        transition={{ delay: 0.2 }}
         className="text-center py-8 text-text-muted space-y-4"
       >
         <p className="italic text-sm max-w-2xl mx-auto">

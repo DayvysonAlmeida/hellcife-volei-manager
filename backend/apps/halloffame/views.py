@@ -1,9 +1,10 @@
 from rest_framework import viewsets, filters
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import HallOfFameEntry
-from .serializers import HallOfFameSerializer
+from .models import HallOfFameEntry, RegulationText
+from .serializers import HallOfFameSerializer, RegulationTextSerializer
 from apps.core.permissions import IsAdminOrModerator
 
 
@@ -21,3 +22,43 @@ class HallOfFameViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
+
+
+class RegulationTextViewSet(viewsets.ModelViewSet):
+    """Endpoint para gerenciar o texto do regulamento.
+    - GET: qualquer autenticado lê.
+    - POST/PUT/PATCH: apenas admin/moderador; sempre gravam no registro único (id=1).
+    - DELETE não é permitido.
+    """
+    queryset = RegulationText.objects.all()
+    serializer_class = RegulationTextSerializer
+    http_method_names = ['get', 'post', 'put', 'patch', 'head', 'options']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return [IsAdminOrModerator()]
+        return [IsAuthenticated()]
+
+    def get_object(self):
+        obj, _ = RegulationText.objects.get_or_create(
+            pk=1,
+            defaults={'content': '<p>Conteúdo do regulamento ainda não foi definido.</p>'},
+        )
+        return obj
+
+    def list(self, request, *args, **kwargs):
+        return Response(self.get_serializer(self.get_object()).data)
+
+    def retrieve(self, request, *args, **kwargs):
+        return self.list(request)
+
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            self.get_object(), data=request.data, partial=kwargs.get('partial', False)
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)

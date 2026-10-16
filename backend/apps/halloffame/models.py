@@ -36,3 +36,23 @@ class HallOfFameEntry(models.Model):
 
     def __str__(self):
         return f'{self.get_category_display()} {self.year}: {self.player}'
+
+
+class RegulationText(models.Model):
+    """Texto editável do regulamento do clube. Apenas uma instância ativa (id=1)."""
+
+    title = models.CharField(default='Regulamento Oficial', max_length=200, verbose_name='Título')
+    content = models.TextField(verbose_name='Conteúdo HTML')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Última atualização')
+    updated_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True,
+        verbose_name='Atualizado por'
+    )
+
+    class Meta:
+        verbose_name = 'Texto do Regulamento'
+        verbose_name_plural = 'Textos do Regulamento'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return self.title
