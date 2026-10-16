@@ -473,6 +473,8 @@ export interface TeamGenerationData {
   balance_score: number;
   is_locked: boolean;
   teams: DBTeam[];
+  /** Quem saiu da pelada: fora do Embaralhar/Completar, mas com check-in na quadra mantido. */
+  removed_players?: Array<{ id: number; name: string; avatar_url: string | null }>;
   created_at: string;
 }
 

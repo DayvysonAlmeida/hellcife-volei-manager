@@ -22,6 +22,11 @@ class TeamGeneration(models.Model):
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
     balance_score = models.FloatField(default=0, verbose_name='Score de balanceamento')
     is_locked = models.BooleanField(default=False, verbose_name='Trancado (Finalizado)')
+    # Quem foi embora/saiu da pelada: fica fora do Embaralhar e do Alocar, mas mantém o
+    # check-in na quadra (para não levar falta ao encerrar o circuito).
+    removed_players = models.ManyToManyField(
+        'players.Player', blank=True, related_name='removed_from_generations', verbose_name='Saíram da pelada'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

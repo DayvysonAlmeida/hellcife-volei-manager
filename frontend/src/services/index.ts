@@ -140,6 +140,9 @@ export const teamsService = {
   removePlayer: (genId: number, playerId: number) =>
     api.post(`/teams/${genId}/remove-player/`, { player_id: playerId }).then(r => r.data),
 
+  restorePlayer: (genId: number, playerId: number) =>
+    api.post(`/teams/${genId}/restore-player/`, { player_id: playerId }).then(r => r.data),
+
   addTeam: (genId: number) =>
     api.post(`/teams/${genId}/add-team/`).then(r => r.data),
 

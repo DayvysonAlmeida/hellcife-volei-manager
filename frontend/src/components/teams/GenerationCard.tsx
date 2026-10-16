@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Trash2, Lock, UserCheck, Zap, Loader2, Shuffle, Plus, X, ArrowRightLeft, Trophy, History, Swords, Check } from 'lucide-react';
+import { Trash2, Lock, UserCheck, Zap, Loader2, Shuffle, Plus, X, ArrowRightLeft, Trophy, History, Swords, Check, LogOut, Undo2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { teamsService } from '@/services';
 import { formatDate } from '@/lib/utils';
@@ -48,8 +48,18 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
        teamsService.removePlayer(genId, playerId),
     onSuccess: () => {
        qc.invalidateQueries({ queryKey: ['team-generations-history'] });
-       toast.success('Jogador removido do time!');
+       toast.success('Jogador saiu da pelada (presença na quadra mantida).');
     }
+  });
+
+  const restorePlayerMutation = useMutation({
+    mutationFn: ({ genId, playerId }: { genId: number, playerId: number }) =>
+       teamsService.restorePlayer(genId, playerId),
+    onSuccess: (res) => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       toast.success(res.detail || 'Jogador de volta!');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao trazer o jogador de volta.'),
   });
 
   const addTeamMutation = useMutation({
@@ -86,8 +96,11 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
 
   const checkinCount = gameDays.find((gd: any) => gd.id === gen.gameday)?.total_court_checkins || 0;
   const playersInGen = gen.teams.reduce((acc: number, t: any) => acc + t.team_players.length, 0);
-  const unassignedCount = Math.max(0, checkinCount - playersInGen);
-  const progress = checkinCount > 0 ? (playersInGen / checkinCount) * 100 : 100;
+  const removedPlayers: Array<{ id: number; name: string }> = gen.removed_players || [];
+  // Quem saiu da pelada continua com check-in na quadra, mas não está esperando vaga
+  const activeCount = Math.max(0, checkinCount - removedPlayers.length);
+  const unassignedCount = Math.max(0, activeCount - playersInGen);
+  const progress = activeCount > 0 ? (playersInGen / activeCount) * 100 : 100;
   const isComplete = unassignedCount === 0;
 
   return (
@@ -142,7 +155,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
-              {playersInGen} / {checkinCount}
+              {playersInGen} / {activeCount}
             </span>
             <div className="w-16 sm:w-24 bg-border h-1.5 rounded-full overflow-hidden">
               <motion.div 
@@ -196,7 +209,9 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
                   onConfirmDialog({
                     isOpen: true,
                     title: 'Embaralhar Jogadores',
-                    desc: 'Tem certeza que deseja embaralhar TODOS os jogadores presentes na quadra (Isso refará todos os times)?',
+                    desc: removedPlayers.length > 0
+                      ? `Refazer todos os times com quem está na quadra? Quem saiu da pelada (${removedPlayers.length}) não volta para o sorteio.`
+                      : 'Refazer todos os times com quem está na quadra?',
                     onConfirm: () => shuffleMutation.mutate(gen.id)
                   });
                 }}
@@ -308,6 +323,32 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
           </div>
         ))}
       </div>
+
+      {removedPlayers.length > 0 && (
+        <div className="mt-4 rounded-lg border border-border bg-surface/40 p-3">
+          <p className="font-display text-xs text-text-muted flex items-center gap-1.5 mb-2">
+            <LogOut size={12} /> SAÍRAM DA PELADA ({removedPlayers.length})
+            <span className="font-sans normal-case text-[10px] text-text-muted/70 ml-1">— presença na quadra mantida, não voltam no Embaralhar</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {removedPlayers.map((p) => (
+              <span key={p.id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-text-secondary">
+                {p.name}
+                {canEdit && !gen.is_locked && (
+                  <button
+                    onClick={() => restorePlayerMutation.mutate({ genId: gen.id, playerId: p.id })}
+                    disabled={restorePlayerMutation.isPending}
+                    className="inline-flex items-center gap-0.5 text-[10px] font-bold text-green-400 hover:text-green-300"
+                    title="Voltou para o jogo: entra no próximo Embaralhar ou Completar"
+                  >
+                    <Undo2 size={11} /> Voltar
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {canEdit && (
         <div className="mt-6 pt-4 border-t border-border flex justify-end">

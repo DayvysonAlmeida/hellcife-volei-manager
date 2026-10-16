@@ -26,7 +26,8 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
                 Prefetch(
                     'teams__team_players__player',
                     queryset=Player.objects.prefetch_related('evaluations')
-                )
+                ),
+                'removed_players',
             )
         )
         gameday_id = self.request.query_params.get('gameday_id')
@@ -213,6 +214,7 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
                 player_id=player_id,
                 order_in_team=max_order
             )
+            generation.removed_players.remove(player_id)
             
             # Sincroniza com a Quadra: se ele foi adicionado no time manualmente, ele está na quadra
             if generation.gameday_id:
@@ -281,8 +283,9 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         # 2. Obter todos que já estão em um time da geração
         assigned_player_ids = set(TeamPlayer.objects.filter(team__generation=generation).values_list('player_id', flat=True))
 
-        # 3. Descobrir quem falta
-        waiting_player_ids = list(present_player_ids - assigned_player_ids)
+        # 3. Descobrir quem falta (quem saiu da pelada não volta automaticamente)
+        removed_player_ids = set(generation.removed_players.values_list('id', flat=True))
+        waiting_player_ids = list(present_player_ids - assigned_player_ids - removed_player_ids)
         if not waiting_player_ids:
             return Response({'detail': 'Nenhum jogador na quadra aguardando alocação.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -360,18 +363,33 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         try:
             tp = TeamPlayer.objects.get(team__generation=generation, player_id=player_id)
             tp.delete()
-            
-            # NOTA: Não removemos o CourtCheckin pois o jogador foi para a quadra.
-            # A presença física é permanente. O time se adaptará com os jogadores restantes.
-                
+
+            # Não removemos o CourtCheckin: o jogador esteve na quadra e não pode levar falta.
+            # Registramos que saiu para o Embaralhar/Alocar não o trazerem de volta.
+            generation.removed_players.add(player_id)
+
             self._recalculate_generation_overalls(generation)
             return Response({'detail': 'Jogador removido do time. Presença na quadra mantida.'})
         except TeamPlayer.DoesNotExist:
             return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=status.HTTP_404_NOT_FOUND)
 
+    @action(detail=True, methods=['post'], url_path='restore-player')
+    def restore_player(self, request, pk=None):
+        """Jogador que tinha saído volta para a pelada (entra no próximo Embaralhar/Alocar)."""
+        generation = self.get_object()
+        if generation.is_locked:
+            return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        player_id = request.data.get('player_id')
+        if not player_id or not generation.removed_players.filter(id=player_id).exists():
+            return Response({'detail': 'Este jogador não está na lista de quem saiu.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        generation.removed_players.remove(player_id)
+        return Response({'detail': 'Jogador de volta! Ele entra no próximo Embaralhar ou Alocar.'})
+
     @action(detail=True, methods=['post'], url_path='shuffle')
     def shuffle(self, request, pk=None):
-        """Pega todos os jogadores presentes na quadra e refaz o sorteio completo (Embaralhar)."""
+        """Refaz o sorteio com quem está na quadra, sem trazer de volta quem saiu da pelada (Embaralhar)."""
         generation = self.get_object()
         if generation.is_locked:
             return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -381,7 +399,11 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
 
         # 1. Obter todos que fizeram court checkin
         from apps.attendance.models import CourtCheckin
-        present_player_ids = list(CourtCheckin.objects.filter(gameday_id=generation.gameday_id).values_list('player_id', flat=True))
+        present_player_ids = list(
+            CourtCheckin.objects.filter(gameday_id=generation.gameday_id)
+            .exclude(player__in=generation.removed_players.all())
+            .values_list('player_id', flat=True)
+        )
 
         if not present_player_ids:
             return Response({'detail': 'Nenhum jogador na quadra para embaralhar.'}, status=status.HTTP_400_BAD_REQUEST)
