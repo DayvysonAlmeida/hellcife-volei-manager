@@ -1,11 +1,13 @@
 from django.contrib import admin
 from django.contrib import messages
+from django.utils import timezone
 from .models import Player, StarHistory, Badge, PlayerBadge
 
 
 @admin.action(description='Marcar selecionados como Ativos')
 def make_active(modeladmin, request, queryset):
-    updated = queryset.update(status='active', consecutive_absences=0)
+    # Ponto de Reset: senão o recálculo de faltas inativa de novo pelo histórico
+    updated = queryset.update(status='active', consecutive_absences=0, absences_reset_date=timezone.now().date())
     modeladmin.message_user(request, f'{updated} jogadores foram marcados como ativos e tiveram faltas zeradas.', messages.SUCCESS)
 
 
@@ -15,10 +17,10 @@ def make_inactive(modeladmin, request, queryset):
     modeladmin.message_user(request, f'{updated} jogadores foram inativados.', messages.WARNING)
 
 
-@admin.action(description='Zerar faltas consecutivas')
-def reset_absences(modeladmin, request, queryset):
-    updated = queryset.update(consecutive_absences=0)
-    modeladmin.message_user(request, f'Faltas zeradas para {updated} jogadores.', messages.SUCCESS)
+@admin.action(description='Zerar faltas consecutivas (com Ponto de Reset)')
+def reset_consecutive_absences(modeladmin, request, queryset):
+    updated = queryset.update(consecutive_absences=0, absences_reset_date=timezone.now().date())
+    modeladmin.message_user(request, f'Faltas zeradas e data de reset cravada para {updated} jogadores.', messages.SUCCESS)
 
 
 @admin.register(Player)
@@ -28,7 +30,7 @@ class PlayerAdmin(admin.ModelAdmin):
     list_filter = ['status', 'is_guest', 'main_position', 'gender']
     search_fields = ['name', 'nickname', 'phone', 'invited_by']
     ordering = ['name']
-    actions = [make_active, make_inactive, reset_absences]
+    actions = [make_active, make_inactive, reset_consecutive_absences]
     
     fieldsets = (
         ('Identificação', {
@@ -41,7 +43,7 @@ class PlayerAdmin(admin.ModelAdmin):
             'fields': ('main_position', 'secondary_position')
         }),
         ('Status & Controles', {
-            'fields': ('status', 'is_guest', 'invited_by', 'consecutive_absences')
+            'fields': ('status', 'is_guest', 'invited_by', 'consecutive_absences', 'absences_reset_date')
         }),
         ('Sistema de Estrelas (Atuais)', {
             'fields': ('big_stars', 'mini_stars', 'mvp_stars', 'attack_stars', 'defense_stars', 'setter_stars', 'pass_stars', 'block_stars')
@@ -57,6 +59,13 @@ class PlayerAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related('evaluations')
+
+    def save_model(self, request, obj, form, change):
+        # Data de reset hoje ou no passado: zera a contagem na hora para refletir no painel
+        reset_date = obj.absences_reset_date
+        if 'absences_reset_date' in form.changed_data and reset_date and reset_date <= timezone.now().date():
+            obj.consecutive_absences = 0
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(StarHistory)

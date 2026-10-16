@@ -84,6 +84,11 @@ class Player(models.Model):
         verbose_name='Faltas Consecutivas',
         help_text='Quantos circuitos fechados seguidos este jogador não fez check-in na quadra.'
     )
+    absences_reset_date = models.DateField(
+        null=True, blank=True,
+        verbose_name='Ponto de Reset',
+        help_text='Data em que as faltas consecutivas foram zeradas manualmente. Faltas anteriores a essa data serão ignoradas.'
+    )
 
     # Sistema Elo — baseado em vitórias/derrotas nas partidas
     elo = models.FloatField(
@@ -145,6 +150,16 @@ class Player(models.Model):
     @property
     def display_name(self):
         return self.nickname or self.name
+
+    @classmethod
+    def reactivate_inactive(cls, player_ids):
+        """
+        Volta para ativo quem estava inativo e apareceu na quadra.
+        Grava o Ponto de Reset para o recálculo de faltas não inativar de novo pelo histórico.
+        """
+        return cls.objects.filter(id__in=player_ids, status='inactive', is_guest=False).update(
+            status='active', consecutive_absences=0, absences_reset_date=timezone.now().date()
+        )
 
 
 class StarHistory(models.Model):

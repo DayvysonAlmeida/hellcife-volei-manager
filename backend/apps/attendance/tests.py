@@ -289,3 +289,174 @@ class ListReservedCountTests(CircuitApiTestCase):
         self.client.force_authenticate(self.admin)
         row = next(r for r in self.client.get(f'{BASE}/').data['results'] if r['id'] == gd.id)
         self.assertEqual(row['total_reserved'], 1)
+
+
+class AbsenceSyncTests(TestCase):
+    """Contagem de faltas consecutivas: Ponto de Reset do admin e falta justificada."""
+
+    def setUp(self):
+        from .models import CourtCheckin
+        self.CourtCheckin = CourtCheckin
+        self.athlete = make_player('Atleta')
+        self.witness = make_player('Testemunha')  # garante check-in na quadra (o circuito "aconteceu")
+        Player.objects.filter(pk__in=[self.athlete.pk, self.witness.pk]).update(
+            created_at=timezone.now() - timedelta(days=30))
+
+    def day(self, days_ago, athlete_went=False, athlete_enrolled=False, justified=False):
+        gd = GameDay.objects.create(date=date.today() - timedelta(days=days_ago), is_closed=True, is_published=True)
+        self.CourtCheckin.objects.create(gameday=gd, player=self.witness)
+        if athlete_went:
+            self.CourtCheckin.objects.create(gameday=gd, player=self.athlete)
+        if athlete_enrolled or justified:
+            Attendance.objects.create(gameday=gd, player=self.athlete, present=True, is_justified=justified)
+        return gd
+
+    def sync(self):
+        from .views import sync_absences_logic
+        sync_absences_logic()
+        self.athlete.refresh_from_db()
+
+    def test_absences_count_up(self):
+        for d in (5, 4, 3):
+            self.day(d)
+        self.sync()
+        self.assertEqual(self.athlete.consecutive_absences, 3)
+
+    def test_days_before_reset_date_are_ignored(self):
+        for d in (5, 4, 3):
+            self.day(d)
+        Player.objects.filter(pk=self.athlete.pk).update(absences_reset_date=date.today() - timedelta(days=4))
+        self.sync()
+        self.assertEqual(self.athlete.consecutive_absences, 1)
+
+    def test_justified_absence_neither_counts_nor_marks_no_show(self):
+        self.day(5)
+        gd = self.day(4, justified=True)
+        self.sync()
+        self.assertEqual(self.athlete.consecutive_absences, 1)
+        self.assertFalse(Attendance.objects.get(gameday=gd, player=self.athlete).was_no_show)
+
+    def test_unjustified_enrolled_absence_is_no_show(self):
+        gd = self.day(4, athlete_enrolled=True)
+        self.sync()
+        self.assertTrue(Attendance.objects.get(gameday=gd, player=self.athlete).was_no_show)
+        self.assertEqual(self.athlete.consecutive_absences, 1)
+
+    def test_court_checkin_resets_count(self):
+        self.day(5)
+        self.day(4, athlete_went=True)
+        self.sync()
+        self.assertEqual(self.athlete.consecutive_absences, 0)
+
+    def test_admin_action_sets_reset_date(self):
+        from unittest.mock import Mock
+        from apps.players.admin import reset_consecutive_absences
+        Player.objects.filter(pk=self.athlete.pk).update(consecutive_absences=7)
+        reset_consecutive_absences(Mock(), None, Player.objects.filter(pk=self.athlete.pk))
+        self.athlete.refresh_from_db()
+        self.assertEqual(self.athlete.consecutive_absences, 0)
+        self.assertEqual(self.athlete.absences_reset_date, timezone.now().date())
+
+
+class InactiveAndReactivationTests(CircuitApiTestCase):
+    """Inativo não se inscreve; quem aparece na quadra volta a ficar ativo sem o recálculo desfazer."""
+
+    COURT = '/api/attendance/court-checkins'
+
+    def setUp(self):
+        super().setUp()
+        from .models import CourtCheckin
+        self.CourtCheckin = CourtCheckin
+        self.witness = make_player('Testemunha')
+        Player.objects.filter(pk__in=[self.p1.pk, self.witness.pk]).update(
+            created_at=timezone.now() - timedelta(days=60))
+        self.p1.refresh_from_db()
+
+    def past_absences(self, n):
+        """n circuitos encerrados no passado em que o p1 não foi à quadra."""
+        for d in range(n, 0, -1):
+            gd = GameDay.objects.create(date=date.today() - timedelta(days=d), is_closed=True, is_published=True)
+            self.CourtCheckin.objects.create(gameday=gd, player=self.witness)
+
+    def sync(self):
+        from .views import sync_absences_logic
+        sync_absences_logic()
+        self.p1.refresh_from_db()
+
+    def set_inactive(self):
+        Player.objects.filter(pk=self.p1.pk).update(status='inactive')
+
+    def test_inactive_athlete_cannot_check_in(self):
+        self.set_inactive()
+        gd = self.make_gameday()
+        response = self.checkin(gd, self.p1)
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(self.att(gd, self.p1).present)
+
+    def test_admin_can_still_add_inactive_athlete(self):
+        self.set_inactive()
+        gd = self.make_gameday()
+        self.client.force_authenticate(self.admin)
+        self.client.patch(f'{BASE}/{gd.id}/toggle/{self.p1.id}/')
+        self.assertTrue(self.att(gd, self.p1).present)
+
+    def test_court_checkin_reactivates(self):
+        self.set_inactive()
+        gd = self.make_gameday(date=date.today())
+        self.client.force_authenticate(self.admin)
+        self.client.post(f'{self.COURT}/toggle/', {'gameday_id': gd.id, 'player_id': self.p1.id}, format='json')
+        self.p1.refresh_from_db()
+        self.assertEqual(self.p1.status, 'active')
+        self.assertEqual(self.p1.absences_reset_date, date.today())
+
+    def test_bulk_court_checkin_is_staff_only_and_reactivates(self):
+        self.set_inactive()
+        gd = self.make_gameday(date=date.today())
+        payload = {'gameday_id': gd.id, 'player_ids': [self.p1.id], 'action_type': 'check_all'}
+        self.client.force_authenticate(self.athlete_user)
+        self.assertEqual(self.client.post(f'{self.COURT}/bulk-toggle/', payload, format='json').status_code, 403)
+        self.assertFalse(self.CourtCheckin.objects.filter(gameday=gd).exists())
+
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self.client.post(f'{self.COURT}/bulk-toggle/', payload, format='json').status_code, 200)
+        self.p1.refresh_from_db()
+        self.assertEqual(self.p1.status, 'active')
+
+    def test_reactivation_by_court_survives_recalculation(self):
+        self.past_absences(12)
+        self.sync()
+        self.assertEqual(self.p1.status, 'inactive')
+        gd = self.make_gameday(date=date.today())  # circuito de hoje, ainda aberto
+        self.client.force_authenticate(self.admin)
+        self.client.post(f'{self.COURT}/toggle/', {'gameday_id': gd.id, 'player_id': self.p1.id}, format='json')
+        self.sync()
+        self.assertEqual(self.p1.status, 'active')
+
+    def test_recalculation_keeps_manual_inactivation(self):
+        """Quem o admin inativou não volta a ativo só porque já foi à quadra no passado."""
+        gd = GameDay.objects.create(date=date.today() - timedelta(days=3), is_closed=True, is_published=True)
+        self.CourtCheckin.objects.create(gameday=gd, player=self.p1)
+        self.set_inactive()
+        self.sync()
+        self.assertEqual(self.p1.status, 'inactive')
+
+    def test_admin_reactivation_survives_recalculation(self):
+        self.past_absences(12)
+        self.sync()
+        self.assertEqual(self.p1.status, 'inactive')
+        self.client.force_authenticate(self.admin)
+        response = self.client.patch(f'/api/players/{self.p1.id}/', {'status': 'active'}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.sync()
+        self.assertEqual(self.p1.status, 'active')
+        self.assertEqual(self.p1.consecutive_absences, 0)
+
+    def test_admin_court_action_creates_checkin_and_reactivates(self):
+        from unittest.mock import Mock
+        from .admin import court_checkin_add
+        self.set_inactive()
+        gd = self.make_gameday(date=date.today())
+        court_checkin_add(Mock(), None, Attendance.objects.filter(gameday=gd, player=self.p1))
+        self.assertTrue(self.CourtCheckin.objects.filter(gameday=gd, player=self.p1).exists())
+        self.p1.refresh_from_db()
+        self.assertEqual(self.p1.status, 'active')

@@ -534,6 +534,12 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
         if attendance.is_reserved:
             return Response(self._reservation_payload(attendance, 'Sua vaga já está reservada. Falta só o pagamento!'))
+
+        if attendance.player.status == 'inactive':
+            return Response(
+                {'detail': 'Sua conta está inativa por excesso de faltas. Procure a administração para regularizar.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
             
         from apps.subscriptions.services import SubscriptionService
         from django.db import transaction
@@ -911,18 +917,31 @@ def sync_absences_logic():
         for g in finished_gamedays:
             g_checkin_pids = set(c.player_id for c in g.court_checkins.all())
             for att in g.attendances.all():
-                if att.present and att.player_id not in g_checkin_pids:
+                # Falta justificada não vira no-show
+                if att.present and att.player_id not in g_checkin_pids and not att.is_justified:
                     att.was_no_show = True
                     attendances_to_update.append(att)
-                    
+
+        daily_justified_pids = {
+            att.player_id for g in finished_gamedays for att in g.attendances.all() if att.is_justified
+        }
+
         # Atualizar faltas dos jogadores para este dia
         for p in players_qs:
             if p.created_at.date() > date:
                 continue
-                
+
+            # Dias até o Ponto de Reset (zerado manualmente pelo admin) são ignorados
+            if p.absences_reset_date and date <= p.absences_reset_date:
+                p.consecutive_absences = 0
+                continue
+
             if p.id in daily_checkin_pids:
                 # Foi na quadra. Zera!
                 p.consecutive_absences = 0
+            elif p.id in daily_justified_pids:
+                # Falta justificada: não zera, mas também não soma
+                pass
             elif finished_gamedays:
                 # Não foi na quadra (ou não se inscreveu ou deu no-show)
                 p.consecutive_absences += 1
@@ -968,7 +987,7 @@ class CourtCheckinViewSet(viewsets.ModelViewSet):
     filterset_fields = ['gameday', 'player']
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'toggle']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'toggle', 'bulk_toggle']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
 
@@ -992,6 +1011,7 @@ class CourtCheckinViewSet(viewsets.ModelViewSet):
             return Response({'arrived': False, 'player_id': player_id})
         else:
             CourtCheckin.objects.create(gameday_id=gameday_id, player_id=player_id)
+            Player.reactivate_inactive([player_id])
             return Response({'arrived': True, 'player_id': player_id})
 
     @action(detail=False, methods=['post'], url_path='bulk-toggle')
@@ -1018,5 +1038,6 @@ class CourtCheckinViewSet(viewsets.ModelViewSet):
             ]
             if new_checkins:
                 CourtCheckin.objects.bulk_create(new_checkins)
+                Player.reactivate_inactive([c.player_id for c in new_checkins])
                 
         return Response({'detail': 'Operação em lote concluída com sucesso!'})

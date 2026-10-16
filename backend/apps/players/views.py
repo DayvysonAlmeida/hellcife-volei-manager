@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Q, Subquery, OuterRef, FloatField, Case, When, IntegerField
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from .models import Player, StarHistory, Badge
 from apps.notifications.models import Notification
@@ -122,6 +123,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
         extra_fields = {}
         if old_status != 'active' and new_status == 'active':
             extra_fields['consecutive_absences'] = 0
+            # Ponto de Reset: senão o recálculo de faltas inativa de novo pelo histórico
+            extra_fields['absences_reset_date'] = timezone.now().date()
 
         serializer.save(**extra_fields)
 

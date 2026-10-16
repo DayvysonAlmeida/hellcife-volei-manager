@@ -219,8 +219,10 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             # Sincroniza com a Quadra: se ele foi adicionado no time manualmente, ele está na quadra
             if generation.gameday_id:
                 from apps.attendance.models import CourtCheckin
-                CourtCheckin.objects.get_or_create(gameday_id=generation.gameday_id, player_id=player_id)
-                
+                _, arrived = CourtCheckin.objects.get_or_create(gameday_id=generation.gameday_id, player_id=player_id)
+                if arrived:
+                    Player.reactivate_inactive([player_id])
+
             self._recalculate_generation_overalls(generation)
             return Response({'detail': 'Jogador adicionado com sucesso ao time.'})
         except Team.DoesNotExist:
