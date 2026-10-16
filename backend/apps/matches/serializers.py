@@ -12,7 +12,7 @@ class MatchPlayerSerializer(serializers.ModelSerializer):
         model = MatchPlayer
         fields = ['id', 'player', 'player_name', 'player_avatar', 'player_shirt', 'player_invited_by',
                   'match_team', 'mvp', 'best_attacker', 'best_server', 'best_defender',
-                  'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
+                  'best_setter', 'best_libero', 'best_blocker', 'best_opposite', 'is_borrowed', 'borrowed_from_team_name']
 
 
 class MatchTeamSerializer(serializers.ModelSerializer):
@@ -48,7 +48,7 @@ class MatchListPlayerSerializer(serializers.ModelSerializer):
         model = MatchPlayer
         fields = ['id', 'player', 'player_name', 'player_avatar', 'player_position',
                   'player_shirt', 'player_is_guest', 'player_invited_by', 'mvp', 'best_attacker', 'best_server', 'best_defender',
-                  'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
+                  'best_setter', 'best_libero', 'best_blocker', 'best_opposite', 'is_borrowed', 'borrowed_from_team_name']
 
 
 class MatchListTeamSerializer(serializers.ModelSerializer):

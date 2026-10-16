@@ -289,6 +289,7 @@ export function BracketPage() {
           color_hex: state.courtA.color_hex,
           score: state.scoreA,
           player_ids: state.courtA.team_players.map((p: any) => p.player),
+          borrowed_ids: state.courtA.team_players.filter((p: any) => p.is_borrowed).map((p: any) => p.player),
         },
         {
           team_id: state.courtB.id,
@@ -296,6 +297,7 @@ export function BracketPage() {
           color_hex: state.courtB.color_hex,
           score: state.scoreB,
           player_ids: state.courtB.team_players.map((p: any) => p.player),
+          borrowed_ids: state.courtB.team_players.filter((p: any) => p.is_borrowed).map((p: any) => p.player),
         }
       ]
     };

@@ -539,6 +539,7 @@ export interface QuickMatchData {
     best_libero_ids?: number[];
     best_blocker_ids?: number[];
     best_opposite_ids?: number[];
+    borrowed_ids?: number[];
   }[];
 }
 
@@ -571,6 +572,8 @@ export interface MatchPlayer {
   best_libero: boolean;
   best_blocker: boolean;
   best_opposite: boolean;
+  is_borrowed?: boolean;
+  borrowed_from_team_name?: string | null;
 }
 
 // ==================== Hall of Fame ====================

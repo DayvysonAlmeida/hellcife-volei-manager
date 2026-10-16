@@ -10,6 +10,25 @@ from .serializers import MatchSerializer, MatchListSerializer, MatchWriteSeriali
 from apps.core.permissions import IsAdminOrModerator
 
 
+AWARD_FIELDS = ['mvp', 'best_attacker', 'best_server', 'best_defender', 'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
+
+
+def _create_match_players(match, match_team, team_data):
+    """Cria os jogadores de um time da partida (prêmios e empréstimos) em uma única query."""
+    award_ids = {field: set(team_data.get(f'{field}_ids', [])) for field in AWARD_FIELDS}
+    borrowed_ids = set(team_data.get('borrowed_ids', []))
+    MatchPlayer.objects.bulk_create([
+        MatchPlayer(
+            match=match,
+            player_id=player_id,
+            match_team=match_team,
+            is_borrowed=player_id in borrowed_ids,
+            **{field: player_id in ids for field, ids in award_ids.items()},
+        )
+        for player_id in team_data.get('player_ids', [])
+    ])
+
+
 class MatchViewSet(viewsets.ModelViewSet):
     queryset = Match.objects.all().select_related(
         'created_by', 'team_generation'
@@ -64,23 +83,7 @@ class MatchViewSet(viewsets.ModelViewSet):
                 winner=not is_draw and team_data.get('score', 0) == max_score,
                 team_id=team_data.get('team_id'),
             )
-            # Adiciona jogadores ao time usando bulk_create (super rápido)
-            match_players = []
-            for player_id in team_data.get('player_ids', []):
-                match_players.append(MatchPlayer(
-                    match=match,
-                    player_id=player_id,
-                    match_team=mt,
-                    mvp=player_id in team_data.get('mvp_ids', []),
-                    best_attacker=player_id in team_data.get('best_attacker_ids', []),
-                    best_server=player_id in team_data.get('best_server_ids', []),
-                    best_defender=player_id in team_data.get('best_defender_ids', []),
-                    best_setter=player_id in team_data.get('best_setter_ids', []),
-                    best_libero=player_id in team_data.get('best_libero_ids', []),
-                    best_blocker=player_id in team_data.get('best_blocker_ids', []),
-                    best_opposite=player_id in team_data.get('best_opposite_ids', [])
-                ))
-            MatchPlayer.objects.bulk_create(match_players)
+            _create_match_players(match, mt, team_data)
 
         # Invalidar cache do dashboard
         cache.delete('dashboard_data')
@@ -129,23 +132,7 @@ class MatchViewSet(viewsets.ModelViewSet):
                 winner=not is_draw and team_data.get('score', 0) == max_score,
                 team_id=team_data.get('team_id'),
             )
-            # Adiciona jogadores ao time usando bulk_create (super rápido)
-            match_players = []
-            for player_id in team_data.get('player_ids', []):
-                match_players.append(MatchPlayer(
-                    match=match,
-                    player_id=player_id,
-                    match_team=mt,
-                    mvp=player_id in team_data.get('mvp_ids', []),
-                    best_attacker=player_id in team_data.get('best_attacker_ids', []),
-                    best_server=player_id in team_data.get('best_server_ids', []),
-                    best_defender=player_id in team_data.get('best_defender_ids', []),
-                    best_setter=player_id in team_data.get('best_setter_ids', []),
-                    best_libero=player_id in team_data.get('best_libero_ids', []),
-                    best_blocker=player_id in team_data.get('best_blocker_ids', []),
-                    best_opposite=player_id in team_data.get('best_opposite_ids', [])
-                ))
-            MatchPlayer.objects.bulk_create(match_players)
+            _create_match_players(match, mt, team_data)
 
         # Invalidar cache do dashboard
         cache.delete('dashboard_data')
