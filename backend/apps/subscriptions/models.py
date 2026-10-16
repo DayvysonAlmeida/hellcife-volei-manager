@@ -83,6 +83,8 @@ class SubscriptionCycle(models.Model):
     free_guests_used = models.PositiveSmallIntegerField(default=0)
     paid_guests_used = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # Pagamento do Asaas que gerou o ciclo; garante idempotência do webhook
+    asaas_payment_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
     
     class Meta:
         verbose_name = 'Ciclo de Assinatura'

@@ -4,7 +4,7 @@ from rest_framework import viewsets, status, views
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.conf import settings
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from datetime import timedelta
 from apps.core.permissions import IsAdminOrModerator
@@ -248,17 +248,14 @@ class AsaasWebhookView(views.APIView):
 
         if event == 'PAYMENT_RECEIVED':
             if subscription_id:
-                try:
-                    sub = UserSubscription.objects.get(asaas_subscription_id=subscription_id)
-                    sub.status = 'active'
-                    sub.save()
-                    SubscriptionService.renew_cycle(sub)
-                except UserSubscription.DoesNotExist:
-                    pass
+                self._handle_subscription_payment(subscription_id, payment_id)
             else:
-                try:
-                    purchase = ExtraCreditPurchase.objects.get(asaas_payment_id=payment_id)
-                    if purchase.status != 'PAID':
+                with transaction.atomic():
+                    purchase = (
+                        ExtraCreditPurchase.objects.select_for_update()
+                        .filter(asaas_payment_id=payment_id).first()
+                    )
+                    if purchase and purchase.status != 'PAID':
                         purchase.status = 'PAID'
                         purchase.save()
                         if purchase.cycle:
@@ -267,8 +264,6 @@ class AsaasWebhookView(views.APIView):
                         else:
                             purchase.player.standalone_credits += purchase.credits_amount
                             purchase.player.save(update_fields=['standalone_credits'])
-                except ExtraCreditPurchase.DoesNotExist:
-                    pass
         elif event == 'PAYMENT_OVERDUE':
             if subscription_id:
                 try:
@@ -287,6 +282,30 @@ class AsaasWebhookView(views.APIView):
                     pass
 
         return Response({'status': 'ok'})
+
+    @staticmethod
+    def _handle_subscription_payment(subscription_id, payment_id):
+        """Gera exatamente um ciclo por pagamento, mesmo com reenvios do Asaas."""
+        with transaction.atomic():
+            sub = (
+                UserSubscription.objects.select_for_update()
+                .filter(asaas_subscription_id=subscription_id).first()
+            )
+            if not sub:
+                return
+            if payment_id and SubscriptionCycle.objects.filter(asaas_payment_id=payment_id).exists():
+                return  # Reenvio de um pagamento já processado
+
+            # UserSubscription.save() já cria um ciclo quando o status passa a 'active';
+            # só renovamos manualmente se esse save não tiver criado nenhum.
+            existing_ids = set(sub.cycles.values_list('id', flat=True))
+            sub.status = 'active'
+            sub.save()
+            cycle = sub.cycles.exclude(id__in=existing_ids).first() or SubscriptionService.renew_cycle(sub)
+
+            if payment_id:
+                cycle.asaas_payment_id = payment_id
+                cycle.save(update_fields=['asaas_payment_id'])
 
 
 class FinanceDashboardView(views.APIView):
