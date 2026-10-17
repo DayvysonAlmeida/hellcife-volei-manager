@@ -29,5 +29,5 @@ RUN python manage.py collectstatic --noinput
 # Expõe a porta que o Cloud Run usa (8000 por padrão do Cloud Run)
 EXPOSE 8000
 
-# Comando para iniciar a aplicação: primeiro roda as migrações e depois sobe o Gunicorn
-CMD python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 4 --timeout 0
+# Comando para iniciar a aplicação: roda as migrações (com trava, para vários containers subindo juntos) e depois sobe o Gunicorn
+CMD python manage.py migrate_with_lock && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 4 --timeout 0
