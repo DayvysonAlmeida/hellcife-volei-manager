@@ -891,7 +891,7 @@ def sync_absences_logic():
     from django.utils import timezone
     
     all_gamedays = GameDay.objects.prefetch_related('court_checkins', 'attendances').order_by('date')
-    today = timezone.now().date()
+    today = timezone.localdate()
     
     players_qs = list(Player.objects.filter(status__in=['active', 'inactive'], is_guest=False))
     

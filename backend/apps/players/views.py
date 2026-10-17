@@ -99,7 +99,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
         if old_status != 'active' and new_status == 'active':
             extra_fields['consecutive_absences'] = 0
             # Ponto de Reset: senão o recálculo de faltas inativa de novo pelo histórico
-            extra_fields['absences_reset_date'] = timezone.now().date()
+            extra_fields['absences_reset_date'] = timezone.localdate()
 
         serializer.save(**extra_fields)
 

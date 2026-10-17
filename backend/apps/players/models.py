@@ -163,7 +163,7 @@ class Player(models.Model):
         Grava o Ponto de Reset para o recálculo de faltas não inativar de novo pelo histórico.
         """
         return cls.objects.filter(id__in=player_ids, status='inactive', is_guest=False).update(
-            status='active', consecutive_absences=0, absences_reset_date=timezone.now().date()
+            status='active', consecutive_absences=0, absences_reset_date=timezone.localdate()
         )
 
 

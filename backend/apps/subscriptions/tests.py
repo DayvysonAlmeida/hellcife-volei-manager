@@ -19,7 +19,7 @@ class AsaasWebhookSubscriptionTests(TestCase):
         player = Player.objects.create(name='Atleta', main_position='setter')
         self.sub = UserSubscription.objects.create(
             player=player, plan=self.plan, status='PENDING_PAYMENT',
-            next_billing_date=timezone.now().date() + timedelta(days=1),
+            next_billing_date=timezone.localdate() + timedelta(days=1),
             asaas_subscription_id='sub_1',
         )
 

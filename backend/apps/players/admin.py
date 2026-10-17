@@ -7,7 +7,7 @@ from .models import Player, StarHistory, Badge, PlayerBadge, Season, SeasonStand
 @admin.action(description='Marcar selecionados como Ativos')
 def make_active(modeladmin, request, queryset):
     # Ponto de Reset: senão o recálculo de faltas inativa de novo pelo histórico
-    updated = queryset.update(status='active', consecutive_absences=0, absences_reset_date=timezone.now().date())
+    updated = queryset.update(status='active', consecutive_absences=0, absences_reset_date=timezone.localdate())
     modeladmin.message_user(request, f'{updated} jogadores foram marcados como ativos e tiveram faltas zeradas.', messages.SUCCESS)
 
 
@@ -19,7 +19,7 @@ def make_inactive(modeladmin, request, queryset):
 
 @admin.action(description='Zerar faltas consecutivas (com Ponto de Reset)')
 def reset_consecutive_absences(modeladmin, request, queryset):
-    updated = queryset.update(consecutive_absences=0, absences_reset_date=timezone.now().date())
+    updated = queryset.update(consecutive_absences=0, absences_reset_date=timezone.localdate())
     modeladmin.message_user(request, f'Faltas zeradas e data de reset cravada para {updated} jogadores.', messages.SUCCESS)
 
 
@@ -63,7 +63,7 @@ class PlayerAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         # Data de reset hoje ou no passado: zera a contagem na hora para refletir no painel
         reset_date = obj.absences_reset_date
-        if 'absences_reset_date' in form.changed_data and reset_date and reset_date <= timezone.now().date():
+        if 'absences_reset_date' in form.changed_data and reset_date and reset_date <= timezone.localdate():
             obj.consecutive_absences = 0
         super().save_model(request, obj, form, change)
 

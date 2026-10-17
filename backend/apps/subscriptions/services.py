@@ -11,7 +11,7 @@ class SubscriptionService:
         try:
             subscription = UserSubscription.objects.get(player=player, status='active')
             # Verifica se existe um ciclo válido para a data de hoje
-            today = timezone.now().date()
+            today = timezone.localdate()
             cycle = subscription.cycles.filter(is_active=True, start_date__lte=today, end_date__gte=today).first()
             return cycle
         except UserSubscription.DoesNotExist:
@@ -138,7 +138,7 @@ class SubscriptionService:
     @staticmethod
     def renew_cycle(subscription):
         """Cria um novo ciclo de 30 dias para a assinatura."""
-        today = timezone.now().date()
+        today = timezone.localdate()
         from dateutil.relativedelta import relativedelta
         import datetime
         
