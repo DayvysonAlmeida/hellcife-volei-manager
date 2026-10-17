@@ -11,6 +11,7 @@ import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { PositionBadge } from '@/components/ui/Badges';
 import type { DashboardStats } from '@/types';
+import { SeasonBadge } from '@/components/seasons/SeasonBadge';
 
 const CATEGORY_MAP: Record<string, { label: string, color: string, icon: any }> = {
   mvp: { label: 'MVP', color: 'text-yellow-400 bg-yellow-500/10', icon: Crown },
@@ -82,6 +83,8 @@ export function AthleteDashboardPage() {
 
   return (
     <div className="space-y-8 pb-10">
+      <SeasonBadge season={dashboard?.season} to="/athlete/seasons" />
+
       {/* ── Modal de Compartilhamento (Global) ── */}
       {shareModal && (
         <ShareAchievementModal
@@ -310,7 +313,7 @@ export function AthleteDashboardPage() {
             ))}
 
             <div className="absolute top-0 left-0 bg-gradient-to-r from-red-700 to-red-600 text-white text-[9px] sm:text-[11px] font-black px-3 sm:px-4 py-1.5 shadow-[0_4px_15px_rgba(220,38,38,0.7)] tracking-widest uppercase" style={{ clipPath: 'polygon(0 0, 100% 0, 90% 100%, 0% 100%)' }}>
-              Mín. 10 Partidas
+              Mín. {dashboard?.season?.fire_shark_min_games ?? 10} Partidas
             </div>
 
             {/* Botão especial Fire Shark — aparece se o atleta estiver no Top 10 */}

@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText, CircuitFinanceSummary, FinanceAttendanceRow, FinanceOverview, ManualPaymentMethod } from '@/types';
+import type { DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText, CircuitFinanceSummary, FinanceAttendanceRow, FinanceOverview, ManualPaymentMethod, SeasonsResponse, EloTiersResponse } from '@/types';
 
 export const dashboardService = {
   get: () => api.get<DashboardData>('/dashboard/').then(r => r.data),
@@ -187,6 +187,11 @@ export const matchesService = {
 
   quickCreate: (data: QuickMatchData) =>
     api.post<Match>('/matches/quick/', data).then(r => r.data),
+};
+
+export const seasonsService = {
+  get: () => api.get<SeasonsResponse>('/players/seasons/').then(r => r.data),
+  eloTiers: () => api.get<EloTiersResponse>('/players/elo-tiers/').then(r => r.data),
 };
 
 export const hallOfFameService = {

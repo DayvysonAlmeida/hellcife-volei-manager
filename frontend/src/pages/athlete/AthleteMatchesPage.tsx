@@ -7,6 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { formatDate } from '@/lib/utils';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { EloDelta } from '@/components/elo/EloDelta';
 
 function MatchCard({ match }: { match: any }) {
   const [expanded, setExpanded] = useState(false);
@@ -97,6 +98,7 @@ function MatchCard({ match }: { match: any }) {
                     <Avatar name={mp.player_name} src={mp.player_avatar} size="sm" />
                     <span className="text-text-primary text-sm flex-1">{mp.player_name}</span>
                     <div className="flex items-center gap-2">
+                      <EloDelta value={mp.elo_delta} />
                       {mp.mvp && (
                         <span className="flex items-center gap-1 text-yellow-400 text-xs">
                           <Crown size={11} /> MVP

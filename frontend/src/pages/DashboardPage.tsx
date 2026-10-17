@@ -16,6 +16,7 @@ import { SyncButton } from '@/components/ui/SyncButton';
 import { Crown } from 'lucide-react';
 import { dashboardService } from '@/services';
 import type { DashboardData } from '@/types';
+import { SeasonBadge } from '@/components/seasons/SeasonBadge';
 
 export function DashboardPage() {
   const { data, isLoading, error, refetch } = useQuery<DashboardData>({
@@ -44,6 +45,9 @@ export function DashboardPage() {
               Painel <span className="text-red">Geral</span>
             </h1>
             <p className="text-white/60 text-sm mt-2 font-medium uppercase tracking-[0.2em]">Visão geral do desempenho do time.</p>
+            <div className="mt-3">
+              <SeasonBadge season={data?.season} to="/seasons" />
+            </div>
           </div>
           
           <SyncButton onSync={() => refetch()} />

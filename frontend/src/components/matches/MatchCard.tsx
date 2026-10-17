@@ -6,6 +6,7 @@ import { LocationMapModal } from '@/components/ui/LocationMapModal';
 import { formatDate } from '@/lib/utils';
 import { MODALITY_LABELS } from '@/types';
 import type { Modality, Match, MatchPlayer } from '@/types';
+import { EloDelta } from '@/components/elo/EloDelta';
 
 export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle, onDelete }: {
   match: Match;
@@ -289,7 +290,8 @@ export function MatchCard({ match, idx, expanded, isAdmin, isDeleting, onToggle,
                                     </span>
                                   )}
                                 </span>
-                                <div className="flex gap-1.5 flex-shrink-0">
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <EloDelta value={mp.elo_delta} />
                                   {mp.mvp && <Star size={11} className="text-yellow-500 fill-yellow-500" />}
                                   {mp.best_attacker && <Swords size={11} className="text-red" />}
                                   {mp.best_defender && <Shield size={11} className="text-green-400" />}

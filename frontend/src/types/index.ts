@@ -404,6 +404,7 @@ export interface DashboardCategoryWinner {
 }
 
 export interface DashboardStats {
+  season?: SeasonInfo;
   top_wins: DashboardTopPlayer[];
   top_stars: DashboardTopPlayer[];
   fire_sharks: Array<{
@@ -576,6 +577,8 @@ export interface MatchPlayer {
   best_opposite: boolean;
   is_borrowed?: boolean;
   borrowed_from_team_name?: string | null;
+  /** Quanto o Elo da temporada mudou nesta partida (ex.: 18.4 ou -13.9). */
+  elo_delta?: number | null;
 }
 
 // ==================== Hall of Fame ====================
@@ -625,6 +628,7 @@ export interface RegulationText {
 
 // ==================== Dashboard ====================
 export interface DashboardData {
+  season?: SeasonInfo;
   total_players: number;
   active_players: number;
   next_circuit: {
@@ -769,4 +773,57 @@ export interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+// ==================== Temporadas e Elo ====================
+export interface SeasonInfo {
+  number: number;
+  name: string;
+  start_date: string | null;
+  end_date: string;
+  days_left: number;
+  fire_shark_min_games: number;
+  /** Só na pré-temporada: quando começa a Temporada 1. */
+  next_season_starts_in?: number;
+  next_season_start?: string;
+}
+
+export interface SeasonPodiumEntry {
+  position: number;
+  player_id: number;
+  name: string;
+  avatar_url: string | null;
+  elo: number;
+  elo_tier: string;
+  wins: number;
+  matches: number;
+  fire_score: number | null;
+}
+
+export interface PastSeason {
+  number: number;
+  name: string;
+  start_date: string | null;
+  end_date: string;
+  prize_notes: string;
+  podium: { elo: SeasonPodiumEntry[]; fire_shark: SeasonPodiumEntry[]; gladiator: SeasonPodiumEntry[] };
+}
+
+export interface SeasonsResponse {
+  current: SeasonInfo;
+  past: PastSeason[];
+}
+
+export interface EloTier {
+  name: string;
+  key: string;
+  min: number;
+  max: number | null;
+  color: string;
+  icon: string;
+}
+
+export interface EloTiersResponse {
+  tiers: EloTier[];
+  rules: { start: number; k: number; k_placement: number; placement_games: number; min: number };
 }
