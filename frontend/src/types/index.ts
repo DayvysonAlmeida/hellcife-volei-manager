@@ -757,14 +757,37 @@ export interface PlayerStats {
   total_matches: number;
   wins: number;
   losses?: number;
-  win_rank?: number;
+  draws?: number;
+  win_rate: number;
+  win_rank?: number | null;
   fire_shark_rank?: number;
   win_streak?: number;
+  overall_rank?: number | null;
+  latest_mini_star?: string | null;
   mvps: number;
   total_gamedays: number;
   attended_gamedays: number;
   attendance_rate: number;
   overall_history: { date: string; overall: number }[];
+  /** Números da temporada atual (os campos acima são da carreira). */
+  season?: PlayerSeasonStats;
+}
+
+export interface PlayerSeasonStats {
+  number: number;
+  name: string;
+  matches: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  point_balance: number;
+  fire_shark_rank: number | null;
+  fire_shark_min_games: number;
+  games_to_fire_shark: number;
+  gladiator_rank: number | null;
+  attendance_rate: number;
+  attended_days: number;
+  total_days: number;
 }
 
 // ==================== API Helpers ====================

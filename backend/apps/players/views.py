@@ -15,12 +15,14 @@ from .serializers import (
 )
 from .filters import PlayerFilter
 from .rankings import (
-    fire_shark_positions, fire_shark_ranking, ranked_players, season_payload, stars_ranking, wins_positions, wins_ranking,
+    fire_shark_min_games, fire_shark_positions, fire_shark_ranking, ranked_players, season_payload, season_stats,
+    stars_ranking, wins_positions, wins_ranking,
 )
+from .seasons import ensure_current_season
 from apps.core.permissions import IsAdminOrModerator
 from apps.evaluations.models import Evaluation
 from apps.matches.models import MatchPlayer
-from apps.attendance.models import Attendance, GameDay
+from apps.attendance.frequency import circuit_days, frequency
 
 
 def latest_overall_subquery():
@@ -474,10 +476,10 @@ class PlayerViewSet(viewsets.ModelViewSet):
         draws = total_matches - wins - losses
         win_rate = round(wins / total_matches * 100, 1) if total_matches > 0 else 0
 
-        # Presença (2 queries simples)
-        total_gamedays = GameDay.objects.filter(date__gte=player.created_at.date()).count()
-        attended = Attendance.objects.filter(player=player, present=True).count()
-        attendance_rate = round(attended / total_gamedays * 100, 1) if total_gamedays > 0 else 0
+        # Presença: mesma regra das faltas (dias com circuito realizado, ida = check-in na quadra)
+        season = ensure_current_season()
+        career_freq = frequency(player, circuit_days())
+        season_freq = frequency(player, circuit_days(season.start_date, season.end_date))
 
         # Histórico de overall (1 query)
         evaluations = player.evaluations.order_by('date').values('date', 'overall')
@@ -494,20 +496,41 @@ class PlayerViewSet(viewsets.ModelViewSet):
         overall_rank = qs_players.filter(annotated_overall__gt=player_overall).count() + 1 if player_overall > 0 else None
 
         # Posição no Fire Shark (mesma regra de todas as telas; inativo/convidado não tem posição)
-        win_rank = fire_shark_positions().get(player.id)
+        win_rank = fire_shark_positions(season).get(player.id)
+
+        # Números da temporada (os rankings são por temporada; os totais acima são da carreira)
+        st = season_stats(season)
+        mine = st.get(player.id, {'matches': 0, 'wins': 0, 'balance': 0})
+        min_games = fire_shark_min_games(season, st)
+        season_block = {
+            'number': season.number,
+            'name': season.name,
+            'matches': mine['matches'],
+            'wins': mine['wins'],
+            'losses': mine['matches'] - mine['wins'],
+            'win_rate': round(mine['wins'] / mine['matches'] * 100, 1) if mine['matches'] else 0,
+            'point_balance': mine['balance'],
+            'fire_shark_rank': win_rank,
+            'fire_shark_min_games': min_games,
+            'games_to_fire_shark': max(0, min_games - mine['matches']),
+            'gladiator_rank': wins_positions(season).get(player.id),
+            'attendance_rate': season_freq['rate'],
+            'attended_days': season_freq['attended_days'],
+            'total_days': season_freq['total_days'],
+        }
 
         last_star = StarHistory.objects.filter(player=player, action='add').exclude(category='promotion').order_by('-created_at').first()
         latest_mini_star = last_star.category if last_star else None
 
-        # Calcula a sequência de vitórias (Win Streak)
+        # Sequência de vitórias: da partida mais recente para trás (vários jogos no mesmo dia seguem a ordem de cadastro)
         streak = 0
-        appearances = list(player.match_appearances.select_related('match_team__match').order_by('-match_team__match__date'))
-        for app in appearances:
-            if app.match_team and app.match_team.match:
-                if app.match_team.winner:
-                    streak += 1
-                else:
-                    break
+        results = (player.match_appearances.filter(match_team__isnull=False)
+                   .order_by('-match__date', '-match__created_at', '-match_id')
+                   .values_list('match_team__winner', flat=True))
+        for won in results:
+            if not won:
+                break
+            streak += 1
 
         return Response({
             'player_id': player.id,
@@ -518,13 +541,14 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'win_rate': win_rate,
             'win_streak': streak,
             'mvps': mvps,
-            'total_gamedays': total_gamedays,
-            'attended_gamedays': attended,
-            'attendance_rate': attendance_rate,
+            'total_gamedays': career_freq['total_days'],
+            'attended_gamedays': career_freq['attended_days'],
+            'attendance_rate': career_freq['rate'],
             'overall_history': list(evaluations),
             'overall_rank': overall_rank,
             'win_rank': win_rank,
             'latest_mini_star': latest_mini_star,
+            'season': season_block,
         })
 
     @action(detail=False, methods=['get'], url_path='me', permission_classes=[IsAuthenticated])

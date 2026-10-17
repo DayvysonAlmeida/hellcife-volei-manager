@@ -10,7 +10,7 @@ import { ShareAchievementModal, type ShareModalProps } from '@/components/athlet
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { PositionBadge } from '@/components/ui/Badges';
-import type { DashboardStats } from '@/types';
+import type { DashboardStats, PlayerStats } from '@/types';
 import { SeasonBadge } from '@/components/seasons/SeasonBadge';
 
 const CATEGORY_MAP: Record<string, { label: string, color: string, icon: any }> = {
@@ -44,7 +44,7 @@ export function AthleteDashboardPage() {
     queryFn: () => api.get('/players/me/').then(r => r.data),
   });
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<PlayerStats>({
     queryKey: ['athlete-stats', player?.id],
     queryFn: () => api.get(`/players/${player.id}/stats/`).then(r => r.data),
     enabled: !!player?.id,
@@ -64,12 +64,15 @@ export function AthleteDashboardPage() {
     return 'Boa noite';
   };
 
+  const season = stats?.season;
+
   const statCards = [
     { label: 'Top 10 Vits', value: dashboard?.top_wins.findIndex(p => p.id === player?.id) !== -1 ? `#${(dashboard?.top_wins.findIndex(p => p.id === player?.id) ?? -1) + 1}` : '—', icon: Trophy, color: 'text-yellow-400' },
     { label: 'Top 10 Estrelas', value: dashboard?.top_stars.findIndex(p => p.id === player?.id) !== -1 ? `#${(dashboard?.top_stars.findIndex(p => p.id === player?.id) ?? -1) + 1}` : '—', icon: Star, color: 'text-blue-400' },
-    { label: 'Partidas', value: stats?.total_matches ?? '—', icon: Swords, color: 'text-blue-400' },
-    { label: 'Vitórias', value: stats?.wins ?? '—', icon: Trophy, color: 'text-green-400' },
-    { label: 'Presença', value: stats?.attendance_rate != null ? `${stats.attendance_rate}%` : '—', icon: CalendarCheck, color: 'text-purple-400' },
+    // Números da temporada, como os rankings (a carreira fica no perfil)
+    { label: 'Partidas', value: season?.matches ?? '—', icon: Swords, color: 'text-blue-400' },
+    { label: 'Vitórias', value: season?.wins ?? '—', icon: Trophy, color: 'text-green-400' },
+    { label: 'Presença', value: season ? `${season.attendance_rate}%` : '—', icon: CalendarCheck, color: 'text-purple-400' },
     { label: 'Mini Estrelas', value: player?.mini_stars ?? '—', icon: Flame, color: 'text-orange-400' },
     { label: 'Faltas Cons.', value: player?.consecutive_absences ?? 0, icon: AlertTriangle, color: 'text-red-400' },
   ];
@@ -241,7 +244,7 @@ export function AthleteDashboardPage() {
         </motion.div>
       </div>
 
-      {stats && stats.total_matches < 10 && (
+      {season && season.fire_shark_rank == null && season.games_to_fire_shark > 0 && (
         <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4 flex items-center justify-between text-orange-200 shadow-[0_0_15px_rgba(249,115,22,0.1)]">
           <div className="flex items-center gap-3">
             <div className="bg-orange-500/20 p-2 rounded-lg text-orange-400">
@@ -249,7 +252,10 @@ export function AthleteDashboardPage() {
             </div>
             <div>
               <p className="font-bold text-sm tracking-widest uppercase text-orange-400">Tubarão em Avaliação</p>
-              <p className="text-xs text-orange-200/70 mt-0.5">Você tem {stats.total_matches} partida(s). Jogue no mínimo 10 para entrar no Ranking Fire Shark oficial!</p>
+              <p className="text-xs text-orange-200/70 mt-0.5">
+                Você tem {season.matches} {season.matches === 1 ? 'partida' : 'partidas'} na {season.name}.
+                Faltam {season.games_to_fire_shark} para entrar no Fire Shark (mín. {season.fire_shark_min_games}).
+              </p>
             </div>
           </div>
         </div>
@@ -475,6 +481,9 @@ export function AthleteDashboardPage() {
       )}
 
       {/* ── Stats Pessoais Grid ── */}
+      {season && (
+        <p className="text-text-muted text-[10px] uppercase tracking-[0.2em] font-bold -mb-4">Seus números · {season.name}</p>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {statCards.map((s, i) => (
           <motion.div
@@ -525,7 +534,7 @@ export function AthleteDashboardPage() {
                     wins: me.wins,
                     winRate: me.win_rate,
                     totalMatches: me.total_matches ?? stats?.total_matches,
-                    overallRank: stats?.overall_rank,
+                    overallRank: stats?.overall_rank ?? undefined,
                     winRank: myWinsRankIndex + 1,
                   });
                 }}

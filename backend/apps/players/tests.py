@@ -222,3 +222,39 @@ class FireSharkRuleTests(SeasonRolloverTests):
     test_rollover_saves_standings_and_resets_elo = None
     test_editing_history_replays_the_season = None
     test_seasons_endpoint_shows_podium = None
+
+
+class PlayerStatsTests(SeasonRolloverTests):
+    """Perfil do atleta: sequência de vitórias na ordem certa e números da temporada separados da carreira."""
+
+    def stats(self, player, day):
+        with self.at(day):
+            return self.client.get(f'/api/players/{player.id}/stats/').data
+
+    def test_streak_follows_the_match_order_within_the_day(self):
+        a, b, c, d = self.players
+        day = date(2026, 10, 10)
+        self.play(day, [a, b], [c, d])
+        self.play(day, [a, b], [c, d])
+        self.play(day, [c, d], [a, b])  # a última partida do dia foi derrota
+        self.assertEqual(self.stats(a, date(2026, 10, 16))['win_streak'], 0)
+        self.play(day + timedelta(days=1), [a, b], [c, d])
+        self.assertEqual(self.stats(a, date(2026, 10, 16))['win_streak'], 1)
+
+    def test_season_numbers_are_separate_from_career(self):
+        a, b, c, d = self.players
+        for i in range(3):
+            self.play(date(2026, 11, 1) + timedelta(days=i), [a, b], [c, d])  # pré-temporada
+        self.play(date(2027, 1, 5), [a, b], [c, d])
+        self.play(date(2027, 1, 6), [c, d], [a, b])
+        data = self.stats(a, date(2027, 1, 10))
+        self.assertEqual(data['total_matches'], 5)  # carreira
+        season = data['season']
+        self.assertEqual((season['number'], season['matches'], season['wins'], season['win_rate']), (1, 2, 1, 50.0))
+        self.assertEqual((season['fire_shark_min_games'], season['games_to_fire_shark']), (10, 8))
+        self.assertIsNone(season['fire_shark_rank'])
+        self.assertEqual(season['gladiator_rank'], 1)
+
+    test_rollover_saves_standings_and_resets_elo = None
+    test_editing_history_replays_the_season = None
+    test_seasons_endpoint_shows_podium = None

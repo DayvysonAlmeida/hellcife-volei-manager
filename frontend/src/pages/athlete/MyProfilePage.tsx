@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +10,7 @@ import { SubscriptionWidget } from '@/components/subscriptions/SubscriptionWidge
 import { TrophyRoom } from '@/components/profile/TrophyRoom';
 import api from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
-import { SKILL_LABELS } from '@/types';
+import { SKILL_LABELS, type PlayerStats } from '@/types';
 
 
 export function MyProfilePage() {
@@ -26,7 +27,9 @@ export function MyProfilePage() {
   });
 
 
-  const { data: stats } = useQuery({
+  const [scope, setScope] = useState<'season' | 'career'>('season');
+
+  const { data: stats } = useQuery<PlayerStats>({
     queryKey: ['athlete-stats', player?.id],
     queryFn: () => api.get(`/players/${player.id}/stats/`).then(r => r.data),
     enabled: !!player?.id,
@@ -95,14 +98,40 @@ export function MyProfilePage() {
         </div>
       </motion.div>
 
-      {/* ── Stats Rápidas ── */}
+      {/* ── Stats Rápidas (temporada ou carreira) ── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="font-display text-lg text-text-primary tracking-wider">MEUS NÚMEROS</h2>
+        <div className="inline-flex rounded-xl border border-border/40 bg-surface/60 p-1" role="tablist" aria-label="Período dos números">
+          {(['season', 'career'] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={scope === s}
+              onClick={() => setScope(s)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors',
+                scope === s ? 'bg-red text-white' : 'text-text-muted hover:text-text-primary'
+              )}
+            >
+              {s === 'season' ? (stats?.season?.name ?? 'Temporada') : 'Carreira'}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Partidas', value: stats?.total_matches ?? '—', icon: Swords, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-          { label: 'Vitórias', value: stats?.wins ?? '—', icon: Trophy, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-          { label: '% Vitórias', value: stats?.win_rate != null ? `${stats.win_rate}%` : '—', icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-500/10' },
-          { label: 'Presença', value: stats?.attendance_rate != null ? `${stats.attendance_rate}%` : '—', icon: CalendarCheck, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-        ].map((s, i) => (
+        {(() => {
+          const season = stats?.season;
+          const n = scope === 'season' && season
+            ? { matches: season.matches, wins: season.wins, winRate: season.win_rate, presence: season.attendance_rate }
+            : { matches: stats?.total_matches, wins: stats?.wins, winRate: stats?.win_rate, presence: stats?.attendance_rate };
+          return [
+            { label: 'Partidas', value: n.matches ?? '—', icon: Swords, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+            { label: 'Vitórias', value: n.wins ?? '—', icon: Trophy, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
+            { label: '% Vitórias', value: n.winRate != null ? `${n.winRate}%` : '—', icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-500/10' },
+            { label: 'Presença', value: n.presence != null ? `${n.presence}%` : '—', icon: CalendarCheck, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+          ];
+        })().map((s, i) => (
           <motion.div
             key={s.label}
             whileHover={{ scale: 1.05, y: -5 }}

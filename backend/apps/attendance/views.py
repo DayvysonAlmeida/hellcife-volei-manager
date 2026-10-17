@@ -9,6 +9,7 @@ from django.utils import timezone
 from .models import GameDay, Attendance, AttendancePayment, CourtCheckin
 from .payments import CircuitPaymentService
 from . import finance
+from .frequency import circuit_days, circuit_happened, frequency
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
 from apps.players.models import Player
 from apps.core.permissions import IsAdminOrModerator
@@ -306,39 +307,21 @@ class GameDayViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='general-stats')
     def general_stats(self, request):
         """Retorna estatísticas gerais de frequência (estilo planilha) para os atletas."""
-        from django.db.models import Count
-        from django.utils import timezone
-        
-        # Obter todos os GameDays finalizados (agrupados por data para não duplicar circuitos do mesmo dia)
-        finished_gamedays = GameDay.objects.filter(is_closed=True).values('date').distinct()
-        finished_dates = sorted([g['date'] for g in finished_gamedays])
-        
+        # Mesma regra das faltas: dias com circuito realizado desde o cadastro, presença = check-in na quadra
+        days = circuit_days()
         players_qs = Player.objects.filter(is_guest=False, status__in=['active', 'inactive'])
-        
-        # Puxar todos os check-ins na quadra e no-shows para não fazer queries em loop
-        court_checkins = CourtCheckin.objects.filter(gameday__is_closed=True).values('player_id', 'gameday__date')
-        checkins_by_player = {}
-        for c in court_checkins:
-            pid = c['player_id']
-            date = c['gameday__date']
-            if pid not in checkins_by_player:
-                checkins_by_player[pid] = set()
-            checkins_by_player[pid].add(date)
-            
+
         no_shows = Attendance.objects.filter(was_no_show=True).values('player_id').annotate(count=Count('id'))
         no_shows_map = {n['player_id']: n['count'] for n in no_shows}
-        
+
         stats = []
         for p in players_qs:
-            # Quantos dias de jogo ocorreram DESDE que o jogador entrou no sistema?
-            player_possible_dates = [d for d in finished_dates if d >= p.created_at.date()]
-            total_possible = len(player_possible_dates)
-            
-            presences = len(checkins_by_player.get(p.id, set()))
+            freq = frequency(p, days)
+            total_possible = freq['total_days']
+            presences = freq['attended_days']
             player_no_shows = no_shows_map.get(p.id, 0)
-            
-            rate = int((presences / total_possible) * 100) if total_possible > 0 else 0
-            
+            rate = freq['rate']
+
             # Request para pegar URL absoluta da foto
             avatar_url = p.avatar.url if p.avatar else None
             if avatar_url and request is not None:
@@ -912,10 +895,7 @@ def sync_absences_logic():
         # Um dia só "encerrou" se a data passou ou foi fechado.
         # REGRA NOVA: Só consideramos Circuitos que foram PUBLICADOS e tiveram pelo menos 1 pessoa na quadra
         # Se não teve ninguém na quadra (court_checkins vazio) ou não foi publicado, o evento não ocorreu de fato.
-        finished_gamedays = [
-            g for g in gamedays 
-            if (g.is_closed or g.date < today) and g.is_published and len(g.court_checkins.all()) > 0
-        ]
+        finished_gamedays = [g for g in gamedays if circuit_happened(g, today)]
         
         if not finished_gamedays:
             continue

@@ -372,6 +372,22 @@ class AbsenceSyncTests(TestCase):
         self.sync()
         self.assertEqual(self.athlete.consecutive_absences, 0)
 
+    def test_frequency_follows_the_absence_rule(self):
+        """Presença: dias com circuito realizado desde o cadastro; ida = check-in na quadra."""
+        from .frequency import circuit_days, frequency
+        self.day(6, athlete_went=True)
+        same_day = GameDay.objects.create(date=date.today() - timedelta(days=6), is_closed=True, is_published=True)
+        self.CourtCheckin.objects.create(gameday=same_day, player=self.witness)  # 2 circuitos no mesmo dia = 1 dia
+        self.day(5)                    # faltou
+        self.day(4, justified=True)    # falta justificada: fora da conta
+        self.day(3, athlete_went=True)
+        self.day(40)                   # antes do cadastro
+        for days_ago, closed, published in ((2, True, False), (0, False, True)):  # não publicado; hoje, ainda aberto
+            gd = GameDay.objects.create(date=date.today() - timedelta(days=days_ago), is_closed=closed, is_published=published)
+            self.CourtCheckin.objects.create(gameday=gd, player=self.witness)
+        self.athlete.refresh_from_db()
+        self.assertEqual(frequency(self.athlete, circuit_days()), {'attended_days': 2, 'total_days': 3, 'rate': 66.7})
+
     def test_admin_action_sets_reset_date(self):
         from unittest.mock import Mock
         from apps.players.admin import reset_consecutive_absences
