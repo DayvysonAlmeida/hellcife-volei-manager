@@ -60,6 +60,10 @@ const CATEGORY_THEMES: Record<string, Theme & { label: string }> = {
   promotion: { label: 'Grande Estrela', accent: '#FDE047', accent2: '#F59E0B', bgTop: '#3b2a05', bgBottom: '#070500' },
 };
 
+const MINI_STAR_THEME: Theme & { label: string } = {
+  label: 'Mini Estrela', accent: '#FCD34D', accent2: '#D97706', bgTop: '#2b1d05', bgBottom: '#050300',
+};
+
 interface CardContent {
   theme: Theme;
   kicker: string;
@@ -129,7 +133,8 @@ function buildContent(d: AchievementShareCardProps): CardContent {
     }
 
     case 'mini_star': {
-      const cat = (d.starCategory && CATEGORY_THEMES[d.starCategory]) || CATEGORY_THEMES.mvp;
+      // Sem categoria conhecida, o card sai neutro (não inventa "MVP")
+      const cat = (d.starCategory && CATEGORY_THEMES[d.starCategory]) || MINI_STAR_THEME;
       const count = Math.min(d.miniStarsCount ?? 0, MINI_STARS_PER_BIG);
       return {
         theme: cat,

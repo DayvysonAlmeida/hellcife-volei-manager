@@ -35,11 +35,6 @@ export function MyProfilePage() {
     enabled: !!player?.id,
   });
 
-  const { data: dashboard } = useQuery({
-    queryKey: ['athlete-dashboard'],
-    queryFn: () => api.get('/dashboard/').then(r => r.data)
-  });
-
   if (isLoading) return <PageLoading />;
   if (!player) return (
     <div className="card p-10 text-center">
@@ -54,11 +49,9 @@ export function MyProfilePage() {
       }))
     : [];
 
-  const fireSharkRankIndex = dashboard?.fire_sharks?.findIndex((p: any) => p.id === player?.id) ?? -1;
-  const fireSharkRank = fireSharkRankIndex >= 0 && fireSharkRankIndex < 4 ? fireSharkRankIndex + 1 : undefined;
-
-  const winRankIndex = dashboard?.top_winners?.findIndex((p: any) => p.id === player?.id) ?? -1;
-  const winRank = winRankIndex >= 0 && winRankIndex < 4 ? winRankIndex + 1 : undefined;
+  // Mesmas posições da lista de atletas (rankings da temporada)
+  const fireSharkRank = stats?.season?.fire_shark_rank ?? undefined;
+  const winRank = stats?.season?.gladiator_rank ?? undefined;
 
   const historyData = stats?.overall_history?.map((h: { date: string; overall: number }) => ({
     date: formatDate(h.date),

@@ -8,13 +8,17 @@ import {
   type ShareAchievementType,
 } from './achievementCard';
 import { cn } from '@/lib/utils';
+import { SHARE_TYPE_ORDER, type ShareVariants } from './shareVariants';
 
 export interface ShareModalProps extends Omit<AchievementShareCardProps, 'type'> {
   type: ShareAchievementType;
   isOpen: boolean;
   onClose: () => void;
-  /** Mostra seletor de tipo — ideal para uso pelo admin */
-  showTypeSelector?: boolean;
+  /**
+   * Admin: um card por conquista do atleta, cada um com os seus dados.
+   * Com mais de um, aparece o seletor (só com os cards conquistados).
+   */
+  variants?: ShareVariants;
 }
 
 const CONGRATS: Record<ShareAchievementType, { title: string; subtitle: string }> = {
@@ -55,9 +59,11 @@ type CardState =
 export function ShareAchievementModal({
   isOpen,
   onClose,
-  showTypeSelector = false,
+  variants,
   ...cardProps
 }: ShareModalProps) {
+  const availableTypes = variants ? SHARE_TYPE_ORDER.filter((t) => variants[t]) : [];
+  const showTypeSelector = availableTypes.length > 1;
   const [activeType, setActiveType] = useState<ShareAchievementType>(cardProps.type);
   const [card, setCard] = useState<CardState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -67,8 +73,9 @@ export function ShareAchievementModal({
     setActiveType(cardProps.type);
   }, [cardProps.type]);
 
-  // cardProps é um objeto novo a cada render; a chave serializada evita regerar à toa
-  const dataKey = JSON.stringify(cardProps);
+  // Cada tipo usa os dados da sua conquista. cardProps/variants são objetos novos a cada
+  // render; a chave serializada evita regerar à toa.
+  const dataKey = JSON.stringify(variants?.[activeType] ?? cardProps);
   const cardData = useMemo<AchievementShareCardProps>(
     () => ({ ...JSON.parse(dataKey), type: activeType }),
     [dataKey, activeType],
@@ -142,6 +149,7 @@ export function ShareAchievementModal({
   return (
     <AnimatePresence>
       <motion.div
+        key="share-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -151,6 +159,7 @@ export function ShareAchievementModal({
       />
 
       <motion.div
+        key="share-dialog"
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -172,14 +181,19 @@ export function ShareAchievementModal({
             </button>
             <div className="text-center pr-8">
               <p className="text-xl font-black text-white tracking-wide">{congrats.title}</p>
-              <p className="text-xs text-gray-400 mt-1">{congrats.subtitle}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {variants ? `Card de ${cardData.athleteName} pronto para compartilhar.` : congrats.subtitle}
+              </p>
             </div>
           </div>
 
-          {/* Seletor de tipo — visível para admin */}
+          {/* Seletor de tipo (admin): só os cards que o atleta conquistou */}
           {showTypeSelector && (
-            <div className="px-4 pt-3 grid grid-cols-4 gap-2">
-              {(Object.keys(TYPE_LABELS) as ShareAchievementType[]).map((t) => (
+            <div
+              className="px-4 pt-3 grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${availableTypes.length}, minmax(0, 1fr))` }}
+            >
+              {availableTypes.map((t) => (
                 <button
                   key={t}
                   onClick={() => setActiveType(t)}

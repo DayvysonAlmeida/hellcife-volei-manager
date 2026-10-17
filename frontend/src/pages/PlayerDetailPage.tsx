@@ -8,6 +8,7 @@ import { PlayerCard } from '@/components/players/PlayerCard';
 import { TrophyRoom } from '@/components/profile/TrophyRoom';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { ShareAchievementModal, type ShareModalProps } from '@/components/athlete/share/ShareAchievementModal';
+import { buildShareVariants, firstShareType } from '@/components/athlete/share/shareVariants';
 import { playersService } from '@/services/players';
 import { evaluationsService } from '@/services';
 import { SKILL_LABELS } from '@/types';
@@ -38,12 +39,6 @@ export function PlayerDetailPage() {
     queryKey: ['player', playerId],
     queryFn: () => playersService.get(playerId),
     enabled: !isNaN(playerId),
-  });
-
-  const { data: dashboard } = useQuery({
-    queryKey: ['admin-dashboard'],
-    queryFn: () => api.get('/dashboard/').then(r => r.data),
-    // Query para pegar o winRank e fireSharkRank se estiver entre os tops
   });
 
   // Access management mutations (admin only)
@@ -129,11 +124,20 @@ export function PlayerDetailPage() {
     { label: 'Bloqueio', value: (player as any).total_block || 0, icon: '🧱', total: (player as any).total_block },
   ];
 
-  const fireSharkRankIndex = dashboard?.fire_sharks?.findIndex((p: any) => p.id === player?.id) ?? -1;
-  const fireSharkRank = fireSharkRankIndex >= 0 && fireSharkRankIndex < 4 ? fireSharkRankIndex + 1 : undefined;
+  // Mesmas posições da lista de atletas (rankings da temporada)
+  const fireSharkRank = stats?.season?.fire_shark_rank ?? undefined;
+  const winRank = stats?.season?.gladiator_rank ?? undefined;
 
-  const winRankIndex = dashboard?.top_winners?.findIndex((p: any) => p.id === player?.id) ?? -1;
-  const winRank = winRankIndex >= 0 && winRankIndex < 4 ? winRankIndex + 1 : undefined;
+  // Um card por conquista do atleta, cada um com os seus dados
+  const shareVariants = buildShareVariants(player, stats);
+  const firstShare = firstShareType(shareVariants);
+  const openAthleteShare = () => {
+    if (!firstShare) {
+      toast('Este atleta ainda não tem conquistas para compartilhar.', { icon: 'ℹ️' });
+      return;
+    }
+    openShareModal({ type: firstShare, ...shareVariants[firstShare]!, variants: shareVariants });
+  };
 
   return (
     <div className="space-y-6">
@@ -142,7 +146,6 @@ export function PlayerDetailPage() {
         <ShareAchievementModal
           isOpen={true}
           onClose={closeShareModal}
-          showTypeSelector={true}
           {...shareModal}
         />
       )}
@@ -167,23 +170,7 @@ export function PlayerDetailPage() {
         {canEdit && (
           <div className="absolute top-6 right-6 z-20 flex flex-wrap gap-2 justify-end">
             <button
-              onClick={() => openShareModal({
-                type: player.big_stars > 0 ? 'big_star' : 'top_wins',
-                athleteName: player.display_name,
-                shirtNumber: player.shirt_number,
-                avatarUrl: player.avatar_url || undefined,
-                avatarInitial: player.display_name.charAt(0),
-                position: player.main_position_display,
-                overall: player.latest_overall,
-                bigStarsTotal: player.big_stars,
-                miniStarsCount: player.mini_stars,
-                wins: stats?.wins,
-                winRate: stats?.win_rate ? Math.round(Number(stats.win_rate)) : undefined,
-                totalMatches: stats?.total_matches,
-                overallRank: stats?.overall_rank,
-                winRank: stats?.win_rank,
-                starCategory: stats?.latest_mini_star,
-              })}
+              onClick={openAthleteShare}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-orange-500/40 text-gray-300 hover:text-orange-400 text-sm font-medium transition-all duration-200"
               title="Compartilhar conquista do atleta"
             >

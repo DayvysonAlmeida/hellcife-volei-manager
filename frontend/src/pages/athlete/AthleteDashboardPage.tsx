@@ -535,7 +535,8 @@ export function AthleteDashboardPage() {
                     winRate: me.win_rate,
                     totalMatches: me.total_matches ?? stats?.total_matches,
                     overallRank: stats?.overall_rank ?? undefined,
-                    winRank: myWinsRankIndex + 1,
+                    // mesma posição do ranking (empatados dividem a posição)
+                    winRank: season?.gladiator_rank ?? myWinsRankIndex + 1,
                   });
                 }}
                 className="absolute top-2 right-2 sm:top-3 sm:right-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 hover:border-yellow-500/50 bg-black/40 hover:bg-black/60 text-gray-400 hover:text-yellow-400 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all duration-300 group/share backdrop-blur-sm"
