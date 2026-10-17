@@ -551,6 +551,52 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'season': season_block,
         })
 
+    @action(detail=True, methods=['get'], url_path='elo-history')
+    def elo_history(self, request, pk=None):
+        """Elo da temporada partida a partida, para o gráfico do perfil. O atleta só vê o próprio."""
+        from apps.matches.models import MatchTeam
+        from .elo_service import ELO_START
+
+        player = self.get_object()
+        is_staff = getattr(request.user, 'profile', None) in ('admin', 'moderator')
+        if not is_staff and player.user_id != request.user.id:
+            return Response({'detail': 'Você só pode ver a sua própria evolução.'}, status=status.HTTP_403_FORBIDDEN)
+
+        season = ensure_current_season()
+        rows = MatchPlayer.objects.filter(player=player, match_team__isnull=False, match__date__lte=season.end_date)
+        if season.start_date:
+            rows = rows.filter(match__date__gte=season.start_date)
+        # Mesma ordem do cálculo do Elo (data, hora de cadastro e partida)
+        rows = list(rows.order_by('match__date', 'match__created_at', 'match_id').values(
+            'match_id', 'match__date', 'match_team_id', 'elo_delta',
+        ))
+
+        teams = {}
+        for match_id, team_id, score, winner in MatchTeam.objects.filter(
+            match_id__in=[r['match_id'] for r in rows]
+        ).values_list('match_id', 'id', 'score', 'winner'):
+            teams.setdefault(match_id, {})[team_id] = (score, winner)
+
+        elo = float(ELO_START)
+        matches = []
+        for r in rows:
+            delta = r['elo_delta'] or 0.0
+            elo += delta
+            match_teams = teams.get(r['match_id'], {})
+            score, won = match_teams.get(r['match_team_id'], (None, False))
+            others = [s for t, (s, _w) in match_teams.items() if t != r['match_team_id']]
+            has_winner = any(w for _s, w in match_teams.values())
+            matches.append({
+                'match_id': r['match_id'],
+                'date': r['match__date'],
+                'result': 'win' if won else ('loss' if has_winner else 'draw'),
+                'score': score,
+                'opponent_score': max(others) if others else None,
+                'delta': round(delta, 1),
+                'elo': round(elo, 1),
+            })
+        return Response({'season': season.name, 'start': ELO_START, 'current': round(player.elo, 1), 'matches': matches})
+
     @action(detail=False, methods=['get'], url_path='me', permission_classes=[IsAuthenticated])
     def me(self, request):
         """Retorna o Player vinculado ao usuário logado (para portal do atleta)."""

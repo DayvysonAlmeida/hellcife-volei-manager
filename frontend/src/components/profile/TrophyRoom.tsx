@@ -6,9 +6,11 @@ import api from '@/lib/api';
 
 interface TrophyRoomProps {
   player: Player;
+  /** Admin: mostra o aviso para cadastrar conquistas quando o catálogo está vazio. O atleta não vê a seção vazia. */
+  showEmptyHint?: boolean;
 }
 
-export function TrophyRoom({ player }: TrophyRoomProps) {
+export function TrophyRoom({ player, showEmptyHint = false }: TrophyRoomProps) {
   const [allBadges, setAllBadges] = useState<Badge[]>([]);
 
   useEffect(() => {
@@ -67,7 +69,8 @@ export function TrophyRoom({ player }: TrophyRoomProps) {
         </div>
       </div>
 
-      {/* Seção 2: Badges / Conquistas */}
+      {/* Seção 2: Badges / Conquistas (some para o atleta enquanto o catálogo estiver vazio) */}
+      {(allBadges.length > 0 || showEmptyHint) && (<>
       <h4 className="text-sm font-bold uppercase tracking-wider text-text-muted mb-4">Conquistas de Carreira</h4>
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
         {allBadges.length > 0 ? allBadges.map(badge => {
@@ -82,10 +85,11 @@ export function TrophyRoom({ player }: TrophyRoomProps) {
           );
         }) : (
            <div className="col-span-full py-8 text-center text-text-muted text-sm border border-dashed border-border rounded-xl">
-             Nenhuma conquista disponível no catálogo do sistema ainda. (Crie-as no Painel Admin!)
+             Nenhuma conquista cadastrada ainda. Crie as conquistas no Django Admin, em Jogadores → Badges.
            </div>
         )}
       </div>
+      </>)}
 
     </div>
   );

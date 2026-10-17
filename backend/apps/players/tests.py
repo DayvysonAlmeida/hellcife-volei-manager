@@ -265,6 +265,37 @@ class EloRankingTests(SeasonRolloverTests):
     test_seasons_endpoint_shows_podium = None
 
 
+class EloHistoryTests(SeasonRolloverTests):
+    """Gráfico da evolução do Elo: soma dos +/- na ordem das partidas e só o próprio atleta vê."""
+
+    def test_history_adds_up_to_the_current_elo(self):
+        a, b, c, d = self.players
+        self.play(date(2026, 11, 1), [a, b], [c, d], score=(21, 15))
+        self.play(date(2026, 11, 1), [c, d], [a, b], score=(21, 19))
+        self.play(date(2026, 11, 2), [a, b], [c, d], score=(21, 10))
+        with self.at(date(2026, 12, 20)):
+            elo_service.recalculate_all()
+            data = self.client.get(f'/api/players/{a.id}/elo-history/').data
+        a.refresh_from_db()
+        self.assertEqual([m['result'] for m in data['matches']], ['win', 'loss', 'win'])
+        self.assertEqual((data['matches'][1]['score'], data['matches'][1]['opponent_score']), (19, 21))
+        self.assertAlmostEqual(data['matches'][-1]['elo'], a.elo, places=0)
+        self.assertEqual(data['start'], 500)
+
+    def test_athlete_sees_only_their_own(self):
+        a, b = self.players[:2]
+        user = User.objects.create_user('atleta@x.com', 'senha-forte-123', name='Atleta')
+        Player.objects.filter(pk=a.pk).update(user=user)
+        self.client.force_authenticate(user)
+        with self.at(date(2026, 12, 20)):
+            self.assertEqual(self.client.get(f'/api/players/{a.id}/elo-history/').status_code, 200)
+            self.assertEqual(self.client.get(f'/api/players/{b.id}/elo-history/').status_code, 403)
+
+    test_rollover_saves_standings_and_resets_elo = None
+    test_editing_history_replays_the_season = None
+    test_seasons_endpoint_shows_podium = None
+
+
 class PlayerStatsTests(SeasonRolloverTests):
     """Perfil do atleta: sequência de vitórias na ordem certa e números da temporada separados da carreira."""
 

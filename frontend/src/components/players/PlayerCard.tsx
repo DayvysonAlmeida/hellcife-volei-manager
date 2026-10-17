@@ -1,7 +1,7 @@
 import { memo, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Star, Edit, Trash2, Activity, TrendingUp, Shield, Swords, AlertTriangle, Flame, Crosshair, Lock, Trophy } from 'lucide-react';
+import { Star, Edit, Trash2, Activity, Shield, Swords, AlertTriangle, Flame, Crosshair, Lock, Trophy } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { POSITION_LABELS } from '@/types';
 import type { Player } from '@/types';
@@ -375,7 +375,8 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
           </div>
 
           {/* Badges de Topo (Win Streak + Top Ranks) */}
-          <div className="absolute top-[8%] left-1/2 -translate-x-1/2 w-[70%] flex flex-wrap justify-center items-center gap-1 z-30 pointer-events-none">
+          {/* Entre o overall (esquerda) e a faixa (direita): estreito para quebrar linha em vez de sobrepor */}
+          <div className="absolute top-[8%] left-1/2 -translate-x-1/2 w-[46%] flex flex-wrap justify-center items-center gap-1 z-30 pointer-events-none">
             {(player.stats?.win_streak ?? 0) >= 2 && (
               <div className="flex items-center gap-0.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] animate-pulse" title={`${player.stats?.win_streak} vitórias consecutivas`}>
                 <span className="text-sm font-black text-white">{player.stats?.win_streak}</span>

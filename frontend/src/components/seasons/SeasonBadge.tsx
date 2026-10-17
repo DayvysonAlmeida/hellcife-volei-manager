@@ -23,8 +23,8 @@ export function SeasonBadge({ season, to }: { season?: SeasonInfo; to: string })
       className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl border border-red/30 bg-red/10 hover:bg-red/15 px-3 py-1.5 transition-colors w-fit max-w-full"
     >
       <CalendarClock size={14} className="text-red flex-shrink-0" />
-      <span className="text-[11px] font-black uppercase tracking-widest text-white whitespace-nowrap">{season.name}</span>
-      <span className="text-[11px] text-white/60 whitespace-nowrap">· {label}</span>
+      <span className="text-[11px] font-black uppercase tracking-widest text-text-primary whitespace-nowrap">{season.name}</span>
+      <span className="text-[11px] text-text-muted whitespace-nowrap">· {label}</span>
     </Link>
   );
 }

@@ -226,7 +226,7 @@ export function PlayerDetailPage() {
         ))}
       </div>
 
-      <TrophyRoom player={player} />
+      <TrophyRoom player={player} showEmptyHint />
 
       {/* ── Faltas Consecutivas ── */}
       {player.consecutive_absences >= 8 && (
