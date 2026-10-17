@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CalendarCheck, ChevronLeft, Plus, Share2, Edit2, Lock, Swords, RefreshCw, Eye, EyeOff, Clock, Users, DollarSign, X, ClipboardCheck } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, Share2, Edit2, Lock, RefreshCw, Eye, EyeOff, Clock, Users, DollarSign, X, ClipboardCheck } from 'lucide-react';
 
 import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -13,7 +13,7 @@ import { PaymentConfirmModal, type PaymentTarget } from '@/components/attendance
 import { invalidatePaymentQueries } from '@/lib/paymentQueries';
 
 import { attendanceService } from '@/services';
-import { formatDate, cn, formatBRL } from '@/lib/utils';
+import { cn, formatBRL } from '@/lib/utils';
 import type { GameDay } from '@/types';
 import { useAuth } from '@/store/AuthContext';
 import toast from 'react-hot-toast';
@@ -34,11 +34,11 @@ export function AttendancePage() {
   const [circuitTab, setCircuitTab] = useState<'active' | 'history'>('active');
   const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
 
-  const { data: gameDaysData, isLoading } = useQuery({
+  const { data: gameDaysData } = useQuery({
     queryKey: ['gamedays'],
     queryFn: () => attendanceService.listGameDays({ page_size: 50 }),
   });
-  const gameDays = gameDaysData?.results || [];
+  const gameDays = useMemo(() => gameDaysData?.results || [], [gameDaysData]);
 
   const { data: gameDayDetail, isLoading: loadingDetail } = useQuery({
     queryKey: ['gameday', selectedGameDay?.id],
@@ -64,7 +64,7 @@ export function AttendancePage() {
     return { activeGameDays: active, historyGameDays: history };
   }, [gameDays]);
 
-  const { presentAttendances, reservedAttendances, absentAttendances, waitlistAttendances, totalPaid, totalCreditUsers, totalCreditsUsed } = useMemo(() => {
+  const { presentAttendances, reservedAttendances, absentAttendances, waitlistAttendances, totalPaid, totalCreditsUsed } = useMemo(() => {
     if (!gameDayDetail) return { presentAttendances: [], reservedAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0, totalCreditUsers: 0, totalCreditsUsed: 0 };
     
     let filtered = gameDayDetail.attendances;

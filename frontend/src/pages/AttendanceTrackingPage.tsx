@@ -23,7 +23,7 @@ export function AttendanceTrackingPage() {
     queryKey: ["players"],
     queryFn: () => playersService.list({ page_size: 1000 }),
   });
-  const players = playersData?.results || [];
+  const players = useMemo(() => playersData?.results || [], [playersData]);
 
   const { data: noShowsData, isLoading: isNoShowsLoading, error: noShowsError } = useQuery({
     queryKey: ["attendances", "no-shows"],
@@ -32,7 +32,7 @@ export function AttendanceTrackingPage() {
       return res.data;
     },
   });
-  const noShows: Attendance[] = Array.isArray(noShowsData) ? noShowsData : (noShowsData?.results || []);
+  const noShows: Attendance[] = useMemo(() => (Array.isArray(noShowsData) ? noShowsData : (noShowsData?.results || [])), [noShowsData]);
 
   const { data: generalStats, isLoading: isGeneralStatsLoading } = useQuery({
     queryKey: ["attendance", "general-stats"],

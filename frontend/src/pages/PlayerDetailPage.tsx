@@ -105,16 +105,6 @@ export function PlayerDetailPage() {
     overall: h.overall,
   })) || [];
 
-  const StatRow = ({ icon, label, value }: { icon: React.ReactNode, label: string, value: number }) => (
-    <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-      <div className="flex items-center gap-2 text-text-secondary text-sm">
-        {icon}
-        {label}
-      </div>
-      <span className="font-mono text-white">{value}</span>
-    </div>
-  );
-
   const starCategories = [
     { label: 'MVP', value: (player as any).total_mvp || 0, icon: '🏆', total: (player as any).total_mvp },
     { label: 'Ataque', value: (player as any).total_attack || 0, icon: '⚡', total: (player as any).total_attack },

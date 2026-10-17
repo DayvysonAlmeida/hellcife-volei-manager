@@ -1,7 +1,6 @@
 import React from 'react';
 import { Clock, MapPin, ChevronRight, User } from 'lucide-react';
 import type { GameDay } from '@/types';
-import { cn } from '@/lib/utils';
 
 interface CircuitCardProps {
   gameDay: GameDay;

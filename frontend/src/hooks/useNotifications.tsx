@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsService } from '@/services/notifications';
@@ -61,12 +61,6 @@ function requestBrowserNotificationPermission() {
 /** Exibe uma notificação nativa do navegador (quando o app está em segundo plano). */
 function showBrowserNotification(title: string, body: string, type: string) {
   if ('Notification' in window && Notification.permission === 'granted') {
-    const iconMap: Record<string, string> = {
-      prize: '🎁',
-      circuit: '🏅',
-      system: 'ℹ️',
-      alert: '⚠️',
-    };
     new Notification(title, {
       body,
       icon: '/logo.png',
@@ -115,9 +109,10 @@ export function useNotifications() {
     },
   });
 
-  const safeNotifications = Array.isArray(notifications)
-    ? notifications
-    : (notifications as any)?.results || [];
+  const safeNotifications = useMemo(
+    () => (Array.isArray(notifications) ? notifications : (notifications as any)?.results || []),
+    [notifications],
+  );
 
   const unreadCount = safeNotifications.filter((n: any) => !n.is_read).length;
 

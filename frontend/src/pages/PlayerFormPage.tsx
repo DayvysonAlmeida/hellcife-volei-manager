@@ -12,7 +12,6 @@ import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { POSITION_LABELS } from '@/types';
-import type { Player, Position } from '@/types';
 
 const schema = z.object({
   name: z.string().min(2, 'Nome muito curto'),

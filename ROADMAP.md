@@ -1,9 +1,18 @@
 # 🏐 Hellcife Vôlei Manager — Roadmap 2026
-Última atualização: 16/10/2026 — Backend no Google Cloud Run, Frontend no Vercel, Banco de dados Neon (PostgreSQL), Storage de mídia Cloudinary.
+Última atualização: 17/10/2026 — Backend no Google Cloud Run, Frontend no Vercel, Banco de dados Neon (PostgreSQL), Storage de mídia Cloudinary.
 
 ## ✅ Feito Recentemente
 | Item | Descrição |
 |---|---|
+| ✅ Temporadas | Pré-temporada até 31/12/2026 e temporadas semestrais a partir de 2027; na virada o resultado final é salvo e o Elo recomeça em 500 |
+| ✅ Elo por times | Considera a força dos times em quadra; jogos de calibração no início da temporada; editar ou excluir partida recalcula a temporada |
+| ✅ Fire Shark equilibrado | Mínimo de partidas proporcional à temporada, aproveitamento ajustado pela quantidade de jogos e desempate pelo saldo de pontos |
+| ✅ Ranking de Elo (admin) | Top 10 da temporada no dashboard do admin; só ganha posição quem completou a calibração |
+| ✅ Faltas e presença | Inativação pela sequência atual de faltas; presença calculada pelo check-in na quadra, com a mesma regra das faltas |
+| ✅ Novo portal do atleta | Início com próximo circuito, pódio e "próximo alvo"; perfil com a evolução do Elo e números por temporada ou carreira |
+| ✅ Cards por conquista | O compartilhar do admin oferece só os cards que o atleta conquistou, cada um com os seus dados |
+| ✅ Desempenho | Imagens em WebP (até 97% menores), ícones das conquistas sob medida e remoção de imagens e código sem uso |
+| ✅ Deploy | Migrações com trava no PostgreSQL ao subir vários containers juntos |
 | ✅ Cobrança de circuitos | Rateio do custo da quadra ou taxa fixa por pessoa (eventos), ajustável pelo admin; reserva de vaga com prazo até o pagamento; confirmação manual (PIX, dinheiro, isento) com histórico e estorno |
 | ✅ Painel financeiro | Recebido, custos de quadra, saldo e evolução mensal (`/finance`); pagamentos informados e pendências (`/finance/circuits`) |
 | ✅ Regulamento dinâmico | Texto salvo no banco, editável pelo admin em `/regulation/edit`; conteúdo antigo recuperado |
@@ -52,7 +61,7 @@
 - [x] ALLOWED_HOSTS no Cloud Run
 - [x] Limite de 10 faltas: regra alinhada — backend inativa com >=10, alerta visual a partir de >=8 como aviso antecipado
 - [x] Otimizar queries no DashboardPage (validar N+1 queries no endpoint do dashboard)
-- [ ] `perform_update` duplicado no `GameDayViewSet`: a sincronização de faltas ao fechar o circuito não é executada
+- [x] `perform_update` duplicado no `GameDayViewSet`: unificado; encerrar o circuito recalcula as faltas
 
 ### 🟡 FASE 3 — Features Faltantes
 
@@ -80,6 +89,8 @@
 - [x] Compartilhar conquista nas redes sociais (ShareAchievementModal integrado)
 - [x] Histórico de avaliações visual: gráfico de evolução do overall no `/athlete/profile` (Já implementado em MyProfilePage)
 - [x] Emblemas/badges desbloqueáveis por marcos (Badge, PlayerBadge, TrophyRoom e check_and_award_badges automático)
+- [x] Novo início: próximo circuito, números da temporada, rankings com pódio e "próximo alvo"
+- [x] Perfil: evolução do Elo partida a partida e números por temporada ou carreira
 
 #### 4.2 — Painel Admin
 - [x] Editar partida (`/matches/:id/edit`): formulário reutiliza MatchFormPage com carregamento de dados existentes
@@ -87,6 +98,7 @@
 - [ ] Histórico de estrelas visual: timeline interativa no detalhe do jogador
 - [ ] Filtro por data no Leaderboard
 - [x] Reordenar fila de espera: drag-and-drop com @dnd-kit para mudar prioridade
+- [ ] Admin sem Django Admin: justificar falta, escrever a premiação da temporada, contador de pagamentos avisados no menu e ocultar "Custo em Créditos" enquanto os planos estão desligados
 
 #### 4.3 — Geração de Times
 - [x] Balancear por gênero: respeitando proporção M/F (Implementado direto no backend em `algorithm.py`)
@@ -95,10 +107,13 @@
 
 ### 🔵 FASE 5 — Features Avançadas (Médio Prazo)
 #### 5.1 — Sistema de Temporadas 📅
-- [ ] Criar modelo `Season` no backend
-- [ ] Vincular circuitos, partidas e avaliações a uma temporada
+- [x] Modelo `Season` e calendário semestral (Pré-temporada até 31/12/2026)
+- [x] Elo, Fire Shark e Gladiador por temporada (as partidas entram pela data)
+- [x] Encerramento automático da temporada com o resultado final salvo (`SeasonStanding`)
+- [x] Página Temporadas com o pódio das temporadas encerradas e a premiação
 - [ ] Leaderboard e Hall da Fama filtrados por temporada
-- [ ] Encerramento de temporada (congelar estatísticas)
+- [ ] Recalibrar as faixas de Elo depois da Temporada 1
+- [ ] Ideia: "Fire Shark do Mês"
 
 #### 5.2 — Pagamentos, Assinaturas e Rateio 💰
 - [x] Criação do módulo de assinaturas/planos (`apps/subscriptions`)
@@ -109,7 +124,7 @@
 - [x] Cobrança por circuito: rateio do custo da quadra ou taxa fixa por pessoa, ajustável pelo admin
 - [x] Pagamento antecipado: reserva de vaga com prazo definido pelo admin; o pagamento confirma a vaga
 - [x] Webhook do Asaas sem ciclo duplicado em reenvios do mesmo pagamento
-- [ ] PIX automático por circuito (avaliar gateway: Asaas × alternativas)
+- [ ] PIX automático por circuito com o Mercado Pago (gateway escolhido; começa depois da abertura do CNPJ)
 - [ ] Cancelar a assinatura no Asaas quando o admin cancela pelo sistema
 - [ ] Entrega do PIX na contratação de planos
 
@@ -124,7 +139,7 @@
 
 ### ⚪ FASE 6 — Qualidade e Testes (Contínuo)
 - [ ] Organizar testes do backend: mover `test_*.py` da raiz para `/tests/`
-- [ ] Testes de integração da API *(iniciado: testes em `apps/*/tests.py` para presenças/cobrança, partidas, times, regulamento e assinaturas)*
+- [ ] Testes de integração da API *(em andamento: 98 testes em `apps/*/tests.py` para presenças, faltas, cobrança, partidas, Elo, temporadas, rankings, times, regulamento e assinaturas)*
 - [ ] Testes E2E no frontend
 - [ ] Cloud Monitoring
 - [ ] Logs JSON estruturados
@@ -135,10 +150,10 @@
 | Fase | Itens Feitos | Total | % |
 |---|---|---|---|
 | 🔴 Fase 1 — Infra | 5 | 7 | 71% |
-| 🟠 Fase 2 — Dívida Técnica | 9 | 10 | 90% |
+| 🟠 Fase 2 — Dívida Técnica | 10 | 10 | 100% |
 | 🟡 Fase 3 — Features Faltantes | 12 | 13 | 92% |
-| 🟢 Fase 4 — UX/UI | 6 | 11 | 55% |
-| 🔵 Fase 5 — Avançado | 8 | 20 | 40% |
+| 🟢 Fase 4 — UX/UI | 8 | 14 | 57% |
+| 🔵 Fase 5 — Avançado | 12 | 23 | 52% |
 | ⚪ Fase 6 — Qualidade | 0 | 6 | 0% |
 
 

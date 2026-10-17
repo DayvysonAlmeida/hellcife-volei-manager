@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Users, CalendarDays, BarChart3, Settings, FileText, Trophy, Star, LogOut, Swords, CircleUser, Dumbbell, Circle, LayoutDashboard, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Zap, Bell, Activity, CreditCard, Award, Wallet, CalendarClock } from 'lucide-react';
+import { Home, Users, BarChart3, Trophy, Star, LogOut, Swords, CircleUser, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Bell, Activity, CreditCard, Award, Wallet, CalendarClock } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { cn } from '@/lib/utils';
 import { ONLINE_PAYMENTS } from '@/lib/features';

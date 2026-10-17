@@ -1,5 +1,5 @@
 import { Trash2, ChevronRight, DollarSign, Calendar } from 'lucide-react';
-import { formatDate, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { EmptyState, PageLoading } from '@/components/ui/Loading';
 
 import type { GameDay } from '@/types';

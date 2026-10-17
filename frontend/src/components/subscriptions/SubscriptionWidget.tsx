@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, Crown, Users, AlertCircle, ArrowRight, Wallet, CheckCircle2, Loader2 } from 'lucide-react';
+import { Zap, Crown, Users, AlertCircle, ArrowRight, Wallet, Loader2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -96,9 +96,6 @@ export const SubscriptionWidget = () => {
   const creditsUsed = Math.max(0, planCreditsTotal - cycleCredits);
   const progress = planCreditsTotal > 0 ? (creditsUsed / planCreditsTotal) * 100 : 0;
 
-  const prioritiesUsed = currentCycle ? currentCycle.priorities_used : 0;
-  const prioritiesTotal = plan ? plan.priorities : 0;
-  const prioritiesAvailable = prioritiesTotal - prioritiesUsed >= 0 ? prioritiesTotal - prioritiesUsed : 0;
 
   const freeGuestsUsed = currentCycle ? currentCycle.free_guests_used : 0;
   const freeGuestsTotal = plan ? plan.free_guests : 0;

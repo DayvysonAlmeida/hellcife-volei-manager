@@ -19,7 +19,6 @@ export function PaymentModal({
   isOpen,
   onClose,
   pixCopyPaste,
-  paymentUrl,
   amount,
   isProcessing,
   paymentId,

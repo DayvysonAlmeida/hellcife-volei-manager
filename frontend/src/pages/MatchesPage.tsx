@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Plus, Calendar, ChevronDown } from 'lucide-react';
+import { Plus, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -45,7 +45,7 @@ export function MatchesPage() {
   });
   const gamedays = gamedaysData?.results || [];
 
-  const matches = data?.results || [];
+  const matches = useMemo(() => data?.results || [], [data]);
 
   // Agrupar partidas por circuito (gameday) ou por data (se avulsa)
   const groupedMatches = useMemo(() => {

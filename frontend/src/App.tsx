@@ -5,7 +5,7 @@ import { AuthProvider } from '@/store/AuthContext';
 import { ThemeProvider } from '@/store/ThemeContext';
 import { queryClient } from '@/lib/queryClient';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { AdminRoute, PlayerRoute, PublicRoute, ProtectedRoute } from '@/routes/guards';
+import { AdminRoute, PlayerRoute, PublicRoute } from '@/routes/guards';
 import { Toaster } from 'react-hot-toast';
 import { PageLoading } from '@/components/ui/Loading';
 

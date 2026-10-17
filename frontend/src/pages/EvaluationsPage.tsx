@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, Star, Search, Edit, Trash2, ChevronLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Plus, Star, Search, ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge, SkillBar } from '@/components/ui/OverallBadge';
@@ -41,12 +40,6 @@ export function EvaluationsPage() {
   const { data: evaluations, isLoading: loadingEvals } = useQuery({
     queryKey: ['player-evaluations', selectedPlayer?.id],
     queryFn: () => evaluationsService.byPlayer(selectedPlayer!.id),
-    enabled: !!selectedPlayer,
-  });
-
-  const { data: radarData } = useQuery({
-    queryKey: ['player-radar', selectedPlayer?.id],
-    queryFn: () => evaluationsService.radar(selectedPlayer!.id),
     enabled: !!selectedPlayer,
   });
 

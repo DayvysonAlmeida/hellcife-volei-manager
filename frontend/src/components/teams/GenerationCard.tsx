@@ -1,11 +1,10 @@
 import { motion } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Trash2, Lock, UserCheck, Zap, Loader2, Shuffle, Plus, X, ArrowRightLeft, Trophy, History, Swords, Check, LogOut, Undo2 } from 'lucide-react';
+import { Trash2, Lock, UserCheck, Zap, Loader2, Shuffle, X, ArrowRightLeft, Trophy, History, Swords, Check, LogOut, Undo2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { teamsService } from '@/services';
 import { formatDate } from '@/lib/utils';
-import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 
 export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDialog }: { 
@@ -34,15 +33,6 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
     }
   });
 
-  const addPlayerMutation = useMutation({
-    mutationFn: ({ genId, playerId, teamId }: { genId: number, playerId: number, teamId: number }) => 
-       teamsService.addPlayer(genId, playerId, teamId),
-    onSuccess: () => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
-       toast.success('Jogador adicionado ao time!');
-    }
-  });
-
   const removePlayerMutation = useMutation({
     mutationFn: ({ genId, playerId }: { genId: number, playerId: number }) => 
        teamsService.removePlayer(genId, playerId),
@@ -60,14 +50,6 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
        toast.success(res.detail || 'Jogador de volta!');
     },
     onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao trazer o jogador de volta.'),
-  });
-
-  const addTeamMutation = useMutation({
-    mutationFn: (genId: number) => teamsService.addTeam(genId),
-    onSuccess: () => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
-       toast.success('Novo time vazio adicionado!');
-    }
   });
 
   const removeTeamMutation = useMutation({

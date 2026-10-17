@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Check, Loader2, CalendarCheck, Search, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -8,7 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 
 import { attendanceService } from '@/services';
-import { formatDate, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/AuthContext';
 import { GameDayListSidebar } from '@/components/attendance/GameDayListSidebar';
 import { ChevronLeft } from 'lucide-react';
@@ -26,7 +26,7 @@ export function CourtCheckinPage() {
     queryKey: ['gamedays'],
     queryFn: () => attendanceService.listGameDays({ page_size: 50 }),
   });
-  const gameDays = gameDaysData?.results || [];
+  const gameDays = useMemo(() => gameDaysData?.results || [], [gameDaysData]);
 
   const { openGameDays, closedGameDays } = useMemo(() => {
     const open = gameDays.filter((gd: any) => !gd.is_closed).sort((a: any, b: any) => a.date.localeCompare(b.date));

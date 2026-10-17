@@ -142,7 +142,7 @@ export function AthleteMatchesPage() {
     initialPageParam: 1,
   });
 
-  const matches = matchesData?.pages.flatMap(p => p.results) || [];
+  const matches = useMemo(() => matchesData?.pages.flatMap(p => p.results) || [], [matchesData]);
 
   const groupedMatches = useMemo(() => {
     return matches.reduce((acc: any, match: any) => {

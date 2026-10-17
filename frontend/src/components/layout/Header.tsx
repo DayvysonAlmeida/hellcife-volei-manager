@@ -1,32 +1,15 @@
-import { useLocation } from 'react-router-dom';
 import { Menu, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
 import { NotificationBell } from './NotificationBell';
-
-const routeLabels: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/players': 'Atletas',
-  '/evaluations': 'Avaliações',
-  '/attendance': 'Controle de Presença',
-  '/teams': 'Gerador de Times',
-  '/matches': 'Partidas',
-  '/hall-of-fame': 'Hall da Fama',
-  '/settings': 'Configurações',
-};
 
 interface HeaderProps {
   onMenuToggle: () => void;
 }
 
 export function Header({ onMenuToggle }: HeaderProps) {
-  const location = useLocation();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
-
-  const routeLabel = Object.entries(routeLabels).find(([path]) =>
-    location.pathname.startsWith(path)
-  )?.[1] || 'HellLife Vôlei';
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-sm border-b border-border">

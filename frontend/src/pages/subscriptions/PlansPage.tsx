@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { CreditCard, CheckCircle2, AlertCircle, ArrowRight, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PaymentModal } from '@/components/subscriptions/PaymentModal';
-import { useAuth } from '@/store/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 
@@ -24,7 +23,6 @@ const generateFeatures = (plan: any) => {
 };
 
 export const PlansPage = () => {
-  const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [cpf, setCpf] = useState('');

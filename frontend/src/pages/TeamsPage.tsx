@@ -1,21 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trash2, ArrowRightLeft, Trophy, Lock, History, Plus, X, UserCheck, Loader2, Swords } from 'lucide-react';
-import { Avatar } from '@/components/ui/Avatar';
-import { OverallBadge } from '@/components/ui/OverallBadge';
-import { PositionBadge } from '@/components/ui/Badges';
-import { PageLoading } from '@/components/ui/Loading';
+import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trophy, Lock, History } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SyncButton } from '@/components/ui/SyncButton';
 import { GenerationCard } from '@/components/teams/GenerationCard';
 import { TeamCard } from '@/components/teams/TeamCard';
 import { teamsService, attendanceService } from '@/services';
 import { playersService } from '@/services/players';
-import { MODALITY_LABELS } from '@/types';
-import type { GenerateTeamsResult, GeneratedTeam, Modality } from '@/types';
+import type { GenerateTeamsResult, Modality } from '@/types';
 import { useAuth } from '@/store/AuthContext';
 import { formatDate } from '@/lib/utils';
 
@@ -31,7 +25,6 @@ export function TeamsPage() {
   const [selectedGameDayId, setSelectedGameDayId] = useState<number | null>(null);
   const [result, setResult] = useState<GenerateTeamsResult | null>(null);
   const [activeTab, setActiveTab] = useState<'gerador' | 'historico'>('gerador');
-  const [saving, setSaving] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
 
@@ -47,7 +40,7 @@ export function TeamsPage() {
     queryFn: () => attendanceService.listGameDays({ page_size: 100 }),
   });
 
-  const gameDays = gameDaysData?.results || [];
+  const gameDays = useMemo(() => gameDaysData?.results || [], [gameDaysData]);
 
   const todayStr = new Date().toLocaleDateString('en-CA');
   

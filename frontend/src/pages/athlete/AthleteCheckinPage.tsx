@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Volleyball, Check, Clock, UserPlus, Search, Loader2, CalendarCheck, Wallet, Copy, Zap, X, Plus, Users, Crown, ChevronDown, MapPin } from 'lucide-react';
+import { Volleyball, Check, Clock, UserPlus, Search, Loader2, Wallet, Zap, X, Plus, Users, Crown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { PageLoading } from '@/components/ui/Loading';
@@ -187,8 +187,6 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
     ? (validOveralls.reduce((sum: number, p: any) => sum + p.latest_overall, 0) / validOveralls.length).toFixed(1)
     : null;
 
-  const totalPresent = circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0;
-  const waitlistCount = circuitDetail?.players?.filter((p: any) => p.is_waitlist).length ?? 0;
 
   return (
     <div className="space-y-4 mb-2">
@@ -746,19 +744,10 @@ function CircuitSummaryCard({
     staleTime: 10000,
   });
 
-  const totalPresent = circuitDetail?.gameday?.total_present ?? circuit.total_present ?? 0;
-  
   const myAttendance = myPlayer && circuitDetail?.players?.find((p: any) => p.id === myPlayer.id);
   const amPresent = myAttendance?.present;
   const hasPaid = myAttendance?.has_paid || myAttendance?.used_credit;
   const isWaitlist = myAttendance?.is_waitlist;
-
-  const dateObj = new Date(`${circuit.date}T12:00:00`);
-  const dayName = dateObj.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-  const dayNum = dateObj.toLocaleDateString('pt-BR', { day: '2-digit' });
-  const month = dateObj.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
-  const time = circuit.time ? ` às ${circuit.time.slice(0, 5)}` : '';
-  const dateFormatted = `${dayName}., ${dayNum} ${month}${time}`;
 
   const getStatusBadge = () => {
     if (amPresent) {

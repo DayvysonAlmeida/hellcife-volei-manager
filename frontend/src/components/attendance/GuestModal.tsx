@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, X, Plus, Check, Star, Trash2 } from 'lucide-react';
+import { Users, X, Plus, Star, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
@@ -26,7 +26,6 @@ export function GuestModal({
   onClose,
   gameDayId,
   presentAttendances,
-  absentAttendances,
   waitlistAttendances,
   setConfirmDialog,
 }: GuestModalProps) {

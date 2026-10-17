@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X, AlertTriangle, Activity, TrendingUp, Swords, Shield } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
@@ -16,20 +16,14 @@ import { playersService } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
 import { useDebounce } from '@/lib/useDebounce';
 import toast from 'react-hot-toast';
-import { POSITION_LABELS, type Position, type PlayerStatus } from '@/types';
+import { type Position } from '@/types';
 import type { Player } from '@/types';
-import { cn, getOverallLabel, getOverallColor } from '@/lib/utils';
-
-const POSITIONS = Object.entries(POSITION_LABELS) as [Position, string][];
-const STATUSES: [PlayerStatus, string][] = [
-  ['active', 'Ativo'], ['inactive', 'Inativo'], ['injured', 'Lesionado'], ['suspended', 'Suspenso']
-];
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 24;
 
 export function PlayersPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const qc = useQueryClient();
 
   const [search, setSearch] = useState('');

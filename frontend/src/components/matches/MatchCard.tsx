@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Swords, Calendar, MapPin, Trophy, Star, Shield, ChevronDown, Users, Trash2, Pencil } from 'lucide-react';
+import { Swords, Calendar, Trophy, Star, Shield, ChevronDown, Users, Trash2, Pencil } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { LocationMapModal } from '@/components/ui/LocationMapModal';
 import { formatDate } from '@/lib/utils';

@@ -5,17 +5,19 @@ Um sistema completo de gerenciamento para o time Hellcife Vôlei. Esta aplicaç�
 ## 🚀 Funcionalidades
 
 O sistema está dividido em vários módulos no backend que refletem as funcionalidades principais:
-- **Players (Jogadores)**: Gestão de perfis e dados de jogadores, sistema de Elo e badges.
+- **Players (Jogadores)**: Gestão de perfis e dados de jogadores, badges e Sala de Troféus.
+- **Rankings e Temporadas**: Elo por times (força dos times em quadra; jogos de calibração no início de cada temporada), Fire Shark (aproveitamento ajustado, com mínimo de partidas proporcional à temporada e desempate pelo saldo de pontos), Gladiador (mais vitórias) e Estrelas (acumuladas na carreira). Temporadas semestrais a partir de 2027 (a Pré-temporada vai até 31/12/2026); na virada, o resultado final fica salvo e o Elo recomeça. O ranking de Elo é exibido só para administradores.
+- **Portal do Atleta**: Início com o próximo circuito, seus números da temporada, rankings com pódio e "próximo alvo" (o que falta para subir); perfil com a evolução do Elo partida a partida.
 - **Teams (Times)**: Gerenciamento de escalações e equipes balanceadas por overall. Na pelada, quem vai embora sai do sorteio (Embaralhar/Completar) sem perder a presença na quadra, e pode voltar depois.
 - **Matches (Partidas)**: Registro de jogos, placares e estatísticas, incluindo jogadores emprestados de outro time.
-- **Attendance (Presenças e Cobrança)**: Controle de presença nos circuitos, fila de espera e check-in na quadra. Cobrança por circuito com rateio do custo da quadra ou taxa fixa por pessoa (eventos), reserva de vaga com prazo até o pagamento e confirmação manual (PIX, dinheiro ou isento).
+- **Attendance (Presenças e Cobrança)**: Controle de presença nos circuitos, fila de espera e check-in na quadra. Cobrança por circuito com rateio do custo da quadra ou taxa fixa por pessoa (eventos), reserva de vaga com prazo até o pagamento e confirmação manual (PIX, dinheiro ou isento). Faltas contadas pelo check-in na quadra: 10 faltas seguidas inativam o atleta, e a porcentagem de presença segue a mesma regra.
 - **Evaluations (Avaliações)**: Avaliação de desempenho técnico com 13 fundamentos e cálculo de overall automático.
 - **Stars System (Estrelas)**: Sistema de premiação por categorias (MVP, Ataque, Defesa, etc.) com mini e grandes estrelas.
 - **Notifications (Notificações)**: Notificações individuais e avisos globais para todos os atletas.
 - **Subscriptions (Assinaturas)**: Gestão de planos, assinaturas e integração com Asaas para pagamentos via PIX.
 - **Financeiro**: Painel com recebido, custos de quadra, saldo e evolução mensal (`/finance`), e tela de cobranças com pagamentos informados e pendências (`/finance/circuits`).
 - **Hall of Fame e Regulamento**: Hall da Fama por categoria e ano; regulamento editável pelo admin em `/regulation/edit`.
-- **Compartilhamento**: Cards de conquista (Fire Shark, Grande/Mini Estrela, Gladiadores) gerados no formato Stories para as redes sociais.
+- **Compartilhamento**: Cards de conquista (Fire Shark, Grande/Mini Estrela, Gladiadores) gerados no formato Stories para as redes sociais. O admin só vê os cards que o atleta conquistou, cada um com os números da sua conquista.
 
 ## 💻 Tecnologias e Stack
 
@@ -160,7 +162,14 @@ gcloud run deploy hellcife-backend \
   --allow-unauthenticated
 ```
 
-> **Nota:** As migrações do banco de dados são executadas automaticamente na inicialização do container via `CMD` no Dockerfile.
+> **Nota:** As migrações do banco de dados são executadas automaticamente na inicialização do container (`python manage.py migrate_with_lock`, no `CMD` do Dockerfile). O comando usa uma trava no PostgreSQL, então vários containers subindo juntos não aplicam a mesma migração ao mesmo tempo.
+
+### Variáveis do Frontend (Vercel)
+
+| Variável | Descrição |
+|---|---|
+| `VITE_API_URL` | URL da API no Cloud Run, terminando em `/api` |
+| `VITE_PAGAMENTOS_ONLINE` | `true` mostra planos e carteira para os atletas (desligado enquanto o pagamento online não está ativo) |
 
 ---
 Desenvolvido para gerenciar a paixão e o talento do Hellcife Vôlei. 🏐🔥

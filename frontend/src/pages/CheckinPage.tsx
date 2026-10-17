@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Check, CalendarCheck, Loader2, Wallet, Search, Flame, Zap, Crown, Smartphone } from 'lucide-react';
+import { Check, CalendarCheck, Loader2, Wallet, Search, Zap, Crown, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuth } from '@/store/AuthContext';

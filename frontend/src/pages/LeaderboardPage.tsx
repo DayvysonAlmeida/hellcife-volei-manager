@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Medal, Star, Swords, Zap, Shield, Activity, TrendingUp, Info } from 'lucide-react';
+import { Trophy, Star, Swords, Zap, Shield, Activity, TrendingUp, Info } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -219,7 +219,7 @@ export function LeaderboardPage() {
             <span className="text-xl group-open:rotate-180 transition-transform">▾</span>
           </summary>
           <div className="p-4 pt-0 space-y-2 border-t border-border/10 mt-2">
-            {guestPlayers.map((player: any, idx: number) => (
+            {guestPlayers.map((player: any) => (
               <div
                 key={player.id}
                 className="flex items-center gap-4 p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors opacity-80"

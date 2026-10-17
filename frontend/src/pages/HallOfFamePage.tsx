@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Trophy, Star, Medal, Crown, Calendar, Filter, Search, ChevronDown, ChevronUp, Users, Award, Shield, Flame, Target } from 'lucide-react';
+import { Trophy, Star, Medal, Crown, Search, Users, Award, Shield, Flame, Target } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { hallOfFameService } from '@/services';
@@ -36,7 +36,6 @@ const CATEGORY_ICONS: Record<string, any> = {
 export function HallOfFamePage() {
   const [yearFilter, setYearFilter] = useState<number | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'year' | 'category'>('year');
 
   const { data: entriesRaw, isLoading, error, refetch } = useQuery<HallOfFameEntry[]>({
     queryKey: ['hall-of-fame'],

@@ -2,10 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Trophy, Swords, Shield, Zap, Star, Shuffle, Save, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, ClipboardList, Target, UserCheck, Hand, Flame, ArrowUp, ArrowDown, ChevronsUp, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Trophy, Swords, Shield, Zap, Shuffle, ArrowRightLeft, RotateCcw, Power, Play, Lock, History, UserCheck, ArrowUp, ArrowDown, ChevronsUp } from 'lucide-react';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
-import { Avatar } from '@/components/ui/Avatar';
-import { PositionBadge } from '@/components/ui/Badges';
 import { SyncButton } from '@/components/ui/SyncButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { teamsService, matchesService, attendanceService } from '@/services';
@@ -590,8 +588,6 @@ export function BracketPage() {
       </div>
     );
   }
-
-  const allPlayersInCourt = [...(state.courtA?.team_players || []), ...(state.courtB?.team_players || [])];
 
   return (
     <div className="flex flex-col h-full space-y-4 max-w-7xl mx-auto w-full">
