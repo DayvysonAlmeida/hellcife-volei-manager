@@ -40,7 +40,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/escudo-hellcife.png" alt="HellCife" className="h-8 w-auto object-contain drop-shadow-md" />
+            <img src="/escudo-hellcife.webp" alt="HellCife" className="h-8 w-auto object-contain drop-shadow-md" />
             <span className="text-red font-display text-base tracking-widest hidden sm:block">
               HELLCIFE VÔLEI
             </span>

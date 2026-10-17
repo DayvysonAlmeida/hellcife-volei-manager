@@ -193,7 +193,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-border min-h-[73px]">
           <img
-            src="/escudo-hellcife.png"
+            src="/escudo-hellcife.webp"
             alt="HellCife"
             className="w-12 h-auto max-h-12 object-contain flex-shrink-0 drop-shadow-md"
           />

@@ -87,6 +87,7 @@ export function MyProfilePage() {
             onDelete={() => {}}
             winRank={winRank}
             fireSharkRank={fireSharkRank}
+            linkable={false}
           />
         </div>
       </motion.div>

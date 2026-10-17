@@ -3,9 +3,31 @@ import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsService } from '@/services/notifications';
 
-/** Solicita permissão de notificação nativa do navegador via Toast para exigir interação do usuário (bypass de bloqueio). */
+const PROMPT_SNOOZE_KEY = 'hellcife-notif-prompt-snoozed-until';
+const PROMPT_SNOOZE_DAYS = 7;
+
+function promptSnoozed() {
+  try {
+    return Number(localStorage.getItem(PROMPT_SNOOZE_KEY) || 0) > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function snoozePrompt() {
+  try {
+    localStorage.setItem(PROMPT_SNOOZE_KEY, String(Date.now() + PROMPT_SNOOZE_DAYS * 24 * 60 * 60 * 1000));
+  } catch {
+    // sem armazenamento: o aviso volta na próxima abertura
+  }
+}
+
+/**
+ * Pede a permissão de notificação do navegador (precisa de um toque do usuário).
+ * Aparece embaixo, sem cobrir o menu; "Agora não" deixa de perguntar por 7 dias.
+ */
 function requestBrowserNotificationPermission() {
-  if ('Notification' in window && Notification.permission === 'default') {
+  if ('Notification' in window && Notification.permission === 'default' && !promptSnoozed()) {
     toast((t) => (
       <div className="flex flex-col gap-2">
         <p className="text-sm font-medium">Deseja receber as notificações de Circuitos no sistema?</p>
@@ -22,14 +44,17 @@ function requestBrowserNotificationPermission() {
             Ativar Notificações
           </button>
           <button
-            onClick={() => toast.dismiss(t.id)}
+            onClick={() => {
+              snoozePrompt();
+              toast.dismiss(t.id);
+            }}
             className="bg-surface-highlight hover:bg-white/10 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-border"
           >
             Agora não
           </button>
         </div>
       </div>
-    ), { duration: 15000, id: 'browser-notif-req', position: 'top-center' });
+    ), { duration: 15000, id: 'browser-notif-req', position: 'bottom-center' });
   }
 }
 
@@ -44,8 +69,8 @@ function showBrowserNotification(title: string, body: string, type: string) {
     };
     new Notification(title, {
       body,
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
+      icon: '/logo.png',
+      badge: '/logo.png',
       tag: `hellcife-notif-${type}`,
       silent: false,
     });

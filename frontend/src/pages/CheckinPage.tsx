@@ -138,7 +138,7 @@ export function CheckinPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 mb-2">
             <div className="relative group cursor-pointer shrink-0">
               <div className="absolute inset-0 bg-red blur-lg opacity-40 group-hover:opacity-70 transition-opacity rounded-full"></div>
-              <img src="/escudo_hellcife.png" alt="Hellcife Vôlei" className="relative w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-2xl hover:scale-105 transition-transform" />
+              <img src="/escudo-hellcife.webp" alt="Hellcife Vôlei" className="relative w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-2xl hover:scale-105 transition-transform" />
             </div>
             <div className="flex flex-col items-center sm:items-start">
               <h1 className="font-display text-3xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 uppercase tracking-widest drop-shadow-[0_2px_20px_rgba(255,255,255,0.3)] leading-none">

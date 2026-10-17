@@ -348,7 +348,7 @@ export function AthleteDashboardPage() {
               </button>
             )}
             
-            <img src="/fireshark.png" alt="Fire Shark" className="w-36 sm:w-48 h-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.6)] animate-pulse" />
+            <img src="/fireshark.webp" alt="Fire Shark" className="w-36 sm:w-48 h-auto object-contain drop-shadow-[0_0_35px_rgba(249,115,22,0.6)] animate-pulse" />
             
             <h2 className="font-display text-4xl sm:text-5xl tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-orange-500 to-red-600 font-black mt-2 uppercase filter drop-shadow-lg italic -skew-x-6 text-glow">
               FIRE SHARK
@@ -436,9 +436,10 @@ export function AthleteDashboardPage() {
             {dashboard.fire_sharks.map((shark, idx) => {
               const isPlayer = player?.id === shark.id;
               return (
-              <Link to={`/players/${shark.id}`} key={shark.id} className={cn(
+              // Sem link: a tela de jogador é só do admin (o atleta seria jogado para fora)
+              <div key={shark.id} className={cn(
                 "flex items-center gap-2 sm:gap-4 p-2 sm:p-2.5 rounded-xl border transition-all duration-300 group relative overflow-hidden",
-                isPlayer ? "bg-orange-900/20 border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.15)]" : "bg-gradient-to-r from-white/[0.03] to-transparent border-white/5 hover:border-white/10"
+                isPlayer ? "bg-orange-900/20 border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.15)]" : "bg-gradient-to-r from-white/[0.03] to-transparent border-white/5"
               )}>
                 {/* Hex Rank */}
                 <div className="relative w-[50px] h-[55px] flex items-center justify-center flex-shrink-0" style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}>
@@ -474,7 +475,7 @@ export function AthleteDashboardPage() {
                      </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             )})}
           </div>
         </motion.div>

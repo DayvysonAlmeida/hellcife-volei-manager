@@ -57,8 +57,8 @@ export function LoginPage() {
       
       {/* Background for Mobile (Absolute, Full Screen) */}
       <div className="absolute inset-0 z-0 lg:hidden">
-        <img src="/login-bg.png" alt="HellCife Court" className="hidden dark:block w-full h-full object-cover opacity-30" />
-        <img src="/login-bg-light.png" alt="HellCife Court" className="block dark:hidden w-full h-full object-cover opacity-30" />
+        <img src="/login-bg.webp" alt="HellCife Court" className="hidden dark:block w-full h-full object-cover opacity-30" />
+        <img src="/login-bg-light.webp" alt="HellCife Court" className="block dark:hidden w-full h-full object-cover opacity-30" />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-100 via-gray-100/70 to-gray-100/30 dark:from-[#050505] dark:via-[#050505]/70 dark:to-[#050505]/30" />
       </div>
 
@@ -67,8 +67,8 @@ export function LoginPage() {
       {/* ---------------------------------------------------- */}
       <div className="hidden lg:flex w-[55%] relative flex-col justify-between p-14 overflow-hidden border-r border-gray-300 dark:border-white/5 shadow-2xl z-10 bg-gray-100 dark:bg-[#050505] transition-colors duration-300">
         <div className="absolute inset-0 z-0">
-          <img src="/login-bg.png" alt="HellCife Court" className="hidden dark:block w-full h-full object-cover opacity-70 mix-blend-screen" />
-          <img src="/login-bg-light.png" alt="HellCife Court" className="block dark:hidden w-full h-full object-cover opacity-70 mix-blend-multiply" />
+          <img src="/login-bg.webp" alt="HellCife Court" className="hidden dark:block w-full h-full object-cover opacity-70 mix-blend-screen" />
+          <img src="/login-bg-light.webp" alt="HellCife Court" className="block dark:hidden w-full h-full object-cover opacity-70 mix-blend-multiply" />
           <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-transparent to-gray-100 dark:from-[#050505] dark:via-transparent dark:to-[#050505]" />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-100 via-transparent to-transparent dark:from-[#050505] dark:via-transparent dark:to-transparent" />
           <div className="absolute inset-0 bg-red/10 mix-blend-overlay" />
@@ -82,7 +82,7 @@ export function LoginPage() {
             className="inline-block"
           >
             <img 
-              src="/escudo-hellcife.png" 
+              src="/escudo-hellcife.webp" 
               alt="HellCife Vôlei" 
               className="w-64 h-auto object-contain drop-shadow-[0_0_30px_rgba(217,4,41,0.6)]" 
             />
@@ -122,7 +122,7 @@ export function LoginPage() {
         <div className="lg:hidden text-center mb-6 w-full mt-4">
           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5, type: "spring" }} className="inline-block">
             <img 
-              src="/escudo-hellcife.png" 
+              src="/escudo-hellcife.webp" 
               alt="HellCife Vôlei" 
               className="w-56 h-auto object-contain mx-auto drop-shadow-[0_0_30px_rgba(217,4,41,0.6)]" 
             />

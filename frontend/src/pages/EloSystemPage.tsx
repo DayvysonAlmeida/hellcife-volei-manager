@@ -212,8 +212,9 @@ export function EloSystemPage() {
                     <PlayerCard 
                       player={mockPlayer} 
                       idx={index} 
-                      canEdit={false} 
-                      onDelete={() => {}} 
+                      canEdit={false}
+                      onDelete={() => {}}
+                      linkable={false}
                     />
                   </div>
                   <div className="mt-4 text-center">

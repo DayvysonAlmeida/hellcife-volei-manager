@@ -153,10 +153,11 @@ function App() {
         <Toaster
           position="bottom-center"
           toastOptions={{
+            // As cores do tema são "R G B" (ex.: "13 15 20"): precisam do rgb(), senão o aviso fica transparente
             style: {
-              background: 'var(--color-surface)',
-              color: 'var(--color-text-primary)',
-              border: '1px solid var(--color-border)',
+              background: 'rgb(var(--color-surface))',
+              color: 'rgb(var(--color-text-primary))',
+              border: '1px solid rgb(var(--color-border) / 0.5)',
               fontSize: '14px',
             },
             success: {

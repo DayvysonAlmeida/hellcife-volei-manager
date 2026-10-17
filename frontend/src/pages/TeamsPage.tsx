@@ -123,6 +123,14 @@ export function TeamsPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  // Hooks antes de qualquer return (regra do React); o histórico só é buscado por quem pode gerar times
+  const { data: historyData } = useQuery({
+    queryKey: ['team-generations-history'],
+    queryFn: () => teamsService.list(),
+    enabled: canEdit,
+  });
+  const history = historyData?.results || [];
+
   if (!canEdit) {
     return (
       <div className="space-y-4">
@@ -134,12 +142,6 @@ export function TeamsPage() {
       </div>
     );
   }
-
-  const { data: historyData } = useQuery({
-    queryKey: ['team-generations-history'],
-    queryFn: () => teamsService.list(),
-  });
-  const history = historyData?.results || [];
 
   const handleGenerate = () => {
     if (!selectedGameDayId) {

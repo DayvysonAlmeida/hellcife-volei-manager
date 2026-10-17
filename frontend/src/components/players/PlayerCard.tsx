@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Star, Edit, Trash2, Activity, TrendingUp, Shield, Swords, AlertTriangle, Flame, Crosshair, Lock, Trophy } from 'lucide-react';
@@ -7,6 +7,11 @@ import { POSITION_LABELS } from '@/types';
 import type { Player } from '@/types';
 import { getOverallColor } from '@/lib/utils';
 
+function CardWrapper({ linkTo, children }: { linkTo: string | null; children: ReactNode }) {
+  if (!linkTo) return <div className="block w-full">{children}</div>;
+  return <Link to={linkTo} className="block w-full outline-none">{children}</Link>;
+}
+
 interface PlayerCardProps {
   player: Player;
   idx: number;
@@ -14,9 +19,11 @@ interface PlayerCardProps {
   onDelete: (player: Player) => void;
   winRank?: number; // 1, 2, 3 ou 4
   fireSharkRank?: number; // 1, 2, 3 ou 4
+  /** O card abre a tela do jogador (só existe no admin). false no portal do atleta e nos exemplos. */
+  linkable?: boolean;
 }
 
-export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDelete, winRank, fireSharkRank }: PlayerCardProps) {
+export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDelete, winRank, fireSharkRank, linkable = true }: PlayerCardProps) {
   const navigate = useNavigate();
 
   const isInactive = player.status === 'inactive' || player.status === 'suspended';
@@ -147,7 +154,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
 
       {/* Selo Win Streak removido do ombro */}
 
-      <Link to={`/players/${player.id}`} className="block w-full outline-none">
+      <CardWrapper linkTo={linkable ? `/players/${player.id}` : null}>
 
         {/* Container Principal do Card */}
         <div
@@ -534,7 +541,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
         </div>
         
         {/* A borda e os adornos agora são renderizados 100% via SVG Premium acima, removendo a gambiarra da imagem PNG */}
-      </Link>
+      </CardWrapper>
 
       {/* Admin Actions Overlay (External bottom) - Hidden on Mobile */}
       {canEdit && (
