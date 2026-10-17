@@ -464,6 +464,22 @@ class InactiveAndReactivationTests(CircuitApiTestCase):
         self.sync()
         self.assertEqual(self.p1.status, 'inactive')
 
+    def test_old_streak_does_not_inactivate_who_came_back(self):
+        """Chegou a 10 faltas no passado, voltou a jogar e tem 2 faltas agora: continua ativo."""
+        for d in range(15, 1, -1):
+            gd = GameDay.objects.create(date=date.today() - timedelta(days=d), is_closed=True, is_published=True)
+            self.CourtCheckin.objects.create(gameday=gd, player=self.witness)
+            if d in (5, 4):
+                self.CourtCheckin.objects.create(gameday=gd, player=self.p1)
+        self.sync()
+        self.assertEqual(self.p1.status, 'active')
+        self.assertEqual(self.p1.consecutive_absences, 2)
+
+    def test_ten_current_absences_inactivate(self):
+        self.past_absences(10)
+        self.sync()
+        self.assertEqual(self.p1.status, 'inactive')
+
     def test_admin_reactivation_survives_recalculation(self):
         self.past_absences(12)
         self.sync()

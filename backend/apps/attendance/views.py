@@ -957,9 +957,12 @@ def sync_absences_logic():
             elif finished_gamedays:
                 # Não foi na quadra (ou não se inscreveu ou deu no-show)
                 p.consecutive_absences += 1
-                if p.consecutive_absences >= 10:
-                    p.status = 'inactive'
-                    
+
+    # Inativa só por faltas seguidas atuais: quem chegou a 10 no passado e voltou a jogar continua ativo
+    for p in players_qs:
+        if p.status == 'active' and p.consecutive_absences >= 10:
+            p.status = 'inactive'
+
     if attendances_to_update:
         Attendance.objects.bulk_update(attendances_to_update, ['was_no_show'])
         
