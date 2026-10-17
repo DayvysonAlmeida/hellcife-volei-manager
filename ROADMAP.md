@@ -98,7 +98,7 @@
 - [ ] Histórico de estrelas visual: timeline interativa no detalhe do jogador
 - [ ] Filtro por data no Leaderboard
 - [x] Reordenar fila de espera: drag-and-drop com @dnd-kit para mudar prioridade
-- [ ] Admin sem Django Admin: justificar falta, escrever a premiação da temporada, contador de pagamentos avisados no menu e ocultar "Custo em Créditos" enquanto os planos estão desligados
+- [x] Admin sem Django Admin: justificar falta (Tiragem de Falta), escrever a premiação da temporada (Temporadas), contador de pagamentos avisados no menu e "Custo em Créditos" oculto enquanto os planos estão desligados
 
 #### 4.3 — Geração de Times
 - [x] Balancear por gênero: respeitando proporção M/F (Implementado direto no backend em `algorithm.py`)
@@ -152,7 +152,7 @@
 | 🔴 Fase 1 — Infra | 5 | 7 | 71% |
 | 🟠 Fase 2 — Dívida Técnica | 10 | 10 | 100% |
 | 🟡 Fase 3 — Features Faltantes | 12 | 13 | 92% |
-| 🟢 Fase 4 — UX/UI | 8 | 14 | 57% |
+| 🟢 Fase 4 — UX/UI | 9 | 14 | 64% |
 | 🔵 Fase 5 — Avançado | 12 | 23 | 52% |
 | ⚪ Fase 6 — Qualidade | 0 | 6 | 0% |
 

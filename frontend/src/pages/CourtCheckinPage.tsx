@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ClipboardList, Check, Loader2, CalendarCheck, Search, Lock } from 'lucide-react';
+import { ClipboardList, Check, Loader2, CalendarCheck, Search, Lock, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { PageLoading, EmptyState } from '@/components/ui/Loading';
@@ -88,6 +88,38 @@ export function CourtCheckinPage() {
     },
   });
 
+  // Falta justificada não soma nem zera a sequência; vale também depois de encerrar o circuito
+  const justifyMutation = useMutation({
+    mutationFn: ({ attendanceId, justified }: { attendanceId: number; justified: boolean; name: string }) =>
+      attendanceService.justifyAbsence(attendanceId, justified),
+    onSuccess: (res, vars) => {
+      qc.invalidateQueries({ queryKey: ['gameday', selectedGameDayId] });
+      toast.success(`${vars.name}: ${vars.justified ? 'falta justificada' : 'justificativa removida'} (${res.consecutive_absences} faltas seguidas)`);
+    },
+    onError: () => toast.error('Não foi possível salvar a justificativa. Tente de novo.'),
+  });
+
+  const justifyButton = (att: { id: number; player_name: string; is_justified?: boolean }) => {
+    const busy = justifyMutation.isPending && justifyMutation.variables?.attendanceId === att.id;
+    return (
+      <button
+        type="button"
+        onClick={() => justifyMutation.mutate({ attendanceId: att.id, justified: !att.is_justified, name: att.player_name })}
+        disabled={busy}
+        title={att.is_justified ? 'Tocar para desfazer a justificativa' : 'A falta não vai contar na sequência de faltas'}
+        className={cn(
+          'inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60',
+          att.is_justified
+            ? 'border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-400'
+            : 'border-border text-text-muted hover:text-text-primary hover:border-amber-500/50'
+        )}
+      >
+        {busy ? <Loader2 size={11} className="animate-spin" /> : att.is_justified ? <ShieldCheck size={11} /> : null}
+        {att.is_justified ? 'Justificada' : 'Justificar'}
+      </button>
+    );
+  };
+
   const bulkMutation = useMutation({
     mutationFn: (actionType: 'check_all' | 'uncheck_all') => {
       // Pega todos os IDs da lista atual (respeita a busca, ou pega todos se não tiver busca)
@@ -139,6 +171,16 @@ export function CourtCheckinPage() {
 
     return { playersList: list, arrivedCount: arrivedIds.size };
   }, [gameDayDetail, searchTerm]);
+
+  // Quem não se inscreveu também acumula falta: o admin pode justificar quem avisou que não ia
+  const [searchNotEnrolled, setSearchNotEnrolled] = useState('');
+  const notEnrolled = useMemo(() => {
+    if (!gameDayDetail) return [];
+    const term = searchNotEnrolled.trim().toLowerCase();
+    return gameDayDetail.attendances
+      .filter((a: any) => !a.present && !a.player_is_guest && (!term || a.player_name.toLowerCase().includes(term)))
+      .sort((a: any, b: any) => Number(b.is_justified) - Number(a.is_justified) || a.player_name.localeCompare(b.player_name));
+  }, [gameDayDetail, searchNotEnrolled]);
 
   if (!canEdit) {
     return (
@@ -307,8 +349,9 @@ export function CourtCheckinPage() {
                             </span>
                           )}
                         </p>
-                        <div className="mt-1">
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
                           <PositionBadge position={att.player_position} />
+                          {canEdit && !att.arrived && justifyButton(att)}
                         </div>
                       </div>
                     </div>
@@ -332,6 +375,42 @@ export function CourtCheckinPage() {
                   </div>
                 ))}
               </div>
+            )}
+
+            {gameDayDetail && (notEnrolled.length > 0 || searchNotEnrolled) && (
+              <details className="mx-4 mb-4 rounded-xl border border-border/50 bg-surface/60">
+                <summary className="cursor-pointer select-none px-4 py-3 text-sm font-bold text-text-primary">
+                  Justificar falta de quem não se inscreveu
+                </summary>
+                <div className="px-4 pb-4 flex flex-col gap-3">
+                  <p className="text-xs text-text-muted">
+                    A falta conta para todo atleta ativo, mesmo sem inscrição. Justifique aqui quem avisou que não ia: a falta justificada não soma na sequência.
+                  </p>
+                  <div className="relative max-w-xs">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                    <input
+                      id="busca-nao-inscritos"
+                      type="text"
+                      placeholder="Buscar atleta..."
+                      value={searchNotEnrolled}
+                      onChange={(e) => setSearchNotEnrolled(e.target.value)}
+                      className="input w-full pl-8 py-1.5 text-sm"
+                    />
+                  </div>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                    {notEnrolled.map((att: any) => (
+                      <li key={att.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2">
+                        <span className="flex items-center gap-2 min-w-0">
+                          <Avatar src={att.player_avatar} name={att.player_name} size="sm" />
+                          <span className="truncate text-sm font-medium text-text-primary">{att.player_name}</span>
+                        </span>
+                        {justifyButton(att)}
+                      </li>
+                    ))}
+                    {notEnrolled.length === 0 && <li className="text-xs text-text-muted">Nenhum atleta encontrado.</li>}
+                  </ul>
+                </div>
+              </details>
             )}
           </div>
             </div>

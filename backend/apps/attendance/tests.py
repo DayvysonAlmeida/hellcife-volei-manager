@@ -398,6 +398,50 @@ class AbsenceSyncTests(TestCase):
         self.assertEqual(self.athlete.absences_reset_date, timezone.localdate())
 
 
+class JustifyAbsenceTests(TestCase):
+    """Admin justifica (e desfaz) a falta pelo app; as faltas são recalculadas na hora."""
+
+    def setUp(self):
+        from .models import CourtCheckin
+        self.CourtCheckin = CourtCheckin
+        self.client = APIClient()
+        self.admin = User.objects.create_user('adm@x.com', 'senha-forte-123', name='Adm', profile='admin')
+        self.athlete = make_player('Atleta')
+        self.witness = make_player('Testemunha')
+        Player.objects.filter(pk__in=[self.athlete.pk, self.witness.pk]).update(created_at=timezone.now() - timedelta(days=30))
+
+    def absent_day(self, days_ago):
+        gd = GameDay.objects.create(date=date.today() - timedelta(days=days_ago), is_closed=True, is_published=True)
+        self.CourtCheckin.objects.create(gameday=gd, player=self.witness)
+        return Attendance.objects.create(gameday=gd, player=self.athlete, present=False)
+
+    def justify(self, att, **data):
+        return self.client.post(f'/api/attendance/records/{att.id}/justify/', data, format='json')
+
+    def test_admin_justifies_and_undoes(self):
+        from .views import sync_absences_logic
+        self.absent_day(5)
+        att = self.absent_day(4)
+        sync_absences_logic()
+        self.assertEqual(Player.objects.get(pk=self.athlete.pk).consecutive_absences, 2)
+
+        self.client.force_authenticate(self.admin)
+        response = self.justify(att)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['consecutive_absences'], 1)
+        self.assertTrue(Attendance.objects.get(pk=att.pk).is_justified)
+
+        response = self.justify(att, justified=False)
+        self.assertEqual(response.data['consecutive_absences'], 2)
+        self.assertFalse(Attendance.objects.get(pk=att.pk).is_justified)
+
+    def test_athlete_cannot_justify(self):
+        att = self.absent_day(4)
+        self.client.force_authenticate(User.objects.create_user('outro@x.com', 'senha-forte-123', name='Outro'))
+        self.assertEqual(self.justify(att).status_code, 403)
+        self.assertFalse(Attendance.objects.get(pk=att.pk).is_justified)
+
+
 class InactiveAndReactivationTests(CircuitApiTestCase):
     """Inativo não se inscreve; quem aparece na quadra volta a ficar ativo sem o recálculo desfazer."""
 

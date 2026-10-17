@@ -1,7 +1,9 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Home, Users, BarChart3, Trophy, Star, LogOut, Swords, CircleUser, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Bell, Activity, CreditCard, Award, Wallet, CalendarClock } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/store/AuthContext';
+import { circuitFinanceService } from '@/services';
 import { cn } from '@/lib/utils';
 import { ONLINE_PAYMENTS } from '@/lib/features';
 import { useEffect, useState } from 'react';
@@ -118,6 +120,18 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
   const navigate = useNavigate();
   const isPlayer = user?.profile === 'player';
   const navGroups = isPlayer ? playerNavGroups : adminNavGroups;
+  const isStaff = user?.profile === 'admin' || user?.profile === 'moderator';
+
+  // Pagamentos avisados esperando conferência: contador no item "Cobranças" (mesmo cache da tela de cobranças)
+  const { data: claims } = useQuery({
+    queryKey: ['circuit-finance', 'claims'],
+    queryFn: circuitFinanceService.claims,
+    enabled: isStaff,
+    refetchInterval: 60_000,
+  });
+  const badges: Record<string, { count: number; label: string }> = {
+    '/finance/circuits': { count: claims?.length ?? 0, label: 'pagamentos avisados para conferir' },
+  };
 
   const handleLogout = () => {
     logout();
@@ -222,7 +236,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                   {group.title}
                 </p>
               )}
-              {group.items.map(({ to, icon: Icon, label }) => (
+              {group.items.map(({ to, icon: Icon, label }) => {
+                const badge = badges[to];
+                const hasBadge = !!badge && badge.count > 0;
+                return (
                 <NavLink
                   key={to}
                   to={to}
@@ -234,9 +251,12 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                       ? 'bg-red/10 text-red border-l-2 border-red'
                       : 'text-text-secondary hover:bg-surface hover:text-text-primary'
                   )}
-                  title={collapsed ? label : undefined}
+                  title={collapsed ? (hasBadge ? `${label}: ${badge.count} ${badge.label}` : label) : undefined}
                 >
-                  <Icon size={20} className="flex-shrink-0" />
+                  <span className="relative flex-shrink-0">
+                    <Icon size={20} />
+                    {hasBadge && collapsed && <span aria-hidden className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red ring-2 ring-[rgb(var(--color-surface))]" />}
+                  </span>
                   <AnimatePresence>
                     {!collapsed && (
                       <motion.span
@@ -250,8 +270,17 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                       </motion.span>
                     )}
                   </AnimatePresence>
+                  {hasBadge && !collapsed && (
+                    <span
+                      className="ml-auto min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red text-white text-[11px] font-black leading-5 text-center tabular-nums"
+                      aria-label={`${badge.count} ${badge.label}`}
+                    >
+                      {badge.count}
+                    </span>
+                  )}
                 </NavLink>
-              ))}
+                );
+              })}
             </div>
           ))}
 

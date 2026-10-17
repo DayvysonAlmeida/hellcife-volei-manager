@@ -822,6 +822,8 @@ export interface SeasonInfo {
   end_date: string;
   days_left: number;
   fire_shark_min_games: number;
+  /** Texto da premiação (escrito pelo admin na tela Temporadas). */
+  prize_notes?: string;
   /** Só na pré-temporada: quando começa a Temporada 1. */
   next_season_starts_in?: number;
   next_season_start?: string;

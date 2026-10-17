@@ -79,6 +79,12 @@ export const attendanceService = {
   togglePayment: (gamedayId: number, playerId: number) =>
     api.patch(`/attendance/gamedays/${gamedayId}/toggle-payment/${playerId}/`).then(r => r.data),
 
+  /** Justifica (ou desfaz) a falta do atleta no circuito; o servidor recalcula as faltas. */
+  justifyAbsence: (attendanceId: number, justified: boolean) =>
+    api.post<{ detail: string; is_justified: boolean; consecutive_absences: number }>(
+      `/attendance/records/${attendanceId}/justify/`, { justified }
+    ).then(r => r.data),
+
   toggleCourtCheckin: (gamedayId: number, playerId: number) =>
     api.post('/attendance/court-checkins/toggle/', { gameday_id: gamedayId, player_id: playerId }).then(r => r.data),
 
@@ -192,6 +198,8 @@ export const matchesService = {
 export const seasonsService = {
   get: () => api.get<SeasonsResponse>('/players/seasons/').then(r => r.data),
   eloTiers: () => api.get<EloTiersResponse>('/players/elo-tiers/').then(r => r.data),
+  updatePrize: (number: number, prizeNotes: string) =>
+    api.patch<{ number: number; prize_notes: string }>(`/players/seasons/${number}/prize/`, { prize_notes: prizeNotes }).then(r => r.data),
 };
 
 export const hallOfFameService = {

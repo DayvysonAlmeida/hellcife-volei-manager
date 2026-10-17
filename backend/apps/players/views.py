@@ -372,6 +372,26 @@ class PlayerViewSet(viewsets.ModelViewSet):
         } for s in Season.objects.filter(finalized_at__isnull=False).order_by('-number')]
         return Response({'current': current, 'past': past})
 
+    @action(detail=False, methods=['patch'], url_path=r'seasons/(?P<number>\d+)/prize')
+    def season_prize(self, request, number=None):
+        """Texto da premiação da temporada (admin/moderador). Aparece para os atletas na tela Temporadas."""
+        from django.core.cache import cache
+        from .models import Season
+
+        if getattr(request.user, 'profile', None) not in ('admin', 'moderator'):
+            return Response({'detail': 'Só administradores podem editar a premiação.'}, status=status.HTTP_403_FORBIDDEN)
+        season = Season.objects.filter(number=number).first()
+        if not season:
+            return Response({'detail': 'Temporada não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+
+        text = str(request.data.get('prize_notes', '')).strip()
+        if len(text) > 1000:
+            return Response({'detail': 'O texto da premiação pode ter até 1000 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+        season.prize_notes = text
+        season.save(update_fields=['prize_notes'])
+        cache.delete('dashboard_data')  # o dashboard guarda a temporada atual em cache
+        return Response({'number': season.number, 'prize_notes': season.prize_notes})
+
     @action(detail=False, methods=['get'], url_path='elo-tiers')
     def elo_tiers(self, request):
         """Faixas do Elo e regras do cálculo, para as telas nunca divergirem do servidor."""

@@ -123,6 +123,7 @@ def season_info(season) -> dict:
         'start_date': season.start_date,
         'end_date': season.end_date,
         'days_left': (season.end_date - today).days,
+        'prize_notes': season.prize_notes,
     }
     if season.number == 0:
         start, _ = season_bounds(1)

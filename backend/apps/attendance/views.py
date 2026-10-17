@@ -960,18 +960,29 @@ class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='justify')
     def justify(self, request, pk=None):
-        from apps.core.permissions import IsAdminOrModerator
+        """
+        Justifica (ou desfaz, com justified=false) a falta do atleta no circuito e recalcula as faltas.
+        Falta justificada não soma nem zera a sequência. Só admin/moderador.
+        """
         if not IsAdminOrModerator().has_permission(request, self):
             return Response(status=status.HTTP_403_FORBIDDEN)
-            
+
         attendance = self.get_object()
-        justification_text = request.data.get('justification_text', '')
-        
-        attendance.is_justified = True
-        attendance.justification_text = justification_text
-        attendance.save()
-        
-        return Response({'detail': 'Falta justificada com sucesso!', 'is_justified': True})
+        justified = request.data.get('justified', True)
+        if isinstance(justified, str):
+            justified = justified.strip().lower() not in ('false', '0', 'no', '')
+
+        attendance.is_justified = bool(justified)
+        attendance.justification_text = request.data.get('justification_text', '') if justified else ''
+        attendance.save(update_fields=['is_justified', 'justification_text'])
+
+        sync_absences_logic()
+        attendance.player.refresh_from_db(fields=['consecutive_absences', 'status'])
+        return Response({
+            'detail': 'Falta justificada.' if justified else 'Justificativa removida.',
+            'is_justified': attendance.is_justified,
+            'consecutive_absences': attendance.player.consecutive_absences,
+        })
 
 
 class CourtCheckinViewSet(viewsets.ModelViewSet):

@@ -7,6 +7,7 @@ import { LocationInputWithPreview } from '@/components/ui/LocationInputWithPrevi
 import { attendanceService } from '@/services';
 import type { GameDay, PricingType } from '@/types';
 import { cn, formatBRL } from '@/lib/utils';
+import { ONLINE_PAYMENTS } from '@/lib/features';
 
 const HOLD_OPTIONS: Array<{ value: number | ''; label: string }> = [
   { value: '', label: 'Não expira' },
@@ -186,22 +187,26 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
             className="input w-full mt-1"
           />
         </div>
-        <div className="sm:col-span-1">
-          <label className="text-text-muted text-xs uppercase tracking-wider">
-            Custo em Créditos
-          </label>
-          <input
-            type="number"
-            step="0.5"
-            placeholder="Ex: 1.0"
-            value={newCreditCost}
-            onChange={(e) =>
-              setNewCreditCost(e.target.value === '' ? '' : Number(e.target.value))
-            }
-            min={0}
-            className="input w-full mt-1"
-          />
-        </div>
+        {/* Créditos só valem com os planos ligados; desligados, o campo some e o valor fica como está (0 por padrão) */}
+        {ONLINE_PAYMENTS && (
+          <div className="sm:col-span-1">
+            <label htmlFor="gameday-credit-cost" className="text-text-muted text-xs uppercase tracking-wider">
+              Custo em Créditos
+            </label>
+            <input
+              id="gameday-credit-cost"
+              type="number"
+              step="0.5"
+              placeholder="Ex: 1.0"
+              value={newCreditCost}
+              onChange={(e) =>
+                setNewCreditCost(e.target.value === '' ? '' : Number(e.target.value))
+              }
+              min={0}
+              className="input w-full mt-1"
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Cobrança ── */}

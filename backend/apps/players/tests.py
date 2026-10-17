@@ -265,6 +265,32 @@ class EloRankingTests(SeasonRolloverTests):
     test_seasons_endpoint_shows_podium = None
 
 
+class SeasonPrizeTests(SeasonRolloverTests):
+    """Premiação da temporada: o admin escreve pelo app e todos veem na tela Temporadas."""
+
+    def test_admin_writes_prize_and_athletes_see_it(self):
+        with self.at(date(2026, 12, 20)):
+            response = self.client.patch('/api/players/seasons/0/prize/', {'prize_notes': '  Camisa oficial para o Tubarão  '}, format='json')
+            self.assertEqual(response.status_code, 200)
+            athlete = User.objects.create_user('atleta@x.com', 'senha-forte-123', name='Atleta')
+            self.client.force_authenticate(athlete)
+            current = self.client.get('/api/players/seasons/').data['current']
+            self.assertEqual(current['prize_notes'], 'Camisa oficial para o Tubarão')
+            denied = self.client.patch('/api/players/seasons/0/prize/', {'prize_notes': 'x'}, format='json')
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(Season.objects.get(number=0).prize_notes, 'Camisa oficial para o Tubarão')
+
+    def test_unknown_season_and_long_text(self):
+        with self.at(date(2026, 12, 20)):
+            self.client.get('/api/players/seasons/')
+            self.assertEqual(self.client.patch('/api/players/seasons/9/prize/', {'prize_notes': 'x'}, format='json').status_code, 404)
+            self.assertEqual(self.client.patch('/api/players/seasons/0/prize/', {'prize_notes': 'x' * 1001}, format='json').status_code, 400)
+
+    test_rollover_saves_standings_and_resets_elo = None
+    test_editing_history_replays_the_season = None
+    test_seasons_endpoint_shows_podium = None
+
+
 class EloHistoryTests(SeasonRolloverTests):
     """Gráfico da evolução do Elo: soma dos +/- na ordem das partidas e só o próprio atleta vê."""
 
