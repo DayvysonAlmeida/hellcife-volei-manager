@@ -420,6 +420,21 @@ export interface DashboardStats {
   last_category_winners: Record<string, DashboardCategoryWinner>;
 }
 
+/** Linha do ranking de Elo da temporada (só quem terminou a calibração). */
+export interface EloRankingEntry {
+  id: number;
+  position: number;
+  name: string;
+  avatar_url: string | null;
+  elo: number;
+  matches: number;
+  wins: number;
+  tier: string;
+  tier_name: string;
+  tier_icon: string;
+  tier_color: string;
+}
+
 // ==================== Teams ====================
 export type Modality = 2 | 3 | 4 | 5 | 6;
 
@@ -654,6 +669,7 @@ export interface DashboardData {
     presence_count: number;
   }>;
   top_winners: TopWinner[];
+  top_elo?: EloRankingEntry[];
   position_distribution: PositionDist[];
   fire_sharks: Array<{
     id: number;

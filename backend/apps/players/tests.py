@@ -224,6 +224,47 @@ class FireSharkRuleTests(SeasonRolloverTests):
     test_seasons_endpoint_shows_podium = None
 
 
+class EloRankingTests(SeasonRolloverTests):
+    """Ranking de Elo: só quem terminou a calibração, mesma ordem em todas as telas e no resultado final."""
+
+    def setUp(self):
+        super().setUp()
+        a, b, c, d = self.players
+        self.rookie = Player.objects.create(name='Novato', main_position='setter')
+        rival = Player.objects.create(name='Rival', main_position='setter')
+        for i in range(10):
+            self.play(date(2026, 11, 1) + timedelta(days=i), [a, b], [c, d])
+        for i in range(3):  # Novato vence 3 e fica com Elo alto, mas ainda em calibração
+            self.play(date(2026, 11, 20) + timedelta(days=i), [self.rookie], [rival])
+        Player.objects.filter(pk=d.pk).update(status='inactive')
+        with self.at(date(2026, 12, 20)):
+            elo_service.recalculate_all()
+
+    def test_only_calibrated_active_players_rank(self):
+        a, b, c, d = self.players
+        self.assertGreater(Player.objects.get(pk=self.rookie.pk).elo, Player.objects.get(pk=c.pk).elo)
+        with self.at(date(2026, 12, 20)):
+            admin = [p['id'] for p in self.client.get('/api/dashboard/').data['top_elo']]
+            athlete_home = self.client.get('/api/players/dashboard-stats/').data
+            profile = self.client.get(f'/api/players/{a.id}/stats/').data['season']
+        self.assertEqual(admin, [a.id, b.id, c.id])  # a e b empatados: decide pelo nome
+        # o ranking de Elo é só do admin: o atleta não recebe a lista nem a posição
+        self.assertNotIn('top_elo', athlete_home)
+        self.assertNotIn('elo_rank', profile)
+
+    def test_final_standings_follow_the_same_rule(self):
+        a = self.players[0]
+        with self.at(date(2027, 1, 3)):
+            ensure_current_season()
+        pre = Season.objects.get(number=0)
+        self.assertIsNone(SeasonStanding.objects.get(season=pre, player=self.rookie).elo_rank)
+        self.assertEqual(SeasonStanding.objects.get(season=pre, player=a).elo_rank, 1)
+
+    test_rollover_saves_standings_and_resets_elo = None
+    test_editing_history_replays_the_season = None
+    test_seasons_endpoint_shows_podium = None
+
+
 class PlayerStatsTests(SeasonRolloverTests):
     """Perfil do atleta: sequência de vitórias na ordem certa e números da temporada separados da carreira."""
 

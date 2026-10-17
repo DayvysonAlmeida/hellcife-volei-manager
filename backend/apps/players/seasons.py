@@ -77,7 +77,7 @@ def finalize_season(season) -> None:
     """Salva o resultado final (Elo, Fire Shark e Gladiador) de cada atleta e encerra a temporada."""
     from apps.matches.models import MatchPlayer
 
-    from .elo_service import get_elo_tier, load_matches, replay
+    from .elo_service import PLACEMENT_GAMES, get_elo_tier, load_matches, replay
     from .models import SeasonStanding
     from .rankings import fire_shark_ranking, ranked_players, season_stats
 
@@ -85,7 +85,9 @@ def finalize_season(season) -> None:
     stats = season_stats(season)
     participants = [p for p in ranked_players() if stats.get(p.id, {}).get('matches')]
 
-    by_elo = sorted(participants, key=lambda p: (-elo.get(p.id, 500.0), p.name.lower()))
+    # Posição no Elo só para quem terminou a calibração, como no ranking ao vivo
+    calibrated = [p for p in participants if stats[p.id]['matches'] >= PLACEMENT_GAMES]
+    by_elo = sorted(calibrated, key=lambda p: (-elo.get(p.id, 500.0), p.name.lower()))
     by_wins = sorted(participants, key=lambda p: (-stats[p.id]['wins'], -stats[p.id]['matches'], p.name.lower()))
     fire = {p.id: (idx, p.fire_score) for idx, p in enumerate(fire_shark_ranking(season), start=1)}
     elo_rank = {p.id: idx for idx, p in enumerate(by_elo, start=1)}
@@ -102,7 +104,7 @@ def finalize_season(season) -> None:
             wins=stats[p.id]['wins'],
             point_balance=stats[p.id]['balance'],
             fire_score=round(fire[p.id][1], 2) if p.id in fire else None,
-            elo_rank=elo_rank[p.id],
+            elo_rank=elo_rank.get(p.id),
             fire_rank=fire[p.id][0] if p.id in fire else None,
             wins_rank=wins_rank[p.id],
         )

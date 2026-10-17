@@ -6,6 +6,7 @@ notificação de novo líder) usam estas funções, para mostrarem sempre a mesm
 Só entram atletas ativos e que não são convidados.
 
 Elo, Fire Shark e Gladiador valem por temporada (semestral). As Estrelas são mérito acumulado.
+No Elo, só ganha posição quem terminou a calibração (10 jogos na temporada).
 """
 from statistics import median
 
@@ -134,9 +135,38 @@ def wins_positions(season=None) -> dict:
     return positions
 
 
-def elo_ranking():
-    """Elo da temporada atual (o campo elo já é o da temporada)."""
-    return ranked_players().order_by('-elo', 'name')
+def elo_ranking(stats=None):
+    """
+    Ranking de Elo da temporada atual (o campo elo já é o da temporada).
+    Só entra quem terminou a calibração (10 jogos na temporada); empate decide pelo nome.
+    """
+    from .elo_service import PLACEMENT_GAMES
+
+    stats = stats if stats is not None else season_stats()
+    players = []
+    for p in ranked_players():
+        s = stats.get(p.id)
+        if not s or s['matches'] < PLACEMENT_GAMES:
+            continue
+        p.season_matches, p.season_wins = s['matches'], s['wins']
+        players.append(p)
+    players.sort(key=lambda p: (-p.elo, p.name.lower()))
+    return players
+
+
+def elo_top(limit=10) -> list:
+    """Top do Elo para as telas, com a faixa vinda do servidor."""
+    from .elo_service import get_elo_tier
+
+    rows = []
+    for idx, p in enumerate(elo_ranking()[:limit], start=1):
+        tier = get_elo_tier(p.elo)
+        rows.append({
+            'id': p.id, 'position': idx, 'name': p.display_name, 'avatar_url': p.avatar_url,
+            'elo': round(p.elo), 'matches': p.season_matches, 'wins': p.season_wins,
+            'tier': tier['key'], 'tier_name': tier['name'], 'tier_icon': tier['icon'], 'tier_color': tier['color'],
+        })
+    return rows
 
 
 def stars_ranking():

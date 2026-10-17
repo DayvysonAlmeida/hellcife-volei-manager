@@ -11,7 +11,7 @@ from apps.players.models import Player
 from apps.attendance.models import Attendance
 from apps.matches.models import MatchPlayer
 from apps.halloffame.models import HallOfFameEntry
-from apps.players.rankings import fire_shark_ranking, season_payload, stars_ranking, wins_ranking
+from apps.players.rankings import elo_top, fire_shark_ranking, season_payload, stars_ranking, wins_ranking
 
 
 class DashboardView(APIView):
@@ -226,6 +226,7 @@ class DashboardView(APIView):
             'top_winners': top_winners,
             'position_distribution': formatted_distribution,
             'fire_sharks': fire_sharks,
+            'top_elo': elo_top(),
             'season': season_payload(),
             'dream_team': dream_team,
             'hall_of_fame': hall_of_fame_list,

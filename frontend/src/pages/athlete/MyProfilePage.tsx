@@ -193,7 +193,7 @@ export function MyProfilePage() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xl">{tc.badge}</span>
+                <span className="text-xl">{tierData?.tier?.icon ?? tc.badge}</span>
                 <span className="font-display text-2xl font-black text-text-primary">{eloValue}</span>
               </div>
             </div>
@@ -222,7 +222,9 @@ export function MyProfilePage() {
                 }}
               />
             </div>
-            <p className="text-text-muted text-[10px] mt-1 text-right">{percent}% para próxima faixa</p>
+            {nextTierName && (
+              <p className="text-text-muted text-[10px] mt-1 text-right">{percent}% do caminho até {nextTierName}</p>
+            )}
           </motion.div>
         );
       })()}

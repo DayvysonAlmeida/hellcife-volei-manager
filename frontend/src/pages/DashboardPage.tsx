@@ -17,6 +17,7 @@ import { Crown } from 'lucide-react';
 import { dashboardService } from '@/services';
 import type { DashboardData } from '@/types';
 import { SeasonBadge } from '@/components/seasons/SeasonBadge';
+import { EloRanking } from '@/components/elo/EloRanking';
 
 export function DashboardPage() {
   const { data, isLoading, error, refetch } = useQuery<DashboardData>({
@@ -72,6 +73,7 @@ export function DashboardPage() {
 
       <OsCoroados newStars={data.new_stars || []} />
       <DreamTeam dreamTeam={data.dream_team || []} />
+      <EloRanking entries={data.top_elo || []} linkPrefix="/players/" rulesHref="/elo-system" />
       <FireSharksTop10 fireSharks={data.fire_sharks || []} />
       <HallOfFame hallOfFame={data.hall_of_fame || []} />
       <WinnersSection winners={data.top_winners || []} />
