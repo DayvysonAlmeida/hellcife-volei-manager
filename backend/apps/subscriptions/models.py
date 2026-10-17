@@ -64,7 +64,7 @@ class UserSubscription(models.Model):
         # Se mudou para 'active' (ou é novo) e não tem ciclo ativo, gera o ciclo e deposita os créditos
         if self.status == 'active' and (is_new or self._original_status != 'active'):
             from apps.subscriptions.services import SubscriptionService
-            today = timezone.now().date()
+            today = timezone.localdate()
             current_cycle = self.cycles.filter(is_active=True, start_date__lte=today, end_date__gte=today).first()
             if not current_cycle:
                 SubscriptionService.renew_cycle(self)

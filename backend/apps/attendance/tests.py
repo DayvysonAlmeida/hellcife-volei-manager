@@ -329,6 +329,23 @@ class AbsenceSyncTests(TestCase):
         self.sync()
         self.assertEqual(self.athlete.consecutive_absences, 3)
 
+    def test_tonights_open_circuit_is_not_counted_after_9pm(self):
+        """Às 22h em Brasília já é o dia seguinte em UTC: o circuito de hoje, ainda aberto, não pode gerar falta."""
+        from datetime import datetime, time, timezone as dt_timezone
+        from unittest.mock import patch
+
+        today = timezone.localdate()
+        gd = GameDay.objects.create(date=today, is_closed=False, is_published=True)
+        self.CourtCheckin.objects.create(gameday=gd, player=self.witness)
+        Attendance.objects.create(gameday=gd, player=self.athlete, present=True)
+
+        # timezone.now() devolve UTC, como no servidor: 22h30 de Brasília = 01h30 do dia seguinte em UTC
+        late_night = timezone.make_aware(datetime.combine(today, time(22, 30))).astimezone(dt_timezone.utc)
+        with patch('django.utils.timezone.now', return_value=late_night):
+            self.sync()
+        self.assertEqual(self.athlete.consecutive_absences, 0)
+        self.assertFalse(Attendance.objects.get(gameday=gd, player=self.athlete).was_no_show)
+
     def test_days_before_reset_date_are_ignored(self):
         for d in (5, 4, 3):
             self.day(d)
@@ -362,7 +379,7 @@ class AbsenceSyncTests(TestCase):
         reset_consecutive_absences(Mock(), None, Player.objects.filter(pk=self.athlete.pk))
         self.athlete.refresh_from_db()
         self.assertEqual(self.athlete.consecutive_absences, 0)
-        self.assertEqual(self.athlete.absences_reset_date, timezone.now().date())
+        self.assertEqual(self.athlete.absences_reset_date, timezone.localdate())
 
 
 class InactiveAndReactivationTests(CircuitApiTestCase):
