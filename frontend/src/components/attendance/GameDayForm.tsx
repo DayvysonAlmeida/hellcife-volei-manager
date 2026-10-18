@@ -63,7 +63,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
         time: newTime,
         time_end: newTimeEnd,
         location: newLocation,
-        max_players: newMaxPlayers === '' ? undefined : newMaxPlayers,
+        max_players: newMaxPlayers === '' ? 0 : newMaxPlayers, // vazio = ilimitado
         court_price: newCourtPrice === '' ? null : newCourtPrice, // vazio limpa o valor (senão o rateio continua)
         credit_cost: newCreditCost === '' ? 0 : newCreditCost,
         pix_key: newPixKey.trim(), // vazio limpa a chave (volta a usar a chave do grupo)
