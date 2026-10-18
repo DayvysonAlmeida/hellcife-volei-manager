@@ -96,6 +96,15 @@ Para rodar os testes do backend:
 python manage.py test apps
 ```
 
+Esses testes rodam em SQLite, que ignora algumas regras do PostgreSQL de produção (travas de linha, por exemplo). Antes de subir mudanças em pagamentos ou consultas mais elaboradas, rode também em PostgreSQL, com o Docker aberto e a partir da raiz do repositório:
+
+```bash
+docker compose -f backend/docker-compose.test.yml run --rm --build tests
+docker compose -f backend/docker-compose.test.yml down   # desliga o banco de teste
+```
+
+O container usa o mesmo Python e o mesmo driver da produção, e o banco fica só em memória.
+
 ### 2. Frontend (React/Vite)
 
 Em um novo terminal, navegue até a pasta `frontend` e execute:

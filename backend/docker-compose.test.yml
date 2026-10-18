@@ -1,0 +1,31 @@
+# Testes do backend em PostgreSQL, com o mesmo Python (3.11) e driver (psycopg2) da produção.
+# O SQLite do dia a dia ignora travas (select_for_update) e outras regras do Postgres; aqui elas valem.
+#
+# Na raiz do repositório:
+#   docker compose -f backend/docker-compose.test.yml run --rm --build tests
+#   docker compose -f backend/docker-compose.test.yml down    # desliga o banco de teste
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hellcife
+      POSTGRES_PASSWORD: hellcife
+      POSTGRES_DB: hellcife
+    # Banco em memória: some ao desligar, nada fica em disco
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hellcife"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  tests:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://hellcife:hellcife@db:5432/hellcife
+      DEBUG: "True"  # sem isso o Django liga o redirecionamento para HTTPS e os testes recebem 301
+    command: python manage.py test apps --noinput
