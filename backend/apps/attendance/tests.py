@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -70,6 +70,7 @@ class CheckinTests(CircuitApiTestCase):
         self.assertFalse(att.has_paid)
         self.assertFalse(att.used_credit)
 
+    @override_settings(PAGAMENTOS_ONLINE=True)
     def test_credits_are_still_used_when_circuit_charges_credits(self):
         self.p1.standalone_credits = Decimal('2')
         self.p1.save()
@@ -79,6 +80,17 @@ class CheckinTests(CircuitApiTestCase):
         self.p1.refresh_from_db()
         self.assertTrue(att.present and att.has_paid and att.used_credit)
         self.assertEqual(self.p1.standalone_credits, Decimal('1'))
+
+    def test_credits_are_ignored_while_plans_are_off(self):
+        """Circuito antigo com custo em créditos salvo não pode bloquear o check-in sem os planos."""
+        gd = self.make_gameday(credit_cost=Decimal('1'))
+        response = self.checkin(gd, self.p1)
+        self.assertEqual(response.status_code, 200)
+        att = self.att(gd, self.p1)
+        self.assertTrue(att.present)
+        self.assertFalse(att.used_credit)
+        info = self.client.get(f'{BASE}/{gd.id}/checkin-info/').data['gameday']
+        self.assertEqual(info['credit_cost'], 0)
 
     def test_prepayment_reserves_spot_with_amount_and_deadline(self):
         gd = self.make_gameday(court_price=Decimal('100'), requires_prepayment=True, reservation_hold_minutes=60)

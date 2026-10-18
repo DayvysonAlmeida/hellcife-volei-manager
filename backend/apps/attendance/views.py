@@ -409,7 +409,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 attendance.waitlist_joined_at = None
                 
                 # Uso de Crédito pelo Admin Toggle (só em circuitos que cobram créditos)
-                if not attendance.used_credit and gameday.credit_cost > 0:
+                if not attendance.used_credit and gameday.charges_credits:
                     from apps.subscriptions.services import SubscriptionService
                     from django.db import transaction
                     try:
@@ -494,7 +494,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'max_players': gameday.max_players,
                 'court_price': gameday.court_price,
                 'pix_key': gameday.pix_key,
-                'credit_cost': gameday.credit_cost,
+                # Com os planos desligados as telas de check-in não oferecem compra de créditos
+                'credit_cost': gameday.credit_cost if gameday.charges_credits else 0,
                 'pricing_type': gameday.pricing_type,
                 'price_per_person': gameday.effective_price_per_person,
                 'requires_prepayment': gameday.requires_prepayment,
@@ -578,7 +579,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'detail': detail_msg
             })
                 
-        uses_credits = gameday.credit_cost > 0
+        uses_credits = gameday.charges_credits
         has_credit = uses_credits and SubscriptionService.has_enough_credits(attendance.player, gameday.credit_cost)
 
         # Circuito com pagamento antecipado: reserva a vaga até o pagamento ser confirmado

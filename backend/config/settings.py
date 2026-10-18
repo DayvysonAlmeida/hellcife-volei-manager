@@ -150,6 +150,10 @@ ASAAS_API_KEY = config('ASAAS_API_KEY', default='')
 ASAAS_API_URL = config('ASAAS_API_URL', default='https://sandbox.asaas.com/api/v3')
 ASAAS_WEBHOOK_TOKEN = config('ASAAS_WEBHOOK_TOKEN', default='')
 
+# Planos, créditos e PIX automático (par do VITE_PAGAMENTOS_ONLINE do frontend).
+# Desligado, os circuitos não cobram créditos, mesmo que algum tenha custo em créditos salvo.
+PAGAMENTOS_ONLINE = config('PAGAMENTOS_ONLINE', default=False, cast=bool)
+
 # Preço unitário do crédito avulso (calculado no servidor, nunca vindo do cliente)
 EXTRA_CREDIT_UNIT_PRICE = config('EXTRA_CREDIT_UNIT_PRICE', default='10.00')
 

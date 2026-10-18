@@ -1,5 +1,6 @@
 from decimal import Decimal, ROUND_UP
 
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -58,6 +59,11 @@ class GameDay(models.Model):
         if hasattr(self, '_prefetched_objects_cache') and 'attendances' in self._prefetched_objects_cache:
             return sum(1 for a in self.attendances.all() if a.present)
         return self.attendances.filter(present=True).count()
+
+    @property
+    def charges_credits(self):
+        """Créditos só são cobrados com os planos ligados (PAGAMENTOS_ONLINE)."""
+        return settings.PAGAMENTOS_ONLINE and self.credit_cost > 0
 
     @property
     def suggested_price_per_person(self):
