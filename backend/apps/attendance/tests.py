@@ -182,6 +182,26 @@ class AdminPaymentTests(CircuitApiTestCase):
         self.client.patch(f'{BASE}/{self.gd.id}/', {'price_per_person': '35.00'}, format='json')
         self.assertEqual(self.att(self.gd, self.p1).amount_due, Decimal('35.00'))
 
+    def test_turning_off_prepayment_confirms_reserved_spots(self):
+        self.client.patch(f'{BASE}/{self.gd.id}/', {'requires_prepayment': False}, format='json')
+        att = self.att(self.gd, self.p1)
+        self.assertTrue(att.present)
+        self.assertFalse(att.is_reserved)
+        self.assertEqual(att.amount_due, Decimal('50.00'))  # o rateio continua devido, só não trava mais a vaga
+
+    def test_zero_price_confirms_reserved_spots(self):
+        self.client.patch(f'{BASE}/{self.gd.id}/', {'price_per_person': '0'}, format='json')
+        att = self.att(self.gd, self.p1)
+        self.assertTrue(att.present)
+        self.assertFalse(att.is_reserved)
+
+    def test_clearing_court_price_stops_charging(self):
+        gd = self.make_gameday(court_price=Decimal('100'))
+        self.client.patch(f'{BASE}/{gd.id}/', {'court_price': None}, format='json')
+        data = self.client.get(f'{BASE}/{gd.id}/checkin-info/').data['gameday']
+        self.assertIsNone(data['court_price'])
+        self.assertEqual(data['price_per_person'], Decimal('0'))
+
     def test_fixed_event_requires_price(self):
         response = self.client.post(f'{BASE}/', {'date': str(date.today()), 'pricing_type': 'fixed'}, format='json')
         self.assertEqual(response.status_code, 400)

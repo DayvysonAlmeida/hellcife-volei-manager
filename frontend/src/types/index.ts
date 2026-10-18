@@ -255,7 +255,7 @@ export interface GameDay {
   date: string;
   time?: string;
   time_end?: string;
-  court_price?: number;
+  court_price?: number | null;
   credit_cost?: number | string;
   description?: string;
   location?: string;

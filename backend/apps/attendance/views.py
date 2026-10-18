@@ -240,6 +240,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if gameday.effective_price_per_person != old_price:
             CircuitPaymentService.update_pending_amounts(gameday)
 
+        # Sem cobrança antecipada, ninguém fica preso em "Aguardando pagamento"
+        if not gameday.is_closed and not CircuitPaymentService.needs_payment(gameday):
+            CircuitPaymentService.confirm_reservations(gameday)
+
         # Envia notificação APENAS se o status is_published mudou de False para True
         if not was_published and gameday.is_published:
             gameday.published_at = timezone.now()

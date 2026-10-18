@@ -72,6 +72,28 @@ class CircuitPaymentService:
         return len(expired)
 
     @staticmethod
+    def confirm_reservations(gameday: GameDay) -> int:
+        """
+        Circuito deixou de exigir pagamento: reservas válidas viram presença confirmada
+        e as vencidas são liberadas. Retorna quantas presenças foram confirmadas.
+        """
+        now = timezone.now()
+        reserved = list(gameday.attendances.select_related('player__user').filter(is_reserved=True))
+        confirmed = 0
+        for att in reserved:
+            if not (att.payment_claimed or att.reserved_until is None or att.reserved_until > now):
+                CircuitPaymentService.release(att)
+                continue
+            att.is_reserved = False
+            att.reserved_until = None
+            att.present = True
+            att.is_waitlist = False
+            att.save()
+            _notify(att, 'Presença confirmada! 🏐', 'O circuito não exige mais pagamento antecipado. Sua vaga está garantida!')
+            confirmed += 1
+        return confirmed
+
+    @staticmethod
     def fill_from_waitlist(gameday: GameDay) -> list[Attendance]:
         """Reserva vagas livres para os próximos da fila (mesma ordem do 'promover da fila')."""
         promoted = []
@@ -96,7 +118,8 @@ class CircuitPaymentService:
     def confirm_payment(attendance: Attendance, method: str, amount=None, confirmed_by=None, asaas_payment_id=None) -> AttendancePayment:
         """Registra o pagamento; se a vaga estava reservada, confirma a presença."""
         with transaction.atomic():
-            att = Attendance.objects.select_for_update().select_related('gameday', 'player__user').get(pk=attendance.pk)
+            # of=('self',): o Postgres não trava o lado opcional do join (atleta sem conta no app)
+            att = Attendance.objects.select_for_update(of=('self',)).select_related('gameday', 'player__user').get(pk=attendance.pk)
             gameday = att.gameday
             due = att.amount_due if att.amount_due is not None else gameday.effective_price_per_person
             if amount is None:
