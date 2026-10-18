@@ -65,7 +65,8 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
         location: newLocation,
         max_players: newMaxPlayers === '' ? 0 : newMaxPlayers, // vazio = ilimitado
         court_price: newCourtPrice === '' ? null : newCourtPrice, // vazio limpa o valor (senão o rateio continua)
-        credit_cost: newCreditCost === '' ? 0 : newCreditCost,
+        // Sem os planos ninguém tem crédito: um valor escondido no circuito bloquearia o check-in
+        credit_cost: ONLINE_PAYMENTS && newCreditCost !== '' ? newCreditCost : 0,
         pix_key: newPixKey.trim(), // vazio limpa a chave (volta a usar a chave do grupo)
         pricing_type: pricingType,
         price_per_person: pricePerPerson === '' ? null : pricePerPerson,
