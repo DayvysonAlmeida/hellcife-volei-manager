@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, type ReactNode
 import type { User, LoginResponse } from '@/types';
 import api from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
+import { removePushSubscription } from '@/lib/push';
 
 interface AuthContextType {
   user: User | null;
@@ -40,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Leva o token agora: logo abaixo ele é apagado, e o cancelamento termina em segundo plano
+    removePushSubscription(localStorage.getItem('access_token'));
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');

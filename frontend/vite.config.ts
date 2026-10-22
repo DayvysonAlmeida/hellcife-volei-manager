@@ -10,6 +10,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['logo.png'],
+      // Eventos do Web Push (push e toque na notificação) somados ao service worker gerado
+      workbox: {
+        importScripts: ['push-sw.js'],
+      },
       manifest: {
         name: 'HellCife Vôlei Manager',
         short_name: 'HellCife',

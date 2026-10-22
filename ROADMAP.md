@@ -129,9 +129,10 @@
 - [ ] Entrega do PIX na contratação de planos
 
 #### 5.3 — Notificações Push (PWA) 📲
-- [ ] Implementar Web Push API no backend (django-push-notifications ou similar)
-- [ ] Gerar VAPID keys
-- [ ] Atleta recebe push nativo
+- [x] Implementar Web Push API no backend (`pywebpush`, inscrição dos aparelhos e envio depois do commit pelo `notify()`)
+- [x] Service worker mostra o push com o app fechado e abre o app no toque; inscrição ao abrir o app e cancelamento no logout
+- [ ] Gerar as chaves VAPID (`python manage.py generate_vapid_keys`) e configurar no Cloud Run
+- [ ] Validar o push num Android e num iPhone com o app instalado
 
 #### 5.4 — App Mobile (Longo Prazo) 📱
 - [ ] Avaliar React Native (Expo)
