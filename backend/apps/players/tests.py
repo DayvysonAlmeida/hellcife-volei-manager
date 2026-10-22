@@ -1,4 +1,5 @@
 from datetime import date
+from unittest import mock
 
 from django.core.cache import cache
 from django.test import TestCase
@@ -6,7 +7,9 @@ from rest_framework.test import APIClient
 
 from apps.core.models import User
 from apps.matches.models import Match, MatchPlayer, MatchTeam
-from .models import Player
+from apps.core.utils.ranking_monitor import check_rank_changes
+from apps.notifications.models import Notification
+from .models import Player, RankingLeader
 from .rankings import fire_shark_positions, fire_shark_ranking, stars_ranking, wins_ranking
 
 
@@ -356,3 +359,54 @@ class PlayerStatsTests(SeasonRolloverTests):
     test_rollover_saves_standings_and_resets_elo = None
     test_editing_history_replays_the_season = None
     test_seasons_endpoint_shows_podium = None
+
+
+class RankingLeaderAlertTests(TestCase):
+    """O aviso de novo líder sai uma vez só, com o líder gravado no banco (vale para todos os containers)."""
+
+    def setUp(self):
+        for i in range(3):
+            User.objects.create_user(f'atleta{i}@x.com', 'senha-forte-123', name=f'Atleta {i}')
+        self.athletes = User.objects.filter(profile='player', is_active=True).count()
+        self.ana = Player.objects.create(name='Ana', main_position='setter')
+        self.bia = Player.objects.create(name='Bia', main_position='setter')
+        for player in (self.ana, self.bia):
+            player.wins, player.big_stars, player.mini_stars = 5, 1, 3
+
+    def check(self, wins_leader, stars_leader=None):
+        with mock.patch('apps.core.utils.ranking_monitor.wins_ranking') as wins, \
+                mock.patch('apps.core.utils.ranking_monitor.stars_ranking') as stars:
+            wins.return_value.first.return_value = wins_leader
+            stars.return_value.first.return_value = stars_leader
+            check_rank_changes()
+
+    def alerts(self, ranking):
+        return Notification.objects.filter(type='alert', title__endswith=ranking).count()
+
+    def test_first_check_only_records_the_leaders(self):
+        self.check(self.ana, self.ana)
+
+        self.assertFalse(Notification.objects.exists())
+        self.assertEqual(RankingLeader.objects.get(ranking='wins').player, self.ana)
+        self.assertEqual(RankingLeader.objects.get(ranking='stars').player, self.ana)
+
+    def test_new_leader_alerts_every_athlete_once(self):
+        self.check(self.ana)
+        self.check(self.bia)
+        self.check(self.bia)
+
+        self.assertEqual(self.alerts('Vitórias'), self.athletes)
+
+    def test_leader_change_after_restart_still_alerts(self):
+        self.check(self.ana)
+        cache.clear()  # reinício do container: com o líder só na memória, essa troca passava sem aviso
+        self.check(self.bia)
+
+        self.assertEqual(self.alerts('Vitórias'), self.athletes)
+
+    def test_each_ranking_has_its_own_leader(self):
+        self.check(self.ana, self.ana)
+        self.check(self.ana, self.bia)
+
+        self.assertEqual(self.alerts('Vitórias'), 0)
+        self.assertEqual(self.alerts('Estrelas'), self.athletes)

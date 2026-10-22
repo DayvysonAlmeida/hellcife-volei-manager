@@ -21,7 +21,8 @@ self.addEventListener('push', (event) => {
     // Todo push precisa mostrar uma notificação: o navegador cancela a inscrição de quem não mostra
     await self.registration.showNotification(data.title || 'HellCife Vôlei', {
       body: data.body || '',
-      icon: '/logo.png',
+      icon: '/pwa-192x192.png',
+      badge: '/badge-96x96.png', // silhueta branca da barra de status do Android
       tag: data.id ? `notif-${data.id}` : undefined,
       data: { id: data.id, url: appPath(data.url) },
     });

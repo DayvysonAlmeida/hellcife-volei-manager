@@ -297,3 +297,20 @@ class SeasonStanding(models.Model):
 
     def __str__(self):
         return f'{self.season} — {self.player}'
+
+
+class RankingLeader(models.Model):
+    """
+    Líder atual de cada ranking, para o aviso de "novo líder" sair uma vez só.
+    Fica no banco (e não no cache da memória) porque vale para todos os containers e sobrevive a reinícios.
+    """
+    ranking = models.CharField(max_length=30, unique=True, verbose_name='Ranking')
+    player = models.ForeignKey(Player, on_delete=models.SET_NULL, null=True, related_name='+', verbose_name='Atleta líder')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Atualizado em')
+
+    class Meta:
+        verbose_name = 'Líder de ranking'
+        verbose_name_plural = 'Líderes de ranking'
+
+    def __str__(self):
+        return f'{self.ranking} — {self.player}'

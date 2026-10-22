@@ -102,14 +102,15 @@ class ForgotPasswordView(generics.GenericAPIView):
             )
             print(f"✅ E-mail enviado com sucesso para {user.email}")
         except Exception as e:
-            # Fallback para ambiente local ou quando SMTP não estiver configurado
-            print("⚠️ ERRO AO ENVIAR EMAIL (SMTP não configurado ou falhou). Imprimindo link de segurança localmente:")
-            print("="*50)
-            print("🔒 RECUPERAÇÃO DE SENHA SOLICITADA")
-            print(f"Usuário: {user.name} ({user.email})")
-            print(f"Link de Recuperação: {reset_link}")
-            print(f"Erro Real: {str(e)}")
-            print("="*50)
+            print(f"⚠️ ERRO AO ENVIAR O E-MAIL DE RECUPERAÇÃO (usuário {user.pk}): {e}")
+            # O link troca a senha de quem pediu: só aparece no terminal em desenvolvimento.
+            # Em produção, o print vai para o log do Cloud Run, e quem lê o log não pode receber esse link.
+            if settings.DEBUG:
+                print("="*50)
+                print("🔒 RECUPERAÇÃO DE SENHA SOLICITADA (SMTP não configurado ou falhou)")
+                print(f"Usuário: {user.name} ({user.email})")
+                print(f"Link de Recuperação: {reset_link}")
+                print("="*50)
         
         return Response({'detail': 'Se o email existir, um link de recuperação será enviado.'})
 
