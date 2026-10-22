@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Bell, Check, Gift, Medal, Info, AlertTriangle, CircleDollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications, useNotificationAlerts } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
 
@@ -25,7 +25,9 @@ const COLORS: Record<Notification['type'], string> = {
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, isSuccess, markAsRead, markAllAsRead } = useNotifications();
+  // O sininho fica sempre no cabeçalho: é o único lugar que avisa as notificações novas
+  useNotificationAlerts(notifications, isSuccess, markAsRead);
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
 

@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: API_URL,
 });
 
 // Interceptor de request: adiciona o token JWT
@@ -12,6 +14,28 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+// Uma renovação por vez: várias respostas 401 juntas esperam a mesma chamada
+let refreshing: Promise<string> | null = null;
+
+/**
+ * Renova o token de acesso na API (em produção ela fica em outro domínio, não na Vercel).
+ * Guarda também o refresh novo, que o backend gira a cada renovação.
+ */
+function refreshAccessToken(refreshToken: string) {
+  refreshing ??= axios
+    .post(`${API_URL}/auth/refresh/`, { refresh: refreshToken })
+    .then(({ data }) => {
+      if (typeof data?.access !== 'string') throw new Error('Resposta de renovação sem token');
+      localStorage.setItem('access_token', data.access);
+      if (typeof data.refresh === 'string') localStorage.setItem('refresh_token', data.refresh);
+      return data.access as string;
+    })
+    .finally(() => {
+      refreshing = null;
+    });
+  return refreshing;
+}
 
 // Interceptor de response: trata 401 e renova token
 api.interceptors.response.use(
@@ -25,9 +49,7 @@ api.interceptors.response.use(
 
       if (refreshToken) {
         try {
-          const res = await axios.post('/api/auth/refresh/', { refresh: refreshToken });
-          const { access } = res.data;
-          localStorage.setItem('access_token', access);
+          const access = await refreshAccessToken(refreshToken);
           originalRequest.headers.Authorization = `Bearer ${access}`;
           return api(originalRequest);
         } catch {

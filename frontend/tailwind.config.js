@@ -82,6 +82,9 @@ export default {
         'slide-in': 'slideIn 0.3s ease-out',
         'fade-in': 'fadeIn 0.3s ease-out',
         'scale-in': 'scaleIn 0.2s ease-out',
+        // Avisos flutuantes (react-hot-toast): o "forwards" mantém o aviso escondido até sair da tela
+        'enter': 'toastEnter 0.2s ease-out',
+        'leave': 'toastLeave 0.15s ease-in forwards',
       },
       keyframes: {
         pulseRed: {
@@ -103,6 +106,14 @@ export default {
         scaleIn: {
           '0%': { opacity: 0, transform: 'scale(0.95)' },
           '100%': { opacity: 1, transform: 'scale(1)' },
+        },
+        toastEnter: {
+          '0%': { opacity: 0, transform: 'translateY(-8px) scale(0.95)' },
+          '100%': { opacity: 1, transform: 'translateY(0) scale(1)' },
+        },
+        toastLeave: {
+          '0%': { opacity: 1, transform: 'scale(1)' },
+          '100%': { opacity: 0, transform: 'scale(0.95)' },
         },
       },
       borderRadius: {
