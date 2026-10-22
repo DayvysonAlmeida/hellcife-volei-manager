@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 import { MatchCard } from '@/components/matches/MatchCard';
 import { CourtCheckinModal } from '@/components/attendance/CourtCheckinModal';
 import { useAuth } from '@/store/AuthContext';
-import { borrowPlayersForTeam, borrowedPlayerIds, rotateAfterMatch, withoutPlayers } from '@/components/bracket/bracket-utils';
+import { borrowKeeping, borrowPlayersForTeam, borrowedPlayerIds, rotateAfterMatch, withoutPlayers } from '@/components/bracket/bracket-utils';
 import { CourtScoreboard } from '@/components/bracket/CourtScoreboard';
 import { CourtSyncBar } from '@/components/bracket/CourtSyncBar';
 import { useBracketSync } from '@/components/bracket/useBracketSync';
@@ -33,6 +33,8 @@ interface BracketState {
   borrowCounts: Record<number, number>;
   transitionMessage: string | null;
   transitionColor: string | null;
+  /** Emprestados já anunciados para o próximo time da fila: são eles que entram quando o time entrar. */
+  nextBorrow?: { teamId: number; playerIds: number[] } | null;
 }
 
 export function BracketPage() {
@@ -136,8 +138,8 @@ export function BracketPage() {
           const ids = (players: Array<{ player: number }>) => players.map(p => p.player).join(',');
           if (ids(freshTeam.team_players) === ids(t.team_players.filter(p => !p.is_borrowed))) return t;
           changed = true;
-          return borrowPlayersForTeam(
-            freshTeam, other?.avg_overall || 0, generation.modality,
+          return borrowKeeping(
+            freshTeam, [...borrowedPlayerIds(t)], other?.avg_overall || 0, generation.modality,
             withoutPlayers(newQueue, borrowedPlayerIds(other)), prev.borrowCounts,
           );
         };
@@ -190,10 +192,28 @@ export function BracketPage() {
     });
   };
 
-  const borrowedQueue0 = useMemo(() => {
-    if (state.queue.length === 0 || !generation) return null;
-    return borrowPlayersForTeam(state.queue[0], 0, generation.modality, state.queue.slice(1), state.borrowCounts);
-  }, [state.queue, generation, state.borrowCounts]);
+  // Quem o próximo time da fila vai pegar emprestado: a escolha fica guardada (nextBorrow) e é a mesma na
+  // hora de entrar. Quem está jogando emprestado agora não entra na conta.
+  const nextBorrowPreview = (s: BracketState) => {
+    const next = s.queue[0];
+    if (!next || !generation) return null;
+    const keep = s.nextBorrow?.teamId === next.id ? s.nextBorrow.playerIds : [];
+    const pool = withoutPlayers(s.queue.slice(1), borrowedPlayerIds(s.courtA, s.courtB));
+    return borrowKeeping(next, keep, 0, generation.modality, pool, s.borrowCounts);
+  };
+  const borrowedQueue0 = useMemo(() => nextBorrowPreview(state), [state.queue, state.courtA, state.courtB, state.nextBorrow, state.borrowCounts, generation]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Guarda a escolha do próximo emprestado (só quem está marcando: os outros celulares recebem pelo servidor)
+  useEffect(() => {
+    if (!generation || !state.isStarted || readOnly) return;
+    setState(prev => {
+      const preview = nextBorrowPreview(prev);
+      const ids = preview ? preview.team_players.filter(p => p.is_borrowed).map(p => p.player) : [];
+      const nextBorrow = preview && ids.length ? { teamId: preview.id, playerIds: ids } : null;
+      if (JSON.stringify(nextBorrow) === JSON.stringify(prev.nextBorrow ?? null)) return prev;
+      return { ...prev, nextBorrow };
+    });
+  }, [generation, state.isStarted, state.queue, state.courtA, state.courtB, readOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startPelada = () => {
     sync.markUserAction();
@@ -356,15 +376,20 @@ export function BracketPage() {
         : `${winnerCourt.name.toUpperCase()} venceu e continua na quadra!`;
 
       // Aplicar o empréstimo nos times que vão entrar, usando a fila ATUALIZADA (q) e os novos contadores
-      let finalNextA: CourtTeam | null = null;
-      let finalNextB: CourtTeam | null = null;
+      // Quem a fila anunciou como emprestado do time que entra é quem entra (só troca quem não está mais
+      // disponível). Esse time é montado primeiro; o outro não pode usar os mesmos jogadores.
+      const announced = (base: DBTeam | null) => (base && prev.nextBorrow?.teamId === base.id ? prev.nextBorrow.playerIds : []);
+      const build = (base: DBTeam | null, opposingAvg: number, pool: DBTeam[]) =>
+        base ? borrowKeeping(base, announced(base), opposingAvg, generation!.modality, pool, newBorrowCounts) : null;
 
-      if (nextABase) {
-         finalNextA = borrowPlayersForTeam(nextABase, nextBBase?.avg_overall || 0, generation!.modality, q, newBorrowCounts);
-      }
-      if (nextBBase) {
-         // Quem já foi emprestado para o lado A não pode ir também para o B
-         finalNextB = borrowPlayersForTeam(nextBBase, finalNextA?.avg_overall || 0, generation!.modality, withoutPlayers(q, borrowedPlayerIds(finalNextA)), newBorrowCounts);
+      let finalNextA: CourtTeam | null;
+      let finalNextB: CourtTeam | null;
+      if (announced(nextBBase).length && !announced(nextABase).length) {
+        finalNextB = build(nextBBase, nextABase?.avg_overall || 0, q);
+        finalNextA = build(nextABase, finalNextB?.avg_overall || 0, withoutPlayers(q, borrowedPlayerIds(finalNextB)));
+      } else {
+        finalNextA = build(nextABase, nextBBase?.avg_overall || 0, q);
+        finalNextB = build(nextBBase, finalNextA?.avg_overall || 0, withoutPlayers(q, borrowedPlayerIds(finalNextA)));
       }
 
       return {
@@ -379,6 +404,7 @@ export function BracketPage() {
         matchNumber: prev.matchNumber + 1,
         showSaveModal: false,
         borrowCounts: newBorrowCounts,
+        nextBorrow: null, // o próximo da fila ganha a sua escolha a seguir
         transitionMessage: message,
         transitionColor: winnerCourt.color_hex,
       };

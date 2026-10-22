@@ -29,6 +29,42 @@ export function withoutPlayers(teams: DBTeam[], playerIds: Set<number>): DBTeam[
   return teams.map((t) => ({ ...t, team_players: t.team_players.filter((p) => !playerIds.has(p.player)) }));
 }
 
+/**
+ * Completa o time com emprestados mantendo primeiro quem já tinha sido escolhido (`keep`): quem a fila mostrou
+ * como "vai entrar emprestado" é quem entra. Só escolhe outro para a vaga de quem não está mais disponível
+ * (o time dele entrou em quadra ou ele saiu da pelada) ou quando falta mais gente.
+ */
+export function borrowKeeping(
+  team: DBTeam,
+  keep: number[],
+  opposingAvg: number,
+  modality: number,
+  availableTeams: DBTeam[],
+  borrowCounts: Record<number, number> = {},
+): CourtTeam {
+  const needed = modality - team.team_players.length;
+  const kept: Array<CourtTeam['team_players'][number] & { original_team_id: number }> = [];
+  for (const id of keep) {
+    if (kept.length >= needed) break;
+    for (const t of availableTeams) {
+      const found = t.team_players.find((p) => p.player === id);
+      if (found) {
+        kept.push({ ...found, is_borrowed: true, original_team_id: t.id });
+        break;
+      }
+    }
+  }
+  if (kept.length === 0) return borrowPlayersForTeam(team, opposingAvg, modality, availableTeams, borrowCounts);
+
+  // Os mantidos entram como se já fossem do time; o algoritmo só completa o que ainda faltar
+  const keptIds = new Set(kept.map((p) => p.player));
+  const base: DBTeam = { ...team, team_players: [...team.team_players, ...kept] };
+  const rest = borrowPlayersForTeam(base, opposingAvg, modality, withoutPlayers(availableTeams, keptIds), borrowCounts);
+  const players = rest.team_players.map((p) => kept.find((k) => k.player === p.player) ?? p);
+  const sum = players.reduce((acc, p) => acc + (Number(p.player_overall) || 0), 0);
+  return { ...rest, team_players: players, avg_overall: players.length ? sum / players.length : 0 };
+}
+
 interface RotationInput {
   winner: DBTeam | null; // null: o time foi excluído no meio do jogo (ex.: Embaralhar com menos times)
   loser: DBTeam | null;
