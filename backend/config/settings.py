@@ -157,6 +157,13 @@ PAGAMENTOS_ONLINE = config('PAGAMENTOS_ONLINE', default=False, cast=bool)
 # Preço unitário do crédito avulso (calculado no servidor, nunca vindo do cliente)
 EXTRA_CREDIT_UNIT_PRICE = config('EXTRA_CREDIT_UNIT_PRICE', default='10.00')
 
+# Web Push: notificação no celular com o app fechado. Sem as três, o push fica desligado.
+# Gere o par com `python manage.py generate_vapid_keys`; a chave privada nunca vai para o frontend.
+# O strip tira a quebra de linha que costuma vir junto ao colar a chave no Secret Manager.
+VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='').strip()
+VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY', default='').strip()
+VAPID_CLAIM_EMAIL = config('VAPID_CLAIM_EMAIL', default='').strip()
+
 # Email Backend
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')

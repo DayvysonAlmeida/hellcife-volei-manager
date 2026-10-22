@@ -153,6 +153,9 @@ Configure as seguintes variáveis no console do Cloud Run (ou via `gcloud`):
 | `EMAIL_HOST_USER` | Usuário do SMTP |
 | `EMAIL_HOST_PASSWORD` | Senha (ou senha de app) do SMTP |
 | `DEFAULT_FROM_EMAIL` | Remetente dos e-mails enviados pelo sistema |
+| `VAPID_PUBLIC_KEY` | Chave pública do Web Push (gere com `python manage.py generate_vapid_keys`) |
+| `VAPID_PRIVATE_KEY` | Chave privada do Web Push (de preferência pelo Secret Manager; sem as três `VAPID_*`, o push fica desligado) |
+| `VAPID_CLAIM_EMAIL` | E-mail de contato enviado aos serviços de push (Google, Apple, Mozilla) |
 
 ### Processo de Build e Deploy
 

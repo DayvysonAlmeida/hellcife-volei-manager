@@ -2,6 +2,7 @@ import logging
 from django.core.cache import cache
 from apps.players.rankings import stars_ranking, wins_ranking
 from apps.notifications.models import Notification
+from apps.notifications.services import notify
 from apps.core.models import User
 
 logger = logging.getLogger(__name__)
@@ -55,9 +56,8 @@ def check_rank_changes():
                         ))
                 cache.set('leader_stars', top_star.id, timeout=None)
                 
-        # Bulk create de todos os alertas gerados
-        if notifications_to_create:
-            Notification.objects.bulk_create(notifications_to_create)
+        # Grava todos os alertas gerados de uma vez (e manda o push)
+        notify(notifications_to_create)
 
     except Exception as e:
         logger.error(f"Erro ao checar mudança de ranks: {e}")

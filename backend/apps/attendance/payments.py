@@ -13,7 +13,8 @@ def _notify(attendance, title, message):
     user = getattr(attendance.player, 'user', None)
     if user and user.is_active:
         from apps.notifications.models import Notification
-        Notification.objects.create(user=user, title=title, message=message, type='financial')
+        from apps.notifications.services import notify
+        notify([Notification(user=user, title=title, message=message, type='financial')])
 
 
 class CircuitPaymentService:

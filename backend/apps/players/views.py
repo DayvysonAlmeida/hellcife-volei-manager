@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from .models import Player, StarHistory, Badge
 from apps.notifications.models import Notification
+from apps.notifications.services import notify
 from .serializers import (
     PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer,
     BadgeSerializer
@@ -246,8 +247,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
                         type='circuit'
                     ))
 
-            if notifications_to_create:
-                Notification.objects.bulk_create(notifications_to_create)
+            notify(notifications_to_create)
 
         # Invalida cache do dashboard para refletir nova pontuação
         from django.core.cache import cache

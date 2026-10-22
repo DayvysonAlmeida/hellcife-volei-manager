@@ -176,18 +176,17 @@ class GameDayViewSet(viewsets.ModelViewSet):
     def _send_publish_notification(self, gameday):
         from apps.core.models import User
         from apps.notifications.models import Notification
+        from apps.notifications.services import notify
         date_str = gameday.date.strftime('%d/%m/%Y')
         users = User.objects.filter(profile='player', is_active=True)
-        notifications = [
+        notify([
             Notification(
                 user=u,
                 title='Circuito Liberado! 🏐',
                 message=f'A lista para o circuito do dia {date_str} já foi aberta. Entre para confirmar sua presença ou tirar sua falta!',
                 type='circuit'
             ) for u in users
-        ]
-        if notifications:
-            Notification.objects.bulk_create(notifications)
+        ])
 
     @staticmethod
     def _reservation_payload(attendance, detail):
@@ -206,6 +205,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if gameday.max_players and not gameday.is_full_notified:
             if gameday.occupied_spots >= gameday.max_players:
                 from apps.notifications.models import Notification
+                from apps.notifications.services import notify
                 gameday.is_full_notified = True
                 gameday.save(update_fields=['is_full_notified'])
                 
@@ -214,16 +214,14 @@ class GameDayViewSet(viewsets.ModelViewSet):
                     if getattr(att.player, 'user', None) and att.player.user.is_active
                 ]
                 
-                notifications = [
+                notify([
                     Notification(
                         user=u,
                         title='Circuito Fechado! 🛑',
                         message='O circuito fechou as vagas! Caso não tenha realizado o pagamento, faça agora para garantir a sua vaga.',
                         type='circuit'
                     ) for u in present_users
-                ]
-                if notifications:
-                    Notification.objects.bulk_create(notifications)
+                ])
 
     def perform_update(self, serializer):
         instance = self.get_object()
