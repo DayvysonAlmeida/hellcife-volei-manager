@@ -44,6 +44,7 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
     gameday_time = serializers.TimeField(source='gameday.time', read_only=True)
     gameday_location = serializers.CharField(source='gameday.location', read_only=True)
     removed_players = serializers.SerializerMethodField()
+    waiting_players = serializers.SerializerMethodField()
 
     def get_removed_players(self, obj):
         return [
@@ -51,11 +52,17 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
             for p in obj.removed_players.all()
         ]
 
+    def get_waiting_players(self, obj):
+        # Pelada encerrada não espera mais ninguém
+        if obj.is_locked:
+            return []
+        return [{'id': c.player_id, 'name': c.player.display_name} for c in obj.waiting_checkins()]
+
     class Meta:
         model = TeamGeneration
         fields = ['id', 'gameday', 'gameday_date', 'gameday_time', 'gameday_location', 'modality', 'modality_display',
                   'created_by', 'created_by_name', 'notes', 'balance_score', 'is_locked',
-                  'teams', 'removed_players', 'created_at']
+                  'teams', 'removed_players', 'waiting_players', 'created_at']
         read_only_fields = ['created_by', 'balance_score', 'created_at']
 
 

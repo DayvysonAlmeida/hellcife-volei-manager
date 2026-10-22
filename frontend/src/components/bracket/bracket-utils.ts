@@ -1,5 +1,66 @@
 import type { DBTeam, CourtTeam } from '@/types';
 
+/**
+ * Regra do rodízio (vale para 2x2, 3x3, 4x4...): quem ganha 2 seguidas sai da quadra só se houver
+ * 2 times completos esperando fora. Senão, o vencedor continua até perder.
+ * `waitingTeams` são os times que estavam fora durante a partida (a fila). Time que emprestou jogador
+ * para quem está em quadra (`lentPlayerIds`) não está completo lá fora.
+ */
+export function winnerMustLeave(
+  winnerConsecutive: number,
+  waitingTeams: DBTeam[],
+  modality: number,
+  lentPlayerIds: Set<number> = new Set(),
+): boolean {
+  const completeWaiting = waitingTeams.filter(
+    (t) => t.team_players.filter((p) => !lentPlayerIds.has(p.player)).length >= modality,
+  ).length;
+  return winnerConsecutive >= 2 && completeWaiting >= 2;
+}
+
+/** Jogadores emprestados nos times em quadra. */
+export function borrowedPlayerIds(...teams: Array<CourtTeam | null | undefined>): Set<number> {
+  return new Set(teams.flatMap((t) => (t?.team_players || []).filter((p) => p.is_borrowed).map((p) => p.player)));
+}
+
+/** Times da fila sem os jogadores indicados (ex.: já emprestados para o outro lado da quadra). */
+export function withoutPlayers(teams: DBTeam[], playerIds: Set<number>): DBTeam[] {
+  if (playerIds.size === 0) return teams;
+  return teams.map((t) => ({ ...t, team_players: t.team_players.filter((p) => !playerIds.has(p.player)) }));
+}
+
+interface RotationInput {
+  winner: DBTeam | null; // null: o time foi excluído no meio do jogo (ex.: Embaralhar com menos times)
+  loser: DBTeam | null;
+  winnerIsA: boolean;
+  winnerConsecutive: number;
+  queue: DBTeam[]; // quem estava esperando durante a partida
+  modality: number;
+  lentPlayerIds?: Set<number>; // quem jogou emprestado na partida que acabou
+}
+
+/** Quem entra na próxima partida e como fica a fila, pela regra do rodízio. */
+export function rotateAfterMatch({ winner, loser, winnerIsA, winnerConsecutive, queue, modality, lentPlayerIds }: RotationInput) {
+  const q = [...queue];
+  if (winnerMustLeave(winnerConsecutive, queue, modality, lentPlayerIds)) {
+    const first = q.shift() || null; // entram os dois que estavam esperando
+    const second = q.shift() || null;
+    if (winner) q.unshift(winner); // vencedor é o próximo a entrar
+    if (loser) q.push(loser); // perdedor vai para o fim da fila
+    return { nextA: first, nextB: second, queue: q, winnerLeft: true, winnerStays: false };
+  }
+  if (loser) q.push(loser);
+  const stays = winner ?? q.shift() ?? null;
+  const challenger = q.shift() || null;
+  return {
+    nextA: winnerIsA ? stays : challenger,
+    nextB: winnerIsA ? challenger : stays,
+    queue: q,
+    winnerLeft: false,
+    winnerStays: !!winner,
+  };
+}
+
 // Algoritmo de empréstimo para balancear o overall do time que está precisando
 export function borrowPlayersForTeam(
   team: DBTeam,

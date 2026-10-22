@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db import transaction
 from django.db.models import Subquery, OuterRef, FloatField, Avg, Prefetch
 from django.db.models.functions import Coalesce
 
@@ -28,6 +29,7 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
                     queryset=Player.objects.prefetch_related('evaluations')
                 ),
                 'removed_players',
+                'gameday__court_checkins__player',  # para a lista de quem está aguardando
             )
         )
         gameday_id = self.request.query_params.get('gameday_id')
@@ -270,84 +272,70 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='auto-allocate')
     def auto_allocate(self, request, pk=None):
-        """Pega os jogadores que chegaram (CourtCheckin) mas não estão em nenhum time desta geração e os distribui."""
+        """
+        Completar: coloca quem chegou à quadra nos times, na ordem de chegada.
+        Quem já está num time continua nele: primeiro enchem os times incompletos (na ordem dos times),
+        depois quem sobra começa times novos, que vão se completando com os próximos que chegarem.
+        Para equilibrar o nível de todo mundo de novo, o caminho é o Embaralhar.
+        """
         generation = self.get_object()
         if generation.is_locked:
             return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         if not generation.gameday_id:
             return Response({'detail': 'Geração não possui dia de jogo vinculado para verificar presentes.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Obter todos que fizeram court checkin
-        from apps.attendance.models import CourtCheckin
-        present_player_ids = set(CourtCheckin.objects.filter(gameday_id=generation.gameday_id).values_list('player_id', flat=True))
-
-        # 2. Obter todos que já estão em um time da geração
-        assigned_player_ids = set(TeamPlayer.objects.filter(team__generation=generation).values_list('player_id', flat=True))
-
-        # 3. Descobrir quem falta (quem saiu da pelada não volta automaticamente)
-        removed_player_ids = set(generation.removed_players.values_list('id', flat=True))
-        waiting_player_ids = list(present_player_ids - assigned_player_ids - removed_player_ids)
-        if not waiting_player_ids:
+        waiting = [c.player for c in generation.waiting_checkins()]
+        if not waiting:
             return Response({'detail': 'Nenhum jogador na quadra aguardando alocação.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 4. Usar a inteligência para pegar os overalls
-        from .algorithm import get_players_with_overall, smart_draft
-        from django.db.models import Count
         from .models import TEAM_COLORS, TEAM_COLOR_HEX
-        import string
 
-        # Pegar times incompletos (que tem menos que a modalidade)
-        incomplete_teams = list(generation.teams.annotate(player_count=Count('team_players')).filter(player_count__lt=generation.modality).order_by('order'))
-        players_in_incomplete = list(TeamPlayer.objects.filter(team__in=incomplete_teams).values_list('player_id', flat=True))
+        teams = list(generation.teams.all())
+        placed = {}  # time -> nomes de quem entrou nele
+        new_teams = set()
 
-        # Pool de jogadores a distribuir = quem tava aguardando + quem já tava nos times incompletos
-        pool_player_ids = waiting_player_ids + players_in_incomplete
-        pool_players_data = get_players_with_overall(player_ids=pool_player_ids)
+        with transaction.atomic():
+            def add(team, size, player):
+                TeamPlayer.objects.create(team=team, player=player, order_in_team=size)
+                placed.setdefault(team, []).append(player.display_name)
 
-        if not pool_players_data:
-            return Response({'detail': 'Não foi possível buscar dados dos jogadores.'}, status=status.HTTP_400_BAD_REQUEST)
+            # 1. Enche os times incompletos
+            for team in teams:
+                size = len(team.team_players.all())
+                while size < generation.modality and waiting:
+                    add(team, size, waiting.pop(0))
+                    size += 1
 
-        # 5. Distribuir em novos times
-        new_teams_draft = smart_draft(pool_players_data, generation.modality)
-        
-        # Limpar os times incompletos para reescrever
-        TeamPlayer.objects.filter(team__in=incomplete_teams).delete()
-        
-        existing_teams_count = generation.teams.count()
-        created_count = 0
-        
-        for i, team_players in enumerate(new_teams_draft):
-            if not team_players:
-                continue
-            
-            # Se ainda temos times incompletos para reaproveitar, usamos ele
-            if i < len(incomplete_teams):
-                team = incomplete_teams[i]
-            else:
-                # Criar novo time
-                order = existing_teams_count + created_count
-                name = f'Time {TEAM_COLORS[order % len(TEAM_COLORS)]}'
-                    
+            # 2. Quem sobra começa times novos, com uma cor que ainda não está em uso
+            used_colors = {t.color for t in teams}
+            next_order = max((t.order for t in teams), default=-1) + 1
+            while waiting:
+                free = [i for i, c in enumerate(TEAM_COLORS) if c not in used_colors]
+                color = free[0] if free else next_order % len(TEAM_COLORS)
+                used_colors.add(TEAM_COLORS[color])
                 team = Team.objects.create(
                     generation=generation,
-                    name=name,
-                    color=TEAM_COLORS[order % len(TEAM_COLORS)],
-                    color_hex=TEAM_COLOR_HEX[order % len(TEAM_COLOR_HEX)],
+                    name=f'Time {TEAM_COLORS[color]}',
+                    color=TEAM_COLORS[color],
+                    color_hex=TEAM_COLOR_HEX[color],
                     avg_overall=0.0,
-                    order=order
+                    order=next_order,
                 )
-                created_count += 1
-                
-            for j, p_data in enumerate(team_players):
-                TeamPlayer.objects.create(
-                    team=team,
-                    player_id=p_data['id'],
-                    order_in_team=j
-                )
-            
-        self._recalculate_generation_overalls(generation)
-        return Response({'detail': f'{len(waiting_player_ids)} jogadores alocados em {created_count} novo(s) time(s).'})
+                next_order += 1
+                new_teams.add(team)
+                for size in range(generation.modality):
+                    if not waiting:
+                        break
+                    add(team, size, waiting.pop(0))
+
+            self._recalculate_generation_overalls(generation)
+
+        summary = '; '.join(
+            f"{', '.join(names)} → {team.name}{' (novo)' if team in new_teams else ''}"
+            for team, names in placed.items()
+        )
+        return Response({'detail': summary})
 
     @action(detail=True, methods=['post'], url_path='remove-player')
     def remove_player(self, request, pk=None):

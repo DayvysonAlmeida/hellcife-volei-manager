@@ -6,13 +6,13 @@ import { ArrowLeft, Trophy, Swords, Shield, Zap, Shuffle, ArrowRightLeft, Rotate
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { SyncButton } from '@/components/ui/SyncButton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { teamsService, matchesService, attendanceService } from '@/services';
+import { teamsService, matchesService } from '@/services';
 import type { DBTeam, QuickMatchData, Modality, Match, CourtTeam } from '@/types';
 import toast from 'react-hot-toast';
 import { MatchCard } from '@/components/matches/MatchCard';
 import { CourtCheckinModal } from '@/components/attendance/CourtCheckinModal';
 import { useAuth } from '@/store/AuthContext';
-import { borrowPlayersForTeam } from '@/components/bracket/bracket-utils';
+import { borrowPlayersForTeam, borrowedPlayerIds, rotateAfterMatch, withoutPlayers } from '@/components/bracket/bracket-utils';
 import { CourtScoreboard } from '@/components/bracket/CourtScoreboard';
 import { SaveMatchModal } from '@/components/bracket/SaveMatchModal';
 
@@ -57,18 +57,14 @@ export function BracketPage() {
   });
   const matches = matchesData?.results || [];
 
-  const { data: gamedayData } = useQuery({
-    queryKey: ['gameday', generation?.gameday],
-    queryFn: () => attendanceService.getGameDay(generation!.gameday),
-    enabled: !!generation?.gameday,
-  });
-
   const autoAllocateMutation = useMutation({
     mutationFn: (genId: number) => teamsService.autoAllocate(genId),
     onSuccess: (res) => {
-       qc.invalidateQueries({ queryKey: ['team-generation', Number(id)] });
-       toast.success(res.detail || 'Jogadores alocados com sucesso!');
-    }
+       qc.invalidateQueries({ queryKey: ['team-generation', id] });
+       // Mostra quem entrou em qual time (ex.: "Ana, Bia → Time Azul")
+       toast.success(res.detail || 'Jogadores alocados com sucesso!', { duration: 6000 });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao completar os times.'),
   });
 
   const [state, setState] = useState<BracketState>(() => {
@@ -107,27 +103,6 @@ export function BracketPage() {
       setState(prev => {
         let changed = false;
         
-        const syncTeam = (t: CourtTeam | null) => {
-          if (!t) return null;
-          const freshTeam = generation.teams.find((genT: any) => genT.id === t.id);
-          if (!freshTeam) {
-            changed = true;
-            return null; // Time foi excluído
-          }
-          // Preservar jogadores emprestados, mas remover excessos se o time foi completado manualmente
-          let borrowed = t.team_players.filter(p => p.is_borrowed);
-          const needed = Math.max(0, generation.modality - freshTeam.team_players.length);
-          borrowed = borrowed.slice(0, needed);
-          
-          const newPlayers = [...freshTeam.team_players.map((p: any) => ({ ...p, is_borrowed: false })), ...borrowed];
-          
-          if (JSON.stringify(newPlayers) !== JSON.stringify(t.team_players)) {
-            changed = true;
-            return { ...t, team_players: newPlayers, avg_overall: t.avg_overall }; // mantem o avg_overall calculado
-          }
-          return t;
-        };
-
         const syncQueueTeam = (t: DBTeam) => {
            const freshTeam = generation.teams.find((genT: any) => genT.id === t.id);
            if (!freshTeam) { changed = true; return null; }
@@ -138,13 +113,30 @@ export function BracketPage() {
            return t;
         };
 
-        const newCourtA = syncTeam(prev.courtA);
-        const newCourtB = syncTeam(prev.courtB);
         let newQueue = prev.queue.map(syncQueueTeam).filter(Boolean) as DBTeam[];
-
         if (prev.queue.length !== newQueue.length) changed = true;
-        if (prev.courtA !== null && newCourtA === null) changed = true;
-        if (prev.courtB !== null && newCourtB === null) changed = true;
+
+        // Antes do primeiro ponto, o time em quadra acompanha as mudanças: se alguém saiu (ou chegou), os
+        // emprestados são escolhidos de novo para completar, sem cancelar o jogo. Depois do primeiro ponto,
+        // quem está em quadra não muda: quem chegou ou saiu vale na próxima partida.
+        const syncCourtTeam = (t: CourtTeam | null, other: CourtTeam | null): CourtTeam | null => {
+          if (!t) return null;
+          const freshTeam = generation.teams.find((genT: any) => genT.id === t.id);
+          if (!freshTeam) {
+            changed = true;
+            return null; // Time foi excluído
+          }
+          const ids = (players: Array<{ player: number }>) => players.map(p => p.player).join(',');
+          if (ids(freshTeam.team_players) === ids(t.team_players.filter(p => !p.is_borrowed))) return t;
+          changed = true;
+          return borrowPlayersForTeam(
+            freshTeam, other?.avg_overall || 0, generation.modality,
+            withoutPlayers(newQueue, borrowedPlayerIds(other)), prev.borrowCounts,
+          );
+        };
+        const matchUnderway = prev.scoreA + prev.scoreB > 0;
+        const newCourtA = matchUnderway ? prev.courtA : syncCourtTeam(prev.courtA, prev.courtB);
+        const newCourtB = matchUnderway ? prev.courtB : syncCourtTeam(prev.courtB, newCourtA);
 
         // Verifica novos times criados
         const currentIds = new Set([
@@ -205,7 +197,8 @@ export function BracketPage() {
       let courtB: CourtTeam = { ...q.shift()!, team_players: [] } as any; 
       // Recover original players to avoid ts errors in initial setup
       courtA = borrowPlayersForTeam(prev.queue[0], prev.queue[1].avg_overall, generation!.modality, q, prev.borrowCounts);
-      courtB = borrowPlayersForTeam(prev.queue[1], courtA.avg_overall, generation!.modality, q, prev.borrowCounts);
+      // Quem já foi emprestado para o lado A não pode ir também para o B
+      courtB = borrowPlayersForTeam(prev.queue[1], courtA.avg_overall, generation!.modality, withoutPlayers(q, borrowedPlayerIds(courtA)), prev.borrowCounts);
       
       return {
         ...prev,
@@ -305,18 +298,16 @@ export function BracketPage() {
 
   const advanceBracket = () => {
     setState(prev => {
-      const q = [...prev.queue];
       const winnerIsA = prev.scoreA > prev.scoreB;
       const winnerCourt = winnerIsA ? prev.courtA! : prev.courtB!;
       const loserCourt = winnerIsA ? prev.courtB! : prev.courtA!;
-      
-      // Limpar os jogadores emprestados para que retornem aos seus times de origem na fila
-      const stripTeam = (t: CourtTeam): DBTeam => ({
-         ...t,
-         team_players: t.team_players.filter(p => !p.is_borrowed)
-      });
-      const winner = stripTeam(winnerCourt);
-      const loser = stripTeam(loserCourt);
+
+      // Cada time volta com os jogadores atuais dele: emprestados retornam aos seus times e quem chegou
+      // durante a partida entra agora. Time excluído no meio do jogo (ex.: Embaralhar) sai do rodízio.
+      const baseOf = (t: CourtTeam): DBTeam | null =>
+        (generation!.teams.find((g: any) => g.id === t.id) as DBTeam | undefined) ?? null;
+      const winner = baseOf(winnerCourt);
+      const loser = baseOf(loserCourt);
 
       // Incrementa quem jogou emprestado nesta rodada
       const newBorrowCounts = { ...prev.borrowCounts };
@@ -334,46 +325,20 @@ export function BracketPage() {
       const newConsecutiveB = !winnerIsA ? prev.consecutiveB + 1 : 0;
       const winnerConsecutive = winnerIsA ? newConsecutiveA : newConsecutiveB;
 
-      const totalTeams = prev.queue.length + 2;
-      
-      const allTeamsInPelada = [winnerCourt, loserCourt, ...prev.queue];
-      const getBaseLength = (t: CourtTeam) => t.team_players.filter(p => !p.is_borrowed).length;
-      const totalCompleteTeams = allTeamsInPelada.filter(t => getBaseLength(t as CourtTeam) >= generation!.modality).length;
-      
-      const winnerMustLeave = winnerConsecutive >= 2 && totalCompleteTeams >= 4;
-
-      let nextABase: DBTeam | null = null;
-      let nextBBase: DBTeam | null = null;
-      let nextConsecutiveA = 0;
-      let nextConsecutiveB = 0;
-
-      let message = '';
-      if (winnerMustLeave) {
-        message = `${winner.name.toUpperCase()} atingiu 2 vitórias seguidas e dá lugar na quadra!`;
-        
-        if (totalTeams === 3) {
-          q.unshift(winner); // Vencedor vira o próximo da fila
-          nextABase = loser;     // Quem perdeu continua para jogar com quem tava de fora
-          nextBBase = q.pop() || null; // Entra quem tava de fora
-        } else {
-          nextABase = q.shift() || null;
-          nextBBase = q.shift() || null;
-          q.unshift(winner); // Vencedor vira o próximo da fila (1º de fora)
-          q.push(loser);     // Perdedor vai pro final da fila
-        }
-      } else {
-        message = `${winner.name.toUpperCase()} venceu e continua na quadra!`;
-        q.push(loser);
-        if (winnerIsA) {
-          nextABase = winner;
-          nextBBase = q.shift() || null;
-          nextConsecutiveA = newConsecutiveA;
-        } else {
-          nextBBase = winner;
-          nextABase = q.shift() || null;
-          nextConsecutiveB = newConsecutiveB;
-        }
-      }
+      // Sai depois de 2 seguidas só se houver 2 times completos esperando fora (senão fica até perder).
+      // Quem emprestou jogador para esta partida não conta como completo lá fora.
+      const lentPlayerIds = borrowedPlayerIds(prev.courtA, prev.courtB);
+      const rotation = rotateAfterMatch({
+        winner, loser, winnerIsA, winnerConsecutive, queue: prev.queue, modality: generation!.modality, lentPlayerIds,
+      });
+      const q = rotation.queue;
+      const nextABase = rotation.nextA;
+      const nextBBase = rotation.nextB;
+      const nextConsecutiveA = winnerIsA && rotation.winnerStays ? newConsecutiveA : 0;
+      const nextConsecutiveB = !winnerIsA && rotation.winnerStays ? newConsecutiveB : 0;
+      const message = rotation.winnerLeft
+        ? `${winnerCourt.name.toUpperCase()} atingiu 2 vitórias seguidas e dá lugar na quadra!`
+        : `${winnerCourt.name.toUpperCase()} venceu e continua na quadra!`;
 
       // Aplicar o empréstimo nos times que vão entrar, usando a fila ATUALIZADA (q) e os novos contadores
       let finalNextA: CourtTeam | null = null;
@@ -383,7 +348,8 @@ export function BracketPage() {
          finalNextA = borrowPlayersForTeam(nextABase, nextBBase?.avg_overall || 0, generation!.modality, q, newBorrowCounts);
       }
       if (nextBBase) {
-         finalNextB = borrowPlayersForTeam(nextBBase, finalNextA?.avg_overall || 0, generation!.modality, q, newBorrowCounts);
+         // Quem já foi emprestado para o lado A não pode ir também para o B
+         finalNextB = borrowPlayersForTeam(nextBBase, finalNextA?.avg_overall || 0, generation!.modality, withoutPlayers(q, borrowedPlayerIds(finalNextA)), newBorrowCounts);
       }
 
       return {
@@ -399,7 +365,7 @@ export function BracketPage() {
         showSaveModal: false,
         borrowCounts: newBorrowCounts,
         transitionMessage: message,
-        transitionColor: winner.color_hex,
+        transitionColor: winnerCourt.color_hex,
       };
     });
   };
@@ -719,9 +685,7 @@ export function BracketPage() {
               {(() => {
                 if (!generation?.gameday) return null;
                 
-                const checkinCount = gamedayData?.total_court_checkins || 0;
-                const playersInGen = generation.teams.reduce((acc: number, t: any) => acc + t.team_players.length, 0);
-                const unassignedCount = Math.max(0, checkinCount - playersInGen);
+                const unassignedCount = generation.waiting_players?.length || 0;
 
                 if (unassignedCount > 0 && !generation.is_locked) {
                   return (

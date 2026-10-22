@@ -64,8 +64,10 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
     mutationFn: (genId: number) => teamsService.autoAllocate(genId),
     onSuccess: (res) => {
        qc.invalidateQueries({ queryKey: ['team-generations-history'] });
-       toast.success(res.detail || 'Jogadores alocados com sucesso!');
-    }
+       // Mostra quem entrou em qual time (ex.: "Ana, Bia → Time Azul")
+       toast.success(res.detail || 'Jogadores alocados com sucesso!', { duration: 6000 });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao completar os times.'),
   });
 
   const shuffleMutation = useMutation({
@@ -76,12 +78,12 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
     }
   });
 
-  const checkinCount = gameDays.find((gd: any) => gd.id === gen.gameday)?.total_court_checkins || 0;
   const playersInGen = gen.teams.reduce((acc: number, t: any) => acc + t.team_players.length, 0);
   const removedPlayers: Array<{ id: number; name: string }> = gen.removed_players || [];
-  // Quem saiu da pelada continua com check-in na quadra, mas não está esperando vaga
-  const activeCount = Math.max(0, checkinCount - removedPlayers.length);
-  const unassignedCount = Math.max(0, activeCount - playersInGen);
+  // Quem chegou à quadra e ainda não está num time, por ordem de chegada (quem saiu da pelada não entra)
+  const waitingPlayers: Array<{ id: number; name: string }> = gen.waiting_players || [];
+  const unassignedCount = waitingPlayers.length;
+  const activeCount = playersInGen + unassignedCount;
   const progress = activeCount > 0 ? (playersInGen / activeCount) * 100 : 100;
   const isComplete = unassignedCount === 0;
 
@@ -167,8 +169,11 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
                   <span className="text-[11px] text-yellow-500 font-bold flex items-center gap-1.5 justify-center md:justify-start">
                     ⚠️ {unassignedCount} jogador{unassignedCount > 1 ? 'es' : ''} aguardando na quadra
                   </span>
+                  <span className="text-xs text-text-primary font-medium">
+                    {waitingPlayers.map((p) => p.name).join(', ')}
+                  </span>
                   <span className="text-[10px] text-text-muted leading-tight mt-1">
-                    Você tirou a falta de novos jogadores! Clique em <strong className="text-text-primary">Completar</strong> para preencher as vagas vazias, ou <strong className="text-text-primary">Embaralhar</strong> para refazer o sorteio do zero.
+                    <strong className="text-text-primary">Completar</strong> coloca quem chegou nos times que faltam gente, na ordem de chegada (quem já está num time continua nele). <strong className="text-text-primary">Embaralhar</strong> refaz todos os times equilibrando o nível.
                   </span>
                 </div>
               )}

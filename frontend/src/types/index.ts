@@ -492,6 +492,8 @@ export interface TeamGenerationData {
   teams: DBTeam[];
   /** Quem saiu da pelada: fora do Embaralhar/Completar, mas com check-in na quadra mantido. */
   removed_players?: Array<{ id: number; name: string; avatar_url: string | null }>;
+  /** Quem chegou à quadra e ainda não está em nenhum time, por ordem de chegada (o Completar distribui). */
+  waiting_players?: Array<{ id: number; name: string }>;
   created_at: string;
 }
 

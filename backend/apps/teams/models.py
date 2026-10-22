@@ -37,6 +37,18 @@ class TeamGeneration(models.Model):
     def __str__(self):
         return f'Geração {self.get_modality_display()} — {self.created_at.date()}'
 
+    def waiting_checkins(self):
+        """
+        Quem chegou à quadra e ainda não está em nenhum time desta pelada (nem saiu dela), por ordem de chegada.
+        É a mesma lista que a tela mostra como "aguardando" e que o Completar distribui.
+        """
+        if not self.gameday_id:
+            return []
+        taken = {tp.player_id for team in self.teams.all() for tp in team.team_players.all()}
+        taken |= {p.id for p in self.removed_players.all()}
+        checkins = sorted(self.gameday.court_checkins.all(), key=lambda c: (c.arrived_at, c.id))
+        return [c for c in checkins if c.player_id not in taken]
+
 
 TEAM_COLORS = ['Vermelho', 'Azul', 'Verde', 'Amarelo', 'Roxo', 'Laranja', 'Rosa', 'Ciano']
 TEAM_COLOR_HEX = ['#D90429', '#2563EB', '#16A34A', '#CA8A04', '#7C3AED', '#EA580C', '#DB2777', '#0891B2']

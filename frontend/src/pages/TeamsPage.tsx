@@ -24,6 +24,8 @@ export function TeamsPage() {
   const [modality, setModality] = useState<Modality>(6);
   const [selectedGameDayId, setSelectedGameDayId] = useState<number | null>(null);
   const [result, setResult] = useState<GenerateTeamsResult | null>(null);
+  // Para qual pelada e modalidade a prévia foi gerada: trocar qualquer uma esconde a prévia
+  const [resultFor, setResultFor] = useState<{ gamedayId: number; modality: Modality } | null>(null);
   const [activeTab, setActiveTab] = useState<'gerador' | 'historico'>('gerador');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
@@ -68,43 +70,50 @@ export function TeamsPage() {
   }, [gameDays.length, selectedGameDayId, upcomingGameDays]);
 
   const generateMutation = useMutation({
-    mutationFn: () => teamsService.generate({
-      modality,
-      gameday_id: selectedGameDayId || undefined,
+    mutationFn: (target: { gamedayId: number; modality: Modality }) => teamsService.generate({
+      modality: target.modality,
+      gameday_id: target.gamedayId,
       save: false,
     }),
-    onSuccess: (data) => setResult(data),
+    onSuccess: (data, target) => {
+      setResult(data);
+      setResultFor(target);
+    },
   });
+
+  // A prévia só aparece (e só pode ser salva) na pelada e na modalidade em que foi gerada
+  const preview = result && resultFor && resultFor.gamedayId === selectedGameDayId && resultFor.modality === modality
+    ? result
+    : null;
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      if (!selectedGameDayId) {
-        toast.error('Selecione um Dia de Jogo para poder salvar os times!');
-        return Promise.reject(new Error('No gameday selected'));
-      }
-      if (!result) {
+      if (!preview || !resultFor) {
         return Promise.reject(new Error('No result to save'));
       }
       return teamsService.saveGenerated({
-        modality,
-        gameday_id: selectedGameDayId,
-        result: result,
+        modality: resultFor.modality,
+        gameday_id: resultFor.gamedayId,
+        result: preview,
       });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
-      toast.success('Times salvos com sucesso no histórico!');
+      // O sorteio salvo aparece em "Pelada Ativa"; a prévia sai para não mostrar os mesmos times duas vezes
+      setResult(null);
+      setResultFor(null);
+      toast.success('Times salvos! A pelada está em "Pelada Ativa" logo abaixo.');
     },
   });
 
   const handleShareWhatsApp = () => {
-    if (!result) return;
-    
+    if (!preview) return;
+
     let text = `🏆 *TIMES GERADOS - HELLCIFE VÔLEI* 🏆\n\n`;
     text += `Modalidade: ${modality}v${modality}\n`;
-    text += `Balanceamento: ${(10 - result.balance_score * 10).toFixed(1)}%\n\n`;
+    text += `Balanceamento: ${(10 - preview.balance_score * 10).toFixed(1)}%\n\n`;
 
-    result.teams.forEach((team) => {
+    preview.teams.forEach((team) => {
       text += `*${team.name.toUpperCase()}* (Overall: ${team.avg_overall.toFixed(1)})\n`;
       team.players.forEach((p, idx) => {
         const posStr = p.main_position.charAt(0).toUpperCase() + p.main_position.slice(1);
@@ -121,6 +130,7 @@ export function TeamsPage() {
     queryKey: ['team-generations-history'],
     queryFn: () => teamsService.list(),
     enabled: canEdit,
+    refetchInterval: 15000, // quem fez check-in aparece em "aguardando" sem precisar sincronizar
   });
   const history = historyData?.results || [];
 
@@ -142,21 +152,22 @@ export function TeamsPage() {
       return;
     }
 
-    const alreadyGenerated = history.some(h => h.gameday === selectedGameDayId);
-    
-    // Se já existe e a pessoa ainda não gerou um novo (result é null)
-    if (alreadyGenerated && !result) {
+    const target = { gamedayId: selectedGameDayId, modality };
+    const alreadyGenerated = history.some(h => h.gameday === selectedGameDayId && !h.is_locked);
+
+    // Já existe sorteio ativo para esta pelada e ainda não há prévia nova dela
+    if (alreadyGenerated && !preview) {
       setConfirmDialog({
         isOpen: true,
         title: 'Pelada Já Gerada!',
-        desc: 'Já existe um sorteio salvo para esta pelada no histórico. Tem certeza que deseja gerar uma nova combinação? Isso não apagará a anterior até que você decida salvá-la.',
+        desc: 'Esta pelada já tem um sorteio em "Pelada Ativa". Para refazer os times dele, use Embaralhar no card da pelada. Se gerar e salvar um novo, os dois ficam ativos e você precisa excluir o que não for usar. Gerar mesmo assim?',
         onConfirm: () => {
           setConfirmDialog(s => ({ ...s, isOpen: false }));
-          generateMutation.mutate();
+          generateMutation.mutate(target);
         }
       });
     } else {
-      generateMutation.mutate();
+      generateMutation.mutate(target);
     }
   };
 
@@ -290,11 +301,11 @@ export function TeamsPage() {
                   ) : (
                     <Zap size={14} />
                   )}
-                  {result ? 'Regerar times' : 'Gerar times'}
+                  {preview ? 'Regerar times' : 'Gerar times'}
                 </button>
               )}
               
-              {result && (
+              {preview && (
                 <>
                   <button
                     onClick={() => saveMutation.mutate()}
@@ -325,9 +336,9 @@ export function TeamsPage() {
 
       {/* Result */}
       <AnimatePresence mode="wait">
-        {result && (
+        {preview && (
           <motion.div
-            key={JSON.stringify(result)}
+            key={JSON.stringify(preview)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="space-y-4"
@@ -336,22 +347,22 @@ export function TeamsPage() {
             <div className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-4 flex items-center gap-6 flex-wrap shadow-lg">
               <div className="flex items-center gap-2">
                 <Users size={16} className="text-red" />
-                <span className="text-text-secondary text-sm">{result.total_players} atletas</span>
+                <span className="text-text-secondary text-sm">{preview.total_players} atletas</span>
               </div>
               <div className="flex items-center gap-2">
                 <Shuffle size={16} className="text-blue" />
-                <span className="text-text-secondary text-sm">{result.n_teams} times</span>
+                <span className="text-text-secondary text-sm">{preview.n_teams} times</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-text-muted text-sm">
-                  Balanceamento: <span className="text-green-400 font-bold">{(10 - result.balance_score * 10).toFixed(1)}%</span>
+                  Balanceamento: <span className="text-green-400 font-bold">{(10 - preview.balance_score * 10).toFixed(1)}%</span>
                 </span>
               </div>
             </div>
 
             {/* Teams grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {result.teams.map((team, idx) => (
+              {preview.teams.map((team, idx) => (
                 <motion.div 
                   key={team.order}
                   initial={{ opacity: 0, scale: 0.8, y: 20 }}
