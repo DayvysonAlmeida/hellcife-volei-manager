@@ -6,7 +6,8 @@ from django.db import transaction
 from django.db.models import Subquery, OuterRef, FloatField, Avg, Prefetch
 from django.db.models.functions import Coalesce
 
-from .models import TeamGeneration, Team, TeamPlayer
+from apps.attendance.models import GameDay
+from .models import TeamGeneration, Team, TeamPlayer, next_court, taken_player_ids
 from .serializers import TeamGenerationSerializer, TeamSerializer, GenerateTeamsInputSerializer
 from .algorithm import generate_teams
 from apps.core.permissions import IsAdminOrModerator
@@ -30,6 +31,9 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
                 ),
                 'removed_players',
                 'gameday__court_checkins__player',  # para a lista de quem está aguardando
+                # quem já está nas outras quadras do circuito não está aguardando
+                'gameday__team_generations__teams__team_players',
+                'gameday__team_generations__removed_players',
             )
         )
         gameday_id = self.request.query_params.get('gameday_id')
@@ -44,15 +48,31 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='generate')
     def generate(self, request):
-        """Gera times balanceados (preview ou salvando)."""
+        """
+        Gera times balanceados (preview ou salvando).
+        Com o circuito já em andamento, só entra quem ainda não está em nenhuma quadra dele (abrir uma quadra
+        nova com quem está aguardando). Com `courts` > 1, os times saem distribuídos entre as quadras.
+        """
         serializer = GenerateTeamsInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+
+        exclude = set()
+        if data.get('gameday_id'):
+            gameday = (
+                GameDay.objects.filter(id=data['gameday_id'])
+                .prefetch_related('team_generations__teams__team_players', 'team_generations__removed_players')
+                .first()
+            )
+            if gameday:
+                exclude = taken_player_ids(gameday)
 
         result = generate_teams(
             modality=data['modality'],
             gameday_id=data.get('gameday_id'),
             player_ids=data.get('player_ids'),
+            exclude_player_ids=exclude,
+            courts=data['courts'],
         )
 
         if 'error' in result:
@@ -60,21 +80,18 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
 
         # Se solicitado, persiste no banco (apenas por compatibilidade)
         if data.get('save'):
-            generation = self._save_generation(
-                request.user, 
-                data['modality'], 
-                data.get('gameday_id'), 
-                data.get('notes', ''), 
-                result
+            generations = self._save_result(
+                request.user, data['modality'], data.get('gameday_id'), data.get('notes', ''), result
             )
-            result['generation_id'] = generation.id
+            result['generation_id'] = generations[0].id
 
         return Response(result)
 
-    def _save_generation(self, user, modality, gameday_id, notes, result_data):
+    def _save_generation(self, user, modality, gameday_id, notes, result_data, court=1):
         generation = TeamGeneration.objects.create(
             gameday_id=gameday_id,
             modality=modality,
+            court=court,
             created_by=user,
             notes=notes,
             balance_score=result_data['balance_score'],
@@ -96,46 +113,78 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
                 )
         return generation
 
+    def _save_result(self, user, modality, gameday_id, notes, result):
+        """Salva um sorteio por quadra, numerando a partir da próxima quadra livre do circuito."""
+        from .algorithm import calculate_balance_score
+
+        by_court = {}
+        for team in result['teams']:
+            by_court.setdefault(team.get('court') or 1, []).append(team)
+
+        first_court = next_court(gameday_id)
+        generations = []
+        with transaction.atomic():
+            for offset, (_, teams) in enumerate(sorted(by_court.items())):
+                if len(by_court) == 1:
+                    balance = result.get('balance_score', 0)
+                else:
+                    # Equilíbrio de cada quadra (sem o score de algum jogador, usa o overall)
+                    balance = calculate_balance_score([
+                        [{'composite_score': p.get('composite_score', p.get('overall', 0))} for p in t['players']]
+                        for t in teams
+                    ])
+                generations.append(self._save_generation(
+                    user, modality, gameday_id, notes, {'teams': teams, 'balance_score': balance},
+                    court=first_court + offset,
+                ))
+        return generations
+
     @action(detail=False, methods=['post'], url_path='save-generated')
     def save_generated(self, request):
-        """Salva exatamente os times que foram enviados (após visualização pelo usuário)."""
+        """Salva exatamente os times que foram enviados (após visualização pelo usuário), um sorteio por quadra."""
         data = request.data
         modality = data.get('modality')
         gameday_id = data.get('gameday_id')
         notes = data.get('notes', '')
         result = data.get('result')
 
-        if not result or not modality:
+        if not result or not modality or not result.get('teams'):
             return Response({'detail': 'Dados inválidos.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        generation = self._save_generation(request.user, modality, gameday_id, notes, result)
+        generations = self._save_result(request.user, modality, gameday_id, notes, result)
         
         return Response({
             'detail': 'Times salvos com sucesso!',
-            'generation_id': generation.id
+            'generation_id': generations[0].id,
+            'generation_ids': [g.id for g in generations],
         })
 
     @action(detail=True, methods=['post'], url_path='lock')
     def lock(self, request, pk=None):
-        """Tranca a geração de times e o circuito inteiro, impedindo alterações."""
+        """
+        Encerra esta quadra (tranca os times). O circuito só é encerrado quando a última quadra dele termina;
+        com uma quadra só, encerrar a pelada encerra o circuito, como sempre.
+        """
         generation = self.get_object()
         
-        # Tranca a geração atual
         generation.is_locked = True
         generation.save(update_fields=['is_locked'])
         
-        # Encerra o GameDay e tranca todas as outras gerações associadas
-        if generation.gameday:
+        if generation.gameday and not generation.gameday.team_generations.filter(is_locked=False).exists():
             generation.gameday.is_closed = True
             generation.gameday.save(update_fields=['is_closed'])
-            # Tranca outras gerações do mesmo circuito
-            generation.gameday.team_generations.filter(is_locked=False).update(is_locked=True)
             
             # Sincroniza faltas usando a fonte da verdade única
             from apps.attendance.views import sync_absences_logic
             sync_absences_logic()
-            
-        return Response({'detail': 'Pelada e Circuito encerrados com sucesso.'})
+            return Response({'detail': 'Pelada e Circuito encerrados com sucesso.', 'circuit_closed': True})
+
+        if generation.gameday:
+            return Response({
+                'detail': f'Quadra {generation.court} encerrada. O circuito fecha quando a última quadra terminar.',
+                'circuit_closed': False,
+            })
+        return Response({'detail': 'Pelada encerrada com sucesso.', 'circuit_closed': False})
 
     def _recalculate_generation_overalls(self, generation):
         from .algorithm import get_players_with_overall, calculate_balance_score
@@ -170,7 +219,7 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch'], url_path='move-player')
     def move_player(self, request, pk=None):
-        """Move um jogador de um time para outro dentro da geração."""
+        """Move um jogador para outro time desta quadra ou de outra quadra aberta do mesmo circuito."""
         generation = self.get_object()
         
         if generation.is_locked:
@@ -181,12 +230,33 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
 
         try:
             tp = TeamPlayer.objects.get(team__generation=generation, player_id=player_id)
-            tp.team_id = target_team_id
-            tp.save()
-            self._recalculate_generation_overalls(generation)
-            return Response({'detail': 'Jogador movido com sucesso.'})
         except TeamPlayer.DoesNotExist:
             return Response({'detail': 'Jogador não encontrado nesta geração.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Destino: time desta geração ou de outra quadra do mesmo circuito (nunca de outro circuito)
+        targets = Team.objects.filter(id=target_team_id).select_related('generation')
+        if generation.gameday_id:
+            targets = targets.filter(generation__gameday_id=generation.gameday_id)
+        else:
+            targets = targets.filter(generation=generation)
+        target = targets.first()
+        if not target:
+            return Response({'detail': 'Time de destino não encontrado neste circuito.'}, status=status.HTTP_404_NOT_FOUND)
+        if target.generation.is_locked:
+            return Response({'detail': 'A quadra de destino já foi encerrada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            tp.team = target
+            tp.order_in_team = target.team_players.count()
+            tp.save()
+            target.generation.removed_players.remove(player_id)
+            self._recalculate_generation_overalls(generation)
+            if target.generation_id != generation.id:
+                self._recalculate_generation_overalls(target.generation)
+
+        if target.generation_id != generation.id:
+            return Response({'detail': f'Jogador movido para o {target.name} da Quadra {target.generation.court}.'})
+        return Response({'detail': 'Jogador movido com sucesso.'})
 
     @action(detail=True, methods=['post'], url_path='add-player')
     def add_player(self, request, pk=None):
@@ -205,6 +275,17 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         # Verifica se o jogador já não está na geração
         if TeamPlayer.objects.filter(team__generation=generation, player_id=player_id).exists():
             return Response({'detail': 'Jogador já está participando desta pelada.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Cada atleta numa quadra só: quem joga em outra quadra aberta do circuito troca pelo "mover"
+        if generation.gameday_id:
+            other = TeamPlayer.objects.filter(
+                team__generation__gameday_id=generation.gameday_id, team__generation__is_locked=False, player_id=player_id,
+            ).exclude(team__generation=generation).select_related('team__generation').first()
+            if other:
+                return Response(
+                    {'detail': f'Jogador está na Quadra {other.team.generation.court}. Use "mover" para trocar de quadra.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         try:
             team = generation.teams.get(id=team_id)
@@ -379,7 +460,7 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='shuffle')
     def shuffle(self, request, pk=None):
-        """Refaz o sorteio com quem está na quadra, sem trazer de volta quem saiu da pelada (Embaralhar)."""
+        """Refaz o sorteio desta quadra com quem está nela e quem está aguardando, sem trazer de volta quem saiu (Embaralhar)."""
         generation = self.get_object()
         if generation.is_locked:
             return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -387,13 +468,10 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         if not generation.gameday_id:
             return Response({'detail': 'Geração não possui dia de jogo vinculado para verificar presentes.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Obter todos que fizeram court checkin
-        from apps.attendance.models import CourtCheckin
-        present_player_ids = list(
-            CourtCheckin.objects.filter(gameday_id=generation.gameday_id)
-            .exclude(player__in=generation.removed_players.all())
-            .values_list('player_id', flat=True)
-        )
+        # 1. Quem está nesta quadra + quem chegou e ainda não está em nenhuma quadra (nunca quem joga em
+        #    outra quadra do circuito, nem quem saiu da pelada). Com uma quadra só, é todo mundo na quadra.
+        present_player_ids = [tp.player_id for team in generation.teams.all() for tp in team.team_players.all()]
+        present_player_ids += [c.player_id for c in generation.waiting_checkins()]
 
         if not present_player_ids:
             return Response({'detail': 'Nenhum jogador na quadra para embaralhar.'}, status=status.HTTP_400_BAD_REQUEST)

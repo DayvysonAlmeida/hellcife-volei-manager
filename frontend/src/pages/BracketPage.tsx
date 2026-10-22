@@ -372,10 +372,11 @@ export function BracketPage() {
 
   const lockMutation = useMutation({
     mutationFn: () => teamsService.lock(generation!.id),
-    onSuccess: () => {
+    onSuccess: (res) => {
       localStorage.removeItem(storageKey);
       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
-      toast.success('Pelada encerrada e times trancados no histórico.');
+      // Com várias quadras, só esta encerra; o circuito fecha quando a última terminar
+      toast.success(res?.detail || 'Pelada encerrada e times trancados no histórico.');
       navigate('/teams');
     },
     onError: () => {
@@ -387,7 +388,7 @@ export function BracketPage() {
     setConfirmDialog({
       isOpen: true,
       title: 'Encerrar Pelada e Circuito',
-      desc: 'Tem certeza que deseja encerrar? O circuito inteiro será finalizado, e o histórico será salvo e trancado.',
+      desc: 'Tem certeza que deseja encerrar? O histórico desta pelada será salvo e trancado. Se for a última quadra em jogo, o circuito também é encerrado.',
       onConfirm: () => {
         if (!generation?.is_locked) {
           lockMutation.mutate();

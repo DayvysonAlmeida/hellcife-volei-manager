@@ -19,6 +19,8 @@ class TeamGeneration(models.Model):
         'core.User', on_delete=models.SET_NULL, null=True,
         verbose_name='Criado por'
     )
+    # Quadra dentro do circuito: dias com várias quadras ao mesmo tempo têm um sorteio por quadra
+    court = models.PositiveSmallIntegerField(default=1, verbose_name='Quadra')
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
     balance_score = models.FloatField(default=0, verbose_name='Score de balanceamento')
     is_locked = models.BooleanField(default=False, verbose_name='Trancado (Finalizado)')
@@ -39,15 +41,33 @@ class TeamGeneration(models.Model):
 
     def waiting_checkins(self):
         """
-        Quem chegou à quadra e ainda não está em nenhum time desta pelada (nem saiu dela), por ordem de chegada.
-        É a mesma lista que a tela mostra como "aguardando" e que o Completar distribui.
+        Quem chegou à quadra e ainda não está em nenhum time do circuito (em nenhuma quadra), nem saiu da
+        pelada, por ordem de chegada. É a lista que a tela mostra como "aguardando" e que o Completar distribui.
         """
         if not self.gameday_id:
             return []
-        taken = {tp.player_id for team in self.teams.all() for tp in team.team_players.all()}
-        taken |= {p.id for p in self.removed_players.all()}
+        taken = taken_player_ids(self.gameday)
         checkins = sorted(self.gameday.court_checkins.all(), key=lambda c: (c.arrived_at, c.id))
         return [c for c in checkins if c.player_id not in taken]
+
+
+def taken_player_ids(gameday):
+    """
+    Quem já está num time de alguma quadra do circuito (aberta ou encerrada) ou saiu da pelada.
+    Assim cada atleta fica numa quadra só. Usa o prefetch quando houver.
+    """
+    generations = gameday.team_generations.all()
+    taken = {tp.player_id for g in generations for team in g.teams.all() for tp in team.team_players.all()}
+    taken |= {p.id for g in generations for p in g.removed_players.all()}
+    return taken
+
+
+def next_court(gameday_id):
+    """Número da próxima quadra do circuito (1 no primeiro sorteio)."""
+    if not gameday_id:
+        return 1
+    last = TeamGeneration.objects.filter(gameday_id=gameday_id).aggregate(models.Max('court'))['court__max']
+    return (last or 0) + 1
 
 
 TEAM_COLORS = ['Vermelho', 'Azul', 'Verde', 'Amarelo', 'Roxo', 'Laranja', 'Rosa', 'Ciano']

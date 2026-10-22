@@ -60,7 +60,7 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TeamGeneration
-        fields = ['id', 'gameday', 'gameday_date', 'gameday_time', 'gameday_location', 'modality', 'modality_display',
+        fields = ['id', 'gameday', 'gameday_date', 'gameday_time', 'gameday_location', 'court', 'modality', 'modality_display',
                   'created_by', 'created_by_name', 'notes', 'balance_score', 'is_locked',
                   'teams', 'removed_players', 'waiting_players', 'created_at']
         read_only_fields = ['created_by', 'balance_score', 'created_at']
@@ -69,6 +69,7 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
 class GenerateTeamsInputSerializer(serializers.Serializer):
     modality = serializers.IntegerField(min_value=2, max_value=6)
     gameday_id = serializers.IntegerField(required=False, allow_null=True)
+    courts = serializers.IntegerField(min_value=1, max_value=3, default=1)  # quadras ao mesmo tempo
     player_ids = serializers.ListField(child=serializers.IntegerField(), required=False, allow_null=True)
     save = serializers.BooleanField(default=False)
     notes = serializers.CharField(required=False, allow_blank=True)

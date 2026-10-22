@@ -15,7 +15,7 @@ class TeamInline(admin.TabularInline):
 
 @admin.register(TeamGeneration)
 class TeamGenerationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'get_modality_display', 'gameday', 'balance_score', 'created_at']
+    list_display = ['id', 'get_modality_display', 'gameday', 'court', 'is_locked', 'balance_score', 'created_at']
     list_filter = ['modality', 'gameday']
     date_hierarchy = 'created_at'
     inlines = [TeamInline]

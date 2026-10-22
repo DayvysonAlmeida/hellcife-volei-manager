@@ -182,3 +182,181 @@ class CompleteTeamsTests(TestCase):
 
     def test_nobody_waiting(self):
         self.assertEqual(self.complete().status_code, 400)
+
+
+class MultiCourtTests(TestCase):
+    """Várias quadras ao mesmo tempo no mesmo circuito: um sorteio por quadra, cada atleta numa quadra só."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user('admin@x.com', 'senha-forte-123', name='Admin', profile='admin')
+        self.client.force_authenticate(self.admin)
+        self.gameday = GameDay.objects.create(date=date.today())
+        # 18 atletas de níveis diferentes (Elo de 300 a 800)
+        self.players = [self.arrive(f'Atleta {i}', elo=300 + i * 30) for i in range(18)]
+
+    def arrive(self, name, elo=500.0):
+        player = Player.objects.create(name=name, main_position='outside', elo_all_time=elo)
+        CourtCheckin.objects.create(gameday=self.gameday, player=player)
+        return player
+
+    def generate(self, courts=2):
+        return self.client.post(
+            f'{BASE}/generate/', {'modality': 4, 'gameday_id': self.gameday.id, 'courts': courts}, format='json'
+        )
+
+    def save(self, result):
+        return self.client.post(
+            f'{BASE}/save-generated/', {'modality': 4, 'gameday_id': self.gameday.id, 'result': result}, format='json'
+        )
+
+    def save_courts(self, courts=2):
+        response = self.save(self.generate(courts).data)
+        return [TeamGeneration.objects.get(id=i) for i in response.data['generation_ids']]
+
+    def players_of(self, generation):
+        return set(TeamPlayer.objects.filter(team__generation=generation).values_list('player_id', flat=True))
+
+    def post(self, generation, action, **data):
+        return self.client.post(f'{BASE}/{generation.id}/{action}/', data, format='json')
+
+    def move(self, generation, player_id, team):
+        return self.client.patch(
+            f'{BASE}/{generation.id}/move-player/', {'player_id': player_id, 'target_team_id': team.id}, format='json'
+        )
+
+    def test_draw_splits_teams_between_courts_without_repeating_anyone(self):
+        response = self.generate(courts=2)
+
+        self.assertEqual(response.status_code, 200)
+        teams = response.data['teams']
+        by_court = {c: [t for t in teams if t['court'] == c] for c in (1, 2)}
+        self.assertTrue(all(len(court_teams) >= 2 for court_teams in by_court.values()))
+        ids = [p['id'] for t in teams for p in t['players']]
+        self.assertEqual(len(ids), 18)
+        self.assertEqual(len(set(ids)), 18)
+        # Cada quadra tem o seu Time Vermelho
+        self.assertEqual(by_court[1][0]['name'], 'Time Vermelho')
+        self.assertEqual(by_court[2][0]['name'], 'Time Vermelho')
+
+    def test_courts_are_balanced_between_them(self):
+        teams = self.generate(courts=2).data['teams']
+        full = [t for t in teams if len(t['players']) == 4]
+
+        def avg(court):
+            scores = [p['composite_score'] for t in full if t['court'] == court for p in t['players']]
+            return sum(scores) / len(scores)
+
+        strengths = [sum(p['composite_score'] for p in t['players']) / 4 for t in full]
+        self.assertLess(abs(avg(1) - avg(2)), (max(strengths) - min(strengths)) / 2 + 0.01)
+
+    def test_needs_two_teams_per_court(self):
+        for p in self.players[8:]:
+            CourtCheckin.objects.filter(player=p).delete()
+        response = self.generate(courts=2)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Mínimo necessário: 16', response.data['detail'])
+
+    def test_saving_creates_one_draw_per_court(self):
+        court1, court2 = self.save_courts()
+        self.assertEqual((court1.court, court2.court), (1, 2))
+        self.assertFalse(self.players_of(court1) & self.players_of(court2))
+        self.assertEqual(len(self.players_of(court1) | self.players_of(court2)), 18)
+
+    def test_whoever_arrives_waits_in_every_court_but_players_of_other_courts_do_not(self):
+        court1, court2 = self.save_courts()
+        late = self.arrive('Atrasado')
+
+        for court in (court1, court2):
+            waiting = self.client.get(f'{BASE}/{court.id}/').data['waiting_players']
+            self.assertEqual([p['id'] for p in waiting], [late.id])
+
+    def test_complete_never_pulls_players_from_another_court(self):
+        court1, court2 = self.save_courts()
+        before_court2 = self.players_of(court2)
+        late = self.arrive('Atrasado')
+
+        self.assertEqual(self.post(court1, 'auto-allocate').status_code, 200)
+
+        self.assertIn(late.id, self.players_of(court1))
+        self.assertEqual(self.players_of(court2), before_court2)
+        self.assertFalse(self.players_of(court1) & self.players_of(court2))
+
+    def test_shuffle_only_reshuffles_its_own_court(self):
+        court1, court2 = self.save_courts()
+        before_court1, before_court2 = self.players_of(court1), self.players_of(court2)
+
+        self.assertEqual(self.post(court1, 'shuffle').status_code, 200)
+
+        self.assertEqual(self.players_of(court1), before_court1)
+        self.assertEqual(self.players_of(court2), before_court2)
+
+    def test_move_player_to_another_court(self):
+        court1, court2 = self.save_courts()
+        player_id = next(iter(self.players_of(court1)))
+
+        response = self.move(court1, player_id, court2.teams.first())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Quadra 2', response.data['detail'])
+        self.assertIn(player_id, self.players_of(court2))
+        self.assertNotIn(player_id, self.players_of(court1))
+
+    def test_cannot_move_to_another_circuit_or_a_finished_court(self):
+        court1, court2 = self.save_courts()
+        player_id = next(iter(self.players_of(court1)))
+        other_gen = TeamGeneration.objects.create(
+            modality=4, gameday=GameDay.objects.create(date=date.today()), created_by=self.admin
+        )
+        other_team = Team.objects.create(generation=other_gen, name='Outro', order=0)
+
+        self.assertEqual(self.move(court1, player_id, other_team).status_code, 404)
+
+        self.post(court2, 'lock')
+        self.assertEqual(self.move(court1, player_id, court2.teams.first()).status_code, 400)
+        self.assertIn(player_id, self.players_of(court1))
+
+    def test_cannot_add_someone_who_plays_in_another_court(self):
+        court1, court2 = self.save_courts()
+        player_id = next(iter(self.players_of(court2)))
+        response = self.post(court1, 'add-player', player_id=player_id, team_id=court1.teams.first().id)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Quadra 2', response.data['detail'])
+
+    def test_finishing_one_court_keeps_the_circuit_open_until_the_last(self):
+        court1, court2 = self.save_courts()
+
+        response = self.post(court1, 'lock')
+        self.gameday.refresh_from_db()
+        court2.refresh_from_db()
+        self.assertFalse(response.data['circuit_closed'])
+        self.assertFalse(self.gameday.is_closed)
+        self.assertFalse(court2.is_locked)
+
+        response = self.post(court2, 'lock')
+        self.gameday.refresh_from_db()
+        self.assertTrue(response.data['circuit_closed'])
+        self.assertTrue(self.gameday.is_closed)
+
+    def test_single_court_day_works_as_always(self):
+        response = self.generate(courts=1)
+        teams = response.data['teams']
+        self.assertTrue(all(t['court'] == 1 for t in teams))
+        self.assertEqual([t['order'] for t in teams], list(range(len(teams))))
+
+        (only,) = self.save_courts(courts=1)
+        self.assertEqual(only.court, 1)
+        self.post(only, 'lock')
+        self.gameday.refresh_from_db()
+        self.assertTrue(self.gameday.is_closed)
+
+    def test_open_a_new_court_with_who_is_waiting(self):
+        self.save_courts()
+        newcomers = {self.arrive(f'Novo {i}').id for i in range(8)}
+
+        response = self.generate(courts=1)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual({p['id'] for t in response.data['teams'] for p in t['players']}, newcomers)
+
+        saved = self.save(response.data)
+        self.assertEqual(TeamGeneration.objects.get(id=saved.data['generation_id']).court, 3)

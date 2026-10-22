@@ -160,7 +160,7 @@ export function TeamsPage() {
       setConfirmDialog({
         isOpen: true,
         title: 'Pelada Já Gerada!',
-        desc: 'Esta pelada já tem um sorteio em "Pelada Ativa". Para refazer os times dele, use Embaralhar no card da pelada. Se gerar e salvar um novo, os dois ficam ativos e você precisa excluir o que não for usar. Gerar mesmo assim?',
+        desc: 'Esta pelada já tem um sorteio em "Pelada Ativa". Para refazer os times dele, use Embaralhar no card da pelada. Gerar agora sorteia só quem está aguardando (quem ainda não está em nenhum time), como uma quadra nova. Gerar mesmo assim?',
         onConfirm: () => {
           setConfirmDialog(s => ({ ...s, isOpen: false }));
           generateMutation.mutate(target);

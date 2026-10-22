@@ -204,42 +204,73 @@ def calculate_balance_score(teams: List[List[Dict]]) -> float:
     return round(statistics.stdev(avgs), 4)
 
 
+def split_into_courts(teams_players: List[List[Dict]], team_size: int, courts: int) -> List[List[List[Dict]]]:
+    """
+    Distribui os times entre as quadras. Os completos vão em serpentina pela força (1ª quadra, 2ª, 2ª, 1ª...),
+    para as quadras ficarem equilibradas entre si; o incompleto, se houver, vai para a quadra com menos gente.
+    """
+    if courts <= 1:
+        return [teams_players]  # uma quadra: os times ficam na ordem do sorteio, como sempre
+
+    def strength(team):
+        return sum(p['composite_score'] for p in team) / len(team)
+
+    full = sorted([t for t in teams_players if len(t) >= team_size], key=strength, reverse=True)
+    partial = [t for t in teams_players if 0 < len(t) < team_size]
+
+    result: List[List[List[Dict]]] = [[] for _ in range(courts)]
+    for i, team in enumerate(full):
+        round_number, position = divmod(i, courts)
+        court = position if round_number % 2 == 0 else courts - 1 - position
+        result[court].append(team)
+    for team in partial:
+        min(result, key=lambda c: sum(len(t) for t in c)).append(team)
+    return result
+
+
 def generate_teams(
     modality: int,
     gameday_id: Optional[int] = None,
     player_ids: Optional[List[int]] = None,
+    exclude_player_ids: Optional[set] = None,
+    courts: int = 1,
 ) -> Dict:
     """
     Função principal de geração de times.
+    Com `courts` > 1, sorteia todos os times juntos e distribui entre as quadras (cada time leva o número
+    da quadra em `court`). `exclude_player_ids` tira quem já está em outra quadra do circuito.
     Retorna dicionário com times e score de balanceamento.
     """
     from .models import TEAM_COLORS, TEAM_COLOR_HEX
 
     players = get_players_with_overall(player_ids=player_ids, gameday_id=gameday_id)
+    if exclude_player_ids:
+        players = [p for p in players if p['id'] not in exclude_player_ids]
 
-    if len(players) < modality * 2:
+    minimum = modality * 2 * courts  # pelo menos 2 times por quadra
+    if len(players) < minimum:
+        where = f' para {courts} quadras' if courts > 1 else ''
         return {
-            'error': f'Número insuficiente de jogadores. Mínimo necessário: {modality * 2}, disponíveis: {len(players)}'
+            'error': f'Número insuficiente de jogadores{where}. Mínimo necessário: {minimum}, disponíveis: {len(players)}'
         }
 
-    teams_players = smart_draft(players, modality)
+    teams_players = [t for t in smart_draft(players, modality) if t]
     balance_score = calculate_balance_score(teams_players)
 
     teams_result = []
-    for i, team_players in enumerate(teams_players):
-        if not team_players:
-            continue
-        avg = round(
-            sum(p['overall'] for p in team_players) / len(team_players), 2
-        ) if team_players else 0
-        teams_result.append({
-            'order': i,
-            'name': f'Time {TEAM_COLORS[i % len(TEAM_COLORS)]}',
-            'color': TEAM_COLORS[i % len(TEAM_COLORS)],
-            'color_hex': TEAM_COLOR_HEX[i % len(TEAM_COLOR_HEX)],
-            'avg_overall': avg,
-            'players': team_players,
-        })
+    for court_number, court_teams in enumerate(split_into_courts(teams_players, modality, courts), start=1):
+        # As cores recomeçam em cada quadra: cada uma tem seu Vermelho, Azul...
+        for i, team_players in enumerate(court_teams):
+            avg = round(sum(p['overall'] for p in team_players) / len(team_players), 2)
+            teams_result.append({
+                'order': i,
+                'court': court_number,
+                'name': f'Time {TEAM_COLORS[i % len(TEAM_COLORS)]}',
+                'color': TEAM_COLORS[i % len(TEAM_COLORS)],
+                'color_hex': TEAM_COLOR_HEX[i % len(TEAM_COLOR_HEX)],
+                'avg_overall': avg,
+                'players': team_players,
+            })
 
     return {
         'teams': teams_result,
@@ -248,4 +279,5 @@ def generate_teams(
         'modality': modality,
         'players_per_team': modality,
         'n_teams': len(teams_result),
+        'courts': courts,
     }

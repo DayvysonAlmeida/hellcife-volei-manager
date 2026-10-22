@@ -482,6 +482,8 @@ export interface TeamGenerationData {
   gameday_date?: string;
   gameday_time?: string;
   gameday_location?: string;
+  /** Quadra dentro do circuito (dias com várias quadras ao mesmo tempo têm um sorteio por quadra). */
+  court?: number;
   modality: number;
   modality_display: string;
   created_by?: number;
