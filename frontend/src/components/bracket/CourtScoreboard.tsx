@@ -7,9 +7,11 @@ interface CourtScoreboardProps {
   consecutive: number;
   isReversed?: boolean;
   onUpdateScore: (delta: number) => void;
+  /** Outro celular está marcando: os botões ficam travados (só acompanha). */
+  disabled?: boolean;
 }
 
-export function CourtScoreboard({ team, score, consecutive, isReversed, onUpdateScore }: CourtScoreboardProps) {
+export function CourtScoreboard({ team, score, consecutive, isReversed, onUpdateScore, disabled }: CourtScoreboardProps) {
   if (!team) {
     return (
       <div className="flex-1 card flex flex-col overflow-hidden relative justify-center items-center opacity-50 border-dashed">
@@ -57,7 +59,7 @@ export function CourtScoreboard({ team, score, consecutive, isReversed, onUpdate
           </span>
         </div>
 
-        <div className="flex gap-2 sm:gap-4 md:gap-8 mt-auto">
+        <div className={`flex gap-2 sm:gap-4 md:gap-8 mt-auto ${disabled ? 'pointer-events-none opacity-30' : ''}`} aria-disabled={disabled}>
           <button 
             onClick={() => onUpdateScore(-1)} 
             className="flex-1 h-16 sm:h-20 md:h-28 rounded-xl sm:rounded-2xl md:rounded-3xl bg-surface/80 hover:bg-surface border border-border text-4xl sm:text-5xl md:text-7xl font-bold text-text-muted transition-colors active:scale-95"

@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText, CircuitFinanceSummary, FinanceAttendanceRow, FinanceOverview, ManualPaymentMethod, SeasonsResponse, EloTiersResponse } from '@/types';
+import type { BracketServerState, DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText, CircuitFinanceSummary, FinanceAttendanceRow, FinanceOverview, ManualPaymentMethod, SeasonsResponse, EloTiersResponse } from '@/types';
 
 export const dashboardService = {
   get: () => api.get<DashboardData>('/dashboard/').then(r => r.data),
@@ -164,6 +164,14 @@ export const teamsService = {
     const response = await api.post(`/teams/${genId}/shuffle/`, modality ? { modality } : undefined);
     return response.data;
   },
+
+  /** Fila e placar da quadra salvos no servidor (`device` identifica este celular). */
+  getBracket: (genId: number, device: string) =>
+    api.get<BracketServerState>(`/teams/${genId}/bracket/`, { params: { device } }).then(r => r.data),
+
+  /** Grava a fila com a versão que este celular tinha; 409 quando outro celular gravou antes. */
+  saveBracket: (genId: number, data: { state: unknown; version: number; device: string }) =>
+    api.put<BracketServerState>(`/teams/${genId}/bracket/`, data).then(r => r.data),
 
   /** Dividir uma pelada de uma quadra só em 2 ou 3 quadras equilibradas. */
   splitCourts: async (genId: number, courts: number): Promise<{ detail: string; generation_ids: number[] }> => {

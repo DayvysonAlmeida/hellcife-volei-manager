@@ -21,6 +21,11 @@ class Match(models.Model):
         'teams.TeamGeneration', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='matches', verbose_name='Geração de times'
     )
+    # "quadra:jogo" da fila (ex.: "77:5"): o mesmo jogo salvo por dois celulares vira uma partida só
+    bracket_key = models.CharField(
+        max_length=40, unique=True, null=True, blank=True, verbose_name='Jogo da fila',
+        help_text='Quadra e número do jogo na fila; evita salvar o mesmo jogo duas vezes.'
+    )
     notes = models.TextField(blank=True, null=True, verbose_name='Observações')
     created_by = models.ForeignKey(
         'core.User', on_delete=models.SET_NULL, null=True,

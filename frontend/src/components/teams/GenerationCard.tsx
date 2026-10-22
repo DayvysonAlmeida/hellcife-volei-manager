@@ -492,14 +492,25 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
       )}
 
       {canEdit && (
-        <div className="mt-6 pt-4 border-t border-border flex justify-end">
+        <div className="mt-6 pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Jogo em andamento (placar salvo no servidor): dá para acompanhar sem abrir a quadra */}
+          {gen.live ? (
+            <p className="text-xs text-text-secondary flex items-center gap-2 flex-wrap">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <strong className="text-text-primary">Jogo {gen.live.match_number}:</strong>
+              <span style={{ color: gen.live.color_a }}>{gen.live.team_a}</span>
+              <strong className="text-text-primary tabular-nums">{gen.live.score_a} x {gen.live.score_b}</strong>
+              <span style={{ color: gen.live.color_b }}>{gen.live.team_b}</span>
+              {gen.live.controller_name && <span className="text-text-muted">· marcando: {gen.live.controller_name}</span>}
+            </p>
+          ) : <span />}
           <Link
             to={`/bracket/${gen.id}`}
             className={`px-6 py-3 flex items-center gap-2 w-full sm:w-auto justify-center ${gen.is_locked ? 'btn-secondary text-text-secondary border border-border bg-surface/50 hover:bg-surface' : 'btn-primary'}`}
           >
             {(() => {
               if (gen.is_locked) return <><History size={18} /> Ver Histórico da Pelada</>;
-              const isStarted = localStorage.getItem(`hellcife_bracket_${gen.id}`)?.includes('"isStarted":true');
+              const isStarted = !!gen.live || localStorage.getItem(`hellcife_bracket_${gen.id}`)?.includes('"isStarted":true');
               return (
                 <>
                   {isStarted ? <Swords size={18} /> : <Trophy size={18} />}

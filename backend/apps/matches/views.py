@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.cache import cache
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from .models import Match, MatchTeam, MatchPlayer
 from .serializers import MatchSerializer, MatchListSerializer, MatchWriteSerializer, MatchTeamSerializer
@@ -124,13 +124,27 @@ class MatchViewSet(viewsets.ModelViewSet):
         if not match_data or not teams_data:
             return Response({'detail': 'Dados de partida e times são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # O mesmo jogo da fila salvo de novo (ex.: dois celulares na mesma quadra) devolve a partida que já existe
+        bracket_key = str(request.data.get('bracket_key') or '')[:40] or None
+        if bracket_key:
+            existing = Match.objects.filter(bracket_key=bracket_key).first()
+            if existing:
+                return Response(MatchSerializer(existing).data, status=status.HTTP_200_OK)
+
         serializer = MatchWriteSerializer(data=match_data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
         # Partida, times e jogadores numa transação só: se algo falhar, não sobra partida sem jogadores
-        with transaction.atomic():
-            match = serializer.save()
-            _create_match_teams(match, teams_data)
+        try:
+            with transaction.atomic():
+                match = serializer.save(bracket_key=bracket_key)
+                _create_match_teams(match, teams_data)
+        except IntegrityError:
+            # Outro celular salvou o mesmo jogo no mesmo instante
+            existing = Match.objects.filter(bracket_key=bracket_key).first() if bracket_key else None
+            if not existing:
+                raise
+            return Response(MatchSerializer(existing).data, status=status.HTTP_200_OK)
 
         # Invalidar cache do dashboard
         cache.delete('dashboard_data')

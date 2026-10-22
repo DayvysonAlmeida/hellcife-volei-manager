@@ -112,3 +112,24 @@ class TeamPlayer(models.Model):
 
     def __str__(self):
         return f'{self.player} → {self.team}'
+
+
+class BracketState(models.Model):
+    """
+    Fila e placar de uma quadra, salvos no servidor: qualquer celular vê o jogo e pode continuar.
+    A versão evita que dois celulares se sobrescrevam; o "controlador" é o celular que está marcando.
+    """
+    generation = models.OneToOneField(TeamGeneration, on_delete=models.CASCADE, related_name='bracket', verbose_name='Quadra')
+    state = models.JSONField(default=dict, verbose_name='Fila e placar')
+    version = models.PositiveIntegerField(default=0, verbose_name='Versão')
+    controller_device = models.CharField(max_length=64, blank=True, default='', verbose_name='Celular que está marcando')
+    controller_name = models.CharField(max_length=150, blank=True, default='', verbose_name='Quem está marcando')
+    controller_seen_at = models.DateTimeField(null=True, blank=True, verbose_name='Visto por último')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Fila da quadra'
+        verbose_name_plural = 'Filas das quadras'
+
+    def __str__(self):
+        return f'Fila da quadra {self.generation_id} (v{self.version})'

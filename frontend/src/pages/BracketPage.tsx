@@ -14,6 +14,9 @@ import { CourtCheckinModal } from '@/components/attendance/CourtCheckinModal';
 import { useAuth } from '@/store/AuthContext';
 import { borrowPlayersForTeam, borrowedPlayerIds, rotateAfterMatch, withoutPlayers } from '@/components/bracket/bracket-utils';
 import { CourtScoreboard } from '@/components/bracket/CourtScoreboard';
+import { CourtSyncBar } from '@/components/bracket/CourtSyncBar';
+import { useBracketSync } from '@/components/bracket/useBracketSync';
+import { COURT_COLORS } from '@/components/teams/court-plan';
 import { SaveMatchModal } from '@/components/bracket/SaveMatchModal';
 
 interface BracketState {
@@ -97,6 +100,10 @@ export function BracketPage() {
     localStorage.setItem(storageKey, JSON.stringify(state));
   }, [state, storageKey]);
 
+  // Fila e placar no servidor: qualquer celular vê e continua; quem não está marcando só acompanha
+  const sync = useBracketSync({ generationId: Number(id), enabled: !!generation && !generation.is_locked, state, setState });
+  const readOnly = !sync.loaded || sync.otherScorerActive;
+
   // Sincronização ao vivo de jogadores nos times e novos times
   useEffect(() => {
     if (generation) {
@@ -160,6 +167,7 @@ export function BracketPage() {
   }, [generation]);
 
   const shuffleQueue = () => {
+    sync.markUserAction();
     setState(prev => {
       const newQueue = [...prev.queue].sort(() => Math.random() - 0.5);
       return { ...prev, queue: newQueue };
@@ -167,6 +175,7 @@ export function BracketPage() {
   };
 
   const moveInQueue = (index: number, direction: 'up' | 'down' | 'top') => {
+    sync.markUserAction();
     setState(prev => {
       const newQueue = [...prev.queue];
       if (direction === 'up' && index > 0) {
@@ -187,6 +196,7 @@ export function BracketPage() {
   }, [state.queue, generation, state.borrowCounts]);
 
   const startPelada = () => {
+    sync.markUserAction();
     if (state.queue.length < 2) {
       toast.error('É preciso no mínimo 2 times para iniciar.');
       return;
@@ -213,6 +223,7 @@ export function BracketPage() {
   };
 
   const updateScore = (team: 'A' | 'B', delta: number) => {
+    sync.markUserAction();
     setState(prev => ({
       ...prev,
       scoreA: team === 'A' ? Math.max(0, prev.scoreA + delta) : prev.scoreA,
@@ -226,6 +237,7 @@ export function BracketPage() {
       title: 'Cancelar Jogo Atual?',
       desc: 'Os times voltarão para o topo da fila e a pontuação atual será apagada. Tem certeza?',
       onConfirm: () => {
+        sync.markUserAction();
         setState(prev => {
           const q = [...prev.queue];
           // Restaura os times originais, sem os empréstimos (se não salvarmos o resultado, o jogo não aconteceu)
@@ -267,6 +279,8 @@ export function BracketPage() {
     }
 
     const data: QuickMatchData = {
+      // O mesmo jogo salvo por dois celulares vira uma partida só
+      bracket_key: `${generation!.id}:${state.matchNumber}`,
       match: {
         date: new Date().toLocaleDateString('en-CA'),
         modality: generation!.modality as Modality,
@@ -297,6 +311,7 @@ export function BracketPage() {
   };
 
   const advanceBracket = () => {
+    sync.markUserAction();
     setState(prev => {
       const winnerIsA = prev.scoreA > prev.scoreB;
       const winnerCourt = winnerIsA ? prev.courtA! : prev.courtB!;
@@ -409,6 +424,29 @@ export function BracketPage() {
   if (isLoading) return <PageLoading />;
   if (error || !generation) return <ErrorState message="Geração não encontrada." />;
 
+  const syncBar = (
+    <CourtSyncBar
+      courtLabel={courtLabel ?? 'Pelada'}
+      color={COURT_COLORS[((generation.court || 1) - 1) % COURT_COLORS.length]}
+      status={sync.status}
+      notice={sync.notice}
+      onDismissNotice={sync.dismissNotice}
+      controller={sync.controller}
+      isScorer={sync.isScorer}
+      otherScorerActive={sync.otherScorerActive}
+      seenAgoMs={sync.seenAgoMs}
+      onTakeControl={() => setConfirmDialog({
+        isOpen: true,
+        title: 'Assumir o placar',
+        desc: `${sync.controller?.name ?? 'Outra pessoa'} está marcando esta quadra em outro celular. Ao assumir, o placar passa a ser marcado aqui e o outro celular fica só acompanhando.`,
+        onConfirm: () => {
+          setConfirmDialog(s => ({ ...s, isOpen: false }));
+          void sync.takeControl();
+        },
+      })}
+    />
+  );
+
   // Se a pelada já foi encerrada, mostra a tela read-only
   if (generation?.is_locked) {
     return (
@@ -474,10 +512,19 @@ export function BracketPage() {
           <p className="page-subtitle ml-14">Defina a ordem dos times para começar o chaveamento.</p>
         </div>
 
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
+          title={confirmDialog.title}
+          description={confirmDialog.desc}
+          onConfirm={confirmDialog.onConfirm}
+        />
+        {syncBar}
+
         <div className="card p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="font-display text-lg tracking-wider">FILA DE ENTRADA</h2>
-            <button onClick={shuffleQueue} className="btn-ghost flex items-center gap-2">
+            <button onClick={shuffleQueue} disabled={readOnly} className="btn-ghost flex items-center gap-2 disabled:opacity-40">
               <RotateCcw size={16} /> Embaralhar
             </button>
           </div>
@@ -507,7 +554,7 @@ export function BracketPage() {
                     <div className="flex gap-1 bg-surface border border-border rounded-lg p-1">
                       <button 
                         onClick={() => moveInQueue(idx, 'top')} 
-                        disabled={idx === 0}
+                        disabled={idx === 0 || readOnly}
                         className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-red disabled:opacity-20 transition-colors"
                         title="Mover para o topo"
                       >
@@ -515,14 +562,14 @@ export function BracketPage() {
                       </button>
                       <button 
                         onClick={() => moveInQueue(idx, 'up')} 
-                        disabled={idx === 0}
+                        disabled={idx === 0 || readOnly}
                         className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-20 transition-colors"
                       >
                          <ArrowUp size={16} />
                       </button>
                       <button 
                         onClick={() => moveInQueue(idx, 'down')} 
-                        disabled={idx === state.queue.length - 1}
+                        disabled={idx === state.queue.length - 1 || readOnly}
                         className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-20 transition-colors"
                       >
                          <ArrowDown size={16} />
@@ -534,7 +581,7 @@ export function BracketPage() {
             </AnimatePresence>
           </div>
 
-          <button onClick={startPelada} className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2">
+          <button onClick={startPelada} disabled={readOnly} className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-40">
             <Trophy size={20} />
             Iniciar Pelada
           </button>
@@ -613,6 +660,8 @@ export function BracketPage() {
         </div>
       </div>
 
+      {syncBar}
+
       {/* Banner de Arbitragem */}
       {state.queue.length > 0 && (
         <div 
@@ -643,6 +692,7 @@ export function BracketPage() {
           score={state.scoreA}
           consecutive={state.consecutiveA}
           onUpdateScore={(delta) => updateScore('A', delta)}
+          disabled={readOnly}
         />
 
         {/* VS Separator (Desktop) */}
@@ -658,6 +708,7 @@ export function BracketPage() {
           consecutive={state.consecutiveB}
           isReversed
           onUpdateScore={(delta) => updateScore('B', delta)}
+          disabled={readOnly}
         />
 
       </div>
@@ -665,7 +716,8 @@ export function BracketPage() {
       <div className="flex flex-col-reverse md:flex-row justify-center items-center mt-6 gap-4">
         <button 
           onClick={cancelMatch}
-          className="btn-secondary w-full md:w-auto px-6 py-4 text-sm md:text-base font-bold flex items-center justify-center gap-2 border-border hover:border-red hover:text-red transition-all"
+          disabled={readOnly}
+          className="btn-secondary w-full md:w-auto px-6 py-4 text-sm md:text-base font-bold flex items-center justify-center gap-2 border-border hover:border-red hover:text-red transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-border disabled:hover:text-inherit"
         >
           <RotateCcw size={20} />
           Cancelar Jogo
@@ -673,7 +725,8 @@ export function BracketPage() {
 
         <button 
           onClick={() => setState(s => ({ ...s, showSaveModal: true }))}
-          className="btn-primary w-full md:w-auto md:px-24 py-5 md:py-6 text-xl md:text-3xl font-bold flex items-center justify-center gap-4 shadow-neon-red shadow-red/20"
+          disabled={readOnly}
+          className="btn-primary w-full md:w-auto md:px-24 py-5 md:py-6 text-xl md:text-3xl font-bold flex items-center justify-center gap-4 shadow-neon-red shadow-red/20 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Trophy size={32} />
           Confirmar Resultado
@@ -690,7 +743,7 @@ export function BracketPage() {
             
             {/* Botão de Auto-alocar (Vem da Quadra) */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button onClick={shuffleQueue} className="btn-ghost flex items-center gap-2 text-xs py-2 px-3 border border-border hover:bg-surface rounded-lg">
+              <button onClick={shuffleQueue} disabled={readOnly} className="btn-ghost flex items-center gap-2 text-xs py-2 px-3 border border-border hover:bg-surface rounded-lg disabled:opacity-40">
                 <RotateCcw size={14} /> Embaralhar Fila
               </button>
               {(() => {
@@ -731,7 +784,7 @@ export function BracketPage() {
                   <div className="flex gap-1 bg-background/50 border border-border rounded-lg p-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={() => moveInQueue(idx, 'top')} 
-                        disabled={idx === 0}
+                        disabled={idx === 0 || readOnly}
                         className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-red disabled:opacity-20 transition-colors"
                         title="Mover para o topo"
                       >
@@ -739,14 +792,14 @@ export function BracketPage() {
                       </button>
                       <button 
                         onClick={() => moveInQueue(idx, 'up')} 
-                        disabled={idx === 0}
+                        disabled={idx === 0 || readOnly}
                         className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-20 transition-colors"
                       >
                          <ArrowUp size={14} />
                       </button>
                       <button 
                         onClick={() => moveInQueue(idx, 'down')} 
-                        disabled={idx === state.queue.length - 1}
+                        disabled={idx === state.queue.length - 1 || readOnly}
                         className="p-1 rounded text-text-muted hover:bg-surface-hover hover:text-text-primary disabled:opacity-20 transition-colors"
                       >
                          <ArrowDown size={14} />

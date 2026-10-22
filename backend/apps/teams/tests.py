@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from apps.attendance.models import CourtCheckin, GameDay
 from apps.core.models import User
 from apps.players.models import Player
-from .models import Team, TeamGeneration, TeamPlayer
+from .models import BracketState, Team, TeamGeneration, TeamPlayer
 
 BASE = '/api/teams'
 
@@ -484,3 +484,67 @@ class CourtModalityTests(MultiCourtBase):
     def test_invalid_modality(self):
         (only,) = self.save_courts(courts=1)
         self.assertEqual(self.post(only, 'shuffle', modality=7).status_code, 400)
+
+
+class BracketSyncTests(MultiCourtBase):
+    """Fila e placar no servidor: qualquer celular vê e continua; a versão evita um celular apagar o outro."""
+
+    STATE = {'isStarted': True, 'matchNumber': 3, 'scoreA': 12, 'scoreB': 9,
+             'courtA': {'name': 'Time Vermelho', 'color_hex': '#D90429'}, 'courtB': {'name': 'Time Azul', 'color_hex': '#2563EB'}}
+
+    def setUp(self):
+        super().setUp()
+        (self.court,) = self.save_courts(courts=1)
+        self.url = f'{BASE}/{self.court.id}/bracket/'
+
+    def put(self, state, version, device='celular-a'):
+        return self.client.put(self.url, {'state': state, 'version': version, 'device': device}, format='json')
+
+    def test_empty_until_someone_starts(self):
+        data = self.client.get(self.url).data
+        self.assertEqual((data['state'], data['version'], data['controller']), (None, 0, None))
+
+    def test_save_and_read_from_another_phone(self):
+        response = self.put(self.STATE, 0)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['version'], 1)
+
+        data = self.client.get(self.url, {'device': 'celular-b'}).data
+        self.assertEqual(data['state']['scoreA'], 12)
+        self.assertEqual(data['controller']['device'], 'celular-a')
+        self.assertEqual(data['controller']['name'], 'Admin')
+
+    def test_stale_version_gets_the_server_version(self):
+        self.put(self.STATE, 0)
+        response = self.put({**self.STATE, 'scoreA': 99}, 0, device='celular-b')  # o B ainda estava na versão 0
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data['state']['scoreA'], 12)
+        self.assertEqual(response.data['version'], 1)
+
+    def test_whoever_saves_becomes_the_scorer(self):
+        self.put(self.STATE, 0)
+        self.put({**self.STATE, 'scoreA': 13}, 1, device='celular-b')  # assumiu o placar
+        self.assertEqual(self.client.get(self.url).data['controller']['device'], 'celular-b')
+
+    def test_scorer_polling_keeps_it_marked_as_active(self):
+        self.put(self.STATE, 0)
+        first_seen = self.client.get(self.url).data['controller']['seen_at']
+        BracketState.objects.filter(generation=self.court).update(controller_seen_at=None)
+
+        self.client.get(self.url, {'device': 'celular-b'})  # quem só acompanha não renova
+        self.assertIsNone(BracketState.objects.get(generation=self.court).controller_seen_at)
+        self.client.get(self.url, {'device': 'celular-a'})
+        self.assertIsNotNone(BracketState.objects.get(generation=self.court).controller_seen_at)
+        self.assertIsNotNone(first_seen)
+
+    def test_finished_court_and_invalid_state_are_refused(self):
+        self.assertEqual(self.put('não é fila', 0).status_code, 400)
+        self.post(self.court, 'lock')
+        self.assertEqual(self.put(self.STATE, 0).status_code, 400)
+
+    def test_draw_shows_the_live_score(self):
+        self.put(self.STATE, 0)
+        live = self.client.get(f'{BASE}/{self.court.id}/').data['live']
+        self.assertEqual((live['match_number'], live['score_a'], live['score_b']), (3, 12, 9))
+        self.assertEqual((live['team_a'], live['controller_name']), ('Time Vermelho', 'Admin'))

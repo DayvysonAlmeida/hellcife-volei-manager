@@ -51,6 +51,11 @@ export function CourtGroup({ generations, gameDays, allPlayers, canEdit, onConfi
             )}
           >
             Quadra {g.court} <span className="opacity-70">({playersIn(g)})</span>
+            {g.live && (
+              <span className="block text-[10px] font-medium normal-case tracking-normal opacity-90 tabular-nums">
+                Jogo {g.live.match_number} · {g.live.score_a} x {g.live.score_b}
+              </span>
+            )}
           </button>
         ))}
       </div>

@@ -491,6 +491,8 @@ export interface TeamGenerationData {
   /** Quantas quadras o circuito tem e quantas continuam em jogo. */
   circuit_courts?: number;
   open_courts?: number;
+  /** Jogo em andamento na quadra (placar salvo no servidor), para acompanhar de qualquer celular. */
+  live?: CourtLive | null;
   modality: number;
   modality_display: string;
   created_by?: number;
@@ -555,6 +557,8 @@ export interface Match {
 
 export interface QuickMatchData {
   match: Partial<Match>;
+  /** "quadra:jogo" da fila: salvar o mesmo jogo de novo não cria outra partida. */
+  bracket_key?: string;
   teams: {
     team_id?: number;
     team_name: string;
@@ -879,4 +883,32 @@ export interface EloTier {
 export interface EloTiersResponse {
   tiers: EloTier[];
   rules: { start: number; k: number; k_placement: number; placement_games: number; min: number };
+}
+
+/** Celular que está marcando o placar de uma quadra. */
+export interface BracketController {
+  device: string;
+  name: string;
+  seen_at: string | null;
+}
+
+/** Fila e placar de uma quadra como estão no servidor. */
+export interface BracketServerState {
+  state: Record<string, unknown> | null;
+  version: number;
+  controller: BracketController | null;
+  updated_at: string | null;
+}
+
+/** Resumo do jogo em andamento numa quadra. */
+export interface CourtLive {
+  match_number: number;
+  team_a: string;
+  color_a: string;
+  score_a: number;
+  team_b: string;
+  color_b: string;
+  score_b: number;
+  controller_name: string;
+  controller_seen_at: string | null;
 }

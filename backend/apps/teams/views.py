@@ -1,13 +1,16 @@
+import json
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db import transaction
+from django.utils import timezone
 from django.db.models import Subquery, OuterRef, FloatField, Avg, Prefetch
 from django.db.models.functions import Coalesce
 
 from apps.attendance.models import GameDay
-from .models import TeamGeneration, Team, TeamPlayer, next_court, taken_player_ids
+from .models import BracketState, TeamGeneration, Team, TeamPlayer, next_court, taken_player_ids
 from .serializers import TeamGenerationSerializer, TeamSerializer, GenerateTeamsInputSerializer
 from .algorithm import generate_teams
 from apps.core.permissions import IsAdminOrModerator
@@ -15,15 +18,35 @@ from apps.evaluations.models import Evaluation
 from apps.players.models import Player
 
 
+MAX_BRACKET_STATE_BYTES = 200_000  # a fila de uma quadra cabe com folga
+
+
+def bracket_payload(bracket):
+    """Fila e placar no formato que a tela usa (vazio quando a quadra ainda não começou)."""
+    if not bracket:
+        return {'state': None, 'version': 0, 'controller': None, 'updated_at': None}
+    controller = None
+    if bracket.controller_device:
+        controller = {
+            'device': bracket.controller_device,
+            'name': bracket.controller_name,
+            'seen_at': bracket.controller_seen_at,
+        }
+    return {'state': bracket.state or None, 'version': bracket.version, 'controller': controller, 'updated_at': bracket.updated_at}
+
+
 class TeamGenerationViewSet(viewsets.ModelViewSet):
     serializer_class = TeamGenerationSerializer
     permission_classes = [IsAdminOrModerator]
 
     def get_queryset(self):
+        if self.action == 'bracket':
+            # Consultado a cada poucos segundos por cada celular: busca leve, sem os times
+            return TeamGeneration.objects.all()
         # Prefetch otimizado: traz player + evaluations em poucos JOINs
         qs = (
             TeamGeneration.objects.all()
-            .select_related('created_by', 'gameday')
+            .select_related('created_by', 'gameday', 'bracket')  # bracket: placar ao vivo nas abas das quadras
             .prefetch_related(
                 Prefetch(
                     'teams__team_players__player',
@@ -185,6 +208,47 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
                 'circuit_closed': False,
             })
         return Response({'detail': 'Pelada encerrada com sucesso.', 'circuit_closed': False})
+
+    @action(detail=True, methods=['get', 'put'], url_path='bracket')
+    def bracket(self, request, pk=None):
+        """
+        Fila e placar da quadra no servidor, para qualquer celular ver e continuar o jogo.
+        GET devolve o jogo atual (vindo do celular que está marcando, renova o "visto por último").
+        PUT grava com a versão que o celular tinha; se outro celular gravou antes, responde 409 com a
+        versão do servidor, que é a que vale. Quem grava passa a ser quem está marcando a quadra.
+        """
+        generation = self.get_object()
+        params = request.data if request.method == 'PUT' else request.query_params
+        device = str(params.get('device') or '')[:64]
+
+        if request.method == 'GET':
+            bracket = BracketState.objects.filter(generation=generation).first()
+            if bracket and device and bracket.controller_device == device:
+                bracket.controller_seen_at = timezone.now()
+                bracket.save(update_fields=['controller_seen_at'])
+            return Response(bracket_payload(bracket))
+
+        if generation.is_locked:
+            return Response({'detail': 'Esta pelada já foi encerrada.'}, status=status.HTTP_400_BAD_REQUEST)
+        state = request.data.get('state')
+        if not isinstance(state, dict) or len(json.dumps(state)) > MAX_BRACKET_STATE_BYTES:
+            return Response({'detail': 'Fila inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            version = int(request.data.get('version', 0))
+        except (TypeError, ValueError):
+            version = -1
+
+        with transaction.atomic():
+            bracket, _ = BracketState.objects.select_for_update().get_or_create(generation=generation)
+            if version != bracket.version:
+                return Response(bracket_payload(bracket), status=status.HTTP_409_CONFLICT)
+            bracket.state = state
+            bracket.version += 1
+            bracket.controller_device = device
+            bracket.controller_name = request.user.name or request.user.email
+            bracket.controller_seen_at = timezone.now()
+            bracket.save()
+        return Response(bracket_payload(bracket))
 
     def _recalculate_generation_overalls(self, generation):
         from .algorithm import get_players_with_overall, calculate_balance_score

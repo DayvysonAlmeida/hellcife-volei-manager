@@ -53,7 +53,23 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
         ]
 
     circuit_courts = serializers.SerializerMethodField()
+    live = serializers.SerializerMethodField()
     open_courts = serializers.SerializerMethodField()
+
+    def get_live(self, obj):
+        """Jogo em andamento na quadra (para acompanhar todas as quadras): placar e quem está marcando."""
+        bracket = getattr(obj, 'bracket', None)  # sem fila salva ainda: None
+        state = (bracket.state or {}) if bracket else {}
+        if not state.get('isStarted'):
+            return None
+        court_a, court_b = state.get('courtA') or {}, state.get('courtB') or {}
+        return {
+            'match_number': state.get('matchNumber'),
+            'team_a': court_a.get('name'), 'color_a': court_a.get('color_hex'), 'score_a': state.get('scoreA', 0),
+            'team_b': court_b.get('name'), 'color_b': court_b.get('color_hex'), 'score_b': state.get('scoreB', 0),
+            'controller_name': bracket.controller_name,
+            'controller_seen_at': bracket.controller_seen_at,
+        }
 
     def get_circuit_courts(self, obj):
         """Quantas quadras (sorteios) o circuito tem: com mais de uma, a tela mostra "Quadra N"."""
@@ -75,7 +91,7 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
         model = TeamGeneration
         fields = ['id', 'gameday', 'gameday_date', 'gameday_time', 'gameday_location', 'court', 'modality', 'modality_display',
                   'created_by', 'created_by_name', 'notes', 'balance_score', 'is_locked',
-                  'teams', 'removed_players', 'waiting_players', 'circuit_courts', 'open_courts', 'created_at']
+                  'teams', 'removed_players', 'waiting_players', 'circuit_courts', 'open_courts', 'live', 'created_at']
         read_only_fields = ['created_by', 'balance_score', 'created_at']
 
 

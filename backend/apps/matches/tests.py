@@ -51,6 +51,30 @@ class SaveScoreTests(MatchApiTestCase):
         played = next(p for t in response.data['match_teams'] for p in t['match_players'] if p['player'] == self.players[1].id)
         self.assertTrue(played['is_borrowed'])
 
+    def test_same_bracket_game_saved_twice_becomes_one_match(self):
+        """Dois celulares salvando o mesmo jogo da fila: uma partida só (sem Elo contado duas vezes)."""
+        payload = {
+            'match': {'date': str(date.today()), 'modality': 2, 'team_generation': self.gen.id},
+            'teams': self.teams_payload(),
+            'bracket_key': f'{self.gen.id}:5',
+        }
+        first = self.client.post('/api/matches/quick/', payload, format='json')
+        second = self.client.post('/api/matches/quick/', payload, format='json')
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.data['id'], first.data['id'])
+        self.assertEqual(Match.objects.count(), 1)
+
+    def test_next_bracket_game_is_a_new_match(self):
+        payload = {
+            'match': {'date': str(date.today()), 'modality': 2, 'team_generation': self.gen.id},
+            'teams': self.teams_payload(),
+        }
+        self.client.post('/api/matches/quick/', {**payload, 'bracket_key': f'{self.gen.id}:5'}, format='json')
+        self.client.post('/api/matches/quick/', {**payload, 'bracket_key': f'{self.gen.id}:6'}, format='json')
+        self.assertEqual(Match.objects.count(), 2)
+
     def test_add_result_replaces_previous_result(self):
         match = Match.objects.create(date=date.today(), modality=2, created_by=self.admin)
         url = f'/api/matches/{match.id}/result/'
