@@ -184,8 +184,8 @@ class CompleteTeamsTests(TestCase):
         self.assertEqual(self.complete().status_code, 400)
 
 
-class MultiCourtTests(TestCase):
-    """Várias quadras ao mesmo tempo no mesmo circuito: um sorteio por quadra, cada atleta numa quadra só."""
+class MultiCourtBase(TestCase):
+    """Circuito de teste com 18 atletas de níveis diferentes, todos com check-in."""
 
     def setUp(self):
         self.client = APIClient()
@@ -224,6 +224,10 @@ class MultiCourtTests(TestCase):
         return self.client.patch(
             f'{BASE}/{generation.id}/move-player/', {'player_id': player_id, 'target_team_id': team.id}, format='json'
         )
+
+
+class MultiCourtTests(MultiCourtBase):
+    """Várias quadras ao mesmo tempo no mesmo circuito: um sorteio por quadra, cada atleta numa quadra só."""
 
     def test_draw_splits_teams_between_courts_without_repeating_anyone(self):
         response = self.generate(courts=2)
@@ -325,6 +329,8 @@ class MultiCourtTests(TestCase):
 
     def test_finishing_one_court_keeps_the_circuit_open_until_the_last(self):
         court1, court2 = self.save_courts()
+        data = self.client.get(f'{BASE}/{court1.id}/').data
+        self.assertEqual((data['circuit_courts'], data['open_courts']), (2, 2))
 
         response = self.post(court1, 'lock')
         self.gameday.refresh_from_db()
@@ -332,6 +338,8 @@ class MultiCourtTests(TestCase):
         self.assertFalse(response.data['circuit_closed'])
         self.assertFalse(self.gameday.is_closed)
         self.assertFalse(court2.is_locked)
+
+        self.assertEqual(self.client.get(f'{BASE}/{court2.id}/').data['open_courts'], 1)
 
         response = self.post(court2, 'lock')
         self.gameday.refresh_from_db()
@@ -360,3 +368,119 @@ class MultiCourtTests(TestCase):
 
         saved = self.save(response.data)
         self.assertEqual(TeamGeneration.objects.get(id=saved.data['generation_id']).court, 3)
+
+
+class SplitCourtsTests(MultiCourtBase):
+    """Dividir em quadras uma pelada que foi sorteada com uma quadra só (e o Completar por atleta)."""
+
+    def split(self, generation, courts=2):
+        return self.post(generation, 'split-courts', courts=courts)
+
+    def test_split_one_court_into_two_balanced_courts(self):
+        (only,) = self.save_courts(courts=1)
+
+        response = self.split(only, 2)
+
+        self.assertEqual(response.status_code, 200)
+        first, second = [TeamGeneration.objects.get(id=i) for i in response.data['generation_ids']]
+        self.assertEqual(first.id, only.id)  # o sorteio original vira a primeira quadra
+        self.assertEqual((first.court, second.court), (1, 2))
+        self.assertFalse(self.players_of(first) & self.players_of(second))
+        self.assertEqual(len(self.players_of(first) | self.players_of(second)), 18)
+        self.assertGreaterEqual(first.teams.count(), 2)
+        self.assertGreaterEqual(second.teams.count(), 2)
+
+    def test_split_brings_who_is_waiting(self):
+        (only,) = self.save_courts(courts=1)
+        late = self.arrive('Atrasado')
+
+        first_id, second_id = self.split(only, 2).data['generation_ids']
+
+        everyone = self.players_of(TeamGeneration.objects.get(id=first_id)) | self.players_of(TeamGeneration.objects.get(id=second_id))
+        self.assertIn(late.id, everyone)
+
+    def test_saved_matches_stay_with_the_first_court(self):
+        from apps.matches.models import Match
+        (only,) = self.save_courts(courts=1)
+        match = Match.objects.create(date=date.today(), modality=4, gameday=self.gameday, team_generation=only)
+
+        self.split(only, 2)
+
+        match.refresh_from_db()
+        self.assertEqual(match.team_generation_id, only.id)
+
+    def test_split_refused_when_not_possible(self):
+        court1, court2 = self.save_courts(courts=2)
+        self.assertIn('outras quadras', self.split(court1, 2).data['detail'])
+
+        self.post(court2, 'lock')
+        self.assertEqual(self.split(court1, 4).status_code, 400)  # só 2 ou 3
+        response = self.split(court1, 3)  # 10 atletas na quadra não fazem 3 quadras de 4x4
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('24 atletas', response.data['detail'])
+
+    def test_send_one_waiting_player_to_a_chosen_court(self):
+        court1, court2 = self.save_courts()
+        ana, bia = self.arrive('Ana'), self.arrive('Bia')
+
+        response = self.post(court2, 'auto-allocate', player_ids=[bia.id])
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(bia.id, self.players_of(court2))
+        waiting = self.client.get(f'{BASE}/{court1.id}/').data['waiting_players']
+        self.assertEqual([p['id'] for p in waiting], [ana.id])
+
+    def test_shuffle_with_fewer_players_removes_extra_teams(self):
+        (only,) = self.save_courts(courts=1)  # 18 atletas em 4x4: 5 times
+        for team in only.teams.order_by('-order')[:2]:
+            for tp in team.team_players.all():
+                self.post(only, 'remove-player', player_id=tp.player_id)
+
+        response = self.post(only, 'shuffle')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(only.teams.count(), 3)  # 12 que ficaram: 3 times
+
+    def test_new_team_from_complete_gets_its_average(self):
+        court1, _ = self.save_courts()
+        for i in range(5):  # enche o time incompleto e sobra gente para um time novo
+            self.arrive(f'Novo {i}', elo=700)
+
+        self.post(court1, 'auto-allocate')
+
+        newest = court1.teams.order_by('-order').first()
+        self.assertGreater(newest.avg_overall, 0)
+
+
+class CourtModalityTests(MultiCourtBase):
+    """Cada quadra pode ter a sua modalidade (ex.: uma 4x4 e outra 2x2)."""
+
+    def test_change_one_court_to_2x2_keeps_the_other(self):
+        court1, court2 = self.save_courts()
+        before_court1 = {t.id: set(t.team_players.values_list('player_id', flat=True)) for t in court1.teams.all()}
+        players_court2 = self.players_of(court2)
+
+        response = self.post(court2, 'shuffle', modality=2)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('2x2', response.data['detail'])
+        court2.refresh_from_db()
+        self.assertEqual(court2.modality, 2)
+        self.assertTrue(all(t.team_players.count() <= 2 for t in court2.teams.all()))
+        self.assertEqual(self.players_of(court2), players_court2)
+        court1.refresh_from_db()
+        self.assertEqual(court1.modality, 4)
+        after_court1 = {t.id: set(t.team_players.values_list('player_id', flat=True)) for t in court1.teams.all()}
+        self.assertEqual(after_court1, before_court1)
+
+    def test_modality_needs_two_teams(self):
+        court1, court2 = self.save_courts()  # 8 atletas na Quadra 2
+        response = self.post(court2, 'shuffle', modality=6)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('12 atletas', response.data['detail'])
+        court2.refresh_from_db()
+        self.assertEqual(court2.modality, 4)
+
+    def test_invalid_modality(self):
+        (only,) = self.save_courts(courts=1)
+        self.assertEqual(self.post(only, 'shuffle', modality=7).status_code, 400)

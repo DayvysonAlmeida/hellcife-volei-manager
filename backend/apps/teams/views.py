@@ -191,7 +191,8 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         
         teams_players_list = []
         
-        for team in generation.teams.all():
+        # Busca os times de novo: depois de Embaralhar/Completar, o prefetch tem times apagados e falta os novos
+        for team in generation.teams.order_by('order'):
             player_ids = list(team.team_players.values_list('player_id', flat=True))
             if not player_ids:
                 team.avg_overall = 0.0
@@ -367,6 +368,14 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Geração não possui dia de jogo vinculado para verificar presentes.'}, status=status.HTTP_400_BAD_REQUEST)
 
         waiting = [c.player for c in generation.waiting_checkins()]
+        # Só alguns atletas (ex.: mandar uma pessoa que está aguardando direto para esta quadra)
+        only = request.data.get('player_ids')
+        if only:
+            try:
+                only = {int(i) for i in only}
+            except (TypeError, ValueError):
+                return Response({'detail': 'Lista de atletas inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+            waiting = [p for p in waiting if p.id in only]
         if not waiting:
             return Response({'detail': 'Nenhum jogador na quadra aguardando alocação.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -464,67 +473,133 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         generation = self.get_object()
         if generation.is_locked:
             return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         if not generation.gameday_id:
             return Response({'detail': 'Geração não possui dia de jogo vinculado para verificar presentes.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Quem está nesta quadra + quem chegou e ainda não está em nenhuma quadra (nunca quem joga em
-        #    outra quadra do circuito, nem quem saiu da pelada). Com uma quadra só, é todo mundo na quadra.
-        present_player_ids = [tp.player_id for team in generation.teams.all() for tp in team.team_players.all()]
-        present_player_ids += [c.player_id for c in generation.waiting_checkins()]
+        # Trocar a modalidade só desta quadra (ex.: uma quadra 4x4 e outra 2x2): refaz os times nela
+        modality = generation.modality
+        if request.data.get('modality') not in (None, ''):
+            try:
+                modality = int(request.data['modality'])
+            except (TypeError, ValueError):
+                modality = 0
+            if modality not in dict(TeamGeneration.MODALITY_CHOICES):
+                return Response({'detail': 'Modalidade inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+        changing = modality != generation.modality
 
+        present_player_ids = self._court_pool(generation)
         if not present_player_ids:
             return Response({'detail': 'Nenhum jogador na quadra para embaralhar.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 2. Obter dados dos jogadores
         from .algorithm import get_players_with_overall, smart_draft
         players_data = get_players_with_overall(player_ids=present_player_ids)
-
         if not players_data:
             return Response({'detail': 'Não foi possível buscar dados dos jogadores.'}, status=status.HTTP_400_BAD_REQUEST)
+        if changing and len(players_data) < modality * 2:
+            return Response(
+                {'detail': f'Para {modality}x{modality} são precisos {modality * 2} atletas (2 times); há {len(players_data)}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # 3. Distribuir em novos times
-        new_teams_draft = smart_draft(players_data, generation.modality)
-        
-        # 4. Limpar todos os vínculos atuais (TeamPlayer)
-        TeamPlayer.objects.filter(team__generation=generation).delete()
-        
-        # 5. Reescrever os times (reaproveitando existentes ou criando/deletando)
-        existing_teams = list(generation.teams.all().order_by('order'))
+        with transaction.atomic():
+            if changing:
+                generation.modality = modality
+                generation.save(update_fields=['modality'])
+            self._rewrite_teams(generation, smart_draft(players_data, modality))
+
+        if changing:
+            return Response({'detail': f'Times refeitos em {modality}x{modality} ({len(players_data)} atletas).'})
+        return Response({'detail': f'{len(present_player_ids)} jogadores embaralhados com sucesso!'})
+
+    @action(detail=True, methods=['post'], url_path='split-courts')
+    def split_courts(self, request, pk=None):
+        """
+        Dividir em quadras: refaz o sorteio com quem está nesta quadra e quem está aguardando, agora distribuído
+        em 2 ou 3 quadras equilibradas. Este sorteio vira a primeira quadra (as partidas já salvas continuam
+        ligadas a ele) e as outras quadras são criadas.
+        """
+        from .algorithm import get_players_with_overall, smart_draft, split_into_courts
+
+        generation = self.get_object()
+        if generation.is_locked:
+            return Response({'detail': 'Esta geração de times está trancada e não pode ser alterada.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not generation.gameday_id:
+            return Response({'detail': 'Geração não possui dia de jogo vinculado para verificar presentes.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            courts = int(request.data.get('courts', 2))
+        except (TypeError, ValueError):
+            courts = 0
+        if courts not in (2, 3):
+            return Response({'detail': 'Escolha 2 ou 3 quadras.'}, status=status.HTTP_400_BAD_REQUEST)
+        if any(g.id != generation.id and not g.is_locked for g in generation.gameday.team_generations.all()):
+            return Response({'detail': 'Este circuito já tem outras quadras em jogo.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        players = get_players_with_overall(player_ids=self._court_pool(generation))
+        minimum = generation.modality * 2 * courts  # pelo menos 2 times por quadra
+        if len(players) < minimum:
+            return Response(
+                {'detail': f'Para {courts} quadras são precisos {minimum} atletas (2 times por quadra); há {len(players)}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        draft = [t for t in smart_draft(players, generation.modality) if t]
+        by_court = split_into_courts(draft, generation.modality, courts)
+
+        with transaction.atomic():
+            self._rewrite_teams(generation, by_court[0])
+            first_new = next_court(generation.gameday_id)
+            created = []
+            for offset, court_teams in enumerate(by_court[1:]):
+                court_generation = TeamGeneration.objects.create(
+                    gameday_id=generation.gameday_id,
+                    modality=generation.modality,
+                    court=first_new + offset,
+                    created_by=request.user,
+                    notes=generation.notes,
+                )
+                self._rewrite_teams(court_generation, court_teams)
+                created.append(court_generation)
+
+        return Response({
+            'detail': f'Pelada dividida em {courts} quadras ({len(players)} atletas).',
+            'generation_ids': [generation.id] + [g.id for g in created],
+        })
+
+    def _court_pool(self, generation):
+        """
+        Quem joga nesta quadra + quem chegou e ainda não está em nenhuma quadra (nunca quem joga em outra
+        quadra do circuito, nem quem saiu da pelada). Com uma quadra só, é todo mundo na quadra.
+        """
+        ids = [tp.player_id for team in generation.teams.all() for tp in team.team_players.all()]
+        return ids + [c.player_id for c in generation.waiting_checkins()]
+
+    def _rewrite_teams(self, generation, teams_players):
+        """Troca os times do sorteio pelos novos, reaproveitando os times existentes (nome e cor) pela ordem."""
         from .models import TEAM_COLORS, TEAM_COLOR_HEX
-        
-        for i, team_players in enumerate(new_teams_draft):
-            if not team_players:
-                continue
-            
+
+        teams_players = [t for t in teams_players if t]
+        TeamPlayer.objects.filter(team__generation=generation).delete()
+        existing_teams = list(generation.teams.order_by('order'))
+
+        for i, team_players in enumerate(teams_players):
             if i < len(existing_teams):
                 team = existing_teams[i]
-                team.avg_overall = 0.0 # reset, will be recalculated
-                team.save(update_fields=['avg_overall'])
             else:
-                # Create new team
-                name = f'Time {TEAM_COLORS[i % len(TEAM_COLORS)]}'
                 team = Team.objects.create(
                     generation=generation,
-                    name=name,
+                    name=f'Time {TEAM_COLORS[i % len(TEAM_COLORS)]}',
                     color=TEAM_COLORS[i % len(TEAM_COLORS)],
                     color_hex=TEAM_COLOR_HEX[i % len(TEAM_COLOR_HEX)],
                     avg_overall=0.0,
-                    order=i
+                    order=i,
                 )
-                
             for j, p_data in enumerate(team_players):
-                TeamPlayer.objects.create(
-                    team=team,
-                    player_id=p_data['id'],
-                    order_in_team=j
-                )
-                
-        # Deletar times excedentes
-        if len(new_teams_draft) < len(existing_teams):
-            excess_teams = existing_teams[len(new_teams_draft):]
-            for ext in excess_teams:
-                ext.delete()
-            
+                TeamPlayer.objects.create(team=team, player_id=p_data['id'], order_in_team=j)
+
+        # Times que sobraram (menos gente que antes) saem
+        for extra in existing_teams[len(teams_players):]:
+            extra.delete()
+
         self._recalculate_generation_overalls(generation)
-        return Response({'detail': f'{len(present_player_ids)} jogadores embaralhados com sucesso!'})

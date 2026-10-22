@@ -460,6 +460,8 @@ export interface TeamPlayerData {
 
 export interface GeneratedTeam {
   order: number;
+  /** Quadra do time quando o sorteio é de várias quadras (1, 2, 3). */
+  court?: number;
   name: string;
   color: string;
   color_hex: string;
@@ -473,6 +475,8 @@ export interface GenerateTeamsResult {
   total_players: number;
   modality: number;
   n_teams: number;
+  /** Quantas quadras ao mesmo tempo o sorteio distribuiu. */
+  courts?: number;
   generation_id?: number;
 }
 
@@ -484,6 +488,9 @@ export interface TeamGenerationData {
   gameday_location?: string;
   /** Quadra dentro do circuito (dias com várias quadras ao mesmo tempo têm um sorteio por quadra). */
   court?: number;
+  /** Quantas quadras o circuito tem e quantas continuam em jogo. */
+  circuit_courts?: number;
+  open_courts?: number;
   modality: number;
   modality_display: string;
   created_by?: number;

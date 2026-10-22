@@ -1,20 +1,27 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Trash2, Lock, UserCheck, Zap, Loader2, Shuffle, X, ArrowRightLeft, Trophy, History, Swords, Check, LogOut, Undo2 } from 'lucide-react';
+import { Trash2, Lock, UserCheck, Zap, Loader2, Shuffle, X, ArrowRightLeft, Trophy, History, Swords, Check, LogOut, Undo2, UserPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { teamsService } from '@/services';
 import { formatDate } from '@/lib/utils';
 import { PositionBadge } from '@/components/ui/Badges';
+import { courtOptionLabel, courtOptions, suggestedCourts } from '@/components/teams/court-plan';
 
-export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDialog }: { 
+export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDialog, siblingCourts = [] }: { 
   gen: any; 
   gameDays: any[]; 
   allPlayers: any[]; 
   canEdit: boolean;
   onConfirmDialog: (config: any) => void;
+  /** Outras quadras abertas do mesmo circuito: destinos do "mover". */
+  siblingCourts?: any[];
 }) {
   const qc = useQueryClient();
+  const [showAddPlayer, setShowAddPlayer] = useState(false);
+  // Com mais de uma quadra no circuito, o card mostra qual é
+  const courtLabel = (gen.circuit_courts || 1) > 1 ? `Quadra ${gen.court}` : null;
 
   const deleteGenMutation = useMutation({
     mutationFn: (id: number) => teamsService.delete(id),
@@ -27,10 +34,11 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const movePlayerMutation = useMutation({
     mutationFn: ({ genId, playerId, targetTeamId }: { genId: number, playerId: number, targetTeamId: number }) => 
        teamsService.movePlayer(genId, playerId, targetTeamId),
-    onSuccess: () => {
+    onSuccess: (res) => {
        qc.invalidateQueries({ queryKey: ['team-generations-history'] });
-       toast.success('Jogador transferido com sucesso!');
-    }
+       toast.success(res?.detail || 'Jogador transferido com sucesso!');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao mover o jogador.'),
   });
 
   const removePlayerMutation = useMutation({
@@ -78,6 +86,18 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
     }
   });
 
+  // Trocar a modalidade só desta quadra (os times dela são refeitos; as outras quadras não mudam)
+  const [showModality, setShowModality] = useState(false);
+  const changeModalityMutation = useMutation({
+    mutationFn: (modality: number) => teamsService.shuffle(gen.id, modality),
+    onSuccess: (res) => {
+       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       setShowModality(false);
+       toast.success(res.detail);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao trocar a modalidade.'),
+  });
+
   const playersInGen = gen.teams.reduce((acc: number, t: any) => acc + t.team_players.length, 0);
   const removedPlayers: Array<{ id: number; name: string }> = gen.removed_players || [];
   // Quem chegou à quadra e ainda não está num time, por ordem de chegada (quem saiu da pelada não entra)
@@ -87,11 +107,40 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const progress = activeCount > 0 ? (playersInGen / activeCount) * 100 : 100;
   const isComplete = unassignedCount === 0;
 
+  // Dividir em quadras: pelada de uma quadra só com gente demais (mais de ~20 por quadra)
+  const canSplit = canEdit && !gen.is_locked && !!gen.gameday && (gen.open_courts || 1) === 1
+    && suggestedCourts(activeCount, gen.modality) > 1;
+  const splitOptions = courtOptions(activeCount, gen.modality).filter((o) => o.courts > 1);
+  const suggestedSplit = suggestedCourts(activeCount, gen.modality);
+  // Com várias quadras abertas, cada pessoa que aguarda pode ir direto para uma delas
+  const allCourts = [gen, ...siblingCourts].sort((a: any, b: any) => (a.court || 1) - (b.court || 1));
+
+  const splitMutation = useMutation({
+    mutationFn: (courts: number) => teamsService.splitCourts(gen.id, courts),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      toast.success(res.detail);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao dividir em quadras.'),
+  });
+
+  const sendToCourtMutation = useMutation({
+    mutationFn: ({ genId, playerId }: { genId: number; playerId: number }) => teamsService.autoAllocate(genId, [playerId]),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      toast.success(res.detail);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao mandar para a quadra.'),
+  });
+
   return (
     <div key={gen.id} className={`card p-5 border-l-2 ${gen.is_locked ? 'border-border opacity-70' : 'border-red shadow-neon-red shadow-red/10'}`}>
       <div className="flex justify-between items-start mb-4">
         <div>
-          <p className="font-medium text-text-primary text-lg flex items-center gap-2">
+          <p className="font-medium text-text-primary text-lg flex items-center gap-2 flex-wrap">
+            {courtLabel && (
+              <span className="font-display text-xs tracking-widest uppercase bg-red text-white px-2 py-0.5 rounded">{courtLabel}</span>
+            )}
             {gen.modality_display} — {gen.gameday ? `${formatDate(gameDays.find((gd: any) => gd.id === gen.gameday)?.date || '')} ${gameDays.find((gd: any) => gd.id === gen.gameday)?.location ? `(${gameDays.find((gd: any) => gd.id === gen.gameday)?.location})` : ''}` : 'Avulso'}
             {gen.is_locked && (
               <span title="Pelada Encerrada" className="text-red/70 flex items-center bg-red/10 px-2 py-0.5 rounded-full text-xs gap-1">
@@ -103,6 +152,37 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
           <p className="text-sm text-text-muted mt-0.5">
             Gerado em {formatDate(gen.created_at)} por {gen.created_by_name}
           </p>
+          {canEdit && !gen.is_locked && (
+            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => setShowModality((v) => !v)}
+                className="text-[11px] font-bold text-text-muted hover:text-text-primary border border-border rounded px-2 py-1"
+              >
+                {showModality ? 'Fechar' : 'Trocar modalidade'}
+              </button>
+              {showModality && [2, 3, 4, 5, 6].map((m) => {
+                const enough = playersInGen + unassignedCount >= m * 2; // pelo menos 2 times
+                return (
+                  <button
+                    key={m}
+                    disabled={m === gen.modality || !enough || changeModalityMutation.isPending}
+                    title={enough ? undefined : `Precisa de ${m * 2} atletas`}
+                    onClick={() => onConfirmDialog({
+                      isOpen: true,
+                      title: `Mudar ${courtLabel ?? 'a pelada'} para ${m}x${m}`,
+                      desc: `Os times ${courtLabel ? `da ${courtLabel}` : 'desta pelada'} serão refeitos em ${m}x${m} com quem está nela e quem está aguardando${courtLabel ? '. As outras quadras não mudam' : ''}. Um jogo em andamento termina com os times atuais.`,
+                      onConfirm: () => changeModalityMutation.mutate(m),
+                    })}
+                    className={`text-[11px] font-bold px-2 py-1 rounded border transition-all disabled:cursor-not-allowed ${
+                      m === gen.modality ? 'bg-red/10 border-red/30 text-red' : 'border-border text-text-secondary hover:border-red/50 disabled:opacity-40'
+                    }`}
+                  >
+                    {m}x{m}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right border-l border-border pl-3">
@@ -169,11 +249,34 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
                   <span className="text-[11px] text-yellow-500 font-bold flex items-center gap-1.5 justify-center md:justify-start">
                     ⚠️ {unassignedCount} jogador{unassignedCount > 1 ? 'es' : ''} aguardando na quadra
                   </span>
-                  <span className="text-xs text-text-primary font-medium">
-                    {waitingPlayers.map((p) => p.name).join(', ')}
-                  </span>
+                  {allCourts.length > 1 ? (
+                    // Várias quadras: cada pessoa vai direto para a quadra escolhida
+                    <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
+                      {waitingPlayers.map((p) => (
+                        <span key={p.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-surface pl-2.5 pr-1 py-0.5 text-xs text-text-primary">
+                          {p.name}
+                          {allCourts.map((court: any) => (
+                            <button
+                              key={court.id}
+                              onClick={() => sendToCourtMutation.mutate({ genId: court.id, playerId: p.id })}
+                              disabled={sendToCourtMutation.isPending}
+                              className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red/15 text-red hover:bg-red hover:text-white transition-colors"
+                              title={`Mandar ${p.name} para a Quadra ${court.court}`}
+                            >
+                              Q{court.court}
+                            </button>
+                          ))}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-text-primary font-medium">
+                      {waitingPlayers.map((p) => p.name).join(', ')}
+                    </span>
+                  )}
                   <span className="text-[10px] text-text-muted leading-tight mt-1">
                     <strong className="text-text-primary">Completar</strong> coloca quem chegou nos times que faltam gente, na ordem de chegada (quem já está num time continua nele). <strong className="text-text-primary">Embaralhar</strong> refaz todos os times equilibrando o nível.
+                    {allCourts.length > 1 && <> <strong className="text-text-primary">Q1, Q2...</strong> manda a pessoa direto para aquela quadra.</>}
                   </span>
                 </div>
               )}
@@ -213,9 +316,52 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
         )}
       </div>
       
+      {canSplit && (
+        <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 flex flex-col sm:flex-row sm:items-center gap-2">
+          <span className="text-[11px] text-text-secondary flex-1">
+            <strong className="text-text-primary">{activeCount} atletas</strong> numa quadra só. Dividir em quadras refaz os times equilibrados e cria as outras quadras.
+          </span>
+          <div className="flex gap-2">
+            {splitOptions.map((option) => (
+              <button
+                key={option.courts}
+                disabled={!option.ok || splitMutation.isPending}
+                onClick={() => onConfirmDialog({
+                  isOpen: true,
+                  title: `Dividir em ${option.courts} quadras`,
+                  desc: `Os times desta pelada serão refeitos com quem está na quadra e quem está aguardando, distribuídos em ${option.courts} quadras (${courtOptionLabel(option)}). Partidas já salvas continuam no histórico. Se a fila já começou, ela recebe os times novos.`,
+                  onConfirm: () => splitMutation.mutate(option.courts),
+                })}
+                className={`flex-1 sm:flex-none text-[11px] px-3 py-2 rounded font-bold border transition-all disabled:opacity-40 ${
+                  option.courts === suggestedSplit
+                    ? 'bg-red text-white border-red shadow-neon-red'
+                    : 'bg-surface text-text-primary border-border hover:border-red/50'
+                }`}
+              >
+                {splitMutation.isPending ? <Loader2 size={12} className="inline animate-spin mr-1" /> : null}
+                Dividir em {option.courts} quadras
+                <span className="block text-[10px] font-medium opacity-80">{courtOptionLabel(option)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mt-2 mb-2">
         <h3 className="font-display text-xs text-text-muted">TIMES GERADOS</h3>
+        {canEdit && !gen.is_locked && (
+          <button
+            onClick={() => setShowAddPlayer((v) => !v)}
+            className="text-[11px] font-bold text-text-muted hover:text-text-primary flex items-center gap-1 border border-border rounded px-2 py-1"
+          >
+            <UserPlus size={12} /> {showAddPlayer ? 'Fechar' : 'Adicionar atleta'}
+          </button>
+        )}
       </div>
+
+      {showAddPlayer && canEdit && !gen.is_locked && (
+        <AddPlayerPanel gen={gen} allPlayers={allPlayers} onDone={() => setShowAddPlayer(false)} />
+      )}
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {gen.teams.map((team: any) => (
@@ -281,7 +427,8 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
                     {canEdit && !gen.is_locked && (
                       <div className="relative">
                         <select 
-                          className="opacity-100 md:opacity-0 focus:opacity-100 md:group-hover:opacity-100 transition-opacity bg-surface border border-border rounded text-[9px] text-text-primary h-4 pr-3 pl-1 outline-none cursor-pointer appearance-none"
+                          // Largura fixa: sem ela o seletor cresce até a opção mais longa ("Time Vermelho (Quadra 2)") e corta o nome do atleta
+                          className="w-8 opacity-100 md:opacity-0 focus:opacity-100 md:group-hover:opacity-100 transition-opacity bg-surface border border-border rounded text-[9px] text-text-primary h-4 pr-3 pl-1 outline-none cursor-pointer appearance-none"
                           onChange={(e) => {
                             if (e.target.value) {
                               movePlayerMutation.mutate({ genId: gen.id, playerId: p.player, targetTeamId: Number(e.target.value) });
@@ -294,6 +441,13 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
                           <option value="">⇄</option>
                           {gen.teams.filter((t: any) => t.id !== team.id).map((t: any) => (
                             <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                          {siblingCourts.map((court: any) => (
+                            <optgroup key={court.id} label={`Quadra ${court.court}`}>
+                              {court.teams.map((t: any) => (
+                                <option key={t.id} value={t.id}>{t.name} (Quadra {court.court})</option>
+                              ))}
+                            </optgroup>
                           ))}
                         </select>
                         <div className="absolute inset-0 pointer-events-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center bg-surface border border-border-subtle rounded group-hover:bg-blue/10 group-hover:border-blue/30 group-hover:text-blue text-text-muted">
@@ -355,6 +509,93 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
             })()}
           </Link>
         </div>
+      )}
+    </div>
+  );
+}
+
+function normalize(text: string) {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/**
+ * Adicionar atleta manualmente a um time (ex.: quem veio de uma quadra encerrada ou um ajuste na hora).
+ * Se ele ainda não fez check-in, o check-in na quadra é feito junto.
+ */
+function AddPlayerPanel({ gen, allPlayers, onDone }: { gen: any; allPlayers: any[]; onDone: () => void }) {
+  const qc = useQueryClient();
+  const [query, setQuery] = useState('');
+  const [player, setPlayer] = useState<any | null>(null);
+  // Por padrão, o time com menos gente
+  const smallest = [...gen.teams].sort((a: any, b: any) => a.team_players.length - b.team_players.length)[0];
+  const [teamId, setTeamId] = useState<number | null>(smallest?.id ?? null);
+
+  const inThisCourt = new Set(gen.teams.flatMap((t: any) => t.team_players.map((p: any) => p.player)));
+  const matches = query.trim().length >= 2
+    ? allPlayers
+        .filter((p) => !inThisCourt.has(p.id) && normalize(`${p.display_name} ${p.name}`).includes(normalize(query.trim())))
+        .slice(0, 6)
+    : [];
+  const team = gen.teams.find((t: any) => t.id === teamId);
+
+  const addMutation = useMutation({
+    mutationFn: () => teamsService.addPlayer(gen.id, player.id, teamId!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      toast.success(`${player.display_name} entrou no ${team?.name}.`);
+      onDone();
+    },
+    // Ex.: quem joga em outra quadra precisa ser movido de lá
+    onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao adicionar o atleta.'),
+  });
+
+  return (
+    <div className="mb-3 rounded-lg border border-border bg-surface/40 p-3 space-y-2">
+      <input
+        type="text"
+        autoFocus
+        value={player ? player.display_name : query}
+        onChange={(e) => { setPlayer(null); setQuery(e.target.value); }}
+        placeholder="Buscar atleta pelo nome..."
+        className="input w-full text-sm"
+      />
+      {!player && matches.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {matches.map((p) => (
+            <button key={p.id} onClick={() => setPlayer(p)} className="text-xs px-2.5 py-1 rounded-full border border-border bg-surface hover:border-red/50">
+              {p.display_name}
+            </button>
+          ))}
+        </div>
+      )}
+      {!player && query.trim().length >= 2 && matches.length === 0 && (
+        <p className="text-[11px] text-text-muted">Nenhum atleta encontrado (quem já está nesta quadra não aparece).</p>
+      )}
+      {player && (
+        <>
+          <div className="flex flex-wrap gap-1.5">
+            {gen.teams.map((t: any) => (
+              <button
+                key={t.id}
+                onClick={() => setTeamId(t.id)}
+                className="text-xs px-2.5 py-1 rounded border font-bold"
+                style={teamId === t.id
+                  ? { borderColor: t.color_hex, backgroundColor: `${t.color_hex}25`, color: t.color_hex }
+                  : { borderColor: 'transparent', color: t.color_hex }}
+              >
+                {t.name} ({t.team_players.length})
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => addMutation.mutate()}
+            disabled={!teamId || addMutation.isPending}
+            className="btn-primary text-xs px-3 py-2 w-full sm:w-auto flex items-center justify-center gap-1.5"
+          >
+            {addMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+            Adicionar {player.display_name} ao {team?.name}
+          </button>
+        </>
       )}
     </div>
   );

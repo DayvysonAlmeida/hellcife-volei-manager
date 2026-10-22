@@ -384,11 +384,17 @@ export function BracketPage() {
     }
   });
 
+  // Com várias quadras no circuito, a tela mostra qual é; encerrar fecha só esta quadra (o circuito, na última)
+  const courtLabel = generation && (generation.circuit_courts || 1) > 1 ? `Quadra ${generation.court}` : null;
+  const otherCourtsOpen = !!generation && !generation.is_locked && (generation.open_courts || 1) > 1;
+
   const finishPelada = () => {
     setConfirmDialog({
       isOpen: true,
-      title: 'Encerrar Pelada e Circuito',
-      desc: 'Tem certeza que deseja encerrar? O histórico desta pelada será salvo e trancado. Se for a última quadra em jogo, o circuito também é encerrado.',
+      title: otherCourtsOpen ? `Encerrar ${courtLabel}` : 'Encerrar Pelada e Circuito',
+      desc: otherCourtsOpen
+        ? 'O histórico desta quadra será salvo e trancado. As outras quadras continuam jogando; o circuito fecha quando a última terminar.'
+        : 'Tem certeza que deseja encerrar? O circuito inteiro será finalizado, e o histórico será salvo e trancado.',
       onConfirm: () => {
         if (!generation?.is_locked) {
           lockMutation.mutate();
@@ -462,7 +468,7 @@ export function BracketPage() {
             </button>
             <h1 className="page-title mb-0 flex items-center gap-2">
               <Shuffle className="text-red" />
-              Sorteio Inicial
+              Sorteio Inicial{courtLabel ? ` · ${courtLabel}` : ''}
             </h1>
           </div>
           <p className="page-subtitle ml-14">Defina a ordem dos times para começar o chaveamento.</p>
@@ -588,6 +594,10 @@ export function BracketPage() {
           )}
         </div>
         <div className="text-center flex-1 min-w-[200px]">
+          {/* Visível também no celular: cada operador precisa saber em que quadra está */}
+          {courtLabel && (
+            <p className="font-display text-xs md:text-sm tracking-[0.3em] text-red uppercase mb-1">{courtLabel}</p>
+          )}
           <h1 className="font-display text-2xl md:text-4xl tracking-widest text-text-primary uppercase flex items-center justify-center gap-3">
             <Swords className="text-red hidden md:block" />
             JOGO {state.matchNumber}
@@ -598,7 +608,7 @@ export function BracketPage() {
         <div className="flex-1 flex justify-end">
           <button onClick={finishPelada} className="btn-ghost text-text-muted hover:text-red hover:bg-red/10 flex items-center gap-2 px-3 py-2 text-sm rounded-lg">
             <Power size={18} />
-            <span className="hidden md:inline font-bold">Encerrar Pelada e Circuito</span>
+            <span className="hidden md:inline font-bold">{otherCourtsOpen ? `Encerrar ${courtLabel}` : 'Encerrar Pelada e Circuito'}</span>
           </button>
         </div>
       </div>

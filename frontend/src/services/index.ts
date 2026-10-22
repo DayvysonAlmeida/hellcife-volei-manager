@@ -119,6 +119,7 @@ export const teamsService = {
   generate: (data: {
     modality: number;
     gameday_id?: number;
+    courts?: number;
     player_ids?: number[];
     save?: boolean;
     notes?: string;
@@ -129,7 +130,7 @@ export const teamsService = {
     gameday_id?: number | null;
     notes?: string;
     result: GenerateTeamsResult;
-  }) => api.post<{ detail: string, generation_id: number }>('/teams/save-generated/', data).then(r => r.data),
+  }) => api.post<{ detail: string, generation_id: number, generation_ids?: number[] }>('/teams/save-generated/', data).then(r => r.data),
 
   list: (params?: Record<string, unknown>) =>
     api.get<PaginatedResponse<TeamGenerationData>>('/teams/', { params }).then(r => r.data),
@@ -152,13 +153,21 @@ export const teamsService = {
   addTeam: (genId: number) =>
     api.post(`/teams/${genId}/add-team/`).then(r => r.data),
 
-  autoAllocate: async (genId: number): Promise<{ detail: string }> => {
-    const response = await api.post(`/teams/${genId}/auto-allocate/`);
+  /** Completar: sem `playerIds`, entra todo mundo que está aguardando; com, só esses atletas. */
+  autoAllocate: async (genId: number, playerIds?: number[]): Promise<{ detail: string }> => {
+    const response = await api.post(`/teams/${genId}/auto-allocate/`, playerIds ? { player_ids: playerIds } : undefined);
     return response.data;
   },
 
-  shuffle: async (genId: number): Promise<{ detail: string }> => {
-    const response = await api.post(`/teams/${genId}/shuffle/`);
+  /** Embaralhar a quadra; com `modality`, refaz os times dela nessa modalidade (ex.: passar de 4x4 para 2x2). */
+  shuffle: async (genId: number, modality?: number): Promise<{ detail: string }> => {
+    const response = await api.post(`/teams/${genId}/shuffle/`, modality ? { modality } : undefined);
+    return response.data;
+  },
+
+  /** Dividir uma pelada de uma quadra só em 2 ou 3 quadras equilibradas. */
+  splitCourts: async (genId: number, courts: number): Promise<{ detail: string; generation_ids: number[] }> => {
+    const response = await api.post(`/teams/${genId}/split-courts/`, { courts });
     return response.data;
   },
 

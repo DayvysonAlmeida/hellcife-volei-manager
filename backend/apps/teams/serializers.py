@@ -52,6 +52,19 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
             for p in obj.removed_players.all()
         ]
 
+    circuit_courts = serializers.SerializerMethodField()
+    open_courts = serializers.SerializerMethodField()
+
+    def get_circuit_courts(self, obj):
+        """Quantas quadras (sorteios) o circuito tem: com mais de uma, a tela mostra "Quadra N"."""
+        return len(obj.gameday.team_generations.all()) if obj.gameday_id else 1
+
+    def get_open_courts(self, obj):
+        """Quadras ainda em jogo no circuito: o circuito só fecha quando a última termina."""
+        if not obj.gameday_id:
+            return 0 if obj.is_locked else 1
+        return sum(1 for g in obj.gameday.team_generations.all() if not g.is_locked)
+
     def get_waiting_players(self, obj):
         # Pelada encerrada não espera mais ninguém
         if obj.is_locked:
@@ -62,7 +75,7 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
         model = TeamGeneration
         fields = ['id', 'gameday', 'gameday_date', 'gameday_time', 'gameday_location', 'court', 'modality', 'modality_display',
                   'created_by', 'created_by_name', 'notes', 'balance_score', 'is_locked',
-                  'teams', 'removed_players', 'waiting_players', 'created_at']
+                  'teams', 'removed_players', 'waiting_players', 'circuit_courts', 'open_courts', 'created_at']
         read_only_fields = ['created_by', 'balance_score', 'created_at']
 
 

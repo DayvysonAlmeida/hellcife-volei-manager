@@ -6,6 +6,8 @@ import { Shuffle, Zap, Save, RefreshCw, Users, Send, Trophy, Lock, History } fro
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SyncButton } from '@/components/ui/SyncButton';
 import { GenerationCard } from '@/components/teams/GenerationCard';
+import { CourtGroup } from '@/components/teams/CourtGroup';
+import { COURT_COLORS, courtOptionLabel, courtOptions, suggestedCourts } from '@/components/teams/court-plan';
 import { TeamCard } from '@/components/teams/TeamCard';
 import { teamsService, attendanceService } from '@/services';
 import { playersService } from '@/services/players';
@@ -22,10 +24,11 @@ export function TeamsPage() {
   const qc = useQueryClient();
 
   const [modality, setModality] = useState<Modality>(6);
+  const [courts, setCourts] = useState(1);
   const [selectedGameDayId, setSelectedGameDayId] = useState<number | null>(null);
   const [result, setResult] = useState<GenerateTeamsResult | null>(null);
-  // Para qual pelada e modalidade a prévia foi gerada: trocar qualquer uma esconde a prévia
-  const [resultFor, setResultFor] = useState<{ gamedayId: number; modality: Modality } | null>(null);
+  // Para qual pelada, modalidade e número de quadras a prévia foi gerada: trocar qualquer um esconde a prévia
+  const [resultFor, setResultFor] = useState<{ gamedayId: number; modality: Modality; courts: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'gerador' | 'historico'>('gerador');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', desc: '', onConfirm: () => {} });
 
@@ -40,6 +43,7 @@ export function TeamsPage() {
   const { data: gameDaysData } = useQuery({
     queryKey: ['gamedays'],
     queryFn: () => attendanceService.listGameDays({ page_size: 100 }),
+    refetchInterval: 30000, // quantos fizeram check-in, para a estimativa das quadras
   });
 
   const gameDays = useMemo(() => gameDaysData?.results || [], [gameDaysData]);
@@ -70,9 +74,10 @@ export function TeamsPage() {
   }, [gameDays.length, selectedGameDayId, upcomingGameDays]);
 
   const generateMutation = useMutation({
-    mutationFn: (target: { gamedayId: number; modality: Modality }) => teamsService.generate({
+    mutationFn: (target: { gamedayId: number; modality: Modality; courts: number }) => teamsService.generate({
       modality: target.modality,
       gameday_id: target.gamedayId,
+      courts: target.courts,
       save: false,
     }),
     onSuccess: (data, target) => {
@@ -81,10 +86,18 @@ export function TeamsPage() {
     },
   });
 
-  // A prévia só aparece (e só pode ser salva) na pelada e na modalidade em que foi gerada
+  // A prévia só aparece (e só pode ser salva) na pelada, na modalidade e com as quadras em que foi gerada
   const preview = result && resultFor && resultFor.gamedayId === selectedGameDayId && resultFor.modality === modality
+    && resultFor.courts === courts
     ? result
     : null;
+  // Times da prévia separados por quadra (com uma quadra só, uma lista única como sempre)
+  const previewCourts = preview
+    ? [...new Set(preview.teams.map((t) => t.court || 1))].sort().map((court) => ({
+        court,
+        teams: preview.teams.filter((t) => (t.court || 1) === court),
+      }))
+    : [];
 
   const saveMutation = useMutation({
     mutationFn: () => {
@@ -102,7 +115,9 @@ export function TeamsPage() {
       // O sorteio salvo aparece em "Pelada Ativa"; a prévia sai para não mostrar os mesmos times duas vezes
       setResult(null);
       setResultFor(null);
-      toast.success('Times salvos! A pelada está em "Pelada Ativa" logo abaixo.');
+      toast.success(previewCourts.length > 1
+        ? `${previewCourts.length} quadras salvas! Estão em "Pelada Ativa" logo abaixo.`
+        : 'Times salvos! A pelada está em "Pelada Ativa" logo abaixo.');
     },
   });
 
@@ -113,13 +128,16 @@ export function TeamsPage() {
     text += `Modalidade: ${modality}v${modality}\n`;
     text += `Balanceamento: ${(10 - preview.balance_score * 10).toFixed(1)}%\n\n`;
 
-    preview.teams.forEach((team) => {
-      text += `*${team.name.toUpperCase()}* (Overall: ${team.avg_overall.toFixed(1)})\n`;
-      team.players.forEach((p, idx) => {
-        const posStr = p.main_position.charAt(0).toUpperCase() + p.main_position.slice(1);
-        text += `${idx + 1}. ${p.display_name} (${posStr})\n`;
+    previewCourts.forEach(({ court, teams }) => {
+      if (previewCourts.length > 1) text += `🏐 *QUADRA ${court}*\n\n`;
+      teams.forEach((team) => {
+        text += `*${team.name.toUpperCase()}* (Overall: ${team.avg_overall.toFixed(1)})\n`;
+        team.players.forEach((p, idx) => {
+          const posStr = p.main_position.charAt(0).toUpperCase() + p.main_position.slice(1);
+          text += `${idx + 1}. ${p.display_name} (${posStr})\n`;
+        });
+        text += '\n';
       });
-      text += '\n';
     });
 
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
@@ -132,7 +150,17 @@ export function TeamsPage() {
     enabled: canEdit,
     refetchInterval: 15000, // quem fez check-in aparece em "aguardando" sem precisar sincronizar
   });
-  const history = historyData?.results || [];
+  const history = useMemo(() => historyData?.results || [], [historyData]);
+
+  // Peladas ativas agrupadas por circuito: com várias quadras abertas, o circuito vira um bloco com abas
+  const activeGroups = useMemo(() => {
+    const groups = new Map<string, typeof history>();
+    history.filter((h) => !h.is_locked).forEach((gen) => {
+      const key = gen.gameday ? `gd-${gen.gameday}` : `gen-${gen.id}`;
+      groups.set(key, [...(groups.get(key) || []), gen]);
+    });
+    return [...groups.values()].map((gens) => [...gens].sort((a, b) => (a.court || 1) - (b.court || 1)));
+  }, [history]);
 
   if (!canEdit) {
     return (
@@ -146,13 +174,23 @@ export function TeamsPage() {
     );
   }
 
+  // Quantos entram num sorteio novo do circuito escolhido: todo mundo com check-in ou, se o circuito já tem
+  // quadra sorteada, só quem está aguardando
+  const selectedGameDay = gameDays.find((g) => g.id === selectedGameDayId);
+  const circuitDraws = history.filter((h) => h.gameday === selectedGameDayId);
+  const availablePlayers = circuitDraws.length > 0
+    ? (circuitDraws.find((h) => !h.is_locked)?.waiting_players?.length ?? 0)
+    : (selectedGameDay?.total_court_checkins ?? 0);
+  const courtPlan = courtOptions(availablePlayers, modality);
+  const suggestion = suggestedCourts(availablePlayers, modality);
+
   const handleGenerate = () => {
     if (!selectedGameDayId) {
       toast.error('Selecione um dia de jogo para gerar os times.');
       return;
     }
 
-    const target = { gamedayId: selectedGameDayId, modality };
+    const target = { gamedayId: selectedGameDayId, modality, courts };
     const alreadyGenerated = history.some(h => h.gameday === selectedGameDayId && !h.is_locked);
 
     // Já existe sorteio ativo para esta pelada e ainda não há prévia nova dela
@@ -246,6 +284,31 @@ export function TeamsPage() {
                     </button>
                   ))}
                 </div>
+                <label className="text-text-muted text-[10px] uppercase tracking-wider block mb-1.5 mt-3">
+                  Quadras ao mesmo tempo{selectedGameDayId ? ` · ${availablePlayers} atletas para sortear` : ''}
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {courtPlan.map((option) => (
+                    <button
+                      key={option.courts}
+                      onClick={() => setCourts(option.courts)}
+                      disabled={!!selectedGameDayId && !option.ok && option.courts > 1}
+                      className={`relative px-2 py-1.5 rounded text-left transition-all border disabled:opacity-40 disabled:cursor-not-allowed
+                        ${courts === option.courts
+                          ? 'bg-red/10 border-red/30 text-red shadow-[0_0_10px_rgba(217,4,41,0.15)]'
+                          : 'bg-surface/20 border-white/5 text-text-muted hover:border-white/10'
+                        }`}
+                    >
+                      <span className="block text-xs font-bold">{option.courts === 1 ? '1 quadra' : `${option.courts} quadras`}</span>
+                      {selectedGameDayId && (
+                        <span className="block text-[10px] opacity-80">{courtOptionLabel(option)}</span>
+                      )}
+                      {selectedGameDayId && suggestion > 1 && option.courts === suggestion && (
+                        <span className="absolute -top-2 right-1 text-[8px] font-bold tracking-wider bg-red text-white px-1.5 rounded">SUGERIDO</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Game day */}
@@ -256,7 +319,10 @@ export function TeamsPage() {
                 <select
                   className="input-glass w-full text-xs py-1.5 px-3 h-auto"
                   value={selectedGameDayId || ''}
-                  onChange={(e) => setSelectedGameDayId(Number(e.target.value) || null)}
+                  onChange={(e) => {
+                    setSelectedGameDayId(Number(e.target.value) || null);
+                    setCourts(1); // cada circuito começa em 1 quadra; a sugestão aparece nas opções
+                  }}
                 >
                   <option value="">Selecione a pelada</option>
                   
@@ -351,7 +417,9 @@ export function TeamsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Shuffle size={16} className="text-blue" />
-                <span className="text-text-secondary text-sm">{preview.n_teams} times</span>
+                <span className="text-text-secondary text-sm">
+                  {preview.n_teams} times{previewCourts.length > 1 ? ` em ${previewCourts.length} quadras` : ''}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-text-muted text-sm">
@@ -360,32 +428,53 @@ export function TeamsPage() {
               </div>
             </div>
 
-            {/* Teams grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {preview.teams.map((team, idx) => (
-                <motion.div 
-                  key={team.order}
-                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ delay: idx * 0.15, type: 'spring' }}
-                >
-                  <TeamCard team={team} idx={idx} />
-                </motion.div>
+            {/* Times: uma coluna por quadra no computador, uma embaixo da outra no celular */}
+            <div className={previewCourts.length === 3 ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : previewCourts.length === 2 ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : ''}>
+              {previewCourts.map(({ court, teams }, courtIdx) => (
+                <div key={court} className="space-y-2">
+                  {previewCourts.length > 1 && (
+                    <div
+                      className="flex items-center justify-between rounded-lg px-3 py-2 border"
+                      style={{ borderColor: `${COURT_COLORS[courtIdx % COURT_COLORS.length]}66`, backgroundColor: `${COURT_COLORS[courtIdx % COURT_COLORS.length]}14` }}
+                    >
+                      <span className="font-display text-sm tracking-widest uppercase" style={{ color: COURT_COLORS[courtIdx % COURT_COLORS.length] }}>
+                        Quadra {court}
+                      </span>
+                      <span className="text-xs text-text-muted">
+                        {teams.length} times · {teams.reduce((acc, t) => acc + t.players.length, 0)} atletas
+                      </span>
+                    </div>
+                  )}
+                  <div className={previewCourts.length > 1 ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'}>
+                    {teams.map((team, idx) => (
+                      <motion.div
+                        key={`${court}-${team.order}`}
+                        initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        transition={{ delay: idx * 0.15, type: 'spring' }}
+                      >
+                        <TeamCard team={team} idx={idx} />
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
       
-      {history.filter(h => !h.is_locked).length > 0 && (
+      {activeGroups.length > 0 && (
         <div className="mt-8 pt-8 border-t border-border">
           <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3 mb-6">
             <Trophy className="text-yellow-400" size={24} />
             Pelada Ativa (Jogando)
           </h2>
           <div className="space-y-6">
-            {history.filter(h => !h.is_locked).map(gen => (
-              <GenerationCard key={gen.id} gen={gen} gameDays={gameDays} allPlayers={allPlayers} canEdit={canEdit} onConfirmDialog={setConfirmDialog} />
+            {activeGroups.map((gens) => gens.length > 1 ? (
+              <CourtGroup key={`circuito-${gens[0].gameday}`} generations={gens} gameDays={gameDays} allPlayers={allPlayers} canEdit={canEdit} onConfirmDialog={setConfirmDialog} />
+            ) : (
+              <GenerationCard key={gens[0].id} gen={gens[0]} gameDays={gameDays} allPlayers={allPlayers} canEdit={canEdit} onConfirmDialog={setConfirmDialog} />
             ))}
           </div>
         </div>
