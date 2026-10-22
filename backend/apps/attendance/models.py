@@ -34,6 +34,10 @@ class GameDay(models.Model):
     )
     description = models.CharField(max_length=200, blank=True, null=True, verbose_name='Descrição')
     location = models.CharField(max_length=200, blank=True, null=True, verbose_name='Local')
+    arena_name = models.CharField(
+        max_length=40, blank=True, default='', verbose_name='Nome da arena',
+        help_text='Aparece na imagem do card do circuito. O endereço do mapa fica em Local.'
+    )
     max_players = models.PositiveSmallIntegerField(default=0, verbose_name='Limite de Jogadores')
     pix_key = models.CharField(max_length=200, blank=True, null=True, verbose_name='Chave PIX', help_text='Chave PIX opcional para recebimento do rateio.')
     is_closed = models.BooleanField(default=False, verbose_name='Encerrado', help_text='Se verdadeiro, o circuito e todas as suas peladas estão encerrados')

@@ -23,15 +23,18 @@ const HOLD_OPTIONS: Array<{ value: number | ''; label: string }> = [
 interface GameDayFormProps {
   onClose: () => void;
   initialData?: GameDay;
+  /** Nomes de arena já usados, sugeridos ao digitar (para escrever sempre do mesmo jeito). */
+  arenaSuggestions?: string[];
 }
 
-export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
+export function GameDayForm({ onClose, initialData, arenaSuggestions = [] }: GameDayFormProps) {
   const qc = useQueryClient();
 
   const [newDate, setNewDate] = useState(initialData?.date || '');
   const [newTime, setNewTime] = useState(initialData?.time ? initialData.time.slice(0, 5) : '');
   const [newTimeEnd, setNewTimeEnd] = useState(initialData?.time_end ? initialData.time_end.slice(0, 5) : '');
   const [newLocation, setNewLocation] = useState(initialData?.location || '');
+  const [newArenaName, setNewArenaName] = useState(initialData?.arena_name || '');
   const [newMaxPlayers, setNewMaxPlayers] = useState<number | ''>(initialData?.max_players || '');
   const [newCourtPrice, setNewCourtPrice] = useState<number | ''>(initialData?.court_price || '');
   const [newCreditCost, setNewCreditCost] = useState<number | ''>(initialData?.credit_cost !== undefined ? Number(initialData.credit_cost) : 0);
@@ -63,6 +66,7 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
         time: newTime,
         time_end: newTimeEnd,
         location: newLocation,
+        arena_name: newArenaName.trim(), // vazio: o card mostra HELLCIFE VÔLEI
         max_players: newMaxPlayers === '' ? 0 : newMaxPlayers, // vazio = ilimitado
         court_price: newCourtPrice === '' ? null : newCourtPrice, // vazio limpa o valor (senão o rateio continua)
         // Sem os planos ninguém tem crédito: um valor escondido no circuito bloquearia o check-in
@@ -150,6 +154,22 @@ export function GameDayForm({ onClose, initialData }: GameDayFormProps) {
             min={0}
             className="input w-full mt-1"
           />
+        </div>
+        <div className="sm:col-span-1">
+          <label className="text-text-muted text-xs uppercase tracking-wider">Nome da arena</label>
+          <input
+            type="text"
+            list="arena-suggestions"
+            placeholder="Ex: Arena Belo Gol"
+            value={newArenaName}
+            onChange={(e) => setNewArenaName(e.target.value)}
+            maxLength={40}
+            className="input w-full mt-1"
+          />
+          <datalist id="arena-suggestions">
+            {arenaSuggestions.map((name) => <option key={name} value={name} />)}
+          </datalist>
+          <p className="text-[10px] text-text-muted mt-1">Aparece na imagem do card. Vazio mostra HELLCIFE VÔLEI.</p>
         </div>
         <div className="sm:col-span-1">
           <label className="text-text-muted text-xs uppercase tracking-wider">Endereço (Mapa) *</label>

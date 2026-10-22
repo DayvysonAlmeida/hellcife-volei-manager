@@ -82,7 +82,7 @@ class GameDaySerializer(GameDayPricingMixin, serializers.ModelSerializer):
 
     class Meta:
         model = GameDay
-        fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'pix_key', 'description', 'location', 'created_by',
+        fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'pix_key', 'description', 'location', 'arena_name', 'created_by',
                   'total_present', 'total_players', 'total_reserved', 'attendances', 'court_checkins', 'created_at',
                   'is_closed', 'is_published', *PRICING_FIELDS]
         read_only_fields = ['created_by', 'created_at']
@@ -97,7 +97,7 @@ class GameDayListSerializer(GameDayPricingMixin, serializers.ModelSerializer):
 
     class Meta:
         model = GameDay
-        fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'pix_key', 'description', 'location',
+        fields = ['id', 'date', 'time', 'time_end', 'court_price', 'max_players', 'pix_key', 'description', 'location', 'arena_name',
                   'total_present', 'total_paid', 'total_players', 'total_court_checkins', 'total_reserved', 'created_at', 'is_closed',
                   'is_published', *PRICING_FIELDS]
 

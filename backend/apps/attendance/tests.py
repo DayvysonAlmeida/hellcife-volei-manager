@@ -219,6 +219,21 @@ class AdminPaymentTests(CircuitApiTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn('price_per_person', response.data)
 
+    def test_arena_name_is_saved_and_listed_apart_from_the_map_address(self):
+        response = self.client.post(f'{BASE}/', {
+            'date': str(date.today()), 'location': 'R. Santos Dumont, Recife', 'arena_name': 'Arena Belo Gol',
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+
+        listed = next(gd for gd in self.client.get(f'{BASE}/').data['results'] if gd['id'] == response.data['id'])
+        self.assertEqual(listed['arena_name'], 'Arena Belo Gol')
+        self.assertEqual(listed['location'], 'R. Santos Dumont, Recife')
+
+    def test_arena_name_is_optional(self):
+        response = self.client.post(f'{BASE}/', {'date': str(date.today())}, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['arena_name'], '')
+
     def test_prepayment_requires_a_price_to_charge(self):
         response = self.client.post(
             f'{BASE}/', {'date': str(date.today()), 'requires_prepayment': True, 'court_price': '100'}, format='json'

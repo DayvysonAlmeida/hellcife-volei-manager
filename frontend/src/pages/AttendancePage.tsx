@@ -40,6 +40,16 @@ export function AttendancePage() {
   });
   const gameDays = useMemo(() => gameDaysData?.results || [], [gameDaysData]);
 
+  // Nomes de arena já usados, sem repetir maiúsculas/minúsculas (a lista vem do mais recente)
+  const arenaSuggestions = useMemo(() => {
+    const names = new Map<string, string>();
+    gameDays.forEach((gd) => {
+      const name = gd.arena_name?.trim();
+      if (name && !names.has(name.toLowerCase())) names.set(name.toLowerCase(), name);
+    });
+    return [...names.values()];
+  }, [gameDays]);
+
   const { data: gameDayDetail, isLoading: loadingDetail } = useQuery({
     queryKey: ['gameday', selectedGameDay?.id],
     queryFn: () => attendanceService.getGameDay(selectedGameDay!.id),
@@ -308,7 +318,7 @@ export function AttendancePage() {
         </div>
       )}
 
-      {showNewForm && !selectedGameDay && <GameDayForm onClose={() => setShowNewForm(false)} />}
+      {showNewForm && !selectedGameDay && <GameDayForm onClose={() => setShowNewForm(false)} arenaSuggestions={arenaSuggestions} />}
 
       {!selectedGameDay ? (
         <div className="space-y-6 relative z-10">
@@ -349,7 +359,17 @@ export function AttendancePage() {
                   <Clock size={8} /> EM ANDAMENTO
                 </span>
               ) : null;
-              return <CircuitCard key={gd.id} gameDay={gd} onClick={() => setSelectedGameDay(gd)} badge={badge} />;
+              // Publicado = os atletas já veem; oculto = só os admins (mesmo visual do botão dentro do circuito)
+              const publishTag = gd.is_closed ? undefined : gd.is_published ? (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-black/75 text-green-500 border border-green-500/40 font-bold flex items-center gap-1">
+                  <Eye size={8} strokeWidth={3} /> PUBLICADO
+                </span>
+              ) : (
+                <span className="text-[8px] px-1.5 py-0.5 rounded bg-black/75 text-yellow-500 border border-yellow-500/40 font-bold flex items-center gap-1">
+                  <EyeOff size={8} strokeWidth={3} /> OCULTO
+                </span>
+              );
+              return <CircuitCard key={gd.id} gameDay={gd} onClick={() => setSelectedGameDay(gd)} badge={badge} tag={publishTag} />;
             })}
             {(circuitTab === 'active' ? activeGameDays : historyGameDays).length === 0 && (
               <div className="text-center py-12 text-text-muted bg-surface/30 rounded-2xl border border-border/50">
@@ -621,7 +641,7 @@ export function AttendancePage() {
 
               {showEditForm && canEdit && (
                 <div className="mt-4 border-t border-border pt-4">
-                  <GameDayForm initialData={gameDayDetail} onClose={() => setShowEditForm(false)} />
+                  <GameDayForm initialData={gameDayDetail} onClose={() => setShowEditForm(false)} arenaSuggestions={arenaSuggestions} />
                 </div>
               )}
 

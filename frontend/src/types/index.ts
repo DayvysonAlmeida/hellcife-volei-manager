@@ -259,6 +259,7 @@ export interface GameDay {
   credit_cost?: number | string;
   description?: string;
   location?: string;
+  arena_name?: string;
   max_players?: number;
   pix_key?: string;
   created_by?: number;

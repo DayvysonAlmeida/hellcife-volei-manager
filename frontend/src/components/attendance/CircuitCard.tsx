@@ -6,9 +6,25 @@ interface CircuitCardProps {
   gameDay: GameDay;
   onClick: () => void;
   badge?: React.ReactNode;
+  /** Etiqueta no canto da imagem (ex.: publicado/oculto, só para o admin). */
+  tag?: React.ReactNode;
 }
 
-export function CircuitCard({ gameDay, onClick, badge }: CircuitCardProps) {
+/** Tamanho da letra para o nome caber na coluna da imagem (a mais estreita é a do celular, ~100px). */
+function arenaTitleSize(title: string) {
+  const longestWord = Math.max(...title.split(/\s+/).map((word) => word.length));
+  // [maior palavra, total de letras, classes]
+  const sizes: [number, number, string][] = [
+    [5, 12, 'text-2xl sm:text-3xl'],
+    [7, 16, 'text-xl sm:text-2xl'],
+    [8, 20, 'text-lg sm:text-xl'],
+    [11, 26, 'text-sm sm:text-lg'],
+  ];
+  const fit = sizes.find(([word, total]) => longestWord <= word && title.length <= total);
+  return fit ? fit[2] : 'text-xs sm:text-base';
+}
+
+export function CircuitCard({ gameDay, onClick, badge, tag }: CircuitCardProps) {
   const dateObj = new Date(gameDay.date);
   
   // Ajuste do fuso para não dar problema no dia da semana
@@ -51,7 +67,12 @@ export function CircuitCard({ gameDay, onClick, badge }: CircuitCardProps) {
     return slots;
   };
 
-  const isBeloGol = gameDay.location?.toLowerCase().includes('belo');
+  // Nome na imagem: o nome da arena, separado do endereço do mapa. "Arena X" vira "ARENA" pequeno e "X" grande
+  const arenaName = gameDay.arena_name?.trim() || '';
+  const arenaPrefix = arenaName.match(/^arena\s+(.+)$/i);
+  const arenaTitle = arenaPrefix ? arenaPrefix[1] : arenaName;
+  // Circuitos antigos, sem nome da arena, continuam com o logo do Belo Gol pelo endereço
+  const isBeloGol = /belo\s*gol/i.test(arenaName || gameDay.location || '');
 
   return (
     <div 
@@ -68,7 +89,9 @@ export function CircuitCard({ gameDay, onClick, badge }: CircuitCardProps) {
         
         {/* Gradient Bottom */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-        
+
+        {tag && <div className="absolute top-1.5 left-1.5 z-30">{tag}</div>}
+
         <div className="relative z-20 w-full h-full flex items-center justify-center p-2">
           {isBeloGol ? (
             <div className="flex flex-col items-center">
@@ -77,6 +100,15 @@ export function CircuitCard({ gameDay, onClick, badge }: CircuitCardProps) {
                 <span className="text-green-500">Gol</span>
               </span>
               <span className="text-[6px] sm:text-[7px] font-bold tracking-[0.2em] text-white mt-1 drop-shadow-md">FUTEBOL SOCIETY</span>
+            </div>
+          ) : arenaTitle ? (
+            <div className="flex flex-col items-center w-full text-center">
+              {arenaPrefix && (
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">ARENA</span>
+              )}
+              <span className={`${arenaTitleSize(arenaTitle)} w-full font-black uppercase tracking-tighter leading-[0.95] text-red break-words line-clamp-3 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]`}>
+                {arenaTitle}
+              </span>
             </div>
           ) : (
             <div className="flex flex-col items-center">
@@ -107,11 +139,8 @@ export function CircuitCard({ gameDay, onClick, badge }: CircuitCardProps) {
           <div className="flex items-start gap-2">
             <MapPin size={13} className="text-white shrink-0 mt-0.5" />
             <div className="flex flex-col leading-none">
-              <span className="text-[10px] font-black text-white uppercase tracking-widest truncate max-w-[100px]">
+              <span className="text-[10px] font-black text-white uppercase tracking-widest truncate max-w-[100px] sm:max-w-[200px]">
                 {gameDay.location || 'LOCAL'}
-              </span>
-              <span className="text-[8px] text-white/50 font-bold uppercase tracking-widest mt-1">
-                {gameDay.location?.toUpperCase() || 'ARENA'}
               </span>
             </div>
           </div>
