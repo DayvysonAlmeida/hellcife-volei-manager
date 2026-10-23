@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Crown, Share2, Star, Target, Trophy } from 'lucide-react';
+import { ArrowUpRight, Crown, Info, Share2, Star, Target, Trophy } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
 import type { DashboardStats, PlayerSeasonStats } from '@/types';
@@ -15,6 +15,7 @@ interface Row {
   name: string;
   avatarUrl?: string | null;
   sub: string;
+  sub2?: string;
   value: ReactNode;
 }
 
@@ -41,18 +42,32 @@ function densePositions(values: number[]) {
   });
 }
 
-// Mesma fórmula do servidor (aproveitamento ajustado): (vitórias + 10) / (partidas + 20)
-const fireScore = (wins: number, matches: number) => (wins + 10) / (matches + 20);
+const pts = (n: number) => n.toFixed(1);
 
-/** Quantas vitórias seguidas levam o placar de (wins, matches) acima de `target`. */
-function winsToBeat(wins: number, matches: number, target: number) {
-  for (let k = 1; k <= 200; k++) {
-    if (fireScore(wins + k, matches + k) > target) return k;
-  }
-  return null;
+/** Nota do Fire Shark (a mesma que ordena o ranking). */
+function FireValue({ score }: { score: number }) {
+  return <span className="inline-flex items-baseline gap-0.5">{pts(score)}<span className="font-sans text-[9px] font-bold uppercase tracking-wider opacity-70">pts</span></span>;
 }
 
-interface Goal { text: ReactNode; progress?: number; detail?: string }
+// Duas linhas curtas, para caber no celular: aproveitamento e jogos; presença
+const fireSubs = (winRate: number, matches: number, attended: number, totalDays: number) => ({
+  sub: `${winRate}% · ${plural(matches, 'jogo', 'jogos')}`,
+  sub2: `${attended}/${totalDays} presenças`,
+});
+
+/** O que sobe ou desce a nota do atleta, calculado pelo servidor para ele. */
+function fireTips(gains: PlayerSeasonStats['fire_gains']) {
+  if (!gains) return undefined;
+  const parts: string[] = [];
+  if (gains.attend > 0) parts.push(`ir ao próximo circuito vale +${pts(gains.attend)}`);
+  if (gains.miss < 0) parts.push(`faltar tira ${pts(-gains.miss)}`);
+  if (gains.win > 0) parts.push(`cada vitória vale +${pts(gains.win)}`);
+  if (!parts.length) return undefined;
+  const text = parts.join(' · ');
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+interface Goal { text: ReactNode; progress?: number; detail?: string; tips?: string }
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'fire', label: 'Fire Shark' },
@@ -64,12 +79,13 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
   const [tab, setTab] = useState<Tab>('fire');
   const [expanded, setExpanded] = useState(false);
   const minGames = dashboard.season?.fire_shark_min_games ?? 10;
+  const weights = dashboard.season?.fire_shark_weights ?? { win_rate: 60, games: 20, presence: 20 };
   const sharks = dashboard.fire_sharks ?? [];
   const winsList = dashboard.top_wins ?? [];
 
   const fireRows: Row[] = sharks.map((p, i) => ({
     id: p.id, position: i + 1, name: p.name, avatarUrl: p.avatar_url,
-    sub: `${p.wins} vitórias em ${p.total_matches} partidas`, value: `${p.win_rate}%`,
+    ...fireSubs(p.win_rate, p.total_matches, p.attended_days, p.total_days), value: <FireValue score={p.score} />,
   }));
   const winPositions = densePositions(winsList.map((p) => p.wins ?? 0));
   const winRows: Row[] = winsList.map((p, i) => ({
@@ -86,7 +102,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
   const fireGoal = (): Goal | null => {
     if (!season) return null;
     const rank = season.fire_shark_rank;
-    if (rank == null) {
+    if (rank == null || season.fire_score == null) {
       if (season.games_to_fire_shark <= 0) return null;
       return {
         text: <>Faltam <b>{plural(season.games_to_fire_shark, 'partida', 'partidas')}</b> para você entrar no Fire Shark.</>,
@@ -94,20 +110,32 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
         detail: `${season.matches} de ${season.fire_shark_min_games} partidas na ${season.name}`,
       };
     }
-    const mine = fireScore(season.wins, season.matches);
+    const mine = season.fire_score;
+    const parts = season.fire_points;
+    const detail = parts
+      ? `Sua nota ${pts(mine)} = ${pts(parts.win_rate)} das vitórias + ${pts(parts.games)} dos jogos + ${pts(parts.presence)} da presença`
+      : undefined;
+    const tips = fireTips(season.fire_gains);
     if (rank === 1) {
       const second = sharks[1];
-      if (!second) return { text: <>Você é o <b>Tubarão da Quadra</b>. Segure o posto!</> };
-      const k = winsToBeat(second.wins, second.total_matches, mine);
-      return { text: <>Você é o <b>Tubarão da Quadra</b>. {second.name} está a {k ? plural(k, 'vitória seguida', 'vitórias seguidas') : 'uma boa sequência'} de te passar.</> };
+      if (!second) return { text: <>Você é o <b>Tubarão da Quadra</b>. Segure o posto!</>, detail, tips };
+      const lead = mine - second.score;
+      return {
+        text: lead >= 0.1
+          ? <>Você é o <b>Tubarão da Quadra</b>. {second.name} está <b>{pts(lead)} pts</b> atrás.</>
+          : <>Você é o <b>Tubarão da Quadra</b>, mas {second.name} está empatado com você na nota.</>,
+        detail, tips,
+      };
     }
     const above = rank <= sharks.length ? sharks[rank - 2] : sharks[sharks.length - 1];
     if (!above) return null;
-    const k = winsToBeat(season.wins, season.matches, fireScore(above.wins, above.total_matches));
-    const what = rank <= sharks.length ? <>você passa <b>{above.name}</b> e sobe para <b>#{rank - 1}</b></> : <>você entra no <b>top {sharks.length}</b></>;
+    const need = above.score - mine;
+    const what = rank <= sharks.length ? <>para passar <b>{above.name}</b> e subir para <b>#{rank - 1}</b></> : <>para entrar no <b>top {sharks.length}</b></>;
     return {
-      text: k ? <>Com <b>{plural(k, 'vitória seguida', 'vitórias seguidas')}</b> {what}.</> : <>Uma boa sequência de vitórias e {what}.</>,
-      detail: `Você: ${season.win_rate}% · ${above.name}: ${above.win_rate}%`,
+      text: need >= 0.1
+        ? <>Faltam <b>{pts(need)} pts</b> {what}.</>
+        : <>Você está empatado na nota com <b>{above.name}</b>: o próximo circuito decide.</>,
+      detail, tips,
     };
   };
 
@@ -147,8 +175,11 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
     if (!playerId || shown.some((r) => r.id === playerId)) return null;
     const inList = rows.find((r) => r.id === playerId);
     if (inList) return inList;
-    if (tab === 'fire' && season?.fire_shark_rank) {
-      return { id: playerId, position: season.fire_shark_rank, name: myName, avatarUrl: myAvatarUrl, sub: `${season.wins} vitórias em ${season.matches} partidas`, value: `${season.win_rate}%` };
+    if (tab === 'fire' && season?.fire_shark_rank && season.fire_score != null) {
+      return {
+        id: playerId, position: season.fire_shark_rank, name: myName, avatarUrl: myAvatarUrl,
+        ...fireSubs(season.win_rate, season.matches, season.attended_days, season.total_days), value: <FireValue score={season.fire_score} />,
+      };
     }
     if (tab === 'wins' && season?.gladiator_rank) {
       return { id: playerId, position: season.gladiator_rank, name: myName, avatarUrl: myAvatarUrl, sub: `${season.win_rate}% de aproveitamento`, value: season.wins };
@@ -222,6 +253,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
         <div className="min-w-0">
           <p className={cn('font-bold truncate', me ? 'text-orange-600 dark:text-orange-300' : 'text-text-primary')}>{r.name}{me && <span className="font-medium"> · você</span>}</p>
           <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted truncate">{r.sub}</p>
+          {r.sub2 && <p className="text-[10px] font-medium uppercase tracking-wider text-text-muted truncate">{r.sub2}</p>}
         </div>
         <span className={cn('font-display text-2xl leading-none tabular-nums text-right', accent.text)}>{r.value}</span>
       </li>
@@ -272,6 +304,20 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
           )}
         </div>
 
+        {tab === 'fire' && (
+          <details className="rounded-2xl border border-border/30 px-3.5 py-2.5 text-xs text-text-muted">
+            <summary className="cursor-pointer font-bold text-text-primary">
+              <Info size={13} className={cn('inline -mt-0.5 mr-1', accent.text)} />Como a nota é calculada
+            </summary>
+            <p className="mt-2 leading-relaxed">
+              A nota vai de 0 a 100: <b>{weights.win_rate} pontos</b> vêm do aproveitamento (vitórias ÷ partidas),{' '}
+              <b>{weights.games}</b> dos jogos (quem mais jogou na temporada ganha os {weights.games}) e{' '}
+              <b>{weights.presence}</b> da presença nos dias de circuito (check-in na quadra).
+              Para entrar no ranking, é preciso ter pelo menos {minGames} partidas na temporada.
+            </p>
+          </details>
+        )}
+
         {/* Seu próximo alvo */}
         {goal && (
           <div className={cn('rounded-2xl border p-3.5 flex flex-col gap-2', accent.soft)}>
@@ -284,6 +330,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
                 <div className={cn('h-full rounded-full bg-gradient-to-r', accent.bar)} style={{ width: `${Math.max(4, goal.progress)}%` }} />
               </div>
             )}
+            {goal.tips && <p className={cn('text-xs font-semibold tabular-nums', accent.text)}>{goal.tips}</p>}
             {goal.detail && <p className="text-[11px] text-text-muted tabular-nums">{goal.detail}</p>}
           </div>
         )}

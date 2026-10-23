@@ -14,11 +14,10 @@ from django.db.models import Count, Q
 
 from .models import Player
 
-# Fire Shark: aproveitamento ajustado pela consistência.
+# Fire Shark: nota de 0 a 100 que soma aproveitamento, jogos e presença na quadra (incentiva ir aos circuitos).
 FIRE_SHARK_MIN_FLOOR = 10          # nunca exige menos que isso
 FIRE_SHARK_MEDIAN_SHARE = 0.3      # precisa ter jogado 30% do que joga o atleta mediano da temporada
-BAYES_K = 20                       # 20 jogos "fictícios" com 50% de vitórias
-BAYES_PRIOR_WINS = BAYES_K * 0.5
+FIRE_SHARK_WEIGHTS = {'win_rate': 0.6, 'games': 0.2, 'presence': 0.2}
 
 
 def _season(season):
@@ -78,8 +77,29 @@ def season_stats(season=None) -> dict:
     return stats
 
 
-def fire_shark_score(wins: int, total_matches: int) -> float:
-    return (wins + BAYES_PRIOR_WINS) / (total_matches + BAYES_K) * 100
+def fire_shark_points(win_rate: float, games: float, presence: float) -> dict:
+    """
+    As três partes da nota, já com o peso de cada uma. Tudo de 0 a 100:
+    aproveitamento (vitórias ÷ partidas), jogos (partidas ÷ partidas de quem mais jogou)
+    e presença (dias na quadra ÷ dias com circuito).
+    """
+    parts = {'win_rate': win_rate, 'games': games, 'presence': presence}
+    return {key: parts[key] * weight for key, weight in FIRE_SHARK_WEIGHTS.items()}
+
+
+def fire_shark_score(wins: int, matches: int, top_matches: int, attended: int, total_days: int) -> float:
+    presence = attended / total_days * 100 if total_days else 0
+    return sum(fire_shark_points(wins / matches * 100, matches / top_matches * 100, presence).values())
+
+
+def fire_shark_gains(p) -> dict:
+    """Quanto a nota do atleta muda se ele for (ou faltar) ao próximo circuito e a cada vitória, o resto igual."""
+    w, m, a, t = p.wins, p.total_matches, p.attended_days, p.total_days
+
+    def delta(wins, matches, attended, total):
+        return round(fire_shark_score(wins, matches, max(p.fire_top_matches, matches), attended, total) - p.fire_score, 1)
+
+    return {'attend': delta(w, m, a + 1, t + 1), 'miss': delta(w, m, a, t + 1), 'win': delta(w + 1, m + 1, a, t)}
 
 
 def fire_shark_min_games(season=None, stats=None) -> int:
@@ -94,24 +114,47 @@ def fire_shark_min_games(season=None, stats=None) -> int:
 
 def fire_shark_ranking(season=None):
     """
-    Fire Shark da temporada, do melhor para o pior.
-    Desempate: saldo de pontos por partida, vitórias, partidas e nome (ordem sempre estável).
+    Fire Shark da temporada, do melhor para o pior, pela nota (a mesma que as telas mostram).
+    Presença = mesma regra da frequência: check-in na quadra nos dias com circuito.
+    Desempate: aproveitamento, partidas, saldo de pontos por partida e nome (ordem sempre estável).
     """
+    from apps.attendance.frequency import circuit_days, frequency
+
     season = _season(season)
     stats = season_stats(season)
     min_games = fire_shark_min_games(season, stats)
-    players = []
-    for p in ranked_players():
-        s = stats.get(p.id)
-        if not s or s['matches'] < min_games:
-            continue
+    players = [p for p in ranked_players() if stats.get(p.id, {}).get('matches', 0) >= min_games]
+    if not players:
+        return []
+    days = circuit_days(season.start_date, season.end_date)
+    top_matches = max(stats[p.id]['matches'] for p in players)
+    for p in players:
+        s, freq = stats[p.id], frequency(p, days)
         p.wins, p.total_matches, p.point_balance = s['wins'], s['matches'], s['balance']
+        p.attended_days, p.total_days = freq['attended_days'], freq['total_days']
         p.win_rate = p.wins / p.total_matches * 100
-        p.fire_score = fire_shark_score(p.wins, p.total_matches)
+        p.presence_rate = p.attended_days / p.total_days * 100 if p.total_days else 0
+        p.fire_points = fire_shark_points(p.win_rate, p.total_matches / top_matches * 100, p.presence_rate)
+        p.fire_score = sum(p.fire_points.values())
+        p.fire_top_matches = top_matches
         p.balance_per_match = p.point_balance / p.total_matches
-        players.append(p)
-    players.sort(key=lambda p: (-p.fire_score, -p.balance_per_match, -p.wins, -p.total_matches, p.name.lower()))
+    players.sort(key=lambda p: (-p.fire_score, -p.win_rate, -p.total_matches, -p.balance_per_match, p.name.lower()))
     return players
+
+
+def fire_shark_entry(p) -> dict:
+    """Linha do Fire Shark para as telas: a nota e de onde ela vem."""
+    return {
+        'id': p.id,
+        'name': p.display_name,
+        'avatar_url': p.avatar_url,
+        'wins': p.wins,
+        'total_matches': p.total_matches,
+        'win_rate': round(p.win_rate, 1),
+        'attended_days': p.attended_days,
+        'total_days': p.total_days,
+        'score': round(p.fire_score, 1),
+    }
 
 
 def fire_shark_positions(season=None) -> dict:
@@ -175,8 +218,12 @@ def stars_ranking():
 
 
 def season_payload(season=None) -> dict:
-    """Temporada atual para as telas: nome, datas, contagem regressiva e mínimo do Fire Shark."""
+    """Temporada atual para as telas: nome, datas, contagem regressiva, mínimo e pesos do Fire Shark."""
     from .seasons import season_info
 
     season = _season(season)
-    return {**season_info(season), 'fire_shark_min_games': fire_shark_min_games(season)}
+    return {
+        **season_info(season),
+        'fire_shark_min_games': fire_shark_min_games(season),
+        'fire_shark_weights': {key: round(weight * 100) for key, weight in FIRE_SHARK_WEIGHTS.items()},
+    }

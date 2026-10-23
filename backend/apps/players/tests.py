@@ -227,6 +227,74 @@ class FireSharkRuleTests(SeasonRolloverTests):
     test_seasons_endpoint_shows_podium = None
 
 
+from datetime import datetime  # noqa: E402
+
+from django.utils import timezone  # noqa: E402
+
+from apps.attendance.models import CourtCheckin, GameDay  # noqa: E402
+from .rankings import fire_shark_entry  # noqa: E402
+
+
+class FireSharkScoreTests(SeasonRolloverTests):
+    """Fire Shark: nota = 60% aproveitamento + 20% jogos + 20% presença na quadra, e a ordem segue a nota."""
+
+    def setUp(self):
+        super().setUp()
+        # Os dias com circuito contam a partir do cadastro do atleta
+        Player.objects.update(created_at=timezone.make_aware(datetime(2026, 1, 1)))
+
+    def circuit(self, day, *went):
+        gd = GameDay.objects.create(date=day, is_closed=True, is_published=True)
+        for p in went:
+            CourtCheckin.objects.create(gameday=gd, player=p)
+
+    def test_presence_weighs_in_the_score(self):
+        a, b, c, d = self.players
+        with self.at(date(2026, 12, 20)):
+            for _ in range(10):
+                self.play(date(2026, 11, 1), [a, b], [c, d])
+            self.circuit(date(2026, 11, 1), a, b, c)
+            for i in range(1, 4):
+                self.circuit(date(2026, 11, 1) + timedelta(days=i), a, c)
+            rows = [fire_shark_entry(p) for p in fire_shark_ranking()]
+        self.assertEqual([r['id'] for r in rows], [a.id, b.id, c.id, d.id])
+        # a: 60 (100% de vitórias) + 20 (jogos) + 20 (4 de 4 dias); b foi a 1 dia só
+        self.assertEqual([r['score'] for r in rows], [100.0, 85.0, 40.0, 20.0])
+        self.assertEqual((rows[1]['attended_days'], rows[1]['total_days']), (1, 4))
+
+    def test_games_and_presence_can_beat_a_higher_win_rate(self):
+        a, b, c, d = self.players
+        with self.at(date(2026, 12, 20)):
+            for _ in range(10):
+                self.play(date(2026, 11, 1), [a], [d])  # a: 10 de 10, mas jogou pouco e não foi aos circuitos
+            for i in range(30):
+                self.play(date(2026, 11, 1), *([[b], [c]] if i < 18 else [[c], [b]]))  # b: 18 de 30
+            self.circuit(date(2026, 11, 1), b, c)
+            self.circuit(date(2026, 11, 2), b, c)
+            data = self.client.get('/api/players/dashboard-stats/').data
+        rows = data['fire_sharks']
+        self.assertEqual([r['id'] for r in rows], [b.id, a.id, c.id, d.id])
+        self.assertEqual([r['score'] for r in rows], [76.0, 66.7, 64.0, 6.7])  # a ordem é a da nota mostrada
+        self.assertEqual(data['season']['fire_shark_weights'], {'win_rate': 60, 'games': 20, 'presence': 20})
+
+    def test_profile_shows_the_score_and_what_each_thing_is_worth(self):
+        a, b, c, d = self.players
+        with self.at(date(2026, 12, 20)):
+            for _ in range(10):
+                self.play(date(2026, 11, 1), [a, b], [c, d])
+            self.circuit(date(2026, 11, 1), a, b, c, d)
+            self.circuit(date(2026, 11, 2), a)
+            season = self.client.get(f'/api/players/{b.id}/stats/').data['season']
+        self.assertEqual(season['fire_score'], 90.0)  # 60 + 20 + 10 (1 de 2 dias)
+        self.assertEqual(season['fire_points'], {'win_rate': 60.0, 'games': 20.0, 'presence': 10.0})
+        # Ir ao próximo: 2 de 3 dias (+3.3). Faltar: 1 de 3 (−3.3). Vitória: já tem 100% e é quem mais jogou.
+        self.assertEqual(season['fire_gains'], {'attend': 3.3, 'miss': -3.3, 'win': 0.0})
+
+    test_rollover_saves_standings_and_resets_elo = None
+    test_editing_history_replays_the_season = None
+    test_seasons_endpoint_shows_podium = None
+
+
 class EloRankingTests(SeasonRolloverTests):
     """Ranking de Elo: só quem terminou a calibração, mesma ordem em todas as telas e no resultado final."""
 

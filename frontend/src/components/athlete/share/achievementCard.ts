@@ -23,6 +23,7 @@ export interface AchievementShareCardProps {
   bigStarsTotal?: number;
   miniStarsCount?: number;
   // fire_shark / top_wins
+  fireScore?: number; // nota do Fire Shark
   winRate?: number;
   wins?: number;
   totalMatches?: number;
@@ -74,7 +75,7 @@ interface CardContent {
   stars?: { filled: number; total: number; caption: string };
 }
 
-const fmt = (v: number | undefined | null, suffix = '') => (v == null ? '--' : `${v}${suffix}`);
+const fmt = (v: number | string | undefined | null, suffix = '') => (v == null ? '--' : `${v}${suffix}`);
 
 function buildContent(d: AchievementShareCardProps): CardContent {
   const rank = d.winRank;
@@ -93,7 +94,7 @@ function buildContent(d: AchievementShareCardProps): CardContent {
         badge: rank ? `TOP ${rank}` : undefined,
         heroShark: true,
         stats: [
-          { value: fmt(d.wins), label: 'Vitórias' },
+          { value: fmt(d.fireScore?.toFixed(1)), label: 'Nota' },
           { value: fmt(d.winRate, '%'), label: 'Win Rate' },
           { value: fmt(d.totalMatches), label: 'Partidas' },
         ],

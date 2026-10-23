@@ -16,7 +16,8 @@ from .serializers import (
 )
 from .filters import PlayerFilter
 from .rankings import (
-    fire_shark_min_games, fire_shark_positions, fire_shark_ranking, ranked_players, season_payload, season_stats,
+    fire_shark_entry, fire_shark_gains, fire_shark_min_games, fire_shark_positions, fire_shark_ranking, ranked_players,
+    season_payload, season_stats,
     stars_ranking, wins_positions, wins_ranking,
 )
 from .seasons import ensure_current_season
@@ -284,18 +285,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 'win_rate': round(win_rate, 1)
             })
 
-        fire_sharks = [
-            {
-                'id': p.id,
-                'name': p.display_name,
-                'avatar_url': p.avatar_url,
-                'wins': p.wins,
-                'total_matches': p.total_matches,
-                'win_rate': round(p.win_rate, 1),
-                'score': round(p.fire_score, 1),
-            }
-            for p in fire_shark_ranking()[:10]
-        ]
+        fire_sharks = [fire_shark_entry(p) for p in fire_shark_ranking()[:10]]
 
         qs_stars = stars_ranking()[:10]
         top_stars = []
@@ -515,8 +505,10 @@ class PlayerViewSet(viewsets.ModelViewSet):
         player_overall = player.latest_overall or 0.0
         overall_rank = qs_players.filter(annotated_overall__gt=player_overall).count() + 1 if player_overall > 0 else None
 
-        # Posição no Fire Shark (mesma regra de todas as telas; inativo/convidado não tem posição)
-        win_rank = fire_shark_positions(season).get(player.id)
+        # Posição e nota no Fire Shark (mesma regra de todas as telas; inativo/convidado não tem posição)
+        fire = fire_shark_ranking(season)
+        fire_me = next((p for p in fire if p.id == player.id), None)
+        win_rank = fire.index(fire_me) + 1 if fire_me else None
 
         # Números da temporada (os rankings são por temporada; os totais acima são da carreira)
         st = season_stats(season)
@@ -531,6 +523,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'win_rate': round(mine['wins'] / mine['matches'] * 100, 1) if mine['matches'] else 0,
             'point_balance': mine['balance'],
             'fire_shark_rank': win_rank,
+            'fire_score': round(fire_me.fire_score, 1) if fire_me else None,
+            'fire_points': {k: round(v, 1) for k, v in fire_me.fire_points.items()} if fire_me else None,
+            'fire_gains': fire_shark_gains(fire_me) if fire_me else None,
             'fire_shark_min_games': min_games,
             'games_to_fire_shark': max(0, min_games - mine['matches']),
             'gladiator_rank': wins_positions(season).get(player.id),

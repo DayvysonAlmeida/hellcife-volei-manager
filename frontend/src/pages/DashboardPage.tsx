@@ -74,7 +74,7 @@ export function DashboardPage() {
       <OsCoroados newStars={data.new_stars || []} />
       <DreamTeam dreamTeam={data.dream_team || []} />
       <EloRanking entries={data.top_elo || []} linkPrefix="/players/" rulesHref="/elo-system" />
-      <FireSharksTop10 fireSharks={data.fire_sharks || []} />
+      <FireSharksTop10 fireSharks={data.fire_sharks || []} season={data.season} />
       <HallOfFame hallOfFame={data.hall_of_fame || []} />
       <WinnersSection winners={data.top_winners || []} />
     </div>

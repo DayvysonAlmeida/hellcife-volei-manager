@@ -82,7 +82,7 @@ export function AthleteDashboardPage() {
   const shareFireShark = () => {
     const me = dashboard?.fire_sharks?.[fireIndex];
     if (!me) return;
-    setShareModal({ ...shareBase, type: 'fire_shark_top1', winRate: me.win_rate, wins: me.wins, totalMatches: me.total_matches, winRank: fireIndex + 1 });
+    setShareModal({ ...shareBase, type: 'fire_shark_top1', fireScore: me.score, winRate: me.win_rate, wins: me.wins, totalMatches: me.total_matches, winRank: fireIndex + 1 });
   };
   const shareGladiator = () => {
     if (!winsEntry) return;

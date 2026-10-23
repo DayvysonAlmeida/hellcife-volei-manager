@@ -416,6 +416,8 @@ export interface DashboardStats {
     score: number;
     wins: number;
     total_matches: number;
+    attended_days: number;
+    total_days: number;
   }>;
   recent_stars: DashboardRecentStar[];
   last_category_winners: Record<string, DashboardCategoryWinner>;
@@ -696,6 +698,8 @@ export interface DashboardData {
     total_matches: number;
     win_rate: number;
     score: number;
+    attended_days: number;
+    total_days: number;
   }>;
   dream_team: Array<{
     id: number;
@@ -814,6 +818,11 @@ export interface PlayerSeasonStats {
   win_rate: number;
   point_balance: number;
   fire_shark_rank: number | null;
+  /** Nota do Fire Shark (0 a 100) e as três partes dela, já com o peso. */
+  fire_score: number | null;
+  fire_points: { win_rate: number; games: number; presence: number } | null;
+  /** Quanto a nota muda indo ou faltando ao próximo circuito e a cada vitória. */
+  fire_gains: { attend: number; miss: number; win: number } | null;
   fire_shark_min_games: number;
   games_to_fire_shark: number;
   gladiator_rank: number | null;
@@ -838,6 +847,8 @@ export interface SeasonInfo {
   end_date: string;
   days_left: number;
   fire_shark_min_games: number;
+  /** Pesos da nota do Fire Shark, em %. */
+  fire_shark_weights?: { win_rate: number; games: number; presence: number };
   /** Texto da premiação (escrito pelo admin na tela Temporadas). */
   prize_notes?: string;
   /** Só na pré-temporada: quando começa a Temporada 1. */

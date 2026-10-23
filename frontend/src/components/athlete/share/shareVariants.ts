@@ -29,7 +29,7 @@ export function buildShareVariants(player: Player, stats?: PlayerStats): ShareVa
   const variants: ShareVariants = {};
 
   if (season?.fire_shark_rank) {
-    variants.fire_shark_top1 = { ...base, ...seasonNumbers, winRank: season.fire_shark_rank };
+    variants.fire_shark_top1 = { ...base, ...seasonNumbers, winRank: season.fire_shark_rank, fireScore: season.fire_score ?? undefined };
   }
   if (player.big_stars > 0) {
     variants.big_star = { ...base, bigStarsTotal: player.big_stars, miniStarsCount: player.mini_stars };

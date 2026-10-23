@@ -3,9 +3,11 @@ import { motion } from 'framer-motion';
 import { Flame } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
+import type { DashboardData, SeasonInfo } from '@/types';
 
-export function FireSharksTop10({ fireSharks }: { fireSharks: any[] }) {
+export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardData['fire_sharks']; season?: SeasonInfo }) {
   if (!fireSharks || fireSharks.length === 0) return null;
+  const w = season?.fire_shark_weights ?? { win_rate: 60, games: 20, presence: 20 };
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -25,7 +27,10 @@ export function FireSharksTop10({ fireSharks }: { fireSharks: any[] }) {
              <h2 className="font-display text-xl text-text-primary tracking-wider flex items-center gap-2">
                TUBARÕES DA QUADRA <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/30">TOP 10</span>
              </h2>
-             <p className="text-sm text-text-muted">Ranking de aproveitamento Fire Shark (Mínimo de 10 jogos)</p>
+             <p className="text-sm text-text-muted">
+               Nota Fire Shark: {w.win_rate}% aproveitamento, {w.games}% jogos e {w.presence}% presença nos circuitos
+               {season && ` · mínimo de ${season.fire_shark_min_games} jogos`}
+             </p>
            </div>
          </div>
       </div>
@@ -60,15 +65,18 @@ export function FireSharksTop10({ fireSharks }: { fireSharks: any[] }) {
                 <PositionBadge position={player.position as any} className="text-[9px] px-1.5 py-0.5" />
                 <span className="text-text-muted text-xs">{player.wins}V - {player.total_matches - player.wins}D</span>
               </div>
+              <p className="text-text-muted text-[11px] mt-1 truncate">
+                {player.win_rate}% · {player.attended_days}/{player.total_days} presenças
+              </p>
             </div>
             
             <div className="flex flex-col items-end">
                <div className="flex items-center gap-1">
                  <span className={`font-display ${idx === 0 ? 'text-2xl text-orange-400' : 'text-xl text-text-primary'}`}>
-                   {player.win_rate}%
+                   {player.score.toFixed(1)}
                  </span>
                </div>
-               <span className="text-[9px] text-text-muted uppercase font-bold tracking-widest mt-0.5">Win Rate</span>
+               <span className="text-[9px] text-text-muted uppercase font-bold tracking-widest mt-0.5">Nota</span>
             </div>
           </Link>
         ))}

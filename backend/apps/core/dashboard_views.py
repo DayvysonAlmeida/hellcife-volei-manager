@@ -11,7 +11,7 @@ from apps.players.models import Player
 from apps.attendance.models import Attendance
 from apps.matches.models import MatchPlayer
 from apps.halloffame.models import HallOfFameEntry
-from apps.players.rankings import elo_top, fire_shark_ranking, season_payload, stars_ranking, wins_ranking
+from apps.players.rankings import elo_top, fire_shark_entry, fire_shark_ranking, season_payload, stars_ranking, wins_ranking
 
 
 class DashboardView(APIView):
@@ -96,25 +96,13 @@ class DashboardView(APIView):
             })
 
         # -------------------------------------------------------------
-        # Ranking Fire Shark (Aproveitamento Global - Min 10 jogos)
+        # Ranking Fire Shark (nota: aproveitamento, jogos e presença)
         # -------------------------------------------------------------
-        fire_list = [
-            {
-                'id': p.id,
-                'name': p.display_name,
-                'avatar_url': p.avatar_url,
-                'position': p.main_position,
-                'wins': p.wins,
-                'total_matches': p.total_matches,
-                'win_rate': round(p.win_rate, 1),
-                'score': round(p.fire_score, 1),
-            }
-            for p in fire_shark_ranking()
-        ]
+        fire_list = [{**fire_shark_entry(p), 'position': p.main_position} for p in fire_shark_ranking()]
         fire_sharks = fire_list[:10]
 
         # -------------------------------------------------------------
-        # Dream Team (O melhor de cada posição pelo Fire Shark Win Rate)
+        # Dream Team (O melhor de cada posição pela nota Fire Shark)
         # -------------------------------------------------------------
         dream_team = []
         # Definimos as posições essenciais para o Dream Team
