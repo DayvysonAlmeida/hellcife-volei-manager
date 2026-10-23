@@ -108,6 +108,8 @@ export interface Player {
   updated_at?: string;
   is_guest: boolean;
   invited_by?: string;
+  /** Convidado: nível temporário para o sorteio (1–10), até ter uma avaliação de verdade. */
+  guest_overall?: number | null;
   consecutive_absences: number;
   badges?: PlayerBadge[];
   elo: number;

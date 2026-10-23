@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 import { Avatar } from '@/components/ui/Avatar';
+import { GuestLevelSelect } from '@/components/attendance/GuestLevelSelect';
+import { DEFAULT_GUEST_LEVEL } from '@/lib/guestLevel';
 import { PositionBadge } from '@/components/ui/Badges';
 import { playersService } from '@/services/players';
 import { attendanceService } from '@/services';
@@ -37,6 +39,7 @@ export function GuestModal({
   const [guestPosition, setGuestPosition] = useState<Position>('outside');
   const [guestGender, setGuestGender] = useState<'M' | 'F'>('M');
   const [guestInvitedBy, setGuestInvitedBy] = useState(user?.name || '');
+  const [guestLevel, setGuestLevel] = useState<number>(DEFAULT_GUEST_LEVEL);
 
   // Buscar convidados salvos
   const { data: guestsData, isLoading: loadingGuests } = useQuery({
@@ -48,13 +51,15 @@ export function GuestModal({
 
   // Mutations
   const addGuestMutation = useMutation({
-    mutationFn: (data: { name: string; main_position: Position; invited_by: string; gender: 'M' | 'F' }) =>
+    mutationFn: (data: { name: string; main_position: Position; invited_by: string; gender: 'M' | 'F'; guest_overall: number }) =>
       attendanceService.addGuest(gameDayId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gameday', gameDayId] });
       qc.invalidateQueries({ queryKey: ['gamedays'] });
+      qc.invalidateQueries({ queryKey: ['guests'] });
       onClose();
       setGuestName('');
+      setGuestLevel(DEFAULT_GUEST_LEVEL);
       toast.success('Convidado adicionado à pelada!');
     },
     onError: (error: any) => {
@@ -80,6 +85,17 @@ export function GuestModal({
       qc.invalidateQueries({ queryKey: ['players'] });
       toast.success('Convidado promovido a atleta oficial!');
     },
+  });
+
+  // Corrige o nível do convidado (vale no próximo sorteio)
+  const updateLevelMutation = useMutation({
+    mutationFn: ({ id, level }: { id: number; level: number }) => playersService.update(id, { guest_overall: level }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['guests'] });
+      qc.invalidateQueries({ queryKey: ['gameday', gameDayId] });
+      toast.success('Nível do convidado atualizado.');
+    },
+    onError: () => toast.error('Não foi possível mudar o nível. Tente de novo.'),
   });
 
   const toggleMutation = useMutation({
@@ -168,6 +184,16 @@ export function GuestModal({
             </div>
 
             <div>
+              <label htmlFor="guest-level" className="text-text-muted text-xs uppercase tracking-wider block mb-1">
+                Nível do convidado *
+              </label>
+              <GuestLevelSelect id="guest-level" value={guestLevel} onChange={setGuestLevel} className="input w-full" />
+              <p className="text-[11px] text-text-muted mt-1">
+                Avaliação temporária para o sorteio. Quando ele for avaliado, passa a valer a avaliação.
+              </p>
+            </div>
+
+            <div>
               <label className="text-text-muted text-xs uppercase tracking-wider block mb-1">
                 Gênero *
               </label>
@@ -202,6 +228,7 @@ export function GuestModal({
                     main_position: guestPosition,
                     invited_by: guestInvitedBy,
                     gender: guestGender,
+                    guest_overall: guestLevel,
                   })
                 }
                 disabled={!guestName || addGuestMutation.isPending}
@@ -230,32 +257,55 @@ export function GuestModal({
                 </button>
               </div>
             ) : (() => {
-              const availableGuests = existingGuests.filter((guest: Player) => {
-                const alreadyInGame =
-                  presentAttendances.some((a) => a.player === guest.id) ||
-                  waitlistAttendances?.some((a) => a.player === guest.id);
-                return !alreadyInGame;
-              });
+              const inGame = (guest: Player) =>
+                presentAttendances.some((a) => a.player === guest.id) || !!waitlistAttendances?.some((a) => a.player === guest.id);
+              const availableGuests = existingGuests.filter((guest: Player) => !inGame(guest));
+              const todayGuests = existingGuests.filter(inGame);
+              const levelSelect = (guest: Player, className: string) => (
+                <GuestLevelSelect
+                  value={guest.guest_overall ?? null}
+                  onChange={(level) => updateLevelMutation.mutate({ id: guest.id, level })}
+                  className={className}
+                  ariaLabel={`Nível de ${guest.name}`}
+                />
+              );
+
+              // Convidados que já estão neste circuito: dá para corrigir o nível antes do sorteio
+              const today = todayGuests.length > 0 && (
+                <div className="rounded-xl border border-border p-3 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-text-muted">Neste circuito · nível para o sorteio (sem nível = 5)</p>
+                  {todayGuests.map((guest: Player) => (
+                    <div key={guest.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                      <span className="text-sm font-bold text-text-primary truncate">{guest.name}</span>
+                      {levelSelect(guest, 'input py-1 text-xs w-full sm:w-44 sm:shrink-0')}
+                    </div>
+                  ))}
+                </div>
+              );
 
               if (availableGuests.length === 0) {
                 return (
-                  <div className="py-12 text-center text-text-muted">
-                    <p>Todos os convidados salvos já estão neste circuito.</p>
+                  <div className="space-y-2 overflow-y-auto pr-2 pb-2">
+                    {today}
+                    <div className="py-12 text-center text-text-muted">
+                      <p>Todos os convidados salvos já estão neste circuito.</p>
+                    </div>
                   </div>
                 );
               }
 
               return (
                 <div className="space-y-2 overflow-y-auto pr-2 pb-2">
+                  {today}
                   {availableGuests.map((guest: Player) => (
                     <div
                       key={guest.id}
                       className="flex items-center justify-between bg-surface/50 p-3 rounded-xl border border-border"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <Avatar name={guest.name} src={guest.avatar_url} size="sm" />
-                        <div>
-                          <p className="text-sm font-bold text-text-primary">{guest.name}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-text-primary truncate">{guest.name}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <PositionBadge position={guest.main_position} />
                             {guest.invited_by && (
@@ -264,6 +314,7 @@ export function GuestModal({
                               </span>
                             )}
                           </div>
+                          {levelSelect(guest, 'input py-1 text-xs w-full max-w-44 mt-1.5')}
                         </div>
                       </div>
 

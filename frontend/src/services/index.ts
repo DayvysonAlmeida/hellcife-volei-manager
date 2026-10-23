@@ -56,7 +56,7 @@ export const attendanceService = {
   getGeneralStats: () =>
     api.get<any[]>('/attendance/gamedays/general-stats/').then(r => r.data),
 
-  addGuest: (gamedayId: number, data: { name: string; main_position: string; invited_by?: string; gender?: string }) =>
+  addGuest: (gamedayId: number, data: { name: string; main_position: string; invited_by?: string; gender?: string; guest_overall?: number }) =>
     api.post(`/attendance/gamedays/${gamedayId}/add-guest/`, data).then(r => r.data),
 
   promoteWaitlist: (gamedayId: number) =>

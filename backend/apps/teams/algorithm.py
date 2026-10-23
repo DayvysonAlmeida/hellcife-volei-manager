@@ -55,7 +55,7 @@ def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id:
             evals.sort(key=lambda e: e.date, reverse=True)
             overall = evals[0].overall
         else:
-            overall = 5.0
+            overall = float(p.guest_overall or 5)  # convidado: nível temporário escolhido ao convidar
 
         composite = _composite_score(overall, p.elo_all_time)  # histórico: não zera na virada da temporada
 

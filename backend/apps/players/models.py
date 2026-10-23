@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 
 STAR_VALIDATORS = [MinValueValidator(0), MaxValueValidator(5)]
+GUEST_LEVEL_VALIDATORS = [MinValueValidator(1), MaxValueValidator(10)]
 
 
 class Player(models.Model):
@@ -40,6 +41,11 @@ class Player(models.Model):
 
     is_guest = models.BooleanField(default=False, verbose_name='É Convidado?', db_index=True)
     invited_by = models.CharField(max_length=150, blank=True, null=True, verbose_name='Convidado por')
+    guest_overall = models.PositiveSmallIntegerField(
+        blank=True, null=True, validators=GUEST_LEVEL_VALIDATORS, verbose_name='Nível do convidado',
+        help_text='Avaliação temporária para o sorteio: 1–3 iniciante, 4–7 intermediário, 8–10 avançado. '
+                  'Vale até o convidado ter uma avaliação de verdade.',
+    )
     height = models.DecimalField(max_digits=4, decimal_places=2, blank=True, null=True, verbose_name='Altura (m)')
     weight = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, verbose_name='Peso (kg)')
     main_position = models.CharField(max_length=20, choices=POSITION_CHOICES, verbose_name='Posição principal')
@@ -145,6 +151,12 @@ class Player(models.Model):
     def latest_overall(self):
         eval_ = self.evaluations.order_by('-date', '-id').first()
         return eval_.overall if eval_ else None
+
+    @property
+    def draw_overall(self):
+        """Nível usado no sorteio: a última avaliação ou, sem ela, o nível temporário do convidado."""
+        overall = self.latest_overall
+        return overall if overall is not None else self.guest_overall
 
     @property
     def avatar_url(self):

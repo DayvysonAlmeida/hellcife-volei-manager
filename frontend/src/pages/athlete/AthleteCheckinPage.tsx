@@ -14,6 +14,8 @@ import { cn, getPositionClass, formatBRL } from '@/lib/utils';
 import { createPortal } from 'react-dom';
 import { CircuitCard } from '@/components/attendance/CircuitCard';
 import { CopyPixButton, ReservationCountdown } from '@/components/attendance/ReservationInfo';
+import { GuestLevelSelect } from '@/components/attendance/GuestLevelSelect';
+import { DEFAULT_GUEST_LEVEL } from '@/lib/guestLevel';
 
 // ─── Card expandido de check-in ────────────────────────────────────────────────
 function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any }) {
@@ -23,6 +25,7 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState('Outro');
+  const [guestLevel, setGuestLevel] = useState<number>(DEFAULT_GUEST_LEVEL);
   const [useFreeGuest, setUseFreeGuest] = useState(false);
   
   // Compra de Crédito no Check-in
@@ -87,6 +90,7 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
       setShowGuestModal(false);
       setGuestName('');
       setGuestPosition('Outro');
+      setGuestLevel(DEFAULT_GUEST_LEVEL);
       setUseFreeGuest(false);
       qc.invalidateQueries({ queryKey: ['athlete-circuit-detail', circuit.id] });
       qc.invalidateQueries({ queryKey: ['my_subscription'] });
@@ -433,6 +437,17 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
                     <option value="Líbero">Líbero</option>
                   </select>
                 </div>
+
+                <div>
+                  <label htmlFor="athlete-guest-level" className="block text-xs font-black text-white/60 uppercase tracking-widest mb-1.5 ml-1">Nível do convidado</label>
+                  <GuestLevelSelect
+                    id="athlete-guest-level"
+                    value={guestLevel}
+                    onChange={setGuestLevel}
+                    className="w-full bg-[#111] border-2 border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-blue-500/50 outline-none transition-all"
+                  />
+                  <p className="text-[11px] text-white/40 mt-1 ml-1">Ajuda a montar times equilibrados no sorteio. A organização pode ajustar.</p>
+                </div>
                 
                 {guestsAvailable > 0 && (
                   <label className="flex items-center gap-3 bg-blue-500/10 border-2 border-blue-500/30 p-3 rounded-xl cursor-pointer hover:bg-blue-500/20 transition-colors mt-2">
@@ -458,7 +473,7 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               
               <div className="p-4 border-t border-white/10 bg-black/40">
                 <button 
-                  onClick={() => addGuestMutation.mutate({ player_id: myPlayer.id, name: guestName, main_position: guestPosition, use_free_guest: useFreeGuest })}
+                  onClick={() => addGuestMutation.mutate({ player_id: myPlayer.id, name: guestName, main_position: guestPosition, use_free_guest: useFreeGuest, guest_overall: guestLevel })}
                   disabled={!guestName || addGuestMutation.isPending}
                   className="w-full btn-primary bg-blue-600 hover:bg-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.3)] flex items-center justify-center gap-2 py-3 text-sm tracking-widest disabled:opacity-50"
                 >

@@ -23,8 +23,8 @@ class TeamPlayerSerializer(serializers.ModelSerializer):
             if evals:
                 evals.sort(key=lambda e: e.date, reverse=True)
                 return evals[0].overall
-            return None
-        return player.latest_overall
+            return player.guest_overall
+        return player.draw_overall
 
 
 class TeamSerializer(serializers.ModelSerializer):

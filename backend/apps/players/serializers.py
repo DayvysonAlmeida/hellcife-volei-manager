@@ -20,7 +20,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'avatar_url', 'status', 'status_display', 'latest_overall',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
-            'created_at', 'is_guest', 'invited_by', 'consecutive_absences', 'stats',
+            'created_at', 'is_guest', 'invited_by', 'guest_overall', 'consecutive_absences', 'stats',
             'gender',
             'elo', 'elo_tier', 'elo_tier_data',
         ]
@@ -126,7 +126,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'updated_at',
-            'is_guest', 'invited_by', 'consecutive_absences', 'badges',
+            'is_guest', 'invited_by', 'guest_overall', 'consecutive_absences', 'badges',
             'elo', 'elo_tier', 'elo_tier_data',
         ]
 
@@ -162,6 +162,6 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
             'phone', 'instagram', 'avatar', 'notes', 'status', 'user',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
-            'is_guest',
+            'is_guest', 'guest_overall',
         ]
         read_only_fields = ['id']

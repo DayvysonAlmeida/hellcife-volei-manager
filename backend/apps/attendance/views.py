@@ -40,6 +40,23 @@ def _deny_if_linked_account(request, player_id):
     return None
 
 
+def _guest_overall(data):
+    """
+    Nível temporário do convidado para o sorteio (1–3 iniciante, 4–7 intermediário, 8–10 avançado).
+    Devolve (nível, erro); sem nível informado, o sorteio usa 5 como antes.
+    """
+    value = data.get('guest_overall')
+    if value in (None, ''):
+        return None, None
+    try:
+        level = int(value)
+    except (TypeError, ValueError):
+        level = 0
+    if not 1 <= level <= 10:
+        return None, Response({'detail': 'O nível do convidado vai de 1 a 10.'}, status=status.HTTP_400_BAD_REQUEST)
+    return level, None
+
+
 class GameDayViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
@@ -126,9 +143,12 @@ class GameDayViewSet(viewsets.ModelViewSet):
         main_position = request.data.get('main_position')
         invited_by = request.data.get('invited_by')
         gender = request.data.get('gender', 'M')
+        guest_overall, error = _guest_overall(request.data)
 
         if not name or not main_position:
             return Response({'detail': 'Nome e Posição são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
+        if error:
+            return error
 
         existing_guest = Player.objects.filter(name=name, is_guest=True, attendances__gameday=gameday).first()
         if existing_guest:
@@ -142,6 +162,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
             gender=gender,
             is_guest=True,
             invited_by=invited_by,
+            guest_overall=guest_overall,
             status='active'
         )
 
@@ -660,6 +681,9 @@ class GameDayViewSet(viewsets.ModelViewSet):
         name = request.data.get('name')
         main_position = request.data.get('main_position', 'Outro')
         use_free_guest = request.data.get('use_free_guest', False)
+        guest_overall, error = _guest_overall(request.data)
+        if error:
+            return error
         
         if not player_id or not name:
             return Response({'detail': 'Jogador e Nome do convidado são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -693,6 +717,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
             main_position=main_position,
             is_guest=True,
             invited_by=inviting_player.name,
+            guest_overall=guest_overall,
             status='active'
         )
 

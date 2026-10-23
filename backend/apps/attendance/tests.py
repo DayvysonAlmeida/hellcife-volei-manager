@@ -676,3 +676,59 @@ class CloseCircuitTests(CircuitApiTestCase):
         self.assertEqual(self.patch(gd, is_published=True).status_code, 200)
         gd.refresh_from_db()
         self.assertIsNotNone(gd.published_at)
+
+
+class GuestLevelTests(TestCase):
+    """Nível temporário do convidado (1 a 10): escolhido ao convidar, usado no sorteio até ele ter avaliação."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user('admin@x.com', 'senha-forte-123', name='Admin', profile='admin')
+        self.client.force_authenticate(self.admin)
+        self.gd = GameDay.objects.create(date=date.today(), is_published=True)
+        self.host = make_player('Anfitrião')
+
+    def guest(self, name):
+        return Player.objects.get(name__startswith=name, is_guest=True)
+
+    def test_admin_and_athlete_choose_the_level(self):
+        admin = self.client.post(f'{BASE}/{self.gd.id}/add-guest/', {'name': 'Iniciante', 'main_position': 'setter', 'guest_overall': 2}, format='json')
+        athlete = self.client.post(f'{BASE}/{self.gd.id}/public-add-guest/', {
+            'player_id': self.host.id, 'name': 'Avançado', 'main_position': 'outside', 'guest_overall': 9,
+        }, format='json')
+        self.assertEqual((admin.status_code, athlete.status_code), (200, 200))
+        self.assertEqual((self.guest('Iniciante').guest_overall, self.guest('Avançado').guest_overall), (2, 9))
+
+    def test_level_outside_1_to_10_is_rejected(self):
+        for value in (0, 11, 'forte'):
+            response = self.client.post(f'{BASE}/{self.gd.id}/add-guest/', {'name': f'X{value}', 'main_position': 'setter', 'guest_overall': value}, format='json')
+            self.assertEqual(response.status_code, 400)
+        self.assertFalse(Player.objects.filter(is_guest=True).exists())
+
+    def test_admin_can_correct_the_level(self):
+        self.client.post(f'{BASE}/{self.gd.id}/add-guest/', {'name': 'Fulano', 'main_position': 'setter'}, format='json')
+        guest = self.guest('Fulano')
+        self.assertIsNone(guest.guest_overall)  # sem nível: o sorteio usa 5, como antes
+        response = self.client.patch(f'/api/players/{guest.id}/', {'guest_overall': 7}, format='json')
+        self.assertEqual(response.status_code, 200)
+        guest.refresh_from_db()
+        self.assertEqual(guest.guest_overall, 7)
+
+    def test_draw_uses_the_level_until_a_real_evaluation(self):
+        from apps.evaluations.models import Evaluation
+        from apps.teams.algorithm import get_players_with_overall
+        from apps.teams.models import Team, TeamGeneration, TeamPlayer
+        from apps.teams.serializers import TeamPlayerSerializer
+
+        guest = Player.objects.create(name='Convidado', main_position='setter', is_guest=True, guest_overall=2)
+        plain = Player.objects.create(name='Sem nível', main_position='setter', is_guest=True)
+        overall = {p['id']: p['overall'] for p in get_players_with_overall(player_ids=[guest.id, plain.id])}
+        self.assertEqual((overall[guest.id], overall[plain.id]), (2.0, 5.0))
+
+        team = Team.objects.create(generation=TeamGeneration.objects.create(modality=2), name='Time', order=0)
+        card = TeamPlayerSerializer(TeamPlayer.objects.create(team=team, player=guest)).data
+        self.assertEqual(card['player_overall'], 2)  # no card do time e no empréstimo da fila também
+
+        evaluation = Evaluation.objects.create(player=guest, evaluator=self.admin, date=date.today())
+        overall = {p['id']: p['overall'] for p in get_players_with_overall(player_ids=[guest.id])}
+        self.assertEqual(overall[guest.id], evaluation.overall)  # a avaliação de verdade passa a valer
