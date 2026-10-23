@@ -29,7 +29,7 @@ export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardD
              </h2>
              <p className="text-sm text-text-muted">
                Nota Fire Shark: {w.win_rate}% aproveitamento, {w.games}% jogos e {w.presence}% presença nos circuitos
-               {season && ` · mínimo de ${season.fire_shark_min_games} jogos e ${season.fire_shark_min_presence ?? 30}% de presença`}
+               {season && ` · mínimo de ${season.fire_shark_min_games} jogos`}
              </p>
            </div>
          </div>

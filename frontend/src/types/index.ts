@@ -825,8 +825,6 @@ export interface PlayerSeasonStats {
   fire_gains: { attend: number; miss: number; win: number } | null;
   fire_shark_min_games: number;
   games_to_fire_shark: number;
-  /** Circuitos seguidos que faltam para chegar à presença mínima do Fire Shark. */
-  days_to_fire_shark: number;
   gladiator_rank: number | null;
   attendance_rate: number;
   attended_days: number;
@@ -849,8 +847,6 @@ export interface SeasonInfo {
   end_date: string;
   days_left: number;
   fire_shark_min_games: number;
-  /** Presença mínima para entrar no Fire Shark, em %. */
-  fire_shark_min_presence?: number;
   /** Pesos da nota do Fire Shark, em %. */
   fire_shark_weights?: { win_rate: number; games: number; presence: number };
   /** Texto da premiação (escrito pelo admin na tela Temporadas). */

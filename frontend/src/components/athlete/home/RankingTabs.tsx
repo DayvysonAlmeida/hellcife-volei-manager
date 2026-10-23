@@ -79,7 +79,6 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
   const [tab, setTab] = useState<Tab>('fire');
   const [expanded, setExpanded] = useState(false);
   const minGames = dashboard.season?.fire_shark_min_games ?? 10;
-  const minPresence = dashboard.season?.fire_shark_min_presence ?? 30;
   const weights = dashboard.season?.fire_shark_weights ?? { win_rate: 60, games: 20, presence: 20 };
   const sharks = dashboard.fire_sharks ?? [];
   const winsList = dashboard.top_wins ?? [];
@@ -104,19 +103,11 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
     if (!season) return null;
     const rank = season.fire_shark_rank;
     if (rank == null || season.fire_score == null) {
-      const games = season.games_to_fire_shark;
-      const days = season.days_to_fire_shark ?? 0;
-      if (games <= 0 && days <= 0) return null;
-      const missing = [
-        games > 0 && plural(games, 'partida', 'partidas'),
-        days > 0 && plural(days, 'circuito', 'circuitos'),
-      ].filter(Boolean).join(' e ');
-      const verb = games + days === 1 ? 'Falta' : 'Faltam';
+      if (season.games_to_fire_shark <= 0) return null;
       return {
-        text: <>{verb} <b>{missing}</b> para você entrar no Fire Shark.</>,
-        // A barra anda pelo que estiver mais longe: partidas ou presença
-        progress: Math.min(100, (season.matches / season.fire_shark_min_games) * 100, (season.attendance_rate / minPresence) * 100),
-        detail: `${plural(season.matches, 'partida', 'partidas')} (mín. ${season.fire_shark_min_games}) · presença ${season.attended_days}/${season.total_days} = ${season.attendance_rate}% (mín. ${minPresence}%)`,
+        text: <>Faltam <b>{plural(season.games_to_fire_shark, 'partida', 'partidas')}</b> para você entrar no Fire Shark.</>,
+        progress: Math.min(100, (season.matches / season.fire_shark_min_games) * 100),
+        detail: `${season.matches} de ${season.fire_shark_min_games} partidas na ${season.name}`,
       };
     }
     const mine = season.fire_score;
@@ -217,7 +208,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
         <img src="/fireshark.webp" alt="" className="w-16 h-16 object-contain flex-shrink-0 drop-shadow-[0_0_18px_rgba(249,115,22,0.55)]" />
         <div className="min-w-0">
           <h2 className="font-display text-3xl sm:text-4xl leading-none italic -skew-x-6 text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-orange-500 to-red-600">FIRE SHARK</h2>
-          <p className="font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted mt-1">Mín. {minGames} partidas e {minPresence}% de presença</p>
+          <p className="font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted mt-1">Ranking da quadra · mín. {minGames} partidas</p>
         </div>
       </div>
     ),
@@ -242,7 +233,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
   }[tab];
 
   const empty = {
-    fire: `Ninguém chegou ao mínimo de ${minGames} partidas e ${minPresence}% de presença ainda.`,
+    fire: `Ninguém chegou ao mínimo de ${minGames} partidas ainda.`,
     wins: 'Nenhuma vitória registrada na temporada ainda.',
     stars: 'Ninguém ganhou estrelas ainda.',
   }[tab];
@@ -321,9 +312,8 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
             <p className="mt-2 leading-relaxed">
               A nota vai de 0 a 100: <b>{weights.win_rate} pontos</b> vêm do aproveitamento (vitórias ÷ partidas),{' '}
               <b>{weights.games}</b> dos jogos (quem mais jogou na temporada ganha os {weights.games}) e{' '}
-              <b>{weights.presence}</b> da presença (check-in na quadra em todos os dias de circuito da temporada;
-              falta justificada não conta). Para entrar no ranking, é preciso ter pelo menos {minGames} partidas
-              e {minPresence}% de presença na temporada.
+              <b>{weights.presence}</b> da presença nos dias de circuito (check-in na quadra).
+              Para entrar no ranking, é preciso ter pelo menos {minGames} partidas na temporada.
             </p>
           </details>
         )}
