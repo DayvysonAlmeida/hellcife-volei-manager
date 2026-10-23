@@ -16,9 +16,8 @@ from .serializers import (
 )
 from .filters import PlayerFilter
 from .rankings import (
-    fire_shark_entry, fire_shark_gains, fire_shark_min_games, fire_shark_positions, fire_shark_ranking, ranked_players,
-    season_payload, season_stats,
-    stars_ranking, wins_positions, wins_ranking,
+    fire_shark_days_missing, fire_shark_entry, fire_shark_gains, fire_shark_min_games, fire_shark_positions,
+    fire_shark_ranking, ranked_players, season_payload, season_stats, stars_ranking, wins_positions, wins_ranking,
 )
 from .seasons import ensure_current_season
 from apps.core.permissions import IsAdminOrModerator
@@ -486,10 +485,11 @@ class PlayerViewSet(viewsets.ModelViewSet):
         draws = total_matches - wins - losses
         win_rate = round(wins / total_matches * 100, 1) if total_matches > 0 else 0
 
-        # Presença: mesma regra das faltas (dias com circuito realizado, ida = check-in na quadra)
+        # Presença: dias com circuito realizado, ida = check-in na quadra. Na carreira, desde o cadastro
+        # (regra das faltas); na temporada, todos os dias dela (a mesma conta do Fire Shark).
         season = ensure_current_season()
         career_freq = frequency(player, circuit_days())
-        season_freq = frequency(player, circuit_days(season.start_date, season.end_date))
+        season_freq = frequency(player, circuit_days(season.start_date, season.end_date), since_registration=False)
 
         # Histórico de overall (1 query)
         evaluations = player.evaluations.order_by('date').values('date', 'overall')
@@ -528,6 +528,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'fire_gains': fire_shark_gains(fire_me) if fire_me else None,
             'fire_shark_min_games': min_games,
             'games_to_fire_shark': max(0, min_games - mine['matches']),
+            'days_to_fire_shark': fire_shark_days_missing(season_freq['attended_days'], season_freq['total_days']),
             'gladiator_rank': wins_positions(season).get(player.id),
             'attendance_rate': season_freq['rate'],
             'attended_days': season_freq['attended_days'],

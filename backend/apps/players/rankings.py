@@ -8,6 +8,7 @@ Só entram atletas ativos e que não são convidados.
 Elo, Fire Shark e Gladiador valem por temporada (semestral). As Estrelas são mérito acumulado.
 No Elo, só ganha posição quem terminou a calibração (10 jogos na temporada).
 """
+import math
 from statistics import median
 
 from django.db.models import Count, Q
@@ -17,6 +18,7 @@ from .models import Player
 # Fire Shark: nota de 0 a 100 que soma aproveitamento, jogos e presença na quadra (incentiva ir aos circuitos).
 FIRE_SHARK_MIN_FLOOR = 10          # nunca exige menos que isso
 FIRE_SHARK_MEDIAN_SHARE = 0.3      # precisa ter jogado 30% do que joga o atleta mediano da temporada
+FIRE_SHARK_MIN_PRESENCE = 30       # e ter ido a 30% dos dias com circuito da temporada
 FIRE_SHARK_WEIGHTS = {'win_rate': 0.6, 'games': 0.2, 'presence': 0.2}
 
 
@@ -112,10 +114,19 @@ def fire_shark_min_games(season=None, stats=None) -> int:
     return max(FIRE_SHARK_MIN_FLOOR, round(median(played) * FIRE_SHARK_MEDIAN_SHARE))
 
 
+def fire_shark_days_missing(attended: int, total_days: int) -> int:
+    """Quantos circuitos seguidos o atleta ainda precisa ir para chegar à presença mínima."""
+    shortfall = FIRE_SHARK_MIN_PRESENCE * total_days - 100 * attended
+    if not total_days or shortfall <= 0:
+        return 0
+    return math.ceil(shortfall / (100 - FIRE_SHARK_MIN_PRESENCE))
+
+
 def fire_shark_ranking(season=None):
     """
     Fire Shark da temporada, do melhor para o pior, pela nota (a mesma que as telas mostram).
-    Presença = mesma regra da frequência: check-in na quadra nos dias com circuito.
+    Presença = check-in na quadra sobre todos os dias com circuito da temporada (falta justificada
+    não conta). Para entrar: mínimo de partidas e de presença.
     Desempate: aproveitamento, partidas, saldo de pontos por partida e nome (ordem sempre estável).
     """
     from apps.attendance.frequency import circuit_days, frequency
@@ -123,15 +134,22 @@ def fire_shark_ranking(season=None):
     season = _season(season)
     stats = season_stats(season)
     min_games = fire_shark_min_games(season, stats)
-    players = [p for p in ranked_players() if stats.get(p.id, {}).get('matches', 0) >= min_games]
+    days = circuit_days(season.start_date, season.end_date)
+    players = []
+    for p in ranked_players():
+        if stats.get(p.id, {}).get('matches', 0) < min_games:
+            continue
+        freq = frequency(p, days, since_registration=False)
+        if fire_shark_days_missing(freq['attended_days'], freq['total_days']):
+            continue
+        p.attended_days, p.total_days = freq['attended_days'], freq['total_days']
+        players.append(p)
     if not players:
         return []
-    days = circuit_days(season.start_date, season.end_date)
     top_matches = max(stats[p.id]['matches'] for p in players)
     for p in players:
-        s, freq = stats[p.id], frequency(p, days)
+        s = stats[p.id]
         p.wins, p.total_matches, p.point_balance = s['wins'], s['matches'], s['balance']
-        p.attended_days, p.total_days = freq['attended_days'], freq['total_days']
         p.win_rate = p.wins / p.total_matches * 100
         p.presence_rate = p.attended_days / p.total_days * 100 if p.total_days else 0
         p.fire_points = fire_shark_points(p.win_rate, p.total_matches / top_matches * 100, p.presence_rate)
@@ -218,12 +236,13 @@ def stars_ranking():
 
 
 def season_payload(season=None) -> dict:
-    """Temporada atual para as telas: nome, datas, contagem regressiva, mínimo e pesos do Fire Shark."""
+    """Temporada atual para as telas: nome, datas, contagem regressiva, mínimos e pesos do Fire Shark."""
     from .seasons import season_info
 
     season = _season(season)
     return {
         **season_info(season),
         'fire_shark_min_games': fire_shark_min_games(season),
+        'fire_shark_min_presence': FIRE_SHARK_MIN_PRESENCE,
         'fire_shark_weights': {key: round(weight * 100) for key, weight in FIRE_SHARK_WEIGHTS.items()},
     }
