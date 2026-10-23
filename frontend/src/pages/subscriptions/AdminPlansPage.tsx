@@ -237,7 +237,7 @@ export function AdminPlansPage() {
                   <div className="w-8 h-8 rounded-full bg-red/10 border border-red/20 flex items-center justify-center shrink-0">
                     <Zap size={14} className="text-red" />
                   </div>
-                  <span><b className="text-white">{plan.credits}</b> Quadras inclusas</span>
+                  <span><b className="text-white">{plan.credits}</b> {plan.credits === 1 ? 'Check-in incluso' : 'Check-ins inclusos'}</span>
                 </div>
                 
                 <div className="flex items-center gap-3 text-white/80 font-medium">
