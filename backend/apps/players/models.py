@@ -41,6 +41,11 @@ class Player(models.Model):
 
     is_guest = models.BooleanField(default=False, verbose_name='É Convidado?', db_index=True)
     invited_by = models.CharField(max_length=150, blank=True, null=True, verbose_name='Convidado por')
+    # Atleta que convidou pelo app: é avisado quando o convidado entra na lista
+    invited_by_player = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='invited_guests', verbose_name='Convidado pelo atleta',
+    )
     guest_overall = models.PositiveSmallIntegerField(
         blank=True, null=True, validators=GUEST_LEVEL_VALIDATORS, verbose_name='Nível do convidado',
         help_text='Avaliação temporária para o sorteio: 1–3 iniciante, 4–7 intermediário, 8–10 avançado. '

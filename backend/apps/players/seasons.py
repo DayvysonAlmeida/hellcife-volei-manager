@@ -70,7 +70,54 @@ def ensure_current_season(today: date | None = None):
             if finalized_any:
                 from .elo_service import recalculate_all
                 recalculate_all(current)
+                notify_season_started(current)
     return current
+
+
+def notify_season_started(season):
+    """Avisa todos os atletas que a temporada nova começou (os pontos zeraram)."""
+    from apps.core.models import User
+    from apps.notifications.models import Notification
+    from apps.notifications.services import notify
+
+    notify([
+        Notification(
+            user=u, title=f'Começou a {season.name}! 🔥', type='circuit', url='/athlete',
+            message='Os pontos zeraram e o ranking recomeçou. Bora pra quadra!',
+        ) for u in User.objects.filter(profile='player', is_active=True)
+    ])
+
+
+def notify_results_validated(season):
+    """Resultado final validado: quem subiu ao pódio recebe a sua colocação; os demais, o aviso geral."""
+    from apps.core.models import User
+    from apps.notifications.models import Notification
+    from apps.notifications.services import notify
+    from .models import SeasonStanding
+
+    labels = {'fire_rank': 'Fire Shark', 'wins_rank': 'Gladiador', 'elo_rank': 'Elo'}
+    podium = {}
+    for standing in SeasonStanding.objects.filter(season=season).select_related('player'):
+        places = [f'{getattr(standing, field)}º no {label}' for field, label in labels.items()
+                  if getattr(standing, field) and getattr(standing, field) <= 3]
+        if places and standing.player.user_id:
+            podium[standing.player.user_id] = places
+
+    notifications = []
+    for u in User.objects.filter(profile='player', is_active=True):
+        places = podium.get(u.id)
+        if places:
+            text = f"{', '.join(places[:-1])} e {places[-1]}" if len(places) > 1 else places[0]
+            notifications.append(Notification(
+                user=u, title=f'Você está no pódio da {season.name}! 🏆', type='prize', url='/athlete/seasons',
+                message=f'Você ficou em {text}. Parabéns!',
+            ))
+        else:
+            notifications.append(Notification(
+                user=u, title=f'Resultado da {season.name} 🏆', type='prize', url='/athlete/seasons',
+                message='A classificação final foi validada. Veja o pódio na página Temporadas.',
+            ))
+    notify(notifications)
 
 
 def finalize_season(season) -> None:

@@ -40,6 +40,24 @@ def _deny_if_linked_account(request, player_id):
     return None
 
 
+CHECKIN_URL = '/athlete/checkin'   # tela do atleta com os circuitos, a presença e o pagamento
+WEEKDAYS = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']
+
+
+def _active_users(attendances):
+    """Usuários ativos dos atletas dessas presenças (quem não tem conta no app não recebe aviso)."""
+    return [a.player.user for a in attendances.select_related('player__user') if a.player.user and a.player.user.is_active]
+
+
+def _when_where(gameday):
+    """'domingo, 25/10, às 19h · Arena X'"""
+    text = f'{WEEKDAYS[gameday.date.weekday()]}, {gameday.date:%d/%m}'
+    if gameday.time:
+        text += ' às ' + gameday.time.strftime('%Hh%M').replace('h00', 'h')
+    place = gameday.arena_name or gameday.location
+    return f'{text} · {place}' if place else text
+
+
 def _guest_overall(data):
     """
     Nível temporário do convidado para o sorteio (1–3 iniciante, 4–7 intermediário, 8–10 avançado).
@@ -200,14 +218,18 @@ class GameDayViewSet(viewsets.ModelViewSet):
         from apps.notifications.services import notify
         date_str = gameday.date.strftime('%d/%m/%Y')
         users = User.objects.filter(profile='player', is_active=True)
-        notify([
+        notifications = [
             Notification(
                 user=u,
                 title='Circuito Liberado! 🏐',
                 message=f'A lista para o circuito do dia {date_str} já foi aberta. Entre para confirmar sua presença ou tirar sua falta!',
-                type='circuit'
+                type='circuit',
+                url=CHECKIN_URL,
             ) for u in users
-        ])
+        ]
+        for n in notifications:
+            n.push_action = 'Confirmar presença'
+        notify(notifications)
 
     @staticmethod
     def _reservation_payload(attendance, detail):
@@ -240,7 +262,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
                         user=u,
                         title='Circuito Fechado! 🛑',
                         message='O circuito fechou as vagas! Caso não tenha realizado o pagamento, faça agora para garantir a sua vaga.',
-                        type='circuit'
+                        type='circuit',
+                        url=CHECKIN_URL,
                     ) for u in present_users
                 ])
 
@@ -249,8 +272,18 @@ class GameDayViewSet(viewsets.ModelViewSet):
         was_published = instance.is_published
         was_closed = instance.is_closed
         old_price = instance.effective_price_per_person
+        old_schedule = self._schedule(instance)
+        old_date = instance.date
 
         gameday = serializer.save()
+
+        # Mudou dia, horário ou local de um circuito já divulgado: avisa quem tem vaga
+        if was_published and gameday.is_published and not gameday.is_closed and self._schedule(gameday) != old_schedule:
+            self._notify_list(
+                gameday.attendances.filter(Q(present=True) | Q(is_reserved=True)),
+                'Circuito alterado 📅',
+                f'O circuito de {old_date:%d/%m} mudou: agora é {_when_where(gameday)}.',
+            )
 
         # Circuito encerrado agora: recalcula faltas (mesma regra do botão "Sincronizar faltas")
         if not was_closed and gameday.is_closed:
@@ -270,6 +303,46 @@ class GameDayViewSet(viewsets.ModelViewSet):
             self._send_publish_notification(gameday)
 
         # Removido o _process_attendance_and_absences para usar apenas o sync_absences_logic() via Sincronizar Faltas ou Lock.
+
+    def perform_destroy(self, instance):
+        # Circuito divulgado que ainda não aconteceu: avisa quem estava na lista antes de apagar
+        if instance.is_published and not instance.is_closed and instance.date >= timezone.localdate():
+            self._notify_list(
+                instance.attendances.filter(Q(present=True) | Q(is_reserved=True) | Q(is_waitlist=True)),
+                'Circuito cancelado ❌',
+                f'O circuito de {instance.date:%d/%m} foi cancelado pela organização. Se você já pagou, fale com a organização.',
+            )
+        instance.delete()
+
+    @staticmethod
+    def _schedule(gameday):
+        return (gameday.date, gameday.time, gameday.time_end, gameday.location, gameday.arena_name)
+
+    @staticmethod
+    def _notify_list(attendances, title, message):
+        from apps.notifications.models import Notification
+        from apps.notifications.services import notify
+        notify([Notification(user=u, title=title, message=message, type='circuit', url=CHECKIN_URL) for u in _active_users(attendances)])
+
+    @staticmethod
+    def _notify_promoted(attendance):
+        """Saiu da fila e entrou na lista: avisa o atleta e, se for convidado, quem convidou pelo app."""
+        from apps.notifications.models import Notification
+        from apps.notifications.services import notify
+        player, day = attendance.player, f'{attendance.gameday.date:%d/%m}'
+        notifications = []
+        if player.user and player.user.is_active:
+            notifications.append(Notification(
+                user=player.user, title='Você entrou na lista! 🏐', type='circuit', url=CHECKIN_URL,
+                message=f'Abriu uma vaga no circuito de {day} e você saiu da fila de espera. Te vemos na quadra!',
+            ))
+        host = player.invited_by_player
+        if player.is_guest and host and host.user and host.user.is_active:
+            notifications.append(Notification(
+                user=host.user, title='Seu convidado entrou na lista 🙌', type='circuit', url=CHECKIN_URL,
+                message=f'{player.display_name} saiu da fila de espera do circuito de {day}.',
+            ))
+        notify(notifications)
 
     @action(detail=True, methods=['post'], url_path='bulk-attendance')
     def bulk_attendance(self, request, pk=None):
@@ -717,6 +790,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
             main_position=main_position,
             is_guest=True,
             invited_by=inviting_player.name,
+            invited_by_player=inviting_player,
             guest_overall=guest_overall,
             status='active'
         )
@@ -752,6 +826,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         next_player_att.waitlist_joined_at = None
         next_player_att.present = True
         next_player_att.save()
+        self._notify_promoted(next_player_att)
         self._check_and_notify_full_circuit(gameday)
         
         return Response({
@@ -780,8 +855,19 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if not (attendance.present or attendance.is_reserved):
             return Response({'detail': 'Você não tem vaga neste circuito.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        first_claim = not attendance.payment_claimed
         attendance.payment_claimed = True
         attendance.save()
+        if first_claim:
+            from apps.core.models import User
+            from apps.notifications.models import Notification
+            from apps.notifications.services import notify
+            notify([
+                Notification(
+                    user=u, title='Pagamento informado 💸', type='financial', url='/attendance',
+                    message=f'{attendance.player.display_name} informou o pagamento do circuito de {gameday.date:%d/%m}. Confira e confirme.',
+                ) for u in User.objects.filter(profile__in=('admin', 'moderator'), is_active=True)
+            ])
         
         return Response({'detail': 'Aviso de pagamento enviado com sucesso! O administrador irá confirmar em breve.', 'payment_claimed': True})
 

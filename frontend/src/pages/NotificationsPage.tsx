@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell, Check, Gift, Medal, Info, AlertTriangle, Trash2, BellOff, Filter, Send, Loader2, CircleDollarSign
@@ -68,6 +69,13 @@ export function NotificationsPage() {
   const isAdmin = user?.profile === 'admin' || user?.profile === 'moderator';
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const [filter, setFilter] = useState<FilterType>('all');
+  const navigate = useNavigate();
+
+  // Tocar na notificação marca como lida e abre a tela do assunto, quando ela tem uma
+  const open = (notification: Notification) => {
+    if (!notification.is_read) markAsRead(notification.id);
+    if (notification.url) navigate(notification.url);
+  };
   
   const [showGlobalForm, setShowGlobalForm] = useState(false);
   const [globalTitle, setGlobalTitle] = useState('');
@@ -134,6 +142,31 @@ export function NotificationsPage() {
           )}
         </div>
       </motion.div>
+
+      {/* Como fazer a notificação aparecer na tela do celular */}
+      <details className="card p-4 text-sm">
+        <summary className="cursor-pointer font-bold text-text-primary">Notificação não aparece na tela do celular?</summary>
+        <div className="mt-3 space-y-3 text-xs text-text-muted leading-relaxed">
+          <div>
+            <p className="font-bold text-text-primary">Android</p>
+            <p>
+              Configurações → Apps → HellCife (ou Chrome) → Notificações. Ligue “Mostrar na tela” (ou “Pop-up”) e o som.
+              Se o celular economiza bateria, deixe o app sem restrição para os avisos não atrasarem.
+            </p>
+          </div>
+          <div>
+            <p className="font-bold text-text-primary">iPhone</p>
+            <p>
+              No Safari, toque em Compartilhar → “Adicionar à Tela de Início” e abra o app pelo ícone. Depois, em Ajustes →
+              Notificações → HellCife, ative as notificações e escolha Faixas “Persistente” para o aviso ficar na tela até você ver.
+            </p>
+          </div>
+          <p>
+            Quando o app perguntar, toque em “Ativar Notificações”. Se você recusou antes, libere as notificações do site nas
+            configurações do navegador.
+          </p>
+        </div>
+      </details>
 
       {/* Form de Aviso Global (Apenas Admins) */}
       <AnimatePresence>
@@ -277,8 +310,14 @@ export function NotificationsPage() {
                       <Icon size={18} />
                     </div>
 
-                    {/* Conteúdo */}
-                    <div className="flex-1 min-w-0">
+                    {/* Conteúdo: tocar abre a tela do assunto */}
+                    <div
+                      className={cn('flex-1 min-w-0', notification.url && 'cursor-pointer')}
+                      role={notification.url ? 'link' : undefined}
+                      tabIndex={notification.url ? 0 : undefined}
+                      onClick={() => open(notification)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') open(notification); }}
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <p className={cn(
                           'text-sm font-semibold leading-tight',

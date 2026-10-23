@@ -14,7 +14,7 @@ def _notify(attendance, title, message):
     if user and user.is_active:
         from apps.notifications.models import Notification
         from apps.notifications.services import notify
-        notify([Notification(user=user, title=title, message=message, type='financial')])
+        notify([Notification(user=user, title=title, message=message, type='financial', url='/athlete/checkin')])
 
 
 class CircuitPaymentService:

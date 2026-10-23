@@ -21,6 +21,8 @@ class Notification(models.Model):
     title = models.CharField(max_length=200, verbose_name='Título')
     message = models.TextField(verbose_name='Mensagem')
     type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='system', verbose_name='Tipo')
+    # Tela do app que a notificação abre ao tocar (vazio: a lista de notificações)
+    url = models.CharField(max_length=200, blank=True, default='', verbose_name='Link')
     is_read = models.BooleanField(default=False, verbose_name='Lida')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Criada em')
 

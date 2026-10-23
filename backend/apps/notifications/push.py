@@ -52,12 +52,16 @@ def _vapid_subject():
 
 
 def _payload(notification, user):
+    created = notification.created_at
     return json.dumps({
         'id': notification.id,
         'title': notification.title[:MAX_TITLE],
         'body': notification.message[:MAX_BODY],
         'type': notification.type,
-        'url': '/athlete/notifications' if user.profile == 'player' else '/notifications',
+        # A tela do assunto; sem link, a lista de notificações
+        'url': notification.url or ('/athlete/notifications' if user.profile == 'player' else '/notifications'),
+        'action': getattr(notification, 'push_action', None),
+        'timestamp': int(created.timestamp() * 1000) if created else None,
     }, ensure_ascii=False)
 
 

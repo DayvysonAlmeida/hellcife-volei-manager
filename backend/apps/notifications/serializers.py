@@ -8,7 +8,7 @@ from .push import is_allowed_endpoint
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id', 'title', 'message', 'type', 'is_read', 'created_at']
+        fields = ['id', 'title', 'message', 'type', 'url', 'is_read', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 

@@ -25,6 +25,10 @@ self.addEventListener('push', (event) => {
       badge: '/badge-96x96.png', // silhueta branca da barra de status do Android
       tag: data.id ? `notif-${data.id}` : undefined,
       data: { id: data.id, url: appPath(data.url) },
+      vibrate: [200, 100, 200], // vibra como uma mensagem (Android)
+      timestamp: data.timestamp || Date.now(),
+      // Botão na notificação (Android): abre a mesma tela que o toque
+      actions: data.action ? [{ action: 'open', title: String(data.action).slice(0, 40) }] : [],
     });
     // Com o app aberto, a lista atualiza na hora, sem esperar a busca de 30s
     for (const client of await windowClients()) client.postMessage({ type: 'push' });

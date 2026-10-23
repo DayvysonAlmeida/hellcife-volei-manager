@@ -223,7 +223,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
                         user=player.user,
                         title='Mini Estrela Recebida! ⭐',
                         message=f'Você recebeu {diff} mini estrela(s) de {label}. Continue mandando ver!',
-                        type='prize'
+                        type='prize',
+                        url='/athlete/profile',
                     ))
 
             # Notifica forja da Estrela Maior
@@ -233,19 +234,21 @@ class PlayerViewSet(viewsets.ModelViewSet):
                     user=player.user,
                     title='ESTRELA FORJADA! 🌟',
                     message=f'Parabéns! Suas 15 mini estrelas formaram uma nova Estrela Completa! Agora você possui {new_big_stars} estrela(s).',
-                    type='prize'
+                    type='prize',
+                    url='/athlete/profile',
                 ))
-                
-                # 2. Notifica todos os outros jogadores (Broadcast)
+
+                # 2. Os outros atletas veem na lista do app, sem o celular apitar
                 from apps.core.models import User
                 other_users = User.objects.filter(profile='player', is_active=True).exclude(id=player.user.id)
-                for other_user in other_users:
-                    notifications_to_create.append(Notification(
+                notify([
+                    Notification(
                         user=other_user,
                         title='Estrela Forjada no Circuito! 🌟',
                         message=f'O atleta {player.display_name} acabou de forjar uma nova Estrela Completa e chegou a {new_big_stars} estrela(s)!',
-                        type='circuit'
-                    ))
+                        type='circuit',
+                    ) for other_user in other_users
+                ], push=False)
 
             notify(notifications_to_create)
 
@@ -376,7 +379,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
         """
         from django.db import transaction
         from .models import Season
-        from .seasons import finalize_season
+        from .seasons import finalize_season, notify_results_validated
 
         if getattr(request.user, 'profile', None) not in ('admin', 'moderator'):
             return Response({'detail': 'Só administradores podem fechar a temporada.'}, status=status.HTTP_403_FORBIDDEN)
@@ -387,8 +390,11 @@ class PlayerViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 finalize_season(season)
         else:
+            first_validation = season.results_validated_at is None
             season.results_validated_at, season.results_validated_by = timezone.now(), request.user
             season.save(update_fields=['results_validated_at', 'results_validated_by'])
+            if first_validation:
+                notify_results_validated(season)
         return Response({'number': season.number, 'validated': season.results_validated_at is not None})
 
     @action(detail=False, methods=['patch'], url_path=r'seasons/(?P<number>\d+)/prize')

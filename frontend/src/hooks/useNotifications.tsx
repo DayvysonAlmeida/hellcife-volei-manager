@@ -293,7 +293,7 @@ export function useNotificationAlerts(
         message: n.message,
         onOpen: () => {
           markAsRead(n.id);
-          navigate(listPath);
+          navigate(n.url || listPath);
         },
       });
     });
