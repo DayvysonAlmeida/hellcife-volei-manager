@@ -51,6 +51,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 pass
             elif 'is_guest' not in self.request.query_params:
                 qs = qs.filter(is_guest=False)
+            # Cadastros esperando aprovação ficam na aba própria, não na lista de atletas
+            if 'status' not in self.request.query_params:
+                qs = qs.exclude(status='pending')
 
             # Na listagem, anotar o overall mais recente via subquery para eliminar N+1.
             qs = qs.annotate(

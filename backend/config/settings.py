@@ -192,6 +192,11 @@ REST_FRAMEWORK = {
     # Classe customizada que respeita ?page_size= na query string (max 1000)
     'DEFAULT_PAGINATION_CLASS': 'apps.core.pagination.StandardPagination',
     'PAGE_SIZE': 20,
+    # Limite de tentativas só nas rotas abertas do cadastro (ScopedRateThrottle nas próprias views)
+    'DEFAULT_THROTTLE_RATES': {
+        'signup': '10/hour',
+        'confirm-email': '30/hour',
+    },
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 

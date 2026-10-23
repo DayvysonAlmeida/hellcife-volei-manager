@@ -10,7 +10,7 @@ import { DEFAULT_GUEST_LEVEL } from '@/lib/guestLevel';
 import { PositionBadge } from '@/components/ui/Badges';
 import { playersService } from '@/services/players';
 import { attendanceService } from '@/services';
-import type { Position, Attendance, Player } from '@/types';
+import { GENDER_LABELS, GENDER_ORDER, type Gender, type Position, type Attendance, type Player } from '@/types';
 import { useAuth } from '@/store/AuthContext';
 
 interface GuestModalProps {
@@ -37,7 +37,7 @@ export function GuestModal({
   const [guestTab, setGuestTab] = useState<'list' | 'new'>('list');
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<Position>('outside');
-  const [guestGender, setGuestGender] = useState<'M' | 'F'>('M');
+  const [guestGender, setGuestGender] = useState<Gender>('M');
   const [guestInvitedBy, setGuestInvitedBy] = useState(user?.name || '');
   const [guestLevel, setGuestLevel] = useState<number>(DEFAULT_GUEST_LEVEL);
 
@@ -51,7 +51,7 @@ export function GuestModal({
 
   // Mutations
   const addGuestMutation = useMutation({
-    mutationFn: (data: { name: string; main_position: Position; invited_by: string; gender: 'M' | 'F'; guest_overall: number }) =>
+    mutationFn: (data: { name: string; main_position: Position; invited_by: string; gender: Gender; guest_overall: number }) =>
       attendanceService.addGuest(gameDayId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['gameday', gameDayId] });
@@ -199,11 +199,10 @@ export function GuestModal({
               </label>
               <select
                 value={guestGender}
-                onChange={(e) => setGuestGender(e.target.value as 'M' | 'F')}
+                onChange={(e) => setGuestGender(e.target.value as Gender)}
                 className="input w-full"
               >
-                <option value="M">Masculino</option>
-                <option value="F">Feminino</option>
+                {GENDER_ORDER.map((g) => <option key={g} value={g}>{GENDER_LABELS[g]}</option>)}
               </select>
             </div>
 

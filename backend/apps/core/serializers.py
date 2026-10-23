@@ -1,4 +1,4 @@
-from rest_framework import serializers
+from rest_framework import exceptions, serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User
 from django.contrib.auth.tokens import default_token_generator
@@ -17,6 +17,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
+        # Cadastro pelo app: só entra depois de clicar no link do e-mail (a senha já foi conferida acima)
+        if not self.user.email_confirmed:
+            raise exceptions.PermissionDenied({
+                'detail': 'Confirme o seu e-mail para entrar: clique no link que enviamos.',
+                'code': 'email_not_confirmed',
+            })
         data['user'] = UserSerializer(self.user).data
         return data
 

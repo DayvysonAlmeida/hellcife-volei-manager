@@ -5,6 +5,7 @@ import { AuthProvider } from '@/store/AuthContext';
 import { ThemeProvider } from '@/store/ThemeContext';
 import { queryClient } from '@/lib/queryClient';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PendingApprovalGate } from '@/components/layout/PendingApprovalGate';
 import { AdminRoute, PlayerRoute, PublicRoute } from '@/routes/guards';
 import { Toaster } from 'react-hot-toast';
 import { PageLoading } from '@/components/ui/Loading';
@@ -32,6 +33,8 @@ const LeaderboardPage = lazy(() => import('@/pages/LeaderboardPage').then(m => (
 const AdminSubscriptionsPage = lazy(() => import('@/pages/subscriptions/AdminSubscriptionsPage').then(m => ({ default: m.AdminSubscriptionsPage })));
 const AdminPlansPage = lazy(() => import('@/pages/subscriptions/AdminPlansPage').then(m => ({ default: m.AdminPlansPage })));
 const FinanceDashboardPage = lazy(() => import('@/pages/subscriptions/FinanceDashboardPage').then(m => ({ default: m.FinanceDashboardPage })));
+const SignupPage = lazy(() => import('@/pages/SignupPage').then(m => ({ default: m.SignupPage })));
+const ConfirmEmailPage = lazy(() => import('@/pages/ConfirmEmailPage').then(m => ({ default: m.ConfirmEmailPage })));
 const RegulationPage = lazy(() => import('@/pages/RegulationPage').then(m => ({ default: m.RegulationPage })));
 const CircuitFinancePage = lazy(() => import('@/pages/finance/CircuitFinancePage').then(m => ({ default: m.CircuitFinancePage })));
 const RegulationAdminPage = lazy(() => import('@/pages/RegulationAdminPage').then(m => ({ default: m.RegulationAdminPage })));
@@ -83,6 +86,17 @@ function App() {
               }
             />
             
+            {/* Cadastro de novos integrantes (o link do e-mail abre mesmo com alguém logado no aparelho) */}
+            <Route
+              path="/cadastro"
+              element={
+                <PublicRoute>
+                  <SignupPage />
+                </PublicRoute>
+              }
+            />
+            <Route path="/confirmar-email" element={<ConfirmEmailPage />} />
+
             <Route path="/checkin/:id" element={<CheckinPage />} />
 
             {/* ── Portal do Atleta ────────────────────────────────── */}
@@ -90,7 +104,9 @@ function App() {
               path="/athlete"
               element={
                 <PlayerRoute>
-                  <AppLayout />
+                  <PendingApprovalGate>
+                    <AppLayout />
+                  </PendingApprovalGate>
                 </PlayerRoute>
               }
             >

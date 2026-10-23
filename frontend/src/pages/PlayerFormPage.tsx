@@ -11,7 +11,7 @@ import { playersService } from '@/services/players';
 import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
-import { POSITION_LABELS } from '@/types';
+import { GENDER_LABELS, GENDER_ORDER, POSITION_LABELS } from '@/types';
 
 const schema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
@@ -23,7 +23,7 @@ const schema = z.object({
   main_position: z.enum(['libero', 'setter', 'opposite', 'outside', 'middle', 'universal']),
   secondary_position: z.enum(['libero', 'setter', 'opposite', 'outside', 'middle', 'universal', '']).optional(),
   dominant_hand: z.enum(['right', 'left', 'both']),
-  gender: z.enum(['M', 'F']),
+  gender: z.enum(['F', 'M', 'NB', 'O', 'N']),
   phone: z.string().optional(),
   instagram: z.string().optional(),
   avatar: z.any().optional(),
@@ -218,10 +218,9 @@ export function PlayerFormPage() {
               <option value="both">Ambidestro</option>
             </select>
           </Field>
-          <Field label="Gênero / Sexo">
+          <Field label="Gênero (autodeclarado)">
             <select {...register('gender')} className="input w-full">
-              <option value="M">Masculino</option>
-              <option value="F">Feminino</option>
+              {GENDER_ORDER.map((g) => <option key={g} value={g}>{GENDER_LABELS[g]}</option>)}
             </select>
           </Field>
           <Field label="Status">

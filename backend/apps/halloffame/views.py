@@ -1,5 +1,5 @@
 from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -26,7 +26,7 @@ class HallOfFameViewSet(viewsets.ModelViewSet):
 
 class RegulationTextViewSet(viewsets.ModelViewSet):
     """Endpoint para gerenciar o texto do regulamento.
-    - GET: qualquer autenticado lê.
+    - GET: aberto (quem vai se cadastrar lê o regulamento antes de aceitar).
     - POST/PUT/PATCH: apenas admin/moderador; sempre gravam no registro único (id=1).
     - DELETE não é permitido.
     """
@@ -37,7 +37,7 @@ class RegulationTextViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update']:
             return [IsAdminOrModerator()]
-        return [IsAuthenticated()]
+        return [AllowAny()]
 
     def get_object(self):
         obj, _ = RegulationText.objects.get_or_create(

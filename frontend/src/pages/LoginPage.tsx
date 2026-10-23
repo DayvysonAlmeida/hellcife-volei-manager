@@ -8,6 +8,7 @@ import { Eye, EyeOff, Loader2, ArrowRight, Sun, Moon } from 'lucide-react';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { cn } from '@/lib/utils';
+import { signupService } from '@/services/signup';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -23,12 +24,24 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const { theme, toggleTheme } = useTheme();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resent, setResent] = useState('');
+
+  const resendConfirmation = async () => {
+    try {
+      setResent((await signupService.resendConfirmation(getValues('email'))).detail);
+    } catch {
+      setResent('Não foi possível reenviar agora. Espere um pouco e tente de novo.');
+    }
+  };
 
   const onSubmit = async (data: LoginForm) => {
     setError('');
+    setUnconfirmed(false);
+    setResent('');
     try {
       await login(data.email, data.password);
       // Redireciona baseado no perfil
@@ -39,7 +52,13 @@ export function LoginPage() {
       } else {
         navigate('/dashboard');
       }
-    } catch {
+    } catch (err: any) {
+      // Cadastrou pelo app e ainda não clicou no link do e-mail
+      if (err.response?.data?.code === 'email_not_confirmed') {
+        setUnconfirmed(true);
+        setError(err.response.data.detail);
+        return;
+      }
       setError('E-mail ou senha incorretos. Tente novamente.');
     }
   };
@@ -152,6 +171,17 @@ export function LoginPage() {
             {error && (
               <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-red/10 border border-red/20 rounded-xl p-3 mb-6 text-red text-sm text-center relative z-10 font-medium backdrop-blur-sm">
                 {error}
+                {unconfirmed && (
+                  <div className="mt-2">
+                    {resent ? (
+                      <p className="text-green-600 dark:text-green-400 text-xs">{resent}</p>
+                    ) : (
+                      <button type="button" onClick={resendConfirmation} className="text-xs font-bold underline underline-offset-2">
+                        Reenviar o link de confirmação
+                      </button>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -236,6 +266,11 @@ export function LoginPage() {
                 </div>
               </button>
             </form>
+
+            <p className="text-center text-sm text-gray-500 dark:text-white/60 mt-6 relative z-10">
+              Ainda não tem conta?{' '}
+              <Link to="/cadastro" className="font-bold text-red hover:underline underline-offset-2">Criar conta</Link>
+            </p>
           </div>
           
           <p className="text-center text-gray-400 dark:text-white/30 text-[10px] mt-8 uppercase tracking-widest font-medium select-none">

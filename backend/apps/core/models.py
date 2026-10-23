@@ -32,6 +32,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     avatar_url = models.URLField(blank=True, null=True, verbose_name='URL do Avatar')
     is_active = models.BooleanField(default=True, verbose_name='Ativo')
     is_staff = models.BooleanField(default=False, verbose_name='Staff')
+    # Quem se cadastra pelo app só entra depois de clicar no link do e-mail; contas criadas pela staff já valem
+    email_confirmed = models.BooleanField(default=True, verbose_name='E-mail confirmado')
     date_joined = models.DateTimeField(auto_now_add=True, verbose_name='Data de cadastro')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Última atualização')
 

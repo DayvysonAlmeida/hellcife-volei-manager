@@ -109,6 +109,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
     avatar_url = serializers.SerializerMethodField()
     badges = PlayerBadgeSerializer(many=True, read_only=True)
     elo_tier_data = serializers.SerializerMethodField()
+    legal_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -126,7 +127,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'updated_at',
-            'is_guest', 'invited_by', 'guest_overall', 'consecutive_absences', 'badges',
+            'is_guest', 'invited_by', 'guest_overall', 'consecutive_absences', 'badges', 'legal_name',
             'elo', 'elo_tier', 'elo_tier_data',
         ]
 
@@ -152,6 +153,13 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
     def get_elo_tier_data(self, obj):
         return get_elo_progress(obj.elo)
 
+    def get_legal_name(self, obj):
+        """Nome civil: só a staff vê (no app aparece o nome social)."""
+        request = self.context.get('request')
+        if getattr(getattr(request, 'user', None), 'profile', None) in ('admin', 'moderator'):
+            return obj.legal_name
+        return None
+
 
 class PlayerWriteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -162,6 +170,6 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
             'phone', 'instagram', 'avatar', 'notes', 'status', 'user',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
-            'is_guest', 'guest_overall',
+            'is_guest', 'guest_overall', 'legal_name',
         ]
         read_only_fields = ['id']

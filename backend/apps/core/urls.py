@@ -5,6 +5,7 @@ from .views import (
     CustomTokenObtainPairView, MeView, UserViewSet,
     ForgotPasswordView, ResetPasswordView
 )
+from apps.players.signup import ConfirmEmailView, ResendConfirmationView, SignupView
 
 router = DefaultRouter()
 router.register('users', UserViewSet, basename='users')
@@ -15,5 +16,9 @@ urlpatterns = [
     path('me/', MeView.as_view(), name='me'),
     path('forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
     path('reset-password/', ResetPasswordView.as_view(), name='reset_password'),
+    # Cadastro de novos integrantes pelo app
+    path('signup/', SignupView.as_view(), name='signup'),
+    path('confirm-email/', ConfirmEmailView.as_view(), name='confirm_email'),
+    path('resend-confirmation/', ResendConfirmationView.as_view(), name='resend_confirmation'),
     path('', include(router.urls)),
 ]

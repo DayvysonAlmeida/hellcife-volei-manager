@@ -22,9 +22,14 @@ class Player(models.Model):
         ('both', 'Ambidestro'),
     ]
 
+    # Autodeclarado (LGPD: só o necessário; ninguém precisa dizer se é cis ou trans). O sorteio espalha
+    # quem marcou "Mulher" entre os times; as demais opções entram no sorteio normal.
     GENDER_CHOICES = [
-        ('M', 'Masculino'),
-        ('F', 'Feminino'),
+        ('F', 'Mulher'),
+        ('M', 'Homem'),
+        ('NB', 'Pessoa não binária'),
+        ('O', 'Outro'),
+        ('N', 'Prefiro não informar'),
     ]
 
     STATUS_CHOICES = [
@@ -32,9 +37,17 @@ class Player(models.Model):
         ('inactive', 'Inativo'),
         ('injured', 'Lesionado'),
         ('suspended', 'Suspenso'),
+        ('pending', 'Aguardando aprovação'),  # cadastrou-se pelo app; não aparece em listas nem rankings
     ]
 
-    name = models.CharField(max_length=150, verbose_name='Nome')
+    name = models.CharField(max_length=150, verbose_name='Nome')  # nome social: o que aparece no app
+    legal_name = models.CharField(
+        max_length=150, blank=True, default='', verbose_name='Nome completo (civil)',
+        help_text='Opcional. Só a staff vê.',
+    )
+    terms_accepted_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='Aceitou regulamento e uso dos dados em',
+    )
     nickname = models.CharField(max_length=80, blank=True, null=True, verbose_name='Apelido')
     shirt_number = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Número da camisa')
     age = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='Idade')
@@ -58,7 +71,7 @@ class Player(models.Model):
         max_length=20, choices=POSITION_CHOICES, blank=True, null=True, verbose_name='Posição secundária'
     )
     dominant_hand = models.CharField(max_length=10, choices=HAND_CHOICES, default='right', verbose_name='Mão dominante')
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, default='M', verbose_name='Sexo')
+    gender = models.CharField(max_length=2, choices=GENDER_CHOICES, default='M', verbose_name='Gênero')
     phone = models.CharField(max_length=20, blank=True, null=True, verbose_name='Telefone')
     instagram = models.CharField(max_length=100, blank=True, null=True, verbose_name='Instagram')
     avatar = models.FileField(upload_to='avatars/', blank=True, null=True, verbose_name='Foto do Jogador')

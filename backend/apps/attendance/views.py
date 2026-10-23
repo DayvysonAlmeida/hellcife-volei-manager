@@ -162,6 +162,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
         invited_by = request.data.get('invited_by')
         gender = request.data.get('gender', 'M')
         guest_overall, error = _guest_overall(request.data)
+        if gender not in dict(Player.GENDER_CHOICES):
+            return Response({'detail': 'Gênero inválido.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not name or not main_position:
             return Response({'detail': 'Nome e Posição são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)

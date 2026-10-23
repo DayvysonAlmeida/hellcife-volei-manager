@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Search, Filter, Grid, List, Edit, Trash2, Eye, Users, Star, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Avatar } from '@/components/ui/Avatar';
 import { OverallBadge } from '@/components/ui/OverallBadge';
 import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
@@ -12,11 +12,12 @@ import { TableSkeleton } from '@/components/ui/skeletons/TableSkeleton';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { PlayerCard } from '@/components/players/PlayerCard';
+import { PendingSignups } from '@/components/players/PendingSignups';
 import { playersService } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
 import { useDebounce } from '@/lib/useDebounce';
 import toast from 'react-hot-toast';
-import { type Position } from '@/types';
+import { GENDER_LABELS, GENDER_ORDER, type Gender, type Position } from '@/types';
 import type { Player } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ const PAGE_SIZE = 24;
 export function PlayersPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
@@ -44,7 +46,7 @@ export function PlayersPage() {
   const [guestTab, setGuestTab] = useState<'list' | 'new'>('list');
   const [guestName, setGuestName] = useState('');
   const [guestPosition, setGuestPosition] = useState<Position>('outside');
-  const [guestGender, setGuestGender] = useState<'M' | 'F'>('M');
+  const [guestGender, setGuestGender] = useState<Gender>('M');
   const [guestInvitedBy, setGuestInvitedBy] = useState(user?.name || '');
   
   const { data: guestsData, isLoading: loadingGuests } = useQuery({
@@ -165,6 +167,9 @@ export function PlayersPage() {
           </div>
         )}
       </div>
+
+      {/* Cadastros feitos pelo app esperando aprovação */}
+      {canEdit && <PendingSignups highlight={searchParams.get('aba') === 'pendentes'} />}
 
       {/* Filters & Search */}
       <div className="card p-4">
@@ -485,11 +490,10 @@ export function PlayersPage() {
                   </label>
                   <select
                     value={guestGender}
-                    onChange={(e) => setGuestGender(e.target.value as 'M' | 'F')}
+                    onChange={(e) => setGuestGender(e.target.value as Gender)}
                     className="input-glass"
                   >
-                    <option value="M">Masculino</option>
-                    <option value="F">Feminino</option>
+                    {GENDER_ORDER.map((g) => <option key={g} value={g}>{GENDER_LABELS[g]}</option>)}
                   </select>
                 </div>
 

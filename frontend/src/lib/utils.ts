@@ -24,6 +24,7 @@ export function getStatusClass(status: PlayerStatus): string {
     inactive: 'badge-inactive',
     injured: 'badge-injured',
     suspended: 'badge-suspended',
+    pending: 'badge-injured',
   };
   return classes[status] || 'badge-inactive';
 }

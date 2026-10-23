@@ -40,8 +40,9 @@ export interface PlayerBadge {
 }
 export type Position = 'libero' | 'setter' | 'opposite' | 'outside' | 'middle' | 'universal';
 export type DominantHand = 'right' | 'left' | 'both';
-export type Gender = 'M' | 'F';
-export type PlayerStatus = 'active' | 'inactive' | 'injured' | 'suspended';
+/** Autodeclarado. No sorteio, quem marcou "Mulher" (F) é espalhada entre os times. */
+export type Gender = 'F' | 'M' | 'NB' | 'O' | 'N';
+export type PlayerStatus = 'active' | 'inactive' | 'injured' | 'suspended' | 'pending';
 
 export const POSITION_LABELS: Record<Position, string> = {
   libero: 'Líbero',
@@ -59,15 +60,21 @@ export const HAND_LABELS: Record<DominantHand, string> = {
 };
 
 export const GENDER_LABELS: Record<Gender, string> = {
-  M: 'Masculino',
-  F: 'Feminino',
+  F: 'Mulher',
+  M: 'Homem',
+  NB: 'Pessoa não binária',
+  O: 'Outro',
+  N: 'Prefiro não informar',
 };
+
+export const GENDER_ORDER: Gender[] = ['F', 'M', 'NB', 'O', 'N'];
 
 export const STATUS_LABELS: Record<PlayerStatus, string> = {
   active: 'Ativo',
   inactive: 'Inativo',
   injured: 'Lesionado',
   suspended: 'Suspenso',
+  pending: 'Aguardando aprovação',
 };
 
 export interface Player {
@@ -110,6 +117,8 @@ export interface Player {
   invited_by?: string;
   /** Convidado: nível temporário para o sorteio (1–10), até ter uma avaliação de verdade. */
   guest_overall?: number | null;
+  /** Nome completo (civil): só vem para a staff; no app aparece o nome social. */
+  legal_name?: string | null;
   consecutive_absences: number;
   badges?: PlayerBadge[];
   elo: number;
