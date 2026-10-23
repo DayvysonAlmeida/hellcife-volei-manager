@@ -7,8 +7,7 @@ import type { DashboardData, SeasonInfo } from '@/types';
 
 export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardData['fire_sharks']; season?: SeasonInfo }) {
   if (!fireSharks || fireSharks.length === 0) return null;
-  const w = season?.fire_shark_weights ?? { win_rate: 60, games: 20, presence: 20 };
-  const title = season?.fire_shark_rules?.mode === 'nova' ? season.fire_shark_rules.title : null;
+  const values = season?.fire_shark_points ?? { win: 3, loss: 1, circuit: 10 };
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -29,17 +28,7 @@ export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardD
                TUBARÕES DA QUADRA <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/30">TOP 10</span>
              </h2>
              <p className="text-sm text-text-muted">
-               {title ? (
-                 <>
-                   Disputa do título · nota: {w.win_rate} de desempenho, {w.presence} de presença e {w.games} de regularidade ·
-                   requisitos: {title.games} partidas, {title.circuits} circuitos e {title.months} meses
-                 </>
-               ) : (
-                 <>
-                   Nota Fire Shark: {w.win_rate}% aproveitamento, {w.games}% jogos e {w.presence}% presença nos circuitos
-                   {season && ` · mínimo de ${season.fire_shark_min_games} jogos`}
-                 </>
-               )}
+               Pontos da temporada: vitória {values.win}, derrota {values.loss} e circuito {values.circuit}
              </p>
            </div>
          </div>
@@ -65,7 +54,7 @@ export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardD
               {idx + 1}
             </div>
             
-            <Avatar name={player.name} src={player.avatar_url} size={idx === 0 ? "lg" : "md"} className={idx === 0 ? "ring-2 ring-orange-500" : ""} />
+            <Avatar name={player.name} src={player.avatar_url ?? undefined} size={idx === 0 ? "lg" : "md"} className={idx === 0 ? "ring-2 ring-orange-500" : ""} />
             
             <div className="flex-1 min-w-0">
               <h3 className={`font-bold truncate ${idx === 0 ? 'text-orange-400 text-base' : 'text-text-primary text-sm'}`}>
@@ -73,20 +62,20 @@ export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardD
               </h3>
               <div className="flex items-center gap-2 mt-1">
                 <PositionBadge position={player.position as any} className="text-[9px] px-1.5 py-0.5" />
-                <span className="text-text-muted text-xs">{player.wins}V - {player.total_matches - player.wins}D</span>
+                <span className="text-text-muted text-xs">{player.wins}V - {player.losses}D</span>
               </div>
               <p className="text-text-muted text-[11px] mt-1 truncate">
-                {player.win_rate}% · {title ? `${player.attended_days} circuitos` : `${player.attended_days}/${player.total_days} presenças`}
+                {player.win_rate}% · {player.circuits} {player.circuits === 1 ? 'circuito' : 'circuitos'}
               </p>
             </div>
             
             <div className="flex flex-col items-end">
                <div className="flex items-center gap-1">
                  <span className={`font-display ${idx === 0 ? 'text-2xl text-orange-400' : 'text-xl text-text-primary'}`}>
-                   {player.score.toFixed(1)}
+                   {player.score}
                  </span>
                </div>
-               <span className="text-[9px] text-text-muted uppercase font-bold tracking-widest mt-0.5">Nota</span>
+               <span className="text-[9px] text-text-muted uppercase font-bold tracking-widest mt-0.5">Pontos</span>
             </div>
           </Link>
         ))}

@@ -404,34 +404,22 @@ export interface DashboardCategoryWinner {
   created_at: string;
 }
 
-/** O que falta para disputar o Fire Shark (na pré-temporada, só partidas). */
-export interface FireSharkMissing { games: number; circuits: number; months: number }
+/** Quanto vale cada ação no Fire Shark. */
+export interface FireSharkPoints { win: number; loss: number; circuit: number }
 
-/** Linha do Fire Shark: a nota, de onde ela vem e o que falta para disputar. */
+/** Linha do Fire Shark: os pontos da temporada e de onde eles vêm. */
 export interface FireSharkEntry {
   id: number;
   name: string;
   avatar_url: string | null;
-  win_rate: number;
-  score: number;
   wins: number;
+  losses: number;
   total_matches: number;
+  win_rate: number;
   /** Dias de circuito com check-in na quadra. */
-  attended_days: number;
-  /** Na pré-temporada: dias de circuito desde o cadastro (a presença é uma porcentagem). */
-  total_days: number;
-  active_months: number;
-  points: { win_rate: number; presence: number; games: number };
-  missing: FireSharkMissing;
-}
-
-/** Regras do Fire Shark na temporada: 'atual' na pré-temporada, 'nova' (com título) a partir da Temporada 1. */
-export interface FireSharkRules {
-  mode: 'atual' | 'nova';
-  points: { win_rate: number; presence: number; games: number };
-  games_target: number | null;
-  circuits_target: number | null;
-  title: FireSharkMissing | null;
+  circuits: number;
+  score: number;
+  points: { wins: number; losses: number; circuits: number };
 }
 
 export interface DashboardStats {
@@ -439,8 +427,6 @@ export interface DashboardStats {
   top_wins: DashboardTopPlayer[];
   top_stars: DashboardTopPlayer[];
   fire_sharks: FireSharkEntry[];
-  /** Fórmula nova: quem aparece mas ainda não disputa o título. */
-  fire_sharks_pending?: FireSharkEntry[];
   recent_stars: DashboardRecentStar[];
   last_category_winners: Record<string, DashboardCategoryWinner>;
 }
@@ -711,19 +697,7 @@ export interface DashboardData {
   top_winners: TopWinner[];
   top_elo?: EloRankingEntry[];
   position_distribution: PositionDist[];
-  fire_sharks: Array<{
-    id: number;
-    name: string;
-    avatar_url?: string;
-    position: string;
-    wins: number;
-    total_matches: number;
-    win_rate: number;
-    score: number;
-    attended_days: number;
-    total_days: number;
-    active_months: number;
-  }>;
+  fire_sharks: Array<FireSharkEntry & { position: string }>;
   dream_team: Array<{
     id: number;
     name: string;
@@ -841,17 +815,10 @@ export interface PlayerSeasonStats {
   win_rate: number;
   point_balance: number;
   fire_shark_rank: number | null;
-  /** Nota do Fire Shark (0 a 100) e as três partes dela, já com o peso. */
+  /** Pontos do Fire Shark na temporada e de onde eles vêm (null = ainda não pontuou). */
   fire_score: number | null;
-  fire_points: { win_rate: number; games: number; presence: number } | null;
-  /** Quanto a nota muda indo ou faltando ao próximo circuito e a cada vitória. */
-  fire_gains: { attend: number; miss: number; win: number } | null;
-  /** Fórmula nova: o que falta para disputar o título, circuitos e meses na temporada. */
-  fire_missing?: FireSharkMissing | null;
-  fire_circuits?: number | null;
-  fire_months?: number | null;
-  fire_shark_min_games: number;
-  games_to_fire_shark: number;
+  fire_points: FireSharkEntry['points'] | null;
+  fire_circuits: number;
   gladiator_rank: number | null;
   attendance_rate: number;
   attended_days: number;
@@ -873,10 +840,8 @@ export interface SeasonInfo {
   start_date: string | null;
   end_date: string;
   days_left: number;
-  fire_shark_min_games: number;
-  /** Pesos da nota do Fire Shark, em %. */
-  fire_shark_weights?: { win_rate: number; games: number; presence: number };
-  fire_shark_rules?: FireSharkRules;
+  /** Quanto vale cada ação no Fire Shark. */
+  fire_shark_points?: FireSharkPoints;
   /** Texto da premiação (escrito pelo admin na tela Temporadas). */
   prize_notes?: string;
   /** Só na pré-temporada: quando começa a Temporada 1. */
@@ -906,25 +871,6 @@ export interface PastSeason {
   validated: boolean;
   validated_at: string | null;
   podium: { elo: SeasonPodiumEntry[]; fire_shark: SeasonPodiumEntry[]; gladiator: SeasonPodiumEntry[] };
-}
-
-/** Prévia da fórmula nova do Fire Shark (só admin), ao lado do ranking de hoje. */
-export interface FireSharkPreviewRow extends FireSharkEntry {
-  /** Posição na disputa do título pela fórmula nova (null = ainda não elegível). */
-  position: number | null;
-  /** Posição no ranking que os atletas veem hoje. */
-  current_position: number | null;
-}
-
-interface Spread { median: number; p25: number; p75: number }
-
-export interface FireSharkPreview {
-  formula: Omit<FireSharkRules, 'mode'>;
-  season_days: number;
-  matches: Spread;
-  circuits: Spread;
-  scores: { min: number | null; median: number | null; max: number | null; bands: { from: number; count: number }[] };
-  rows: FireSharkPreviewRow[];
 }
 
 export interface SeasonsResponse {

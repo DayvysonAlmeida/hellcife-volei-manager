@@ -77,7 +77,6 @@ from unittest.mock import patch  # noqa: E402
 
 from . import elo_service  # noqa: E402
 from .models import Season, SeasonStanding  # noqa: E402
-from .rankings import fire_shark_min_games  # noqa: E402
 from .seasons import ensure_current_season, season_bounds, season_number_for  # noqa: E402
 
 
@@ -202,97 +201,8 @@ class SeasonRolloverTests(TestCase):
         self.assertIn(podium['fire_shark'][0]['player_id'], {a.id, b.id})
 
 
-class FireSharkRuleTests(SeasonRolloverTests):
-    """Fire Shark: mínimo proporcional à temporada e desempate pelo saldo de pontos."""
-
-    def test_minimum_grows_with_the_season(self):
-        a, b, c, d = self.players
-        with self.at(date(2026, 12, 20)):
-            self.assertEqual(fire_shark_min_games(), 10)
-            for i in range(50):
-                self.play(date(2026, 11, 1), [a, b], [c, d])
-            self.assertEqual(fire_shark_min_games(), 15)  # 30% da mediana de 50 jogos
-
-    def test_point_balance_breaks_ties(self):
-        a, b, c, d = self.players
-        with self.at(date(2026, 12, 20)):
-            for _ in range(10):
-                self.play(date(2026, 11, 1), [a], [c], score=(21, 5))
-                self.play(date(2026, 11, 1), [b], [d], score=(21, 19))
-            ranking = [p.id for p in fire_shark_ranking()]
-        self.assertEqual(ranking[:2], [a.id, b.id])  # mesmo aproveitamento, saldo maior primeiro
-
-    test_rollover_saves_standings_and_resets_elo = None
-    test_editing_history_replays_the_season = None
-    test_seasons_endpoint_shows_podium = None
-
-
-from datetime import datetime  # noqa: E402
-
-from django.utils import timezone  # noqa: E402
-
 from apps.attendance.models import CourtCheckin, GameDay  # noqa: E402
 from .rankings import fire_shark_entry  # noqa: E402
-
-
-class FireSharkScoreTests(SeasonRolloverTests):
-    """Fire Shark: nota = 60% aproveitamento + 20% jogos + 20% presença na quadra, e a ordem segue a nota."""
-
-    def setUp(self):
-        super().setUp()
-        # Os dias com circuito contam a partir do cadastro do atleta
-        Player.objects.update(created_at=timezone.make_aware(datetime(2026, 1, 1)))
-
-    def circuit(self, day, *went):
-        gd = GameDay.objects.create(date=day, is_closed=True, is_published=True)
-        for p in went:
-            CourtCheckin.objects.create(gameday=gd, player=p)
-
-    def test_presence_weighs_in_the_score(self):
-        a, b, c, d = self.players
-        with self.at(date(2026, 12, 20)):
-            for _ in range(10):
-                self.play(date(2026, 11, 1), [a, b], [c, d])
-            self.circuit(date(2026, 11, 1), a, b, c)
-            for i in range(1, 4):
-                self.circuit(date(2026, 11, 1) + timedelta(days=i), a, c)
-            rows = [fire_shark_entry(p) for p in fire_shark_ranking()]
-        self.assertEqual([r['id'] for r in rows], [a.id, b.id, c.id, d.id])
-        # a: 60 (100% de vitórias) + 20 (jogos) + 20 (4 de 4 dias); b foi a 1 dia só
-        self.assertEqual([r['score'] for r in rows], [100.0, 85.0, 40.0, 20.0])
-        self.assertEqual((rows[1]['attended_days'], rows[1]['total_days']), (1, 4))
-
-    def test_games_and_presence_can_beat_a_higher_win_rate(self):
-        a, b, c, d = self.players
-        with self.at(date(2026, 12, 20)):
-            for _ in range(10):
-                self.play(date(2026, 11, 1), [a], [d])  # a: 10 de 10, mas jogou pouco e não foi aos circuitos
-            for i in range(30):
-                self.play(date(2026, 11, 1), *([[b], [c]] if i < 18 else [[c], [b]]))  # b: 18 de 30
-            self.circuit(date(2026, 11, 1), b, c)
-            self.circuit(date(2026, 11, 2), b, c)
-            data = self.client.get('/api/players/dashboard-stats/').data
-        rows = data['fire_sharks']
-        self.assertEqual([r['id'] for r in rows], [b.id, a.id, c.id, d.id])
-        self.assertEqual([r['score'] for r in rows], [76.0, 66.7, 64.0, 6.7])  # a ordem é a da nota mostrada
-        self.assertEqual(data['season']['fire_shark_weights'], {'win_rate': 60, 'games': 20, 'presence': 20})
-
-    def test_profile_shows_the_score_and_what_each_thing_is_worth(self):
-        a, b, c, d = self.players
-        with self.at(date(2026, 12, 20)):
-            for _ in range(10):
-                self.play(date(2026, 11, 1), [a, b], [c, d])
-            self.circuit(date(2026, 11, 1), a, b, c, d)
-            self.circuit(date(2026, 11, 2), a)
-            season = self.client.get(f'/api/players/{b.id}/stats/').data['season']
-        self.assertEqual(season['fire_score'], 90.0)  # 60 + 20 + 10 (1 de 2 dias)
-        self.assertEqual(season['fire_points'], {'win_rate': 60.0, 'games': 20.0, 'presence': 10.0})
-        # Ir ao próximo: 2 de 3 dias (+3.3). Faltar: 1 de 3 (−3.3). Vitória: já tem 100% e é quem mais jogou.
-        self.assertEqual(season['fire_gains'], {'attend': 3.3, 'miss': -3.3, 'win': 0.0})
-
-    test_rollover_saves_standings_and_resets_elo = None
-    test_editing_history_replays_the_season = None
-    test_seasons_endpoint_shows_podium = None
 
 
 class EloRankingTests(SeasonRolloverTests):
@@ -420,8 +330,7 @@ class PlayerStatsTests(SeasonRolloverTests):
         self.assertEqual(data['total_matches'], 5)  # carreira
         season = data['season']
         self.assertEqual((season['number'], season['matches'], season['wins'], season['win_rate']), (1, 2, 1, 50.0))
-        self.assertEqual((season['fire_shark_min_games'], season['games_to_fire_shark']), (10, 8))
-        self.assertIsNone(season['fire_shark_rank'])
+        self.assertEqual((season['fire_shark_rank'], season['fire_score']), (1, 4))  # 1 vitória (3) + 1 derrota (1)
         self.assertEqual(season['gladiator_rank'], 1)
 
     test_rollover_saves_standings_and_resets_elo = None
@@ -480,28 +389,24 @@ class RankingLeaderAlertTests(TestCase):
         self.assertEqual(self.alerts('Estrelas'), self.athletes)
 
 
-# ─── Fire Shark: fórmula nova (a partir da Temporada 1) ──────────────────────
+# ─── Fire Shark: pontos por ação ─────────────────────────────────────────────
 
 from apps.attendance.models import Attendance  # noqa: E402
 from apps.teams.models import Team, TeamGeneration  # noqa: E402
-from .rankings import FIRE_SHARK_FORMULAS, fire_shark_pending, fire_shark_table  # noqa: E402
 
 
-class FireSharkNewRulesTests(SeasonRolloverTests):
-    """
-    Fórmula nova: 50 × V/J + 30 × mín(circuitos ÷ 16, 1) + 20 × mín(partidas ÷ 60, 1).
-    Todos aparecem; disputa o título quem tem 20 partidas, 8 circuitos e 3 meses na temporada.
-    """
+class FireSharkPointsTests(SeasonRolloverTests):
+    """Fire Shark: vitória 3, derrota 1 e circuito 10 na temporada. Tudo soma, nada desconta."""
 
-    DAY = date(2027, 6, 20)   # Temporada 1
+    DAY = date(2026, 12, 20)   # pré-temporada
 
     def setUp(self):
         super().setUp()
         self.players = list(Player.objects.order_by('name'))
 
-    def table(self, **changes):
-        rows = fire_shark_table(formula={**FIRE_SHARK_FORMULAS['nova'], **changes})
-        return {p.id: p for p in rows}, [p.id for p in rows if p.fire_eligible]
+    def ranking(self):
+        rows = fire_shark_ranking()
+        return {p.id: p for p in rows}, [p.id for p in rows]
 
     def circuit(self, day, *went, published=True):
         gd = GameDay.objects.create(date=day, is_closed=True, is_published=published)
@@ -510,136 +415,90 @@ class FireSharkNewRulesTests(SeasonRolloverTests):
         return gd
 
     def circuits(self, count, *went, first=0):
-        """Circuitos a cada 10 dias a partir de 10/jan (8 deles cobrem jan, fev e mar)."""
-        return [self.circuit(date(2027, 1, 10) + timedelta(days=10 * i), *went) for i in range(first, first + count)]
+        return [self.circuit(date(2026, 10, 1) + timedelta(days=i), *went) for i in range(first, first + count)]
 
-    def series(self, winner, loser, wins, total, day=date(2027, 2, 1)):
+    def series(self, winner, loser, wins, total, day=date(2026, 9, 1)):
         for i in range(total):
             self.play(day, *([[winner], [loser]] if i < wins else [[loser], [winner]]))
 
-    def test_points_follow_the_formula(self):
-        """Casos 1 e 2: poucas partidas rendem pouca regularidade; muitas rendem os 20 pontos."""
+    def test_points_per_action(self):
         a, b, c, d = self.players
         with self.at(self.DAY):
-            self.series(a, d, 20, 20)   # a: 20 de 20
-            self.series(b, c, 36, 60)   # b: 36 de 60
-            self.circuits(8, a, b, c, d)
-            rows, ranked = self.table()
-        entries = {pid: fire_shark_entry(rows[pid]) for pid in ranked}
-        self.assertEqual(entries[a.id]['points'], {'win_rate': 50.0, 'presence': 15.0, 'games': 6.7})
-        self.assertEqual(entries[b.id]['points'], {'win_rate': 30.0, 'presence': 15.0, 'games': 20.0})
-        self.assertEqual([entries[pid]['score'] for pid in ranked], [71.7, 65.0, 55.0, 21.7])
+            self.series(a, d, 15, 20)   # a: 15V 5D; d: 5V 15D
+            self.circuits(4, a)
+            self.circuits(1, d, first=4)
+            rows, ranked = self.ranking()
+        self.assertEqual(ranked, [a.id, d.id])  # b e c não jogaram nem foram a circuitos
+        self.assertEqual(fire_shark_entry(rows[a.id])['points'], {'wins': 45, 'losses': 5, 'circuits': 40})
+        self.assertEqual((rows[a.id].fire_score, rows[d.id].fire_score), (90, 40))
 
-    def test_checkin_counts_even_without_games_that_day(self):
-        """Casos 3 e 4: o check-in vale a presença, mesmo sem jogar naquele circuito."""
+    def test_newcomer_with_one_circuit_stays_behind_the_regulars(self):
         a, b, c, d = self.players
         with self.at(self.DAY):
-            self.series(a, b, 10, 20)   # as partidas foram num dia sem circuito
-            self.circuits(12, a)
-            rows, _ = self.table()
-        self.assertEqual(rows[a.id].attended_days, 12)
-        self.assertEqual(rows[a.id].fire_points['presence'], 22.5)
+            self.series(b, c, 20, 40)   # b e c: 20V 20D e 6 circuitos = 140
+            self.circuits(6, b, c)
+            self.series(a, d, 24, 25)   # a, o novato: 24V 1D e 1 circuito = 83
+            self.circuit(date(2026, 12, 1), a)
+            rows, ranked = self.ranking()
+        self.assertEqual(rows[a.id].fire_score, 83)
+        self.assertGreater(ranked.index(a.id), ranked.index(b.id))
+        self.assertGreater(ranked.index(a.id), ranked.index(c.id))
 
     def test_nobody_loses_points_for_a_break(self):
-        """Ficar um tempo sem ir: outros circuitos e outras partidas não tiram pontos de quem parou."""
         a, b, c, d = self.players
         with self.at(self.DAY):
             self.series(a, b, 15, 30)
-            self.circuits(8, a, b)
-            before, _ = self.table()
-            self.circuits(6, b, first=8)                       # a sumiu por dois meses
-            self.series(b, c, 40, 50, day=date(2027, 4, 1))   # e os outros jogaram muito
-            after, _ = self.table()
-        self.assertEqual(after[a.id].fire_score_exact, before[a.id].fire_score_exact)
+            self.circuits(5, a, b)
+            before, _ = self.ranking()
+            self.circuits(6, b, c, first=5)                    # a sumiu
+            self.series(b, c, 30, 40, day=date(2026, 11, 1))   # e os outros jogaram muito
+            after, _ = self.ranking()
+        self.assertEqual(after[a.id].fire_score, before[a.id].fire_score)
 
-    def test_athlete_who_joined_mid_season(self):
-        """Caso 5: os circuitos de antes da chegada não pesam; vale o que ele frequentou."""
+    def test_what_counts_as_a_circuit(self):
+        """Um por dia; circuito não publicado não conta; falta justificada não vale ponto."""
         a, b, c, d = self.players
         with self.at(self.DAY):
-            self.series(d, c, 10, 20, day=date(2027, 3, 1))
-            Player.objects.filter(pk=d.pk).update(created_at=timezone.make_aware(datetime(2027, 2, 15)))
-            self.circuits(4, a, c)
-            self.circuits(8, a, c, d, first=4)
-            rows, ranked = self.table()
-        self.assertEqual(rows[d.id].attended_days, 8)
-        self.assertEqual(rows[d.id].fire_points['presence'], 15.0)
-        self.assertIn(d.id, ranked)
+            self.series(a, b, 5, 10)
+            self.circuit(date(2026, 10, 1), a)
+            self.circuit(date(2026, 10, 1), a, b)              # outro circuito no mesmo dia
+            self.circuit(date(2026, 10, 2), a, published=False)
+            justified = self.circuit(date(2026, 10, 3), b)
+            Attendance.objects.create(gameday=justified, player=a, is_justified=True)
+            rows, _ = self.ranking()
+        self.assertEqual(rows[a.id].circuits, 1)
 
-    def test_justified_absence_neither_counts_nor_costs(self):
-        """Caso 6: falta justificada não dá presença e, como nada é porcentagem, também não tira."""
+    def test_checkin_without_games_still_scores(self):
         a, b, c, d = self.players
         with self.at(self.DAY):
-            self.series(a, b, 10, 20)
-            days = self.circuits(4, b)
-            for gd in days[:3]:
-                CourtCheckin.objects.create(gameday=gd, player=a)
-            Attendance.objects.create(gameday=days[3], player=a, is_justified=True)
-            rows, _ = self.table()
-        self.assertEqual(rows[a.id].attended_days, 3)
+            self.series(a, b, 5, 10)
+            self.circuits(2, c)
+            rows, _ = self.ranking()
+        self.assertEqual((rows[c.id].fire_score, rows[c.id].win_rate), (20, 0))
 
-    def test_unpublished_or_cancelled_circuit_does_not_count(self):
-        """Caso 7: circuito não publicado ou sem ninguém na quadra (cancelado) não conta."""
+    def test_ties_follow_wins_then_circuits(self):
         a, b, c, d = self.players
         with self.at(self.DAY):
-            self.series(a, b, 10, 20)
-            self.circuits(2, a, b)
-            self.circuit(date(2027, 5, 1), a, b, published=False)
-            self.circuit(date(2027, 5, 2))
-            rows, _ = self.table()
-        self.assertEqual(rows[a.id].attended_days, 2)
+            self.series(a, c, 1, 1)     # a: 1V + 1 circuito = 13
+            self.circuit(date(2026, 10, 1), a)
+            self.series(b, c, 1, 1)     # b: 1V 10D = 13
+            self.series(d, b, 10, 10)   # d: 10V = 30
+            rows, ranked = self.ranking()
+        self.assertEqual((rows[a.id].fire_score, rows[b.id].fire_score), (13, 13))
+        self.assertEqual(ranked, [d.id, a.id, b.id, c.id])   # a e b: mesmas vitórias; a foi a mais circuitos
 
-    def test_title_requirements_and_one_circuit_marathon(self):
-        """Casos 8 e 9: todos aparecem; quem não cumpre os requisitos vê o que falta e não disputa o título."""
-        a, b, c, d = self.players
-        with self.at(self.DAY):
-            self.series(a, d, 10, 19)                          # a: 19 partidas
-            self.series(d, a, 0, 1)
-            marathon = self.circuit(date(2027, 5, 15), b)      # b: 40 partidas num circuito só
-            self.series(b, c, 24, 40, day=date(2027, 5, 15))
-            self.circuits(8, a, d)
-            for i in range(8):                                 # c: 8 circuitos, todos em janeiro
-                self.circuit(date(2027, 1, 2) + timedelta(days=i), c)
-            self.series(c, b, 20, 20, day=date(2027, 1, 2))
-            rows, ranked = self.table()
-            pending = [p.id for p in fire_shark_pending()]
-        self.assertEqual(rows[a.id].fire_missing, {'games': 0, 'circuits': 0, 'months': 0})
-        self.assertEqual(rows[b.id].fire_missing, {'games': 0, 'circuits': 7, 'months': 1})  # mai + jan (jogou com c)
-        self.assertEqual(rows[c.id].fire_missing, {'games': 0, 'circuits': 0, 'months': 1})  # jan + mai (jogou com b)
-        self.assertEqual(sorted(ranked), sorted([a.id, d.id]))
-        self.assertEqual(sorted(pending), sorted([b.id, c.id]))
-        self.assertTrue(marathon.court_checkins.filter(player=b).exists())
-
-    def test_ties_follow_win_rate_circuits_and_name(self):
-        """Caso 10: mesma nota e mesmo aproveitamento; decide quem foi a mais circuitos, depois o nome."""
-        a, b, c, d = self.players
-        with self.at(self.DAY):
-            self.series(a, c, 10, 20)   # a e c: 50% em 20 partidas, 13 circuitos
-            self.series(b, d, 20, 40)   # b e d: 50% em 40 partidas, 8 circuitos
-            self.circuits(8, a, b, c, d)
-            self.circuits(5, a, c, first=8)
-            rows, ranked = self.table(games_target=40, circuits_target=15)
-        # 25 + 26 + 10 = 25 + 16 + 20 = 61 para os quatro
-        self.assertEqual(len({rows[p].fire_score_exact for p in ranked}), 1)
-        self.assertEqual(ranked, [a.id, c.id, b.id, d.id])
-
-    def test_rules_change_with_the_season(self):
-        """Caso 11: a pré-temporada segue a fórmula de antes; a Temporada 1 usa a nova, sem misturar resultados."""
+    def test_new_season_does_not_mix_results(self):
         a, b, c, d = self.players
         self.series(a, b, 30, 30, day=date(2026, 10, 1))
         self.series(b, a, 10, 10, day=date(2027, 1, 10))
         self.circuit(date(2026, 10, 1), a, b)
         self.circuit(date(2027, 1, 10), a, b)
-        with self.at(date(2026, 12, 20)):
-            pre = self.client.get('/api/players/dashboard-stats/').data['season']['fire_shark_rules']
         with self.at(date(2027, 2, 1)):
-            season_1 = self.client.get('/api/players/dashboard-stats/').data['season']['fire_shark_rules']
-            rows = {p.id: p for p in fire_shark_table()}
-        self.assertEqual((pre['mode'], season_1['mode']), ('atual', 'nova'))
-        self.assertEqual(season_1['title'], {'games': 20, 'circuits': 8, 'months': 3})
-        self.assertEqual((rows[a.id].wins, rows[a.id].total_matches, rows[a.id].attended_days), (0, 10, 1))
+            rows, _ = self.ranking()
+        self.assertEqual((rows[a.id].wins, rows[a.id].losses, rows[a.id].circuits, rows[a.id].fire_score), (0, 10, 1, 20))
 
     def test_duplicated_corrected_and_deleted_matches(self):
-        """Caso 12: jogo da fila salvo duas vezes conta uma; corrigir ou apagar a partida recalcula a nota."""
+        """Jogo da fila salvo duas vezes conta uma; corrigir ou apagar a partida recalcula os pontos."""
         a, b, c, d = self.players
         gen = TeamGeneration.objects.create(modality=2, created_by=self.admin)
         red = Team.objects.create(generation=gen, name='Vermelho', color_hex='#f00', order=0)
@@ -653,101 +512,49 @@ class FireSharkNewRulesTests(SeasonRolloverTests):
 
         with self.at(self.DAY):
             payload = {
-                'match': {'date': '2027-03-01', 'modality': 2, 'team_generation': gen.id},
+                'match': {'date': '2026-11-01', 'modality': 2, 'team_generation': gen.id},
                 'teams': teams(21, 15), 'bracket_key': f'{gen.id}:1',
             }
             match_id = self.client.post('/api/matches/quick/', payload, format='json').data['id']
             self.client.post('/api/matches/quick/', payload, format='json')  # o outro celular salvando o mesmo jogo
-            rows, _ = self.table()
-            self.assertEqual((rows[a.id].wins, rows[a.id].total_matches), (1, 1))
+            rows, _ = self.ranking()
+            self.assertEqual((rows[a.id].wins, rows[a.id].fire_score), (1, 3))
 
             self.client.post(f'/api/matches/{match_id}/result/', {'teams': teams(15, 21)}, format='json')  # placar corrigido
-            rows, _ = self.table()
-            self.assertEqual((rows[a.id].wins, rows[c.id].wins), (0, 1))
+            rows, _ = self.ranking()
+            self.assertEqual((rows[a.id].fire_score, rows[c.id].fire_score), (1, 3))
 
             self.client.delete(f'/api/matches/{match_id}/')
-            rows, _ = self.table()
+            rows, _ = self.ranking()
             self.assertNotIn(a.id, rows)
 
-    def test_without_matches_or_without_circuits(self):
-        """Caso 13: sem partidas não aparece; sem circuitos, a presença vale 0 e falta para o título."""
+    def test_screens_show_points_and_where_they_come_from(self):
         a, b, c, d = self.players
         with self.at(self.DAY):
-            self.series(a, b, 15, 30)
-            rows, ranked = self.table()
-        self.assertNotIn(c.id, rows)
-        self.assertEqual(ranked, [])
-        self.assertEqual(rows[a.id].fire_points, {'win_rate': 25.0, 'presence': 0.0, 'games': 10.0})
-        self.assertEqual(rows[a.id].fire_missing['circuits'], 8)
-
-    def test_score_always_between_0_and_100(self):
-        """Caso 14: o melhor caso possível dá 100 e ninguém fica abaixo de 0."""
-        a, b, c, d = self.players
-        with self.at(self.DAY):
-            self.series(a, d, 60, 60)
-            self.circuits(16, a, d)
-            rows, _ = self.table()
-        self.assertEqual(rows[a.id].fire_score_exact, 100)
-        self.assertEqual(rows[d.id].fire_score_exact, 50)   # 0 vitórias: só presença e regularidade
-        self.assertTrue(all(0 <= p.fire_score <= 100 for p in rows.values()))
-
-    def test_screens_show_title_race_and_who_is_still_qualifying(self):
-        a, b, c, d = self.players
-        with self.at(self.DAY):
-            self.series(a, d, 20, 20)
-            self.series(b, c, 25, 25)
-            self.circuits(8, a, d)
-            self.circuit(date(2027, 5, 1), b, c)
-            data = self.client.get('/api/players/dashboard-stats/').data
+            self.series(a, b, 10, 12)
+            self.circuits(3, a, b)
+            dashboard = self.client.get('/api/players/dashboard-stats/').data
+            admin = self.client.get('/api/dashboard/').data
             mine = self.client.get(f'/api/players/{b.id}/stats/').data['season']
-        self.assertEqual([r['id'] for r in data['fire_sharks']], [a.id, d.id])
-        self.assertEqual([r['id'] for r in data['fire_sharks_pending']], [b.id, c.id])
-        self.assertEqual(data['fire_sharks_pending'][0]['missing'], {'games': 0, 'circuits': 7, 'months': 1})  # fev + mai
-        self.assertIsNone(mine['fire_shark_rank'])
-        self.assertEqual((mine['fire_score'], mine['fire_circuits'], mine['fire_months']), (60.2, 1, 2))  # 50 + 1,9 + 8,3
-        self.assertEqual(mine['fire_gains']['miss'], 0.0)   # faltar não tira pontos
+        top = dashboard['fire_sharks'][0]
+        self.assertEqual((top['id'], top['score'], top['circuits']), (a.id, 62, 3))   # 30 + 2 + 30
+        self.assertEqual(dashboard['season']['fire_shark_points'], {'win': 3, 'loss': 1, 'circuit': 10})
+        self.assertEqual([r['id'] for r in admin['fire_sharks']], [a.id, b.id])
+        self.assertEqual((mine['fire_shark_rank'], mine['fire_score'], mine['fire_circuits']), (2, 46, 3))  # 6 + 10 + 30
+        self.assertEqual(mine['fire_points'], {'wins': 6, 'losses': 10, 'circuits': 30})
+
+    def test_final_standings_keep_the_points(self):
+        a, b, c, d = self.players
+        self.series(a, b, 8, 10, day=date(2026, 10, 1))
+        self.circuit(date(2026, 10, 1), a)
+        with self.at(date(2027, 1, 3)):
+            ensure_current_season()
+        top = SeasonStanding.objects.get(season__number=0, fire_rank=1)
+        self.assertEqual((top.player_id, top.fire_score), (a.id, 36))   # 24 + 2 + 10
 
     test_rollover_saves_standings_and_resets_elo = None
     test_editing_history_replays_the_season = None
     test_seasons_endpoint_shows_podium = None
-
-
-class FireSharkPreviewApiTests(FireSharkNewRulesTests):
-    """Prévia do admin: só admin e moderador; dá para testar as metas antes de valerem."""
-
-    def test_only_admins_see_the_preview(self):
-        athlete = User.objects.create_user('atleta@x.com', 'senha-forte-123', name='Atleta', profile='player')
-        self.client.force_authenticate(athlete)
-        self.assertEqual(self.client.get('/api/players/fire-shark-preview/').status_code, 403)
-
-    def test_preview_compares_positions_and_accepts_targets(self):
-        a, b, c, d = self.players
-        with self.at(date(2026, 12, 20)):   # pré-temporada: compara a fórmula de hoje com a nova
-            self.series(a, d, 20, 20, day=date(2026, 9, 1))
-            self.series(b, c, 18, 30, day=date(2026, 10, 1))
-            for i in range(8):
-                self.circuit(date(2026, 9, 1) + timedelta(days=10 * i), a, b, c, d)
-            data = self.client.get('/api/players/fire-shark-preview/', {'partidas': 20, 'circuitos': 8}).data
-            bad = self.client.get('/api/players/fire-shark-preview/', {'circuitos': 'abc'})
-        self.assertEqual(bad.status_code, 400)
-        self.assertEqual((data['formula']['games_target'], data['formula']['circuits_target']), (20, 8))
-        row = next(r for r in data['rows'] if r['id'] == a.id)
-        self.assertEqual((row['position'], row['current_position'], row['score']), (1, 1, 100.0))
-        self.assertEqual(sum(band['count'] for band in data['scores']['bands']), 4)
-
-    test_points_follow_the_formula = None
-    test_checkin_counts_even_without_games_that_day = None
-    test_nobody_loses_points_for_a_break = None
-    test_athlete_who_joined_mid_season = None
-    test_justified_absence_neither_counts_nor_costs = None
-    test_unpublished_or_cancelled_circuit_does_not_count = None
-    test_title_requirements_and_one_circuit_marathon = None
-    test_ties_follow_win_rate_circuits_and_name = None
-    test_rules_change_with_the_season = None
-    test_duplicated_corrected_and_deleted_matches = None
-    test_without_matches_or_without_circuits = None
-    test_score_always_between_0_and_100 = None
-    test_screens_show_title_race_and_who_is_still_qualifying = None
 
 
 class SeasonValidationTests(SeasonRolloverTests):

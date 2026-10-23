@@ -96,13 +96,13 @@ class DashboardView(APIView):
             })
 
         # -------------------------------------------------------------
-        # Ranking Fire Shark (nota: aproveitamento, jogos e presença)
+        # Ranking Fire Shark (pontos: vitória, derrota e circuito)
         # -------------------------------------------------------------
         fire_list = [{**fire_shark_entry(p), 'position': p.main_position} for p in fire_shark_ranking()]
         fire_sharks = fire_list[:10]
 
         # -------------------------------------------------------------
-        # Dream Team (O melhor de cada posição pela nota Fire Shark)
+        # Dream Team (O melhor de cada posição nos pontos do Fire Shark)
         # -------------------------------------------------------------
         dream_team = []
         # Definimos as posições essenciais para o Dream Team

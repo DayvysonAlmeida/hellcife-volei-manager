@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight, Crown, Info, Share2, Star, Target, Trophy } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
-import type { DashboardStats, FireSharkMissing, PlayerSeasonStats } from '@/types';
+import type { DashboardStats, PlayerSeasonStats } from '@/types';
 
 type Tab = 'fire' | 'wins' | 'stars';
 const VISIBLE = 5;
@@ -11,7 +11,7 @@ const MINI_PER_BIG = 15;
 
 interface Row {
   id: number;
-  position: number | null; // null: aparece, mas ainda não disputa o título
+  position: number;
   name: string;
   avatarUrl?: string | null;
   sub: string;
@@ -42,43 +42,16 @@ function densePositions(values: number[]) {
   });
 }
 
-const pts = (n: number) => n.toFixed(1);
-
-/** Nota do Fire Shark (a mesma que ordena o ranking). */
+/** Pontos do Fire Shark (os mesmos que ordenam o ranking). */
 function FireValue({ score }: { score: number }) {
-  return <span className="inline-flex items-baseline gap-0.5">{pts(score)}<span className="font-sans text-[9px] font-bold uppercase tracking-wider opacity-70">pts</span></span>;
+  return <span className="inline-flex items-baseline gap-0.5">{score}<span className="font-sans text-[9px] font-bold uppercase tracking-wider opacity-70">pts</span></span>;
 }
 
-// Duas linhas curtas, para caber no celular: aproveitamento e jogos; presença
-// (na fórmula nova a presença é a contagem de circuitos; na pré-temporada, dias sobre dias)
-const fireSubs = (winRate: number, matches: number, attended: number, totalDays: number, isNew: boolean) => ({
-  sub: `${winRate}% · ${plural(matches, 'jogo', 'jogos')}`,
-  sub2: isNew ? plural(attended, 'circuito', 'circuitos') : `${attended}/${totalDays} presenças`,
+// Duas linhas curtas, para caber no celular: vitórias e derrotas; circuitos
+const fireSubs = (wins: number, losses: number, circuits: number) => ({
+  sub: `${wins}V · ${losses}D`,
+  sub2: plural(circuits, 'circuito', 'circuitos'),
 });
-
-/** "2 partidas, 3 circuitos e 1 mês" (só o que falta) e o verbo certo. */
-function missingText(m: FireSharkMissing) {
-  const parts = [
-    m.games > 0 && plural(m.games, 'partida', 'partidas'),
-    m.circuits > 0 && plural(m.circuits, 'circuito', 'circuitos'),
-    m.months > 0 && plural(m.months, 'mês', 'meses'),
-  ].filter(Boolean) as string[];
-  const text = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}` : parts[0] ?? '';
-  const single = parts.length === 1 && m.games + m.circuits + m.months === 1;
-  return { text, verb: single ? 'Falta' : 'Faltam' };
-}
-
-/** O que sobe ou desce a nota do atleta, calculado pelo servidor para ele. */
-function fireTips(gains: PlayerSeasonStats['fire_gains']) {
-  if (!gains) return undefined;
-  const parts: string[] = [];
-  if (gains.attend > 0) parts.push(`ir ao próximo circuito vale +${pts(gains.attend)}`);
-  if (gains.miss < 0) parts.push(`faltar tira ${pts(-gains.miss)}`);
-  if (gains.win > 0) parts.push(`cada vitória vale +${pts(gains.win)}`);
-  if (!parts.length) return undefined;
-  const text = parts.join(' · ');
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 interface Goal { text: ReactNode; progress?: number; detail?: string; tips?: string }
 
@@ -91,26 +64,13 @@ const TABS: { key: Tab; label: string }[] = [
 export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, myStars, onShareFireShark, onShareGladiator }: RankingTabsProps) {
   const [tab, setTab] = useState<Tab>('fire');
   const [expanded, setExpanded] = useState(false);
-  const minGames = dashboard.season?.fire_shark_min_games ?? 10;
-  const weights = dashboard.season?.fire_shark_weights ?? { win_rate: 60, games: 20, presence: 20 };
-  const rules = dashboard.season?.fire_shark_rules;
-  const title = rules?.mode === 'nova' ? rules.title : null; // fórmula nova: ranking aberto a todos, título com requisitos
-  const isNew = !!title;
+  const values = dashboard.season?.fire_shark_points ?? { win: 3, loss: 1, circuit: 10 };
   const sharks = dashboard.fire_sharks ?? [];
-  const pendingRows: Row[] = (isNew ? dashboard.fire_sharks_pending ?? [] : []).map((p) => {
-    const { text, verb } = missingText(p.missing);
-    return {
-      id: p.id, position: null, name: p.name, avatarUrl: p.avatar_url,
-      sub: fireSubs(p.win_rate, p.total_matches, p.attended_days, p.total_days, true).sub,
-      sub2: `${verb} ${text}`,
-      value: <FireValue score={p.score} />,
-    };
-  });
   const winsList = dashboard.top_wins ?? [];
 
   const fireRows: Row[] = sharks.map((p, i) => ({
     id: p.id, position: i + 1, name: p.name, avatarUrl: p.avatar_url,
-    ...fireSubs(p.win_rate, p.total_matches, p.attended_days, p.total_days, isNew), value: <FireValue score={p.score} />,
+    ...fireSubs(p.wins, p.losses, p.circuits), value: <FireValue score={p.score} />,
   }));
   const winPositions = densePositions(winsList.map((p) => p.wins ?? 0));
   const winRows: Row[] = winsList.map((p, i) => ({
@@ -124,57 +84,39 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
   }));
 
   // ── Seu próximo alvo: o que falta para subir, com números reais ──
+  const fireTips = `Cada vitória vale +${values.win}, cada derrota +${values.loss} e cada circuito +${values.circuit}`;
   const fireGoal = (): Goal | null => {
     if (!season) return null;
     const rank = season.fire_shark_rank;
-    const tips = fireTips(season.fire_gains);
-    if (title && rank == null) {
-      // Fórmula nova: a nota já aparece; para disputar o título faltam partidas, circuitos e/ou meses
-      const circuits = season.fire_circuits ?? 0;
-      const months = season.fire_months ?? 0;
-      const missing = season.fire_missing ?? { games: title.games, circuits: title.circuits, months: title.months };
-      const { text, verb } = missingText(missing);
-      return {
-        text: <>{verb} <b>{text}</b> para você disputar o título do Fire Shark.</>,
-        progress: Math.min(100, (season.matches / title.games) * 100, (circuits / title.circuits) * 100, (months / title.months) * 100),
-        detail: `${plural(season.matches, 'partida', 'partidas')} (mín. ${title.games}) · ${plural(circuits, 'circuito', 'circuitos')} (mín. ${title.circuits}) · `
-          + `${plural(months, 'mês', 'meses')} (mín. ${title.months})` + (season.fire_score != null ? ` · sua nota ${pts(season.fire_score)}` : ''),
-        tips,
-      };
-    }
     if (rank == null || season.fire_score == null) {
-      if (season.games_to_fire_shark <= 0) return null;
-      return {
-        text: <>Faltam <b>{plural(season.games_to_fire_shark, 'partida', 'partidas')}</b> para você entrar no Fire Shark.</>,
-        progress: Math.min(100, (season.matches / season.fire_shark_min_games) * 100),
-        detail: `${season.matches} de ${season.fire_shark_min_games} partidas na ${season.name}`,
-      };
+      return { text: <>Jogue uma partida ou faça check-in num circuito para entrar no <b>Fire Shark</b>.</>, tips: fireTips };
     }
     const mine = season.fire_score;
     const parts = season.fire_points;
-    const detail = parts
-      ? `Sua nota ${pts(mine)} = ${pts(parts.win_rate)} das vitórias + ${pts(parts.presence)} da presença + ${pts(parts.games)} ${isNew ? 'da regularidade' : 'dos jogos'}`
-      : undefined;
+    const detail = parts ? `Seus pontos: ${parts.wins} das vitórias + ${parts.losses} das derrotas + ${parts.circuits} dos circuitos` : undefined;
     if (rank === 1) {
       const second = sharks[1];
-      if (!second) return { text: <>Você é o <b>Tubarão da Quadra</b>. Segure o posto!</>, detail, tips };
+      if (!second) return { text: <>Você é o <b>Tubarão da Quadra</b>. Segure o posto!</>, detail, tips: fireTips };
       const lead = mine - second.score;
       return {
-        text: lead >= 0.1
-          ? <>Você é o <b>Tubarão da Quadra</b>. {second.name} está <b>{pts(lead)} pts</b> atrás.</>
-          : <>Você é o <b>Tubarão da Quadra</b>, mas {second.name} está empatado com você na nota.</>,
-        detail, tips,
+        text: lead > 0
+          ? <>Você é o <b>Tubarão da Quadra</b>. {second.name} está <b>{plural(lead, 'ponto', 'pontos')}</b> atrás.</>
+          : <>Você é o <b>Tubarão da Quadra</b>, mas {second.name} tem os mesmos pontos: no empate vale quem tem mais vitórias.</>,
+        detail, tips: fireTips,
       };
     }
     const above = rank <= sharks.length ? sharks[rank - 2] : sharks[sharks.length - 1];
     if (!above) return null;
-    const need = above.score - mine;
+    const need = above.score - mine + 1; // um ponto a mais para passar
     const what = rank <= sharks.length ? <>para passar <b>{above.name}</b> e subir para <b>#{rank - 1}</b></> : <>para entrar no <b>top {sharks.length}</b></>;
     return {
-      text: need >= 0.1
-        ? <>Faltam <b>{pts(need)} pts</b> {what}.</>
-        : <>Você está empatado na nota com <b>{above.name}</b>: o próximo circuito decide.</>,
-      detail, tips,
+      text: (
+        <>
+          Faltam <b>{plural(need, 'ponto', 'pontos')}</b> {what}: {plural(Math.ceil(need / values.win), 'vitória', 'vitórias')} ou{' '}
+          {plural(Math.ceil(need / values.circuit), 'circuito', 'circuitos')}.
+        </>
+      ),
+      detail, tips: fireTips,
     };
   };
 
@@ -217,8 +159,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
     if (tab === 'fire' && season?.fire_shark_rank && season.fire_score != null) {
       return {
         id: playerId, position: season.fire_shark_rank, name: myName, avatarUrl: myAvatarUrl,
-        ...fireSubs(season.win_rate, season.matches, isNew ? season.fire_circuits ?? 0 : season.attended_days, season.total_days, isNew),
-        value: <FireValue score={season.fire_score} />,
+        ...fireSubs(season.wins, season.losses, season.fire_circuits), value: <FireValue score={season.fire_score} />,
       };
     }
     if (tab === 'wins' && season?.gladiator_rank) {
@@ -226,18 +167,6 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
     }
     return null;
   };
-
-  // Fórmula nova: a linha do atleta no fim da lista de quem ainda não disputa, se ele não estiver entre os mostrados
-  const myPendingRow: Row | null = (() => {
-    if (!isNew || !playerId || !season || season.fire_shark_rank != null || season.fire_score == null || !season.fire_missing) return null;
-    if (pendingRows.some((r) => r.id === playerId)) return null;
-    const { text, verb } = missingText(season.fire_missing);
-    return {
-      id: playerId, position: null, name: myName, avatarUrl: myAvatarUrl,
-      sub: fireSubs(season.win_rate, season.matches, season.fire_circuits ?? 0, season.total_days, true).sub,
-      sub2: `${verb} ${text}`, value: <FireValue score={season.fire_score} />,
-    };
-  })();
 
   const rows = tab === 'fire' ? fireRows : tab === 'wins' ? winRows : starRows;
   const podium = rows.slice(0, 3);
@@ -261,7 +190,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
         <div className="min-w-0">
           <h2 className="font-display text-3xl sm:text-4xl leading-none italic -skew-x-6 text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-orange-500 to-red-600">FIRE SHARK</h2>
           <p className="font-sans text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted mt-1">
-            {title ? `Título: ${title.games} partidas, ${title.circuits} circuitos e ${title.months} meses` : `Ranking da quadra · mín. ${minGames} partidas`}
+            Vitória {values.win} · derrota {values.loss} · circuito {values.circuit}
           </p>
         </div>
       </div>
@@ -287,9 +216,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
   }[tab];
 
   const empty = {
-    fire: isNew
-      ? 'Ninguém cumpre os requisitos do título ainda. Veja abaixo quem está mais perto.'
-      : `Ninguém chegou ao mínimo de ${minGames} partidas ainda.`,
+    fire: 'Ninguém pontuou na temporada ainda.',
     wins: 'Nenhuma vitória registrada na temporada ainda.',
     stars: 'Ninguém ganhou estrelas ainda.',
   }[tab];
@@ -304,7 +231,7 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
           me ? 'border-orange-500/50 bg-orange-500/10' : 'border-border/20 bg-white/[0.02]'
         )}
       >
-        <span className="font-display text-2xl text-center leading-none text-text-muted">{r.position ?? '–'}</span>
+        <span className="font-display text-2xl text-center leading-none text-text-muted">{r.position}</span>
         <Avatar name={r.name} src={r.avatarUrl || undefined} size="md" className={me ? 'ring-2 ring-orange-500' : ''} />
         <div className="min-w-0">
           <p className={cn('font-bold truncate', me ? 'text-orange-600 dark:text-orange-300' : 'text-text-primary')}>{r.name}{me && <span className="font-medium"> · você</span>}</p>
@@ -363,24 +290,14 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
         {tab === 'fire' && (
           <details className="rounded-2xl border border-border/30 px-3.5 py-2.5 text-xs text-text-muted">
             <summary className="cursor-pointer font-bold text-text-primary">
-              <Info size={13} className={cn('inline -mt-0.5 mr-1', accent.text)} />Como a nota é calculada
+              <Info size={13} className={cn('inline -mt-0.5 mr-1', accent.text)} />Como os pontos funcionam
             </summary>
-            {title && rules ? (
-              <p className="mt-2 leading-relaxed">
-                A nota vai de 0 a 100: até <b>{rules.points.win_rate} pontos</b> pelo aproveitamento (vitórias ÷ partidas), até{' '}
-                <b>{rules.points.presence}</b> pela presença (cada circuito com check-in na quadra soma, até {rules.circuits_target} circuitos) e até{' '}
-                <b>{rules.points.games}</b> pela regularidade (cada partida soma, até {rules.games_target} partidas). Ninguém perde pontos por ficar
-                um tempo sem jogar. Todos aparecem no ranking; disputa o título quem tiver pelo menos {title.games} partidas, {title.circuits} circuitos
-                e participação em {title.months} meses da temporada. A classificação final é validada pela organização no fim da temporada.
-              </p>
-            ) : (
-              <p className="mt-2 leading-relaxed">
-                A nota vai de 0 a 100: <b>{weights.win_rate} pontos</b> vêm do aproveitamento (vitórias ÷ partidas),{' '}
-                <b>{weights.games}</b> dos jogos (quem mais jogou na temporada ganha os {weights.games}) e{' '}
-                <b>{weights.presence}</b> da presença nos dias de circuito (check-in na quadra).
-                Para entrar no ranking, é preciso ter pelo menos {minGames} partidas na temporada.
-              </p>
-            )}
+            <p className="mt-2 leading-relaxed">
+              Cada vitória vale <b>{values.win} pontos</b>, cada derrota <b>{values.loss}</b> e cada circuito em que você faz check-in
+              na quadra <b>{values.circuit}</b> (dois circuitos no mesmo dia contam um). Tudo soma e nada desconta: ninguém perde pontos
+              por ficar um tempo sem jogar. Os pontos zeram a cada temporada, e a classificação final é validada pela organização.
+              No empate, fica na frente quem tem mais vitórias, depois quem foi a mais circuitos.
+            </p>
           </details>
         )}
 
@@ -401,9 +318,6 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
           </div>
         )}
 
-        {tab === 'fire' && isNew && (
-          <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-text-muted -mb-2">Disputa do título</h3>
-        )}
         {rows.length === 0 ? (
           <p className="text-sm text-text-muted text-center py-6">{empty}</p>
         ) : (
@@ -455,22 +369,6 @@ export function RankingTabs({ dashboard, playerId, season, myName, myAvatarUrl, 
               </ol>
             )}
           </>
-        )}
-
-        {/* Fórmula nova: quem já aparece, mas ainda não cumpre os requisitos do título */}
-        {tab === 'fire' && pendingRows.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-text-muted">Ainda não disputam o título</h3>
-            <ol className="flex flex-col gap-1.5">
-              {pendingRows.map((r) => renderRow(r))}
-              {myPendingRow && (
-                <>
-                  <li aria-hidden className="text-center text-text-muted leading-none">···</li>
-                  {renderRow(myPendingRow, true)}
-                </>
-              )}
-            </ol>
-          </div>
         )}
 
         {rows.length > VISIBLE && (

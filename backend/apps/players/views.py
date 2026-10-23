@@ -16,8 +16,7 @@ from .serializers import (
 )
 from .filters import PlayerFilter
 from .rankings import (
-    fire_shark_entry, fire_shark_gains, fire_shark_min_games, fire_shark_pending, fire_shark_positions,
-    fire_shark_proposal, fire_shark_ranking, fire_shark_table, ranked_players, season_payload, season_stats,
+    fire_shark_entry, fire_shark_positions, fire_shark_ranking, ranked_players, season_payload, season_stats,
     stars_ranking, wins_positions, wins_ranking,
 )
 from .seasons import ensure_current_season
@@ -286,8 +285,6 @@ class PlayerViewSet(viewsets.ModelViewSet):
             })
 
         fire_sharks = [fire_shark_entry(p) for p in fire_shark_ranking()[:10]]
-        # Na fórmula nova todos aparecem: quem ainda não disputa o título vem numa lista à parte
-        fire_sharks_pending = [fire_shark_entry(p) for p in fire_shark_pending()[:10]]
 
         qs_stars = stars_ranking()[:10]
         top_stars = []
@@ -338,7 +335,6 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'recent_stars': recent_stars,
             'last_category_winners': last_category_winners,
             'fire_sharks': fire_sharks,
-            'fire_sharks_pending': fire_sharks_pending,
             'season': season_payload(),
         })
 
@@ -394,22 +390,6 @@ class PlayerViewSet(viewsets.ModelViewSet):
             season.results_validated_at, season.results_validated_by = timezone.now(), request.user
             season.save(update_fields=['results_validated_at', 'results_validated_by'])
         return Response({'number': season.number, 'validated': season.results_validated_at is not None})
-
-    @action(detail=False, methods=['get'], url_path='fire-shark-preview')
-    def fire_shark_preview(self, request):
-        """
-        Prévia da fórmula nova do Fire Shark com os dados reais, ao lado do ranking de hoje (admin/moderador).
-        ?partidas=60 e ?circuitos=16 testam outras metas.
-        """
-        if getattr(request.user, 'profile', None) not in ('admin', 'moderator'):
-            return Response({'detail': 'Só administradores podem ver a prévia.'}, status=status.HTTP_403_FORBIDDEN)
-        targets = {}
-        for param, label in (('partidas', 'partidas'), ('circuitos', 'circuitos')):
-            value = request.query_params.get(param)
-            if value is not None and (not value.isdigit() or not 1 <= int(value) <= 500):
-                return Response({'detail': f'A meta de {label} precisa ser um número de 1 a 500.'}, status=status.HTTP_400_BAD_REQUEST)
-            targets[param] = int(value) if value else None
-        return Response(fire_shark_proposal(games_target=targets['partidas'], circuits_target=targets['circuitos']))
 
     @action(detail=False, methods=['patch'], url_path=r'seasons/(?P<number>\d+)/prize')
     def season_prize(self, request, number=None):
@@ -554,16 +534,14 @@ class PlayerViewSet(viewsets.ModelViewSet):
         player_overall = player.latest_overall or 0.0
         overall_rank = qs_players.filter(annotated_overall__gt=player_overall).count() + 1 if player_overall > 0 else None
 
-        # Posição e nota no Fire Shark (mesma regra de todas as telas; inativo/convidado não tem posição).
-        # Na fórmula nova a nota aparece mesmo antes de disputar o título, com o que falta.
-        fire_table = fire_shark_table(season)
-        fire_me = next((p for p in fire_table if p.id == player.id and p.fire_listed), None)
-        win_rank = fire_table.index(fire_me) + 1 if fire_me and fire_me.fire_eligible else None  # elegíveis vêm primeiro
+        # Posição e pontos no Fire Shark (mesma regra de todas as telas; inativo/convidado não tem posição)
+        fire = fire_shark_ranking(season)
+        fire_me = next((p for p in fire if p.id == player.id), None)
+        win_rank = fire.index(fire_me) + 1 if fire_me else None
 
         # Números da temporada (os rankings são por temporada; os totais acima são da carreira)
         st = season_stats(season)
         mine = st.get(player.id, {'matches': 0, 'wins': 0, 'balance': 0})
-        min_games = fire_shark_min_games(season, st)
         season_block = {
             'number': season.number,
             'name': season.name,
@@ -573,14 +551,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'win_rate': round(mine['wins'] / mine['matches'] * 100, 1) if mine['matches'] else 0,
             'point_balance': mine['balance'],
             'fire_shark_rank': win_rank,
-            'fire_score': round(fire_me.fire_score, 1) if fire_me else None,
-            'fire_points': {k: round(v, 1) for k, v in fire_me.fire_points.items()} if fire_me else None,
-            'fire_gains': fire_shark_gains(fire_me) if fire_me else None,
-            'fire_missing': fire_me.fire_missing if fire_me else None,
-            'fire_circuits': fire_me.attended_days if fire_me else None,
-            'fire_months': fire_me.active_months if fire_me else None,
-            'fire_shark_min_games': min_games,
-            'games_to_fire_shark': max(0, min_games - mine['matches']),
+            'fire_score': fire_me.fire_score if fire_me else None,
+            'fire_points': fire_me.fire_points if fire_me else None,
+            'fire_circuits': fire_me.circuits if fire_me else 0,
             'gladiator_rank': wins_positions(season).get(player.id),
             'attendance_rate': season_freq['rate'],
             'attended_days': season_freq['attended_days'],

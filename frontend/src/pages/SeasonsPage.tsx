@@ -5,7 +5,6 @@ import { CalendarClock, Crown, Flame, Swords, Gift, Trophy, Pencil, Loader2, Ref
 import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
-import { FireSharkPreview } from '@/components/seasons/FireSharkPreview';
 import { formatDate } from '@/lib/utils';
 import { seasonsService } from '@/services';
 import { useAuth } from '@/store/AuthContext';
@@ -16,7 +15,7 @@ const PRIZE_MAX = 1000;
 
 const CATEGORIES = [
   { key: 'elo', title: 'Maior Elo', icon: Crown, color: 'text-red', detail: (e: SeasonPodiumEntry) => `${Math.round(e.elo)} de Elo` },
-  { key: 'fire_shark', title: 'Fire Shark', icon: Flame, color: 'text-orange-500', detail: (e: SeasonPodiumEntry) => `${e.wins}/${e.matches} vitórias` },
+  { key: 'fire_shark', title: 'Fire Shark', icon: Flame, color: 'text-orange-500', detail: (e: SeasonPodiumEntry) => `${Math.round(e.fire_score ?? 0)} pts` },
   { key: 'gladiator', title: 'Gladiador', icon: Swords, color: 'text-yellow-600 dark:text-yellow-400', detail: (e: SeasonPodiumEntry) => `${e.wins} vitórias` },
 ] as const;
 
@@ -115,21 +114,13 @@ function CurrentSeason({ season, canEdit }: { season: SeasonInfo; canEdit: boole
             <p className="text-[11px] text-text-muted">{formatDate(season.next_season_start)}</p>
           )}
         </div>
-        {season.fire_shark_rules?.mode === 'nova' && season.fire_shark_rules.title ? (
-          <div className="rounded-xl bg-surface-highlight/40 border border-border/40 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Fire Shark: para disputar o título</p>
-            <p className="font-display text-2xl text-text-primary mt-1">
-              {season.fire_shark_rules.title.games} jogos · {season.fire_shark_rules.title.circuits} circuitos
-            </p>
-            <p className="text-[11px] text-text-muted">E participação em {season.fire_shark_rules.title.months} meses da temporada.</p>
-          </div>
-        ) : (
-          <div className="rounded-xl bg-surface-highlight/40 border border-border/40 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Fire Shark: mínimo atual</p>
-            <p className="font-display text-2xl text-text-primary mt-1">{season.fire_shark_min_games} jogos</p>
-            <p className="text-[11px] text-text-muted">30% do que joga o atleta mediano, nunca menos de 10.</p>
-          </div>
-        )}
+        <div className="rounded-xl bg-surface-highlight/40 border border-border/40 p-3">
+          <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Fire Shark: como pontua</p>
+          <p className="font-display text-2xl text-text-primary mt-1">
+            V {season.fire_shark_points?.win ?? 3} · D {season.fire_shark_points?.loss ?? 1} · Circuito {season.fire_shark_points?.circuit ?? 10}
+          </p>
+          <p className="text-[11px] text-text-muted">Vitória, derrota e cada circuito com check-in. Tudo soma, nada desconta.</p>
+        </div>
         <div className="rounded-xl bg-surface-highlight/40 border border-border/40 p-3">
           <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Na virada</p>
           <p className="text-sm text-text-primary mt-1 leading-snug">
@@ -248,8 +239,6 @@ export function SeasonsPage() {
       </div>
 
       <CurrentSeason season={data.current} canEdit={canEdit} />
-
-      {canEdit && <FireSharkPreview />}
 
       <div className="space-y-4">
         <h2 className="font-display text-2xl uppercase tracking-tight text-text-primary">Campeões</h2>

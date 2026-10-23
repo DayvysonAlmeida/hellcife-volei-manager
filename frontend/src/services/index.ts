@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { BracketServerState, DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText, CircuitFinanceSummary, FinanceAttendanceRow, FinanceOverview, ManualPaymentMethod, SeasonsResponse, EloTiersResponse, FireSharkPreview } from '@/types';
+import type { BracketServerState, DashboardData, Evaluation, GameDay, GenerateTeamsResult, TeamGenerationData, HallOfFameEntry, Match, PaginatedResponse, QuickMatchData, RegulationText, CircuitFinanceSummary, FinanceAttendanceRow, FinanceOverview, ManualPaymentMethod, SeasonsResponse, EloTiersResponse } from '@/types';
 
 export const dashboardService = {
   get: () => api.get<DashboardData>('/dashboard/').then(r => r.data),
@@ -214,9 +214,6 @@ export const matchesService = {
 
 export const seasonsService = {
   get: () => api.get<SeasonsResponse>('/players/seasons/').then(r => r.data),
-  /** Prévia do novo Fire Shark (admin), testando as metas de partidas e de circuitos. */
-  fireSharkPreview: (partidas: number, circuitos: number) =>
-    api.get<FireSharkPreview>('/players/fire-shark-preview/', { params: { partidas, circuitos } }).then(r => r.data),
   /** Fechamento (admin): refaz a classificação final com os dados de agora ou valida e libera o pódio. */
   seasonResults: (number: number, step: 'recalculate' | 'validate') =>
     api.post<{ number: number; validated: boolean }>(`/players/seasons/${number}/${step}/`).then(r => r.data),

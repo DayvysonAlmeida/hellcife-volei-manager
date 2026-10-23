@@ -23,7 +23,7 @@ export interface AchievementShareCardProps {
   bigStarsTotal?: number;
   miniStarsCount?: number;
   // fire_shark / top_wins
-  fireScore?: number; // nota do Fire Shark
+  fireScore?: number; // pontos do Fire Shark
   winRate?: number;
   wins?: number;
   totalMatches?: number;
@@ -94,7 +94,7 @@ function buildContent(d: AchievementShareCardProps): CardContent {
         badge: rank ? `TOP ${rank}` : undefined,
         heroShark: true,
         stats: [
-          { value: fmt(d.fireScore?.toFixed(1)), label: 'Nota' },
+          { value: fmt(d.fireScore), label: 'Pontos' },
           { value: fmt(d.winRate, '%'), label: 'Win Rate' },
           { value: fmt(d.totalMatches), label: 'Partidas' },
         ],

@@ -20,7 +20,7 @@ export function DreamTeam({ dreamTeam }: { dreamTeam: any[] }) {
         </div>
         <div>
           <h2 className="font-display text-xl text-text-primary tracking-wider">DREAM TEAM HELLCIFE</h2>
-          <p className="text-sm text-text-muted">A formação ideal: o melhor de cada posição na nota Fire Shark.</p>
+          <p className="text-sm text-text-muted">A formação ideal: quem tem mais pontos no Fire Shark em cada posição.</p>
         </div>
       </div>
       
@@ -35,7 +35,7 @@ export function DreamTeam({ dreamTeam }: { dreamTeam: any[] }) {
             <Avatar name={player.name} src={player.avatar_url} size="lg" className="ring-2 ring-red-500/20 group-hover:ring-red-500/50 mb-3 shadow-[0_0_15px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_20px_rgba(239,68,68,0.3)] transition-all" />
             <h3 className="font-bold text-sm text-text-primary text-center truncate w-full">{player.name}</h3>
             <div className="flex flex-col items-center mt-2 w-full bg-red-900/20 rounded-lg p-2 border border-red-500/10">
-              <span className="text-orange-400 font-display text-lg leading-none">{player.score.toFixed(1)} <span className="text-[10px] font-sans font-bold">pts</span></span>
+              <span className="text-orange-400 font-display text-lg leading-none">{player.score} <span className="text-[10px] font-sans font-bold">pts</span></span>
               <span className="text-[9px] text-text-muted uppercase font-bold tracking-widest mt-1">{player.wins}/{player.total_matches} vitórias</span>
             </div>
           </Link>
