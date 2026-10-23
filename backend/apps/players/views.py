@@ -88,6 +88,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
             # Calcula o rank global absoluto imune a paginação e filtros (DenseRank)
             context['global_win_ranks'] = wins_positions()
             context['global_fire_sharks'] = fire_shark_positions()
+            # Partidas da temporada de todos de uma vez: decide quem ainda está em calibração no Elo
+            context['season_matches'] = {pid: s['matches'] for pid, s in season_stats().items()}
         return context
 
     def get_permissions(self):

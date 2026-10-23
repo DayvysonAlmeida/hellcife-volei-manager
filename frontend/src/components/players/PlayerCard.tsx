@@ -38,6 +38,15 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
     textColor: string;
     pulse: boolean;
   }> = {
+    // Até 10 partidas na temporada ainda não há faixa
+    calibrating: {
+      colors: ['#475569', '#334155', '#475569', '#1E293B', '#475569'],
+      glow: 'none',
+      icon: '⏳',
+      name: 'Calibrando',
+      textColor: '#94A3B8',
+      pulse: false,
+    },
     rookie:  {
       colors: ['#6B7280', '#4B5563', '#6B7280', '#374151', '#6B7280'],
       glow: 'none',

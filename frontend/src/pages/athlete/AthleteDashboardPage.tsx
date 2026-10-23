@@ -125,6 +125,19 @@ export function AthleteDashboardPage() {
                 )}
               </div>
               <h1 className="font-display text-4xl sm:text-6xl leading-[0.95] tracking-wider truncate">{name.toUpperCase()}</h1>
+              {/* Até 10 partidas na temporada ainda não há faixa */}
+              {player?.elo_calibration?.calibrating && (
+                <span
+                  className="inline-flex items-center gap-2 self-start rounded-full border border-white/20 bg-white/5 px-3.5 py-1"
+                  title="A faixa de Elo aparece depois de 10 partidas na temporada"
+                >
+                  <span aria-hidden className="text-base leading-none">⏳</span>
+                  <span className="font-display text-base sm:text-lg tracking-[0.2em] leading-none text-white/85">EM CALIBRAÇÃO</span>
+                  <span className="text-[10px] font-bold leading-none text-white/60">
+                    falta{player.elo_calibration.missing === 1 ? '' : 'm'} {player.elo_calibration.missing} jogo{player.elo_calibration.missing === 1 ? '' : 's'}
+                  </span>
+                </span>
+              )}
               {tier && (
                 <span
                   style={{ '--tier': tier.color } as CSSProperties}

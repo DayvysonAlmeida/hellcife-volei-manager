@@ -1,16 +1,44 @@
 from rest_framework import serializers
 from .models import Player, Badge, PlayerBadge
 from .elo_service import get_elo_tier, get_elo_progress
+from .rankings import elo_calibration, season_match_count
 
 
-class PlayerListSerializer(serializers.ModelSerializer):
+class EloCalibrationMixin:
+    """
+    Faixa de Elo só depois da calibração (10 partidas na temporada), igual ao ranking de Elo.
+    Antes disso a faixa vem como 'calibrating' e sem barra de progresso, em todas as telas.
+    """
+
+    def _season_games(self, obj):
+        games = self.context.get('season_matches')  # a lista calcula de uma vez para todos
+        if games is not None:
+            return games.get(obj.id, 0)
+        cache = self.__dict__.setdefault('_season_games_cache', {})
+        if obj.id not in cache:
+            cache[obj.id] = season_match_count(obj.id)
+        return cache[obj.id]
+
+    def get_elo_calibration(self, obj):
+        return elo_calibration(self._season_games(obj))
+
+    def get_elo_tier(self, obj):
+        return 'calibrating' if self.get_elo_calibration(obj)['calibrating'] else obj.elo_tier
+
+    def get_elo_tier_data(self, obj):
+        return None if self.get_elo_calibration(obj)['calibrating'] else get_elo_progress(obj.elo)
+
+
+class PlayerListSerializer(EloCalibrationMixin, serializers.ModelSerializer):
     latest_overall = serializers.SerializerMethodField()
     display_name = serializers.ReadOnlyField()
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     avatar_url = serializers.SerializerMethodField()
     stats = serializers.SerializerMethodField()
+    elo_tier = serializers.SerializerMethodField()
     elo_tier_data = serializers.SerializerMethodField()
+    elo_calibration = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -22,7 +50,7 @@ class PlayerListSerializer(serializers.ModelSerializer):
             'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'is_guest', 'invited_by', 'guest_overall', 'consecutive_absences', 'stats',
             'gender',
-            'elo', 'elo_tier', 'elo_tier_data',
+            'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration',
         ]
 
     def get_latest_overall(self, obj):
@@ -47,9 +75,6 @@ class PlayerListSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
         return None
-
-    def get_elo_tier_data(self, obj):
-        return get_elo_progress(obj.elo)
 
     def get_stats(self, obj):
         if hasattr(obj, 'total_matches'):
@@ -98,7 +123,7 @@ class PlayerBadgeSerializer(serializers.ModelSerializer):
         fields = ['id', 'badge', 'awarded_at']
 
 
-class PlayerDetailSerializer(serializers.ModelSerializer):
+class PlayerDetailSerializer(EloCalibrationMixin, serializers.ModelSerializer):
     latest_overall = serializers.SerializerMethodField()
     display_name = serializers.ReadOnlyField()
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
@@ -108,7 +133,9 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     avatar_url = serializers.SerializerMethodField()
     badges = PlayerBadgeSerializer(many=True, read_only=True)
+    elo_tier = serializers.SerializerMethodField()
     elo_tier_data = serializers.SerializerMethodField()
+    elo_calibration = serializers.SerializerMethodField()
     legal_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -128,7 +155,7 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
             'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'updated_at',
             'is_guest', 'invited_by', 'guest_overall', 'consecutive_absences', 'badges', 'legal_name',
-            'elo', 'elo_tier', 'elo_tier_data',
+            'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration',
         ]
 
     def get_latest_overall(self, obj):
@@ -149,9 +176,6 @@ class PlayerDetailSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
         return None
-
-    def get_elo_tier_data(self, obj):
-        return get_elo_progress(obj.elo)
 
     def get_legal_name(self, obj):
         """Nome civil: só a staff vê (no app aparece o nome social)."""

@@ -122,8 +122,10 @@ export interface Player {
   consecutive_absences: number;
   badges?: PlayerBadge[];
   elo: number;
-  elo_tier: 'rookie' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite' | 'challenger';
-  elo_tier_data?: {
+  /** 'calibrating' até 10 partidas na temporada: aí ainda não há faixa. */
+  elo_tier: 'calibrating' | 'rookie' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite' | 'challenger';
+  elo_calibration?: { calibrating: boolean; games: number; needed: number; missing: number };
+  elo_tier_data?: null | {
     tier: {
       name: string;
       key: string;

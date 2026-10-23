@@ -129,7 +129,28 @@ export function MyProfilePage() {
         </div>
       )}
 
-      {/* ── Rating Elo ── */}
+      {/* ── Rating Elo (até 10 partidas na temporada: em calibração, ainda sem faixa) ── */}
+      {player.elo_calibration?.calibrating ? (
+        <section className="rounded-[28px] border border-border/40 bg-surface/70 p-5 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-sm text-text-muted uppercase tracking-[0.2em]">Rating Elo{season ? ` · ${season.name}` : ''}</h2>
+              <Link to="/athlete/elo-system" className="w-5 h-5 rounded-full border border-border/50 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors" title="Entenda como funciona o Elo" aria-label="Entenda como funciona o Elo">
+                <Info size={12} />
+              </Link>
+            </div>
+            <span className="text-xl" aria-hidden>⏳</span>
+          </div>
+          <p className="font-bold text-sm text-text-primary">Em calibração</p>
+          <p className="text-xs text-text-muted">
+            Sua faixa de Elo aparece depois de {player.elo_calibration.needed} partidas na temporada. Você jogou{' '}
+            {player.elo_calibration.games}: falta{player.elo_calibration.missing === 1 ? '' : 'm'} {player.elo_calibration.missing}.
+          </p>
+          <div className="h-2 rounded-full bg-black/20 dark:bg-white/10 overflow-hidden">
+            <div className="h-full rounded-full bg-text-muted" style={{ width: `${Math.max(4, (player.elo_calibration.games / player.elo_calibration.needed) * 100)}%` }} />
+          </div>
+        </section>
+      ) : (
       <section
         style={{ '--tier': tierColor } as CSSProperties}
         className="rounded-[28px] border border-[color:color-mix(in_srgb,var(--tier)_45%,transparent)] bg-surface/70 p-5 flex flex-col gap-2"
@@ -159,6 +180,7 @@ export function MyProfilePage() {
           <p className="text-[10px] text-text-muted text-right">{tierData.percent}% do caminho até {tierData.next_tier.name}</p>
         )}
       </section>
+      )}
 
       {/* ── Meus números ── */}
       <section className="flex flex-col gap-3">

@@ -74,6 +74,29 @@ def season_stats(season=None) -> dict:
     return stats
 
 
+def season_match_count(player_id, season=None) -> int:
+    """Partidas válidas do atleta na temporada (mesma conta do season_stats, para um atleta só)."""
+    from apps.matches.models import MatchPlayer
+
+    season = _season(season)
+    match_q = Q(match__date__lte=season.end_date)
+    if season.start_date:
+        match_q &= Q(match__date__gte=season.start_date)
+    return MatchPlayer.objects.filter(match_q, player_id=player_id, match_team__isnull=False).count()
+
+
+def elo_calibration(games: int) -> dict:
+    """A faixa de Elo só aparece depois da calibração; antes, as telas mostram "Em calibração · faltam X jogos"."""
+    from .elo_service import PLACEMENT_GAMES
+
+    return {
+        'calibrating': games < PLACEMENT_GAMES,
+        'games': games,
+        'needed': PLACEMENT_GAMES,
+        'missing': max(0, PLACEMENT_GAMES - games),
+    }
+
+
 def fire_shark_ranking(season=None):
     """
     Fire Shark da temporada, do melhor para o pior: vitória 3, derrota 1 (partida sem vitória) e
