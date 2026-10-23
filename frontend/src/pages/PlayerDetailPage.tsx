@@ -106,12 +106,12 @@ export function PlayerDetailPage() {
   })) || [];
 
   const starCategories = [
-    { label: 'MVP', value: (player as any).total_mvp || 0, icon: '🏆', total: (player as any).total_mvp },
-    { label: 'Ataque', value: (player as any).total_attack || 0, icon: '⚡', total: (player as any).total_attack },
-    { label: 'Defesa', value: (player as any).total_defense || 0, icon: '🛡️', total: (player as any).total_defense },
-    { label: 'Levant.', value: (player as any).total_setter || 0, icon: '🎯', total: (player as any).total_setter },
-    { label: 'Passe', value: (player as any).total_pass || 0, icon: '🤝', total: (player as any).total_pass },
-    { label: 'Bloqueio', value: (player as any).total_block || 0, icon: '🧱', total: (player as any).total_block },
+    { label: 'MVP', value: player.mvp_stars || 0, icon: '🏆' },
+    { label: 'Ataque', value: player.attack_stars || 0, icon: '⚡' },
+    { label: 'Defesa', value: player.defense_stars || 0, icon: '🛡️' },
+    { label: 'Levant.', value: player.setter_stars || 0, icon: '🎯' },
+    { label: 'Passe', value: player.pass_stars || 0, icon: '🤝' },
+    { label: 'Bloqueio', value: player.block_stars || 0, icon: '🧱' },
   ];
 
   // Mesmas posições da lista de atletas (rankings da temporada)
