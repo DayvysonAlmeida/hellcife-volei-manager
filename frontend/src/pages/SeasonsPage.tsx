@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { CalendarClock, Crown, Flame, Swords, Gift, Trophy, Pencil, Loader2 } from 'lucide-react';
+import { CalendarClock, Crown, Flame, Swords, Gift, Trophy, Pencil, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
+import { FireSharkPreview } from '@/components/seasons/FireSharkPreview';
 import { formatDate } from '@/lib/utils';
 import { seasonsService } from '@/services';
 import { useAuth } from '@/store/AuthContext';
@@ -114,17 +115,64 @@ function CurrentSeason({ season, canEdit }: { season: SeasonInfo; canEdit: boole
             <p className="text-[11px] text-text-muted">{formatDate(season.next_season_start)}</p>
           )}
         </div>
-        <div className="rounded-xl bg-surface-highlight/40 border border-border/40 p-3">
-          <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Fire Shark: mínimo atual</p>
-          <p className="font-display text-2xl text-text-primary mt-1">{season.fire_shark_min_games} jogos</p>
-          <p className="text-[11px] text-text-muted">30% do que joga o atleta mediano, nunca menos de 10.</p>
-        </div>
+        {season.fire_shark_rules?.mode === 'nova' && season.fire_shark_rules.title ? (
+          <div className="rounded-xl bg-surface-highlight/40 border border-border/40 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Fire Shark: para disputar o título</p>
+            <p className="font-display text-2xl text-text-primary mt-1">
+              {season.fire_shark_rules.title.games} jogos · {season.fire_shark_rules.title.circuits} circuitos
+            </p>
+            <p className="text-[11px] text-text-muted">E participação em {season.fire_shark_rules.title.months} meses da temporada.</p>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-surface-highlight/40 border border-border/40 p-3">
+            <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Fire Shark: mínimo atual</p>
+            <p className="font-display text-2xl text-text-primary mt-1">{season.fire_shark_min_games} jogos</p>
+            <p className="text-[11px] text-text-muted">30% do que joga o atleta mediano, nunca menos de 10.</p>
+          </div>
+        )}
         <div className="rounded-xl bg-surface-highlight/40 border border-border/40 p-3">
           <p className="text-[10px] uppercase tracking-widest text-text-muted font-bold">Na virada</p>
           <p className="text-sm text-text-primary mt-1 leading-snug">
             Elo, Fire Shark e Gladiador recomeçam do zero. Todo mundo volta para <strong>500</strong> de Elo.
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Fechamento: o resultado fica provisório até a organização conferir e validar. */
+function ValidationBar({ season }: { season: PastSeason }) {
+  const qc = useQueryClient();
+  const run = useMutation({
+    mutationFn: (step: 'recalculate' | 'validate') => seasonsService.seasonResults(season.number, step),
+    onSuccess: (_, step) => {
+      qc.invalidateQueries({ queryKey: ['seasons'] });
+      toast.success(step === 'validate' ? 'Classificação final validada. O pódio já aparece para os atletas.' : 'Classificação recalculada com os dados de agora.');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Não foi possível concluir. Tente de novo.'),
+  });
+
+  if (season.validated) {
+    return (
+      <p className="text-xs text-green-500 flex items-center gap-1.5">
+        <ShieldCheck size={14} /> Classificação final validada{season.validated_at ? ` em ${formatDate(season.validated_at)}` : ''}.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/5 p-3 flex flex-col sm:flex-row sm:items-center gap-2">
+      <p className="text-xs text-text-secondary flex-1">
+        <strong className="text-yellow-700 dark:text-yellow-400">Resultado provisório.</strong> Confira o pódio abaixo. Se corrigir alguma partida ou
+        check-in, recalcule antes de validar. Os atletas só veem o pódio depois da validação.
+      </p>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => run.mutate('recalculate')} disabled={run.isPending} className="btn-ghost text-xs px-3 py-1.5 inline-flex items-center gap-1.5">
+          <RefreshCw size={12} className={run.isPending && run.variables === 'recalculate' ? 'animate-spin' : ''} /> Recalcular
+        </button>
+        <button type="button" onClick={() => run.mutate('validate')} disabled={run.isPending} className="btn-primary text-xs px-3 py-1.5 inline-flex items-center gap-1.5">
+          {run.isPending && run.variables === 'validate' ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />} Validar classificação final
+        </button>
       </div>
     </div>
   );
@@ -144,6 +192,13 @@ function Podium({ season, canEdit }: { season: PastSeason; canEdit: boolean }) {
 
       <PrizeBlock number={season.number} text={season.prize_notes} canEdit={canEdit} />
 
+      {canEdit && <ValidationBar season={season} />}
+
+      {!canEdit && !season.validated ? (
+        <p className="text-sm text-text-muted rounded-xl border border-dashed border-border p-4 text-center">
+          A organização está conferindo a classificação final. O pódio aparece aqui assim que for validado.
+        </p>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {CATEGORIES.map(({ key, title, icon: Icon, color, detail }) => {
           const entries = season.podium[key];
@@ -170,6 +225,7 @@ function Podium({ season, canEdit }: { season: PastSeason; canEdit: boolean }) {
           );
         })}
       </div>
+      )}
     </motion.div>
   );
 }
@@ -192,6 +248,8 @@ export function SeasonsPage() {
       </div>
 
       <CurrentSeason season={data.current} canEdit={canEdit} />
+
+      {canEdit && <FireSharkPreview />}
 
       <div className="space-y-4">
         <h2 className="font-display text-2xl uppercase tracking-tight text-text-primary">Campeões</h2>

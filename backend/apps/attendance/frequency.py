@@ -38,12 +38,15 @@ def circuit_days(start=None, end=None) -> dict:
     return days
 
 
-def frequency(player, days) -> dict:
-    """Presença do atleta nos dias com circuito desde o cadastro."""
-    since = player.created_at.date()
+def frequency(player, days, since_registration=True) -> dict:
+    """
+    Presença do atleta nos dias com circuito desde o cadastro.
+    Com since_registration=False contam todos os dias recebidos (usado na prévia do Fire Shark).
+    """
+    since = player.created_at.date() if since_registration else None
     attended = total = 0
     for day, (went, justified) in days.items():
-        if day < since:
+        if since and day < since:
             continue
         if player.id in went:
             attended += 1

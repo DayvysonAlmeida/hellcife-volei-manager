@@ -8,6 +8,7 @@ import type { DashboardData, SeasonInfo } from '@/types';
 export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardData['fire_sharks']; season?: SeasonInfo }) {
   if (!fireSharks || fireSharks.length === 0) return null;
   const w = season?.fire_shark_weights ?? { win_rate: 60, games: 20, presence: 20 };
+  const title = season?.fire_shark_rules?.mode === 'nova' ? season.fire_shark_rules.title : null;
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -28,8 +29,17 @@ export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardD
                TUBARÕES DA QUADRA <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full border border-orange-500/30">TOP 10</span>
              </h2>
              <p className="text-sm text-text-muted">
-               Nota Fire Shark: {w.win_rate}% aproveitamento, {w.games}% jogos e {w.presence}% presença nos circuitos
-               {season && ` · mínimo de ${season.fire_shark_min_games} jogos`}
+               {title ? (
+                 <>
+                   Disputa do título · nota: {w.win_rate} de desempenho, {w.presence} de presença e {w.games} de regularidade ·
+                   requisitos: {title.games} partidas, {title.circuits} circuitos e {title.months} meses
+                 </>
+               ) : (
+                 <>
+                   Nota Fire Shark: {w.win_rate}% aproveitamento, {w.games}% jogos e {w.presence}% presença nos circuitos
+                   {season && ` · mínimo de ${season.fire_shark_min_games} jogos`}
+                 </>
+               )}
              </p>
            </div>
          </div>
@@ -66,7 +76,7 @@ export function FireSharksTop10({ fireSharks, season }: { fireSharks: DashboardD
                 <span className="text-text-muted text-xs">{player.wins}V - {player.total_matches - player.wins}D</span>
               </div>
               <p className="text-text-muted text-[11px] mt-1 truncate">
-                {player.win_rate}% · {player.attended_days}/{player.total_days} presenças
+                {player.win_rate}% · {title ? `${player.attended_days} circuitos` : `${player.attended_days}/${player.total_days} presenças`}
               </p>
             </div>
             

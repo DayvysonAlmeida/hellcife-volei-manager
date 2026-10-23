@@ -74,7 +74,11 @@ def ensure_current_season(today: date | None = None):
 
 
 def finalize_season(season) -> None:
-    """Salva o resultado final (Elo, Fire Shark e Gladiador) de cada atleta e encerra a temporada."""
+    """
+    Salva o resultado final (Elo, Fire Shark e Gladiador) de cada atleta e encerra a temporada.
+    Pode rodar de novo para recalcular depois de correções; o pódio só aparece para os atletas depois que
+    a organização valida (Season.results_validated_at).
+    """
     from apps.matches.models import MatchPlayer
 
     from .elo_service import PLACEMENT_GAMES, get_elo_tier, load_matches, replay
@@ -110,8 +114,10 @@ def finalize_season(season) -> None:
         )
         for p in participants
     ])
+    # Resultado novo (ou recalculado depois de correções) volta a esperar a validação da organização
     season.finalized_at = timezone.now()
-    season.save(update_fields=['finalized_at'])
+    season.results_validated_at, season.results_validated_by = None, None
+    season.save(update_fields=['finalized_at', 'results_validated_at', 'results_validated_by'])
 
 
 def season_info(season) -> dict:

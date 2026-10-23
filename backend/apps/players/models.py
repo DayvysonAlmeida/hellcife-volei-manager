@@ -262,6 +262,13 @@ class Season(models.Model):
         help_text='Preenchido quando o resultado final é salvo (na virada para a temporada seguinte).',
     )
     prize_notes = models.TextField(blank=True, verbose_name='Premiação', help_text='Texto livre sobre a premiação da temporada.')
+    results_validated_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='Resultado validado em',
+        help_text='Preenchido quando a organização confere a classificação final. Antes disso, os atletas não veem o pódio.',
+    )
+    results_validated_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+', verbose_name='Validado por',
+    )
 
     class Meta:
         verbose_name = 'Temporada'
