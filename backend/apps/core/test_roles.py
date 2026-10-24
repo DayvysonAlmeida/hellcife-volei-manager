@@ -175,3 +175,64 @@ class AthleteAudienceTests(RolesTestCase):
 
         notified = set(Notification.objects.filter(title='Aviso').values_list('user__email', flat=True))
         self.assertEqual(notified, {'mari@x.com', 'mod@x.com'})  # o admin não joga: não recebe
+
+
+class CircuitPrivacyTests(RolesTestCase):
+    """Nota (overall), pagamentos e justificativas dos outros: só a staff. Cada atleta vê os próprios."""
+
+    def setUp(self):
+        super().setUp()
+        from apps.attendance.models import Attendance
+        self.gameday = GameDay.objects.create(date=date.today(), is_published=True)
+        Attendance.objects.create(gameday=self.gameday, player=self.mari, present=True, has_paid=True)
+        Attendance.objects.create(gameday=self.gameday, player=self.bia, present=True, has_paid=True,
+                                  is_justified=True, justification_text='Consulta médica')
+        Evaluation.objects.create(player=self.mari, evaluator=self.admin, date=date.today(), attack=8)
+        Evaluation.objects.create(player=self.bia, evaluator=self.admin, date=date.today(), attack=6)
+
+    def test_public_link_shows_position_but_no_ratings_or_payments(self):
+        data = APIClient().get(f'/api/attendance/gamedays/{self.gameday.id}/checkin-info/').data
+        bia = next(p for p in data['players'] if p['id'] == self.bia.id)
+
+        self.assertEqual(bia['main_position'], 'libero')
+        for field in ('latest_overall', 'has_paid', 'used_credit', 'amount_due'):
+            self.assertNotIn(field, bia)
+        self.assertIsNotNone(data['gameday']['average_overall'])  # a média da lista continua
+
+    def test_athlete_sees_own_payment_and_rating_in_the_list(self):
+        data = self.as_user(self.athlete).get(f'/api/attendance/gamedays/{self.gameday.id}/checkin-info/').data
+        mine = next(p for p in data['players'] if p['id'] == self.mari.id)
+        bia = next(p for p in data['players'] if p['id'] == self.bia.id)
+
+        self.assertTrue(mine['has_paid'])
+        self.assertGreater(mine['latest_overall'], 0)
+        self.assertNotIn('has_paid', bia)
+
+        staff = self.as_user(self.moderator).get(f'/api/attendance/gamedays/{self.gameday.id}/checkin-info/').data
+        self.assertIn('latest_overall', next(p for p in staff['players'] if p['id'] == self.bia.id))
+
+    def test_athlete_only_reads_own_attendance_rows(self):
+        client = self.as_user(self.athlete)
+        records = client.get('/api/attendance/records/').data
+        rows = records['results'] if isinstance(records, dict) else records
+        self.assertEqual({r['player'] for r in rows}, {self.mari.id})
+
+        detail = client.get(f'/api/attendance/gamedays/{self.gameday.id}/').data
+        self.assertEqual([a['player'] for a in detail['attendances']], [self.mari.id])
+        self.assertNotIn('Consulta médica', str(detail))
+
+    def test_staff_screens_with_everyones_data_are_staff_only(self):
+        client = self.as_user(self.athlete)
+        self.assertEqual(client.get('/api/attendance/gamedays/general-stats/').status_code, 403)
+        self.assertEqual(client.get('/api/players/ranking/').status_code, 403)
+        self.assertEqual(self.as_user(self.moderator).get('/api/players/ranking/').status_code, 200)
+
+    def test_rating_of_others_is_hidden_from_athletes(self):
+        client = self.as_user(self.athlete)
+        self.assertIsNone(client.get(f'/api/players/{self.bia.id}/').data['latest_overall'])
+        other = client.get(f'/api/players/{self.bia.id}/stats/').data
+        self.assertEqual((other['overall_history'], other['overall_rank']), ([], None))
+
+        mine = client.get(f'/api/players/{self.mari.id}/stats/').data
+        self.assertTrue(mine['overall_history'])
+        self.assertIsNotNone(client.get('/api/players/me/').data['latest_overall'])

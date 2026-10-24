@@ -34,8 +34,8 @@ class EloCalibrationMixin:
 
 
 class PrivateFieldsMixin:
-    """Telefone, observações da staff e Elo: só a staff e o próprio atleta veem. Para os outros atletas vêm vazios."""
-    PRIVATE_FIELDS = ('phone', 'notes', 'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration')
+    """Telefone, observações da staff, Elo e a nota (overall): só a staff e o próprio atleta veem. Para os outros vêm vazios."""
+    PRIVATE_FIELDS = ('phone', 'notes', 'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration', 'latest_overall')
 
     def to_representation(self, obj):
         data = super().to_representation(obj)

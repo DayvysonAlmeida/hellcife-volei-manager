@@ -186,10 +186,8 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   const showPayment = myDue > 0 && (amPresent || amReserved) && !myAttendance?.has_paid && !myAttendance?.used_credit;
 
   const presentPlayers = circuitDetail?.players?.filter((p: any) => p.present) || [];
-  const validOveralls = presentPlayers.filter((p: any) => p.latest_overall > 0);
-  const avgOverall = validOveralls.length > 0
-    ? (validOveralls.reduce((sum: number, p: any) => sum + p.latest_overall, 0) / validOveralls.length).toFixed(1)
-    : null;
+  // Nível médio da lista: vem pronto do servidor (a nota de cada um não chega para o atleta)
+  const avgOverall = gd?.average_overall != null ? Number(gd.average_overall).toFixed(1) : null;
 
 
   return (

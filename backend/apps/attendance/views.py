@@ -12,7 +12,7 @@ from . import finance
 from .frequency import circuit_days, circuit_happened, frequency
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
 from apps.players.models import Player
-from apps.core.permissions import IsAdminOrModerator, IsAdminUser
+from apps.core.permissions import IsAdminOrModerator, IsAdminUser, is_staff_profile
 from apps.core.throttles import PublicCheckinPlayerThrottle, ScopedThrottle
 
 
@@ -132,6 +132,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
             'create', 'update', 'partial_update', 'bulk_attendance', 'initialize', 'add_guest',
             'reorder_waitlist', 'toggle_attendance', 'toggle_payment', 'bulk_payment', 'promote_waitlist',
             'refresh_list', 'process_past_absences', 'confirm_payment',
+            'general_stats',  # Frequências: faltas de todo mundo
         ]:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
@@ -162,7 +163,12 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 instance = self.get_queryset().get(pk=instance.pk)
                 
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        data = serializer.data
+        if not is_staff_profile(request.user):
+            # Pagamentos e justificativas de falta dos outros: só a staff vê a lista completa
+            me = getattr(request.user, 'player_profile', None)
+            data['attendances'] = [a for a in data.get('attendances', []) if me and a.get('player') == me.id]
+        return Response(data)
 
     @action(detail=True, methods=['post'], url_path='add-guest')
     def add_guest(self, request, pk=None):
@@ -589,10 +595,23 @@ class GameDayViewSet(viewsets.ModelViewSet):
                 'avatar_url': request.build_absolute_uri(p.avatar.url) if p.avatar else None
             })
             
+        # Nível médio da lista (dos presentes com nota): a tela mostra a média, sem a nota de cada um
+        overalls = [row['latest_overall'] for row in players_data if row['present'] and row['latest_overall']]
+        average_overall = round(sum(overalls) / len(overalls), 1) if overalls else None
+
+        if not is_staff_profile(request.user):
+            # Link do grupo e atletas: a nota e o pagamento dos outros ficam de fora (cada um vê os próprios)
+            me = getattr(request.user, 'player_profile', None) if request.user.is_authenticated else None
+            for row in players_data:
+                if not me or row['id'] != me.id:
+                    for field in ('latest_overall', 'has_paid', 'used_credit', 'amount_due'):
+                        row.pop(field)
+
         return Response({
             'gameday': {
                 'id': gameday.id,
                 'date': gameday.date,
+                'average_overall': average_overall,
                 'location': gameday.location,
                 'description': gameday.description,
                 'total_present': sum(1 for a in attendances if a.present),
@@ -1089,6 +1108,13 @@ class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['gameday', 'player', 'present', 'was_no_show', 'is_justified']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if is_staff_profile(self.request.user):
+            return qs
+        # Pagamentos e justificativas de falta: o atleta só vê os próprios registros
+        return qs.filter(player__user=self.request.user)
 
     @action(detail=True, methods=['post'], url_path='justify')
     def justify(self, request, pk=None):

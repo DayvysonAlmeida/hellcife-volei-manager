@@ -104,7 +104,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
         return context
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'update_stars']:
+        # ranking = Leaderboard da staff: a nota (overall) de todos
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'update_stars', 'ranking']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
 
@@ -472,6 +473,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='stats')
     def stats(self, request, pk=None):
         player = self.get_object()
+        can_see_overall = is_staff_profile(request.user) or player.user_id == request.user.id
 
         # Usa annotations ao invés de loop Python para calcular vitórias/derrotas
         match_stats = MatchPlayer.objects.filter(player=player).aggregate(
@@ -561,8 +563,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'total_gamedays': career_freq['total_days'],
             'attended_gamedays': career_freq['attended_days'],
             'attendance_rate': career_freq['rate'],
-            'overall_history': list(evaluations),
-            'overall_rank': overall_rank,
+            # A nota (overall) e o histórico dela: só a staff e o próprio atleta
+            'overall_history': list(evaluations) if can_see_overall else [],
+            'overall_rank': overall_rank if can_see_overall else None,
             'win_rank': win_rank,
             'latest_mini_star': latest_mini_star,
             'season': season_block,
