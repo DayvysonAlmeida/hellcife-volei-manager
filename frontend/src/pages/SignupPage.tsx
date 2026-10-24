@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, Camera, CheckCircle2, Eye, EyeOff, Loader2, MailCheck, X } from 'lucide-react';
 import { signupService } from '@/services/signup';
 import { regulationService } from '@/services';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
 import { cn } from '@/lib/utils';
+import { AuthShell } from '@/components/auth/AuthShell';
+import { authInput, authLabel, authMuted } from '@/components/auth/authStyles';
 import { GENDER_LABELS, GENDER_ORDER, type Gender, type Position } from '@/types';
 
 const POSITIONS: { value: Position; label: string }[] = [
@@ -58,11 +59,11 @@ function Field({ id, label, required, error, hint, children }: {
 }) {
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="block text-text-secondary text-xs font-bold uppercase tracking-wider">
+      <label htmlFor={id} className={authLabel}>
         {label}{required && <span className="text-red"> *</span>}
       </label>
       {children}
-      {error ? <p className="text-red text-xs font-medium">{error}</p> : hint && <p className="text-text-muted text-[11px]">{hint}</p>}
+      {error ? <p className="text-red text-xs font-medium">{error}</p> : hint && <p className={`text-[11px] ${authMuted}`}>{hint}</p>}
     </div>
   );
 }
@@ -140,29 +141,27 @@ export function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-start sm:items-center justify-center px-4 py-10 relative overflow-hidden">
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-red/20 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-500/20 blur-[120px] rounded-full pointer-events-none" />
-
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-xl relative z-10">
-        <div className="text-center mb-6">
-          <img src="/logo_simbolo.png" alt="Hellcife" className="w-14 h-14 mx-auto mb-3 drop-shadow-[0_0_15px_rgba(217,4,41,0.5)]" />
-          <h1 className="text-2xl sm:text-3xl font-display text-white mb-1 uppercase tracking-wide">Criar conta</h1>
-          <p className="text-text-muted text-sm">Cadastre-se para jogar com o Hellcife Vôlei.</p>
-        </div>
-
-        <div className="card p-5 sm:p-8 backdrop-blur-xl bg-surface/80 border border-white/10 shadow-2xl">
+    <>
+    <AuthShell
+      title="Criar conta"
+      subtitle={doneEmail ? undefined : 'Cadastre-se para jogar com o Hellcife Vôlei.'}
+      footer={(
+        <Link to="/login" className={`${authMuted} hover:text-red transition-colors inline-flex items-center gap-2`}>
+          <ArrowLeft size={16} /> Já tenho conta
+        </Link>
+      )}
+    >
           {doneEmail ? (
             <div className="text-center py-2 space-y-4">
               <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto border border-green-500/30">
                 <MailCheck size={32} />
               </div>
-              <h2 className="text-xl font-bold text-white">Confira o seu e-mail</h2>
-              <p className="text-text-secondary text-sm">
+              <h2 className="text-xl font-bold">Confira o seu e-mail</h2>
+              <p className={`text-sm ${authMuted}`}>
                 Enviamos um link para <strong>{doneEmail}</strong>. Clique nele para confirmar o cadastro (vale por 48 horas).
                 Depois, a organização aprova e você já pode usar o app.
               </p>
-              <p className="text-text-muted text-xs">Não chegou? Olhe a caixa de spam ou peça outro link.</p>
+              <p className={`text-xs ${authMuted}`}>Não chegou? Olhe a caixa de spam ou peça outro link.</p>
               {resent && <p className="text-green-400 text-xs">{resent}</p>}
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
                 <button type="button" onClick={resend} className="btn-secondary justify-center">Reenviar link</button>
@@ -182,19 +181,19 @@ export function SignupPage() {
                 onChange={(e) => set('website', e.target.value)} className="hidden" aria-hidden />
 
               <section className="space-y-4">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">Quem é você</h2>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500 dark:text-white/40">Quem é você</h2>
                 <Field id="signup-name" label="Nome social" required error={errors.name} hint="Como você quer ser chamado no app.">
-                  <input id="signup-name" className="input-glass w-full" value={form.name} onChange={(e) => set('name', e.target.value)} autoComplete="nickname" />
+                  <input id="signup-name" className={authInput} value={form.name} onChange={(e) => set('name', e.target.value)} autoComplete="nickname" />
                 </Field>
                 <Field id="signup-legal" label="Nome completo (civil)" error={errors.legal_name} hint="Opcional. Só a organização vê.">
-                  <input id="signup-legal" className="input-glass w-full" value={form.legal_name} onChange={(e) => set('legal_name', e.target.value)} autoComplete="name" />
+                  <input id="signup-legal" className={authInput} value={form.legal_name} onChange={(e) => set('legal_name', e.target.value)} autoComplete="name" />
                 </Field>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field id="signup-nickname" label="Apelido" error={errors.nickname} hint="Opcional.">
-                    <input id="signup-nickname" className="input-glass w-full" value={form.nickname} onChange={(e) => set('nickname', e.target.value)} />
+                    <input id="signup-nickname" className={authInput} value={form.nickname} onChange={(e) => set('nickname', e.target.value)} />
                   </Field>
                   <Field id="signup-gender" label="Gênero" required error={errors.gender}>
-                    <select id="signup-gender" className="input-glass w-full" value={form.gender} onChange={(e) => set('gender', e.target.value as Form['gender'])}>
+                    <select id="signup-gender" className={authInput} value={form.gender} onChange={(e) => set('gender', e.target.value as Form['gender'])}>
                       <option value="">Selecione…</option>
                       {GENDER_ORDER.map((g) => <option key={g} value={g}>{GENDER_LABELS[g]}</option>)}
                     </select>
@@ -203,14 +202,14 @@ export function SignupPage() {
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">Acesso</h2>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500 dark:text-white/40">Acesso</h2>
                 <Field id="signup-email" label="E-mail" required error={errors.email} hint="Vamos mandar um link para confirmar.">
-                  <input id="signup-email" type="email" className="input-glass w-full" value={form.email} onChange={(e) => set('email', e.target.value)} autoComplete="email" />
+                  <input id="signup-email" type="email" className={authInput} value={form.email} onChange={(e) => set('email', e.target.value)} autoComplete="email" />
                 </Field>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field id="signup-password" label="Senha" required error={errors.password} hint="Pelo menos 8 caracteres.">
                     <div className="relative">
-                      <input id="signup-password" type={showPassword ? 'text' : 'password'} className="input-glass w-full pr-10" value={form.password}
+                      <input id="signup-password" type={showPassword ? 'text' : 'password'} className={cn(authInput, 'pr-10')} value={form.password}
                         onChange={(e) => set('password', e.target.value)} autoComplete="new-password" />
                       <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted"
                         aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}>
@@ -219,27 +218,27 @@ export function SignupPage() {
                     </div>
                   </Field>
                   <Field id="signup-password2" label="Repita a senha" required error={errors.password_confirm}>
-                    <input id="signup-password2" type={showPassword ? 'text' : 'password'} className="input-glass w-full" value={form.password_confirm}
+                    <input id="signup-password2" type={showPassword ? 'text' : 'password'} className={authInput} value={form.password_confirm}
                       onChange={(e) => set('password_confirm', e.target.value)} autoComplete="new-password" />
                   </Field>
                 </div>
                 <Field id="signup-phone" label="WhatsApp" required error={errors.phone}>
-                  <input id="signup-phone" type="tel" inputMode="tel" className="input-glass w-full" placeholder="(81) 99999-9999" value={form.phone}
+                  <input id="signup-phone" type="tel" inputMode="tel" className={authInput} placeholder="(81) 99999-9999" value={form.phone}
                     onChange={(e) => set('phone', e.target.value)} autoComplete="tel" />
                 </Field>
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">Na quadra</h2>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500 dark:text-white/40">Na quadra</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field id="signup-position" label="Posição principal" required error={errors.main_position}>
-                    <select id="signup-position" className="input-glass w-full" value={form.main_position} onChange={(e) => set('main_position', e.target.value as Form['main_position'])}>
+                    <select id="signup-position" className={authInput} value={form.main_position} onChange={(e) => set('main_position', e.target.value as Form['main_position'])}>
                       <option value="">Selecione…</option>
                       {POSITIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                     </select>
                   </Field>
                   <Field id="signup-position2" label="Posição secundária" error={errors.secondary_position} hint="Opcional.">
-                    <select id="signup-position2" className="input-glass w-full" value={form.secondary_position} onChange={(e) => set('secondary_position', e.target.value as Form['secondary_position'])}>
+                    <select id="signup-position2" className={authInput} value={form.secondary_position} onChange={(e) => set('secondary_position', e.target.value as Form['secondary_position'])}>
                       <option value="">Nenhuma</option>
                       {POSITIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                     </select>
@@ -248,21 +247,21 @@ export function SignupPage() {
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-text-muted">Opcional</h2>
+                <h2 className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-500 dark:text-white/40">Opcional</h2>
                 <div className="grid grid-cols-2 gap-4">
                   <Field id="signup-age" label="Idade" error={errors.age}>
-                    <input id="signup-age" type="number" inputMode="numeric" min={10} max={99} className="input-glass w-full" value={form.age} onChange={(e) => set('age', e.target.value)} />
+                    <input id="signup-age" type="number" inputMode="numeric" min={10} max={99} className={authInput} value={form.age} onChange={(e) => set('age', e.target.value)} />
                   </Field>
                   <Field id="signup-height" label="Altura (m)" error={errors.height}>
-                    <input id="signup-height" type="number" inputMode="decimal" step="0.01" min={1} max={2.5} placeholder="1,75" className="input-glass w-full"
+                    <input id="signup-height" type="number" inputMode="decimal" step="0.01" min={1} max={2.5} placeholder="1,75" className={authInput}
                       value={form.height} onChange={(e) => set('height', e.target.value)} />
                   </Field>
                 </div>
                 <Field id="signup-instagram" label="Instagram" error={errors.instagram}>
-                  <input id="signup-instagram" className="input-glass w-full" placeholder="@seuperfil" value={form.instagram} onChange={(e) => set('instagram', e.target.value)} />
+                  <input id="signup-instagram" className={authInput} placeholder="@seuperfil" value={form.instagram} onChange={(e) => set('instagram', e.target.value)} />
                 </Field>
                 <Field id="signup-avatar" label="Foto" error={errors.avatar} hint="Imagem de até 5 MB.">
-                  <label htmlFor="signup-avatar" className="input-glass w-full flex items-center gap-2 cursor-pointer text-text-muted">
+                  <label htmlFor="signup-avatar" className={cn(authInput, 'flex items-center gap-2 cursor-pointer text-gray-500 dark:text-white/50')}>
                     <Camera size={16} className="shrink-0" />
                     <span className="truncate">{avatar ? avatar.name : 'Escolher foto'}</span>
                     {avatar && (
@@ -277,7 +276,7 @@ export function SignupPage() {
               </section>
 
               <div className="space-y-1">
-                <label className="flex items-start gap-3 text-sm text-text-secondary cursor-pointer">
+                <label className="flex items-start gap-3 text-sm text-gray-700 dark:text-white/70 cursor-pointer">
                   <input type="checkbox" checked={form.accept_terms} onChange={(e) => set('accept_terms', e.target.checked)} className="mt-1 w-4 h-4 accent-red shrink-0" />
                   <span>
                     Li e aceito o{' '}
@@ -294,14 +293,7 @@ export function SignupPage() {
               </button>
             </form>
           )}
-        </div>
-
-        <div className="mt-6 text-center">
-          <Link to="/login" className="text-text-muted hover:text-white transition-colors text-sm inline-flex items-center gap-2">
-            <ArrowLeft size={16} /> Já tenho conta
-          </Link>
-        </div>
-      </motion.div>
+    </AuthShell>
 
       {/* Regulamento */}
       {regulation !== null && (
@@ -322,6 +314,6 @@ export function SignupPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -79,7 +79,7 @@ class ForgotPasswordSerializer(serializers.Serializer):
 class ResetPasswordSerializer(serializers.Serializer):
     uidb64 = serializers.CharField(write_only=True)
     token = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True, min_length=6)
+    new_password = serializers.CharField(write_only=True, min_length=8)  # mesma regra do cadastro
     
     def validate(self, data):
         try:
