@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { Player, PaginatedResponse, StarHistoryEntry } from '@/types';
+import type { Player, PaginatedResponse, StarCategory, StarHistoryEntry, StarLaunchOption } from '@/types';
 
 export interface StarsPayload {
   mvp_stars: number;
@@ -39,4 +39,14 @@ export const playersService = {
 
   getStarHistory: () =>
     api.get<StarHistoryEntry[]>('/players/stars-history/').then(r => r.data),
+
+  /** Painel "Lançar estrelas": circuitos já realizados e os presentes em cada um. */
+  starLaunchOptions: () =>
+    api.get<StarLaunchOption[]>('/players/stars/launch-options/').then(r => r.data),
+
+  launchStars: (gameday: number, items: { player: number; category: StarCategory; count: number }[]) =>
+    api.post<{ detail: string; created: number }>('/players/stars/launch/', { gameday, items }).then(r => r.data),
+
+  undoStar: (historyId: number) =>
+    api.post<{ detail: string }>(`/players/stars-history/${historyId}/undo/`).then(r => r.data),
 };

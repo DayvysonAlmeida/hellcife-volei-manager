@@ -224,6 +224,16 @@ class StarHistory(models.Model):
         'core.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='stars_given', verbose_name='Lançado por',
     )
+    # Circuito em que a estrela foi ganha (vazio nos lançamentos antigos)
+    gameday = models.ForeignKey(
+        'attendance.GameDay', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='star_awards', verbose_name='Circuito',
+    )
+    # "Desfazer": a remoção aponta para o lançamento que ela desfez
+    reverts = models.OneToOneField(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reverted_by', verbose_name='Desfaz o lançamento',
+    )
 
     class Meta:
         verbose_name = 'Histórico de Estrela'

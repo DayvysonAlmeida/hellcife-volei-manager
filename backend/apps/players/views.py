@@ -8,8 +8,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from .models import Player, StarHistory, Badge
-from apps.notifications.models import Notification
-from apps.notifications.services import notify
+from .stars import FIELDS as STAR_FIELDS, after_stars_changed, apply_stars
 from .serializers import (
     PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer,
     BadgeSerializer, MyProfileSerializer
@@ -33,6 +32,14 @@ def latest_overall_subquery():
         ).order_by('-date', '-id').values('overall')[:1],
         output_field=FloatField()
     )
+
+
+def _undone_by(entry, show_author):
+    """Lançamento desfeito: quem desfez (o nome só para a staff). None se continua valendo."""
+    undo = getattr(entry, 'reverted_by', None)
+    if undo is None:
+        return None
+    return {'name': undo.given_by.name if show_author and undo.given_by else None, 'at': undo.created_at.isoformat()}
 
 
 class PlayerViewSet(viewsets.ModelViewSet):
@@ -127,154 +134,18 @@ class PlayerViewSet(viewsets.ModelViewSet):
         Atualiza os prêmios vitais de um atleta.
         """
         player = self.get_object()
+        deltas = {}
+        for cat, field in STAR_FIELDS.items():
+            try:
+                value = int(request.data.get(field, getattr(player, field) or 0))
+            except (TypeError, ValueError):
+                return Response({field: 'Informe um número.'}, status=status.HTTP_400_BAD_REQUEST)
+            if value < 0:
+                return Response({field: f'Deve ser maior ou igual a 0. Recebido: {value}'}, status=status.HTTP_400_BAD_REQUEST)
+            deltas[cat] = value - (getattr(player, field) or 0)
 
-        old_mvp = player.mvp_stars or 0
-        old_attack = player.attack_stars or 0
-        old_defense = player.defense_stars or 0
-        old_setter = player.setter_stars or 0
-        old_pass = player.pass_stars or 0
-        old_block = player.block_stars or 0
-
-        mvp = int(request.data.get('mvp_stars', old_mvp))
-        attack = int(request.data.get('attack_stars', old_attack))
-        defense = int(request.data.get('defense_stars', old_defense))
-        setter = int(request.data.get('setter_stars', old_setter))
-        pass_ = int(request.data.get('pass_stars', old_pass))
-        block = int(request.data.get('block_stars', old_block))
-
-        # Validação de range mínimo
-        for name, val in [('mvp_stars', mvp), ('attack_stars', attack), ('defense_stars', defense), ('setter_stars', setter), ('pass_stars', pass_), ('block_stars', block)]:
-            if val < 0:
-                return Response(
-                    {name: f'Deve ser maior ou igual a 0. Recebido: {val}'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        # Calcula o delta das estrelas
-        diff_mvp = mvp - old_mvp
-        diff_attack = attack - old_attack
-        diff_defense = defense - old_defense
-        diff_setter = setter - old_setter
-        diff_pass = pass_ - old_pass
-        diff_block = block - old_block
-
-        player.mvp_stars = mvp
-        player.attack_stars = attack
-        player.defense_stars = defense
-        player.setter_stars = setter
-        player.pass_stars = pass_
-        player.block_stars = block
-
-        prev_big_stars = player.big_stars or 0
-        diff_points = (diff_mvp * 6) + diff_attack + diff_defense + diff_setter + diff_pass + diff_block
-        
-        new_mini = (player.mini_stars or 0) + diff_points
-        if new_mini >= 15:
-            player.big_stars = prev_big_stars + 1
-            player.mini_stars = 0
-            player.mvp_stars = 0
-            player.attack_stars = 0
-            player.defense_stars = 0
-            player.setter_stars = 0
-            player.pass_stars = 0
-            player.block_stars = 0
-        else:
-            player.mini_stars = max(0, new_mini)
-
-        new_big_stars = player.big_stars or 0
-
-        # Atualiza totais se existirem para compatibilidade legada
-        if hasattr(player, 'total_mvp'):
-            player.total_mvp += max(0, diff_mvp)
-            player.total_attack += max(0, diff_attack)
-            player.total_defense += max(0, diff_defense)
-            player.total_setter += max(0, diff_setter)
-            player.total_pass += max(0, diff_pass)
-            player.total_block += max(0, diff_block)
-
-        update_fields = [
-            'mvp_stars', 'attack_stars', 'defense_stars',
-            'setter_stars', 'pass_stars', 'block_stars',
-            'mini_stars', 'big_stars', 'updated_at'
-        ]
-        if hasattr(player, 'total_mvp'):
-            update_fields.extend([
-                'total_mvp', 'total_attack', 'total_defense',
-                'total_setter', 'total_pass', 'total_block'
-            ])
-
-        # Salva as alterações
-        player.save(update_fields=update_fields)
-
-        # Cria os registros de histórico de estrelas
-        history_to_create = []
-        for diff, cat in [
-            (diff_mvp, 'mvp'), (diff_attack, 'attack'), (diff_defense, 'defense'),
-            (diff_setter, 'setter'), (diff_pass, 'pass'), (diff_block, 'block')
-        ]:
-            if diff != 0:
-                history_to_create.append(StarHistory(
-                    player=player, category=cat, given_by=request.user,
-                    action='add' if diff > 0 else 'remove', count=abs(diff)
-                ))
-
-        if new_big_stars > prev_big_stars:
-            history_to_create.append(StarHistory(
-                player=player, category='promotion', action='promote', count=new_big_stars - prev_big_stars, given_by=request.user,
-            ))
-
-        if history_to_create:
-            StarHistory.objects.bulk_create(history_to_create)
-
-        # Envia notificação se o jogador tiver usuário vinculado
-        if player.user and hasattr(player, 'user'):
-            notifications_to_create = []
-            
-            # Notifica mini estrelas adicionadas (somente para o próprio atleta)
-            for diff, cat, label in [
-                (diff_mvp, 'mvp', 'MVP'), (diff_attack, 'attack', 'Ataque'), (diff_defense, 'defense', 'Defesa'),
-                (diff_setter, 'setter', 'Levantamento'), (diff_pass, 'pass', 'Passe'), (diff_block, 'block', 'Bloqueio')
-            ]:
-                if diff > 0:
-                    notifications_to_create.append(Notification(
-                        user=player.user,
-                        title='Mini Estrela Recebida! ⭐',
-                        message=f'Você recebeu {diff} mini estrela(s) de {label}. Continue mandando ver!',
-                        type='prize',
-                        url='/athlete/profile',
-                    ))
-
-            # Notifica forja da Estrela Maior
-            if new_big_stars > prev_big_stars:
-                # 1. Notifica o próprio jogador
-                notifications_to_create.append(Notification(
-                    user=player.user,
-                    title='ESTRELA FORJADA! 🌟',
-                    message=f'Parabéns! Suas 15 mini estrelas formaram uma nova Estrela Completa! Agora você possui {new_big_stars} estrela(s).',
-                    type='prize',
-                    url='/athlete/profile',
-                ))
-
-                # 2. Os outros atletas veem na lista do app, sem o celular apitar
-                from apps.notifications.services import athlete_audience
-                other_users = athlete_audience().exclude(id=player.user.id)
-                notify([
-                    Notification(
-                        user=other_user,
-                        title='Estrela Forjada no Circuito! 🌟',
-                        message=f'O atleta {player.display_name} acabou de forjar uma nova Estrela Completa e chegou a {new_big_stars} estrela(s)!',
-                        type='circuit',
-                    ) for other_user in other_users
-                ], push=False)
-
-            notify(notifications_to_create)
-
-        # Invalida cache do dashboard para refletir nova pontuação
-        from django.core.cache import cache
-        cache.delete('dashboard_data')
-
-        from apps.core.utils.ranking_monitor import check_rank_changes
-        check_rank_changes()
+        apply_stars(player, deltas, request.user)
+        after_stars_changed()
 
         return Response({
             'id': player.id,
@@ -287,6 +158,81 @@ class PlayerViewSet(viewsets.ModelViewSet):
             'mini_stars': player.mini_stars,
             'big_stars': player.big_stars,
         })
+
+    @action(detail=False, methods=['get'], url_path='stars/launch-options')
+    def stars_launch_options(self, request):
+        """Painel "Lançar estrelas": circuitos já realizados e quem esteve presente em cada um."""
+        if not is_staff_profile(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        from apps.attendance.models import Attendance, GameDay
+        gamedays = list(GameDay.objects.filter(date__lte=timezone.localdate()).order_by('-date', '-id')[:20])
+        present = {}
+        for gameday_id, player_id in Attendance.objects.filter(gameday__in=gamedays, present=True).values_list('gameday_id', 'player_id'):
+            present.setdefault(gameday_id, []).append(player_id)
+        return Response([
+            {
+                'id': g.id, 'date': g.date, 'description': g.description or '', 'location': g.arena_name or g.location or '',
+                'present_ids': present.get(g.id, []),
+            } for g in gamedays
+        ])
+
+    @action(detail=False, methods=['post'], url_path='stars/launch')
+    def stars_launch(self, request):
+        """
+        Lança várias estrelas de um circuito de uma vez (o rascunho revisado no painel).
+        Corpo: {"gameday": 12, "items": [{"player": 3, "category": "attack", "count": 1}, ...]}
+        """
+        if not is_staff_profile(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        from django.db import transaction
+        from apps.attendance.models import GameDay
+
+        gameday = GameDay.objects.filter(pk=request.data.get('gameday'), date__lte=timezone.localdate()).first()
+        if not gameday:
+            return Response({'gameday': 'Escolha um circuito que já aconteceu.'}, status=status.HTTP_400_BAD_REQUEST)
+        items = request.data.get('items') or []
+        if not isinstance(items, list) or not items:
+            return Response({'items': 'Escolha pelo menos uma estrela para lançar.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        per_player = {}
+        for item in items:
+            try:
+                player_id, category, count = int(item['player']), item['category'], int(item.get('count', 1))
+            except (KeyError, TypeError, ValueError):
+                return Response({'items': 'Lançamento inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+            if category not in STAR_FIELDS or not 1 <= count <= 10:
+                return Response({'items': 'Categoria ou quantidade inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+            per_player.setdefault(player_id, {}).setdefault(category, 0)
+            per_player[player_id][category] += count
+
+        players = {p.id: p for p in Player.objects.filter(id__in=per_player).exclude(status='pending')}
+        if len(players) != len(per_player):
+            return Response({'items': 'Algum atleta não foi encontrado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            created = sum(len(apply_stars(players[pid], deltas, request.user, gameday)) for pid, deltas in per_player.items())
+        after_stars_changed()
+        return Response({'detail': 'Estrelas lançadas.', 'created': created}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path=r'stars-history/(?P<history_id>\d+)/undo')
+    def stars_undo(self, request, history_id=None):
+        """Desfaz um lançamento: tira a estrela e registra quem desfez. Só se ela ainda não virou Estrela Grande."""
+        if not is_staff_profile(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        entry = StarHistory.objects.select_related('player', 'gameday').filter(pk=history_id).first()
+        if not entry or entry.action != 'add' or entry.category not in STAR_FIELDS:
+            return Response({'detail': 'Só dá para desfazer uma estrela lançada.'}, status=status.HTTP_400_BAD_REQUEST)
+        if StarHistory.objects.filter(reverts=entry).exists():
+            return Response({'detail': 'Este lançamento já foi desfeito.'}, status=status.HTTP_409_CONFLICT)
+        player = entry.player
+        if (getattr(player, STAR_FIELDS[entry.category]) or 0) < entry.count:
+            return Response(
+                {'detail': 'Essa estrela já virou Estrela Grande (os contadores zeraram). Não dá para desfazer automaticamente.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        apply_stars(player, {entry.category: -entry.count}, request.user, entry.gameday, reverts=entry)
+        after_stars_changed()
+        return Response({'detail': 'Lançamento desfeito.'})
 
     @action(detail=False, methods=['get'], url_path='dashboard-stats')
     def dashboard_stats(self, request):
@@ -446,7 +392,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='stars-history')
     def stars_history(self, request):
-        qs = StarHistory.objects.select_related('player', 'given_by').order_by('-created_at')[:200]
+        qs = StarHistory.objects.select_related('player', 'given_by', 'gameday', 'reverted_by__given_by').order_by('-created_at')[:200]
         show_author = is_staff_profile(request.user)  # quem lançou: só a staff vê
         data = []
         for h in qs:
@@ -454,6 +400,9 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 'given_by_id': h.given_by_id if show_author else None,
                 'given_by_name': h.given_by.name if show_author and h.given_by else None,
                 'given_by_profile': h.given_by.profile if show_author and h.given_by else None,
+                'gameday': {'id': h.gameday_id, 'date': h.gameday.date, 'description': h.gameday.description or ''} if h.gameday else None,
+                'reverts_id': h.reverts_id,
+                'undone_by': _undone_by(h, show_author),
                 'id': h.id,
                 'player_id': h.player_id,
                 'player_name': h.player.display_name,

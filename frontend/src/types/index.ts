@@ -220,18 +220,34 @@ export interface Evaluation extends EvaluationSkills {
 }
 
 /** Linha do tempo do Sistema de Estrelas. given_by_*: quem lançou (só para a staff; vazio nos lançamentos antigos). */
+export type StarCategory = 'mvp' | 'attack' | 'defense' | 'setter' | 'pass' | 'block';
+
+export interface StarLaunchOption {
+  id: number;
+  date: string;
+  description: string;
+  location: string;
+  present_ids: number[];
+}
+
 export interface StarHistoryEntry {
   id: number;
   player_id: number;
   player_name: string;
   avatar_url?: string | null;
-  category: 'mvp' | 'attack' | 'defense' | 'setter' | 'pass' | 'block' | 'promotion';
+  category: StarCategory | 'promotion';
   action: 'add' | 'remove' | 'promote';
   count: number;
   created_at: string;
   given_by_id: number | null;
   given_by_name: string | null;
   given_by_profile: User['profile'] | null;
+  /** Circuito em que a estrela foi ganha (vazio nos lançamentos antigos). */
+  gameday: { id: number; date: string; description: string } | null;
+  /** Esta remoção desfez o lançamento com este id. */
+  reverts_id: number | null;
+  /** Lançamento desfeito depois: quem desfez e quando. */
+  undone_by: { name: string | null; at: string } | null;
 }
 
 export interface EvaluationConfig {
