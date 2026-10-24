@@ -117,7 +117,7 @@ export interface Player {
   invited_by?: string;
   /** Convidado: nível temporário para o sorteio (1–10), até ter uma avaliação de verdade. */
   guest_overall?: number | null;
-  /** Nome completo (civil): só vem para a staff; no app aparece o nome social. */
+  /** Nome completo (civil): só vem para a staff e para o próprio atleta; no app aparece o nome social. */
   legal_name?: string | null;
   consecutive_absences: number;
   badges?: PlayerBadge[];

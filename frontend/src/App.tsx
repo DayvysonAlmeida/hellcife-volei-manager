@@ -45,6 +45,7 @@ const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m 
 // Portal do Atleta
 const AthleteDashboardPage = lazy(() => import('@/pages/athlete/AthleteDashboardPage').then(m => ({ default: m.AthleteDashboardPage })));
 const MyProfilePage = lazy(() => import('@/pages/athlete/MyProfilePage').then(m => ({ default: m.MyProfilePage })));
+const EditMyProfilePage = lazy(() => import('@/pages/athlete/EditMyProfilePage').then(m => ({ default: m.EditMyProfilePage })));
 const AthleteCheckinPage = lazy(() => import('@/pages/athlete/AthleteCheckinPage').then(m => ({ default: m.AthleteCheckinPage })));
 const AthleteMatchesPage = lazy(() => import('@/pages/athlete/AthleteMatchesPage').then(m => ({ default: m.AthleteMatchesPage })));
 const PlansPage = lazy(() => import('@/pages/subscriptions/PlansPage').then(m => ({ default: m.PlansPage })));
@@ -112,6 +113,7 @@ function App() {
             >
               <Route index element={<AthleteDashboardPage />} />
               <Route path="profile" element={<MyProfilePage />} />
+              <Route path="profile/edit" element={<EditMyProfilePage />} />
               <Route path="checkin" element={<AthleteCheckinPage />} />
               <Route path="matches" element={<AthleteMatchesPage />} />
               <Route path="plans" element={<PlansPage />} />

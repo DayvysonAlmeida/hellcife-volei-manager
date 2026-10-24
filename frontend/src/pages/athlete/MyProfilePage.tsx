@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarCheck, Crown, Flame, Info, Swords, TrendingUp, Trophy } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, Crown, Flame, Info, Pencil, Swords, TrendingUp, Trophy } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { PageLoading } from '@/components/ui/Loading';
 import { PlayerCard } from '@/components/players/PlayerCard';
@@ -90,7 +90,12 @@ export function MyProfilePage() {
         { label: 'MVPs', value: stats?.mvps ?? 0, icon: Crown, color: 'text-yellow-500' },
       ];
 
+  const phone: string = player.phone?.replace(/\D/g, '') ?? '';
   const info = [
+    player.legal_name && { label: 'Nome civil', value: player.legal_name },
+    { label: 'Gênero', value: player.gender_display },
+    phone.length >= 10 && { label: 'WhatsApp', value: phone.length <= 11 ? `(${phone.slice(0, 2)}) ${phone.slice(2, -4)}-${phone.slice(-4)}` : phone },
+    player.instagram && { label: 'Instagram', value: `@${player.instagram}` },
     { label: 'Mão dominante', value: player.dominant_hand_display },
     player.secondary_position && { label: 'Posição secundária', value: player.secondary_position_display },
     player.age && { label: 'Idade', value: `${player.age} anos` },
@@ -114,6 +119,9 @@ export function MyProfilePage() {
             linkable={false}
           />
         </div>
+        <Link to="/athlete/profile/edit" className="btn-secondary inline-flex items-center gap-2 text-sm">
+          <Pencil size={16} /> Editar perfil
+        </Link>
       </section>
 
       {player.consecutive_absences >= 8 && (

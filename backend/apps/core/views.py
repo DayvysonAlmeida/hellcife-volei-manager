@@ -1,5 +1,4 @@
 from rest_framework import generics, status, viewsets
-from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -34,15 +33,20 @@ class MeView(generics.RetrieveAPIView):
     def get_object(self):
         return self.request.user
 
-    @action(detail=False, methods=['post'])
-    def change_password(self, request):
-        serializer = ChangePasswordSerializer(data=request.data)
+
+class ChangePasswordView(generics.GenericAPIView):
+    """Troca de senha de quem já está logado (Meu perfil): pede a senha atual."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChangePasswordSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = request.user
         if not user.check_password(serializer.validated_data['old_password']):
-            return Response({'old_password': 'Senha atual incorreta.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'old_password': ['Senha atual incorreta.']}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(serializer.validated_data['new_password'])
-        user.save()
+        user.save(update_fields=['password'])
         return Response({'detail': 'Senha alterada com sucesso.'})
 
 

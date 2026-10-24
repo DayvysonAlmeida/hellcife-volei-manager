@@ -1,7 +1,10 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 from .models import Player, Badge, PlayerBadge
 from .elo_service import get_elo_tier, get_elo_progress
 from .rankings import elo_calibration, season_match_count
+from .signup import SignupSerializer
 
 
 class EloCalibrationMixin:
@@ -178,11 +181,52 @@ class PlayerDetailSerializer(EloCalibrationMixin, serializers.ModelSerializer):
         return None
 
     def get_legal_name(self, obj):
-        """Nome civil: só a staff vê (no app aparece o nome social)."""
-        request = self.context.get('request')
-        if getattr(getattr(request, 'user', None), 'profile', None) in ('admin', 'moderator'):
+        """Nome civil: só a staff e o próprio atleta veem (no app aparece o nome social)."""
+        user = getattr(self.context.get('request'), 'user', None)
+        if getattr(user, 'profile', None) in ('admin', 'moderator') or (obj.user_id and obj.user_id == getattr(user, 'id', None)):
             return obj.legal_name
         return None
+
+
+class MyProfileSerializer(serializers.ModelSerializer):
+    """
+    O que o atleta edita no próprio perfil. Campos fora desta lista são ignorados:
+    e-mail, posições, camisa, status, plano, estrelas, Elo e avaliações ficam com a staff.
+    """
+    legal_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=20, required=False)
+    instagram = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    age = serializers.IntegerField(min_value=10, max_value=99, required=False, allow_null=True)
+    height = serializers.DecimalField(
+        max_digits=4, decimal_places=2, min_value=Decimal('1'), max_value=Decimal('2.5'), required=False, allow_null=True,
+    )
+    weight = serializers.DecimalField(
+        max_digits=5, decimal_places=2, min_value=Decimal('30'), max_value=Decimal('250'), required=False, allow_null=True,
+    )
+    remove_avatar = serializers.BooleanField(required=False, write_only=True)
+
+    class Meta:
+        model = Player
+        fields = [
+            'name', 'legal_name', 'nickname', 'gender', 'phone', 'instagram',
+            'age', 'height', 'weight', 'dominant_hand', 'avatar', 'remove_avatar',
+        ]
+
+    # Mesmas regras do cadastro
+    validate_name = SignupSerializer.validate_name
+    validate_phone = SignupSerializer.validate_phone
+    validate_instagram = SignupSerializer.validate_instagram
+    validate_avatar = SignupSerializer.validate_avatar
+
+    def update(self, instance, validated_data):
+        if validated_data.pop('remove_avatar', False) and not validated_data.get('avatar'):
+            validated_data['avatar'] = None
+        player = super().update(instance, validated_data)
+        # O nome do login acompanha o nome social
+        if player.user and player.user.name != player.name:
+            player.user.name = player.name
+            player.user.save(update_fields=['name'])
+        return player
 
 
 class PlayerWriteSerializer(serializers.ModelSerializer):

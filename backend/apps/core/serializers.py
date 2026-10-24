@@ -64,12 +64,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True, min_length=6)
+    new_password = serializers.CharField(write_only=True, min_length=8)  # mesma regra do cadastro
     new_password_confirm = serializers.CharField(write_only=True)
 
     def validate(self, data):
         if data['new_password'] != data['new_password_confirm']:
-            raise serializers.ValidationError({'new_password_confirm': 'As senhas não conferem.'})
+            raise serializers.ValidationError({'new_password_confirm': 'As senhas não são iguais.'})
         return data
 
 

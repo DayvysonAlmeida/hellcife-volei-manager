@@ -12,7 +12,7 @@ from apps.notifications.models import Notification
 from apps.notifications.services import notify
 from .serializers import (
     PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer,
-    BadgeSerializer
+    BadgeSerializer, MyProfileSerializer
 )
 from .filters import PlayerFilter
 from .rankings import (
@@ -649,12 +649,18 @@ class PlayerViewSet(viewsets.ModelViewSet):
             })
         return Response({'season': season.name, 'start': ELO_START, 'current': round(player.elo, 1), 'matches': matches})
 
-    @action(detail=False, methods=['get'], url_path='me', permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get', 'patch'], url_path='me', permission_classes=[IsAuthenticated])
     def me(self, request):
-        """Retorna o Player vinculado ao usuário logado (para portal do atleta)."""
-        player = Player.objects.filter(user=request.user).select_related('user').prefetch_related('evaluations').first()
+        """Retorna o Player vinculado ao usuário logado (para portal do atleta). PATCH: o atleta edita os campos liberados."""
+        mine = Player.objects.filter(user=request.user).select_related('user').prefetch_related('evaluations')
+        player = mine.first()
         if not player:
             return Response({'detail': 'Nenhum perfil de atleta vinculado a este usuário.'}, status=status.HTTP_404_NOT_FOUND)
+        if request.method == 'PATCH':
+            form = MyProfileSerializer(player, data=request.data, partial=True)
+            form.is_valid(raise_exception=True)
+            form.save()
+            player = mine.first()
         serializer = PlayerDetailSerializer(player, context={'request': request})
         return Response(serializer.data)
 
