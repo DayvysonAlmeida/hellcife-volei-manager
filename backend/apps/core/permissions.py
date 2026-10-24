@@ -1,6 +1,11 @@
 from rest_framework.permissions import BasePermission
 
 
+def is_staff_profile(user):
+    """Admin ou moderador: a staff do clube."""
+    return getattr(user, 'profile', None) in ('admin', 'moderator')
+
+
 class IsAdminUser(BasePermission):
     """Apenas administradores têm acesso."""
     def has_permission(self, request, view):

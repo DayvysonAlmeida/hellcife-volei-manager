@@ -5,7 +5,7 @@ from django.core.cache import cache
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from apps.core.permissions import IsAdminOrModerator
 
 from apps.players.models import Player
 from apps.attendance.models import Attendance
@@ -15,7 +15,7 @@ from apps.players.rankings import elo_top, fire_shark_entry, fire_shark_ranking,
 
 
 class DashboardView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminOrModerator]  # traz quem não pagou e o valor da quadra
     CACHE_KEY = 'dashboard_data'
     CACHE_TTL = 60 * 3  # 3 minutos
 

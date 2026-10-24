@@ -14,6 +14,7 @@ class RegulationTextApiTests(TestCase):
         self.moderator = User.objects.create_user(
             'mod@x.com', 'senha-forte-123', name='Mod', profile='moderator'
         )
+        self.admin = User.objects.create_user('admin@x.com', 'senha-forte-123', name='Admin', profile='admin')
 
     def test_authenticated_user_reads_regulation(self):
         self.client.force_authenticate(self.player)
@@ -29,15 +30,20 @@ class RegulationTextApiTests(TestCase):
         response = self.client.put(f'{URL}1/', {'title': 'X', 'content': '<p>x</p>'}, format='json')
         self.assertEqual(response.status_code, 403)
 
-    def test_moderator_edits_singleton(self):
+    def test_moderator_cannot_edit(self):
         self.client.force_authenticate(self.moderator)
+        response = self.client.put(f'{URL}1/', {'title': 'Novo', 'content': '<p>regras</p>'}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_edits_singleton(self):
+        self.client.force_authenticate(self.admin)
         response = self.client.put(f'{URL}1/', {'title': 'Novo', 'content': '<p>regras</p>'}, format='json')
         self.assertEqual(response.status_code, 200)
         reg = RegulationText.objects.get()
-        self.assertEqual((reg.pk, reg.content, reg.updated_by), (1, '<p>regras</p>', self.moderator))
+        self.assertEqual((reg.pk, reg.content, reg.updated_by), (1, '<p>regras</p>', self.admin))
 
     def test_content_is_required(self):
-        self.client.force_authenticate(self.moderator)
+        self.client.force_authenticate(self.admin)
         response = self.client.put(f'{URL}1/', {'title': 'Novo'}, format='json')
         self.assertEqual(response.status_code, 400)
 

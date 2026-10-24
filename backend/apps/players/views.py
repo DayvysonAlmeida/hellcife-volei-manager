@@ -20,7 +20,7 @@ from .rankings import (
     stars_ranking, wins_positions, wins_ranking,
 )
 from .seasons import ensure_current_season
-from apps.core.permissions import IsAdminOrModerator
+from apps.core.permissions import IsAdminOrModerator, IsAdminUser, is_staff_profile
 from apps.evaluations.models import Evaluation
 from apps.matches.models import MatchPlayer
 from apps.attendance.frequency import circuit_days, frequency
@@ -45,6 +45,10 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Player.objects.all()
+        user = self.request.user
+        if not is_staff_profile(user):
+            # Cadastros esperando aprovação: só a staff (e a própria pessoa) enxerga
+            qs = qs.exclude(Q(status='pending') & ~Q(user=user))
 
         if self.action == 'list':
             if 'include_guests' in self.request.query_params:
@@ -96,6 +100,12 @@ class PlayerViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'update_stars']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
+
+    def destroy(self, request, *args, **kwargs):
+        # Excluir atleta é só do admin; convidado criado por engano na quadra o moderador também apaga
+        if not self.get_object().is_guest and not IsAdminUser().has_permission(request, self):
+            return Response({'detail': 'Só o administrador pode excluir atletas.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
 
     def perform_update(self, serializer):
         """Ao reativar um jogador (inactive → active), zera as faltas consecutivas automaticamente."""
@@ -244,8 +254,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
                 ))
 
                 # 2. Os outros atletas veem na lista do app, sem o celular apitar
-                from apps.core.models import User
-                other_users = User.objects.filter(profile='player', is_active=True).exclude(id=player.user.id)
+                from apps.notifications.services import athlete_audience
+                other_users = athlete_audience().exclude(id=player.user.id)
                 notify([
                     Notification(
                         user=other_user,
@@ -386,7 +396,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
         from .models import Season
         from .seasons import finalize_season, notify_results_validated
 
-        if getattr(request.user, 'profile', None) not in ('admin', 'moderator'):
+        if getattr(request.user, 'profile', None) != 'admin':
             return Response({'detail': 'Só administradores podem fechar a temporada.'}, status=status.HTTP_403_FORBIDDEN)
         season = Season.objects.filter(number=number, finalized_at__isnull=False).first()
         if not season:
@@ -408,7 +418,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
         from django.core.cache import cache
         from .models import Season
 
-        if getattr(request.user, 'profile', None) not in ('admin', 'moderator'):
+        if getattr(request.user, 'profile', None) != 'admin':
             return Response({'detail': 'Só administradores podem editar a premiação.'}, status=status.HTTP_403_FORBIDDEN)
         season = Season.objects.filter(number=number).first()
         if not season:
@@ -610,8 +620,7 @@ class PlayerViewSet(viewsets.ModelViewSet):
         from .elo_service import ELO_START
 
         player = self.get_object()
-        is_staff = getattr(request.user, 'profile', None) in ('admin', 'moderator')
-        if not is_staff and player.user_id != request.user.id:
+        if not is_staff_profile(request.user) and player.user_id != request.user.id:
             return Response({'detail': 'Você só pode ver a sua própria evolução.'}, status=status.HTTP_403_FORBIDDEN)
 
         season = ensure_current_season()
@@ -751,9 +760,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='recalculate-elo')
     def recalculate_elo(self, request, pk=None):
-        """Recalcula o Elo de um jogador específico. Apenas admin/moderador."""
-        from apps.core.permissions import IsAdminOrModerator
-        if not IsAdminOrModerator().has_permission(request, self):
+        """Recalcula o Elo de um jogador específico. Apenas admin."""
+        if not IsAdminUser().has_permission(request, self):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         from .elo_service import recalculate_elo as _recalc
@@ -763,9 +771,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='recalculate-all-elos')
     def recalculate_all_elos(self, request):
-        """Recalcula o Elo de todos os jogadores. Apenas admin/moderador."""
-        from apps.core.permissions import IsAdminOrModerator
-        if not IsAdminOrModerator().has_permission(request, self):
+        """Recalcula o Elo de todos os jogadores. Apenas admin."""
+        if not IsAdminUser().has_permission(request, self):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         from .elo_service import recalculate_all

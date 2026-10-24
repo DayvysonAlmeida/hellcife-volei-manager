@@ -8,7 +8,7 @@ from django.db import IntegrityError, transaction
 
 from .models import Match, MatchTeam, MatchPlayer
 from .serializers import MatchSerializer, MatchListSerializer, MatchWriteSerializer, MatchTeamSerializer
-from apps.core.permissions import IsAdminOrModerator
+from apps.core.permissions import IsAdminOrModerator, IsAdminUser
 
 
 AWARD_FIELDS = ['mvp', 'best_attacker', 'best_server', 'best_defender', 'best_setter', 'best_libero', 'best_blocker', 'best_opposite']
@@ -90,7 +90,9 @@ class MatchViewSet(viewsets.ModelViewSet):
         return MatchSerializer
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'add_result']:
+        if self.action == 'destroy':
+            return [IsAdminUser()]
+        if self.action in ['create', 'update', 'partial_update', 'add_result']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
 

@@ -6,6 +6,7 @@ import { regulationService } from '@/services';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { useAuth } from '@/store/AuthContext';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
+import { isAdmin } from '@/lib/roles';
 
 export function RegulationPage() {
   const { data, isLoading, error, refetch } = useQuery({
@@ -14,7 +15,7 @@ export function RegulationPage() {
     staleTime: 1000 * 60 * 5,
   });
   const { user } = useAuth();
-  const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
+  const canEdit = isAdmin(user); // editar o regulamento: só o admin
 
   if (isLoading) return <PageLoading />;
   if (error) return <ErrorState onRetry={refetch} />;

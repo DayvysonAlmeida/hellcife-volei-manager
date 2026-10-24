@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { User, LoginResponse } from '@/types';
 import api from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
@@ -53,6 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = useCallback((updatedUser: User) => {
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setUser(updatedUser);
+  }, []);
+
+  // Ao abrir o app, confere o acesso no servidor: quem foi promovido ou rebaixado na tela Equipe já vê o painel certo
+  useEffect(() => {
+    if (!localStorage.getItem('access_token')) return;
+    api.get<User>('/auth/me/').then(({ data }) => {
+      setUser((current) => {
+        if (!current || (current.profile === data.profile && current.name === data.name)) return current;
+        const merged = { ...current, profile: data.profile, name: data.name };
+        localStorage.setItem('user', JSON.stringify(merged));
+        return merged;
+      });
+    }).catch(() => {}); // sem rede ou sessão vencida: o interceptador da API cuida
   }, []);
 
   return (

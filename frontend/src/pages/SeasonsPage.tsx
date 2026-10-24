@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { formatDate } from '@/lib/utils';
+import { isAdmin } from '@/lib/roles';
 import { seasonsService } from '@/services';
 import { useAuth } from '@/store/AuthContext';
 import type { PastSeason, SeasonInfo, SeasonPodiumEntry } from '@/types';
@@ -223,7 +224,7 @@ function Podium({ season, canEdit }: { season: PastSeason; canEdit: boolean }) {
 
 export function SeasonsPage() {
   const { user } = useAuth();
-  const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
+  const canEdit = isAdmin(user); // fechar a temporada e a premiação: só o admin
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['seasons'], queryFn: seasonsService.get });
 
   if (isLoading) return <PageLoading />;

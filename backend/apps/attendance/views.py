@@ -12,7 +12,7 @@ from . import finance
 from .frequency import circuit_days, circuit_happened, frequency
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
 from apps.players.models import Player
-from apps.core.permissions import IsAdminOrModerator
+from apps.core.permissions import IsAdminOrModerator, IsAdminUser
 
 
 def _deny_unless_self(request, player_id):
@@ -116,10 +116,13 @@ class GameDayViewSet(viewsets.ModelViewSet):
         from rest_framework.permissions import AllowAny
         if self.action in ['checkin_info', 'public_checkin', 'cancel_checkin', 'claim_payment', 'public_add_guest']:
             return [AllowAny()]
+        # Excluir o circuito, estornar pagamento e ver o caixa do circuito: só o admin
+        if self.action in ['destroy', 'revert_payment', 'finance_summary']:
+            return [IsAdminUser()]
         if self.action in [
-            'create', 'update', 'partial_update', 'destroy', 'bulk_attendance', 'initialize', 'add_guest',
+            'create', 'update', 'partial_update', 'bulk_attendance', 'initialize', 'add_guest',
             'reorder_waitlist', 'toggle_attendance', 'toggle_payment', 'bulk_payment', 'promote_waitlist',
-            'refresh_list', 'process_past_absences', 'confirm_payment', 'revert_payment', 'finance_summary',
+            'refresh_list', 'process_past_absences', 'confirm_payment',
         ]:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
@@ -215,11 +218,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
             self._send_publish_notification(gameday)
 
     def _send_publish_notification(self, gameday):
-        from apps.core.models import User
         from apps.notifications.models import Notification
-        from apps.notifications.services import notify
+        from apps.notifications.services import athlete_audience, notify
         date_str = gameday.date.strftime('%d/%m/%Y')
-        users = User.objects.filter(profile='player', is_active=True)
+        users = athlete_audience()
         notifications = [
             Notification(
                 user=u,
@@ -958,8 +960,13 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
 
 class CircuitFinanceViewSet(viewsets.ViewSet):
-    """Relatórios financeiros dos circuitos (somente admin/moderador)."""
-    permission_classes = [IsAdminOrModerator]
+    """Relatórios financeiros dos circuitos: só o admin. Os pagamentos avisados o moderador também confere, na quadra."""
+    permission_classes = [IsAdminUser]
+
+    def get_permissions(self):
+        if self.action == 'claims':
+            return [IsAdminOrModerator()]
+        return [IsAdminUser()]
 
     @action(detail=False, methods=['get'])
     def overview(self, request):

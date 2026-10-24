@@ -7,7 +7,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from datetime import timedelta
-from apps.core.permissions import IsAdminOrModerator
+from apps.core.permissions import IsAdminUser
 from .models import Plan, UserSubscription, AsaasCustomer, ExtraCreditPurchase, SubscriptionCycle
 from .serializers import PlanSerializer, UserSubscriptionSerializer
 from .services import SubscriptionService
@@ -23,11 +23,10 @@ class PlanViewSet(viewsets.ModelViewSet):
         return Plan.objects.filter(is_active=True)
 
     def get_permissions(self):
-        from rest_framework.permissions import AllowAny, IsAuthenticated
-        from apps.core.permissions import IsAdminOrModerator
+        from rest_framework.permissions import IsAuthenticated
         if self.action in ['list', 'retrieve', 'subscribe']:
             return [IsAuthenticated()]
-        return [IsAdminOrModerator()]
+        return [IsAdminUser()]  # criar, editar e excluir planos
 
     @action(detail=True, methods=['post'])
     def subscribe(self, request, pk=None):
@@ -110,14 +109,14 @@ class UserSubscriptionViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         from rest_framework.permissions import IsAuthenticated
         # Atletas só podem ler a própria assinatura e comprar créditos.
-        # Qualquer alteração direta no registro é restrita a admin/moderador.
+        # Qualquer alteração direta no registro é restrita ao admin.
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrModerator()]
+            return [IsAdminUser()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff or getattr(user, 'profile', '') in ['admin', 'moderator']:
+        if user.is_staff or getattr(user, 'profile', '') == 'admin':  # assinaturas de todos: só o admin
             return UserSubscription.objects.all()
         return UserSubscription.objects.filter(player__user=user)
         

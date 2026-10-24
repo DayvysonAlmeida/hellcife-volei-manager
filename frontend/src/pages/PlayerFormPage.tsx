@@ -11,6 +11,8 @@ import { playersService } from '@/services/players';
 import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
+import { isAdmin } from '@/lib/roles';
+import { useAuth } from '@/store/AuthContext';
 import { GENDER_LABELS, GENDER_ORDER, POSITION_LABELS } from '@/types';
 
 const schema = z.object({
@@ -53,6 +55,7 @@ const Field = ({ label, error, children }: { label: string; error?: string; chil
 export function PlayerFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
+  const { user } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [serverError, setServerError] = useState('');
@@ -279,7 +282,7 @@ export function PlayerFormPage() {
         </FieldGroup>
 
         <div className="flex gap-3 justify-end items-center">
-          {isEdit && (
+          {isEdit && (isAdmin(user) || player?.is_guest) && ( // excluir atleta: só o admin
             <button
               type="button"
               onClick={() => {

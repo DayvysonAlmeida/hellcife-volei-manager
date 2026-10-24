@@ -1,4 +1,5 @@
 from rest_framework import generics, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -9,8 +10,10 @@ from .models import User
 from .serializers import (
     CustomTokenObtainPairSerializer, UserSerializer,
     UserCreateSerializer, UserUpdateSerializer, ChangePasswordSerializer,
-    ForgotPasswordSerializer, ResetPasswordSerializer
+    ForgotPasswordSerializer, ResetPasswordSerializer, check_admin_removal
 )
+
+PROFILE_LABELS = dict(User.PROFILE_CHOICES)
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -65,6 +68,45 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action in ['update', 'partial_update']:
             return UserUpdateSerializer
         return UserSerializer
+
+    def perform_update(self, serializer):
+        old_profile = serializer.instance.profile
+        user = serializer.save()
+        if user.profile != old_profile:
+            from apps.notifications.models import Notification
+            from apps.notifications.services import notify
+            message = (
+                f'Agora você é {PROFILE_LABELS[user.profile]} do Hellcife Vôlei. Feche e abra o app para ver o painel da staff.'
+                if user.profile != 'player' else 'Você voltou a ter acesso só de atleta no app.'
+            )
+            notify([Notification(user=user, title='Seu acesso mudou', message=message, type='system')])
+
+    def perform_destroy(self, instance):
+        check_admin_removal(instance, self.request.user)
+        instance.delete()
+
+    @action(detail=False, methods=['get'])
+    def team(self, request):
+        """Tela Equipe: quem é admin ou moderador e quem tem acesso de atleta (pode ser promovido)."""
+        users = (
+            User.objects.filter(is_active=True)
+            .exclude(profile='player', player_profile__status='pending')
+            .select_related('player_profile')
+            .order_by('name')
+        )
+
+        def row(user):
+            player = getattr(user, 'player_profile', None)
+            return {
+                'id': user.id, 'name': user.name, 'email': user.email, 'profile': user.profile,
+                'player_id': player.id if player else None,
+                'avatar_url': request.build_absolute_uri(player.avatar.url) if player and player.avatar else None,
+            }
+
+        return Response({
+            'staff': [row(u) for u in users if u.profile != 'player'],
+            'athletes': [row(u) for u in users if u.profile == 'player'],
+        })
 
 
 class ForgotPasswordView(generics.GenericAPIView):

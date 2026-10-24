@@ -7,6 +7,16 @@ from .models import Notification
 from .push import push_enabled, send_push
 
 
+def athlete_audience():
+    """
+    Quem recebe os avisos coletivos de atleta (circuito aberto, rankings, temporada, aviso geral):
+    logins de jogador e a staff que também joga (admin ou moderador com cadastro de atleta ativo).
+    """
+    from django.db.models import Q
+    from apps.core.models import User
+    return User.objects.filter(is_active=True).filter(Q(profile='player') | Q(player_profile__status='active'))
+
+
 def notify(notifications, push=True):
     """
     Grava as notificações de uma vez e manda o push depois do commit.

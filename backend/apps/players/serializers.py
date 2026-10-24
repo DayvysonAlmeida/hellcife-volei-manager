@@ -5,6 +5,7 @@ from .models import Player, Badge, PlayerBadge
 from .elo_service import get_elo_tier, get_elo_progress
 from .rankings import elo_calibration, season_match_count
 from .signup import SignupSerializer
+from apps.core.permissions import is_staff_profile
 
 
 class EloCalibrationMixin:
@@ -32,7 +33,21 @@ class EloCalibrationMixin:
         return None if self.get_elo_calibration(obj)['calibrating'] else get_elo_progress(obj.elo)
 
 
-class PlayerListSerializer(EloCalibrationMixin, serializers.ModelSerializer):
+class PrivateFieldsMixin:
+    """Telefone, observações da staff e Elo: só a staff e o próprio atleta veem. Para os outros atletas vêm vazios."""
+    PRIVATE_FIELDS = ('phone', 'notes', 'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration')
+
+    def to_representation(self, obj):
+        data = super().to_representation(obj)
+        user = getattr(self.context.get('request'), 'user', None)
+        if not is_staff_profile(user) and not (obj.user_id and obj.user_id == getattr(user, 'id', None)):
+            for field in self.PRIVATE_FIELDS:
+                if field in data:
+                    data[field] = None
+        return data
+
+
+class PlayerListSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializers.ModelSerializer):
     latest_overall = serializers.SerializerMethodField()
     display_name = serializers.ReadOnlyField()
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
@@ -126,7 +141,7 @@ class PlayerBadgeSerializer(serializers.ModelSerializer):
         fields = ['id', 'badge', 'awarded_at']
 
 
-class PlayerDetailSerializer(EloCalibrationMixin, serializers.ModelSerializer):
+class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializers.ModelSerializer):
     latest_overall = serializers.SerializerMethodField()
     display_name = serializers.ReadOnlyField()
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
@@ -183,7 +198,7 @@ class PlayerDetailSerializer(EloCalibrationMixin, serializers.ModelSerializer):
     def get_legal_name(self, obj):
         """Nome civil: só a staff e o próprio atleta veem (no app aparece o nome social)."""
         user = getattr(self.context.get('request'), 'user', None)
-        if getattr(user, 'profile', None) in ('admin', 'moderator') or (obj.user_id and obj.user_id == getattr(user, 'id', None)):
+        if is_staff_profile(user) or (obj.user_id and obj.user_id == getattr(user, 'id', None)):
             return obj.legal_name
         return None
 

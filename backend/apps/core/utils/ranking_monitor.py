@@ -2,8 +2,7 @@ import logging
 from apps.players.models import RankingLeader
 from apps.players.rankings import fire_shark_ranking, stars_ranking, wins_ranking
 from apps.notifications.models import Notification
-from apps.notifications.services import notify
-from apps.core.models import User
+from apps.notifications.services import athlete_audience, notify
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ def check_rank_changes():
     """
     try:
         personal, broadcast = [], []
-        all_players_qs = User.objects.filter(profile='player', is_active=True)
+        all_players_qs = athlete_audience()
 
         def announce(leader_user_id, title, message):
             for u in all_players_qs:

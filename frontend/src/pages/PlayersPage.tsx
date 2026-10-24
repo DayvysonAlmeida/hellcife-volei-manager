@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 import { GENDER_LABELS, GENDER_ORDER, type Gender, type Position } from '@/types';
 import type { Player } from '@/types';
 import { cn } from '@/lib/utils';
+import { isAdmin } from '@/lib/roles';
 
 const PAGE_SIZE = 24;
 
@@ -133,6 +134,7 @@ export function PlayersPage() {
   }, [page]);
 
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
+  const canDeleteAthletes = isAdmin(user); // convidado o moderador também exclui (aba de convidados)
   const players = data?.results || [];
 
   return (
@@ -320,6 +322,7 @@ export function PlayersPage() {
               player={player}
               idx={idx}
               canEdit={canEdit}
+              canDelete={canDeleteAthletes || player.is_guest}
               winRank={player.stats?.win_rank}
               fireSharkRank={player.stats?.fire_shark_rank}
               onDelete={handleDeleteRequest}

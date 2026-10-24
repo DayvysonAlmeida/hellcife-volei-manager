@@ -56,10 +56,25 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return user
 
 
+def check_admin_removal(user, by):
+    """Ninguém tira o próprio acesso de admin, e o clube nunca fica sem nenhum admin ativo."""
+    if user.profile != 'admin':
+        return
+    if by and by.pk == user.pk:
+        raise serializers.ValidationError({'profile': 'Você não pode tirar o seu próprio acesso de admin.'})
+    if not User.objects.filter(profile='admin', is_active=True).exclude(pk=user.pk).exists():
+        raise serializers.ValidationError({'profile': 'O clube precisa de pelo menos um admin.'})
+
+
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['name', 'profile', 'avatar_url', 'is_active']
+
+    def validate(self, attrs):
+        if attrs.get('profile', self.instance.profile) != 'admin' or attrs.get('is_active') is False:
+            check_admin_removal(self.instance, getattr(self.context.get('request'), 'user', None))
+        return attrs
 
 
 class ChangePasswordSerializer(serializers.Serializer):

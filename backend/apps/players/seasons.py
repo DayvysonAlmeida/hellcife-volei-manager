@@ -76,23 +76,21 @@ def ensure_current_season(today: date | None = None):
 
 def notify_season_started(season):
     """Avisa todos os atletas que a temporada nova começou (os pontos zeraram)."""
-    from apps.core.models import User
     from apps.notifications.models import Notification
-    from apps.notifications.services import notify
+    from apps.notifications.services import athlete_audience, notify
 
     notify([
         Notification(
             user=u, title=f'Começou a {season.name}! 🔥', type='circuit', url='/athlete',
             message='Os pontos zeraram e o ranking recomeçou. Bora pra quadra!',
-        ) for u in User.objects.filter(profile='player', is_active=True)
+        ) for u in athlete_audience()
     ])
 
 
 def notify_results_validated(season):
     """Resultado final validado: quem subiu ao pódio recebe a sua colocação; os demais, o aviso geral."""
-    from apps.core.models import User
     from apps.notifications.models import Notification
-    from apps.notifications.services import notify
+    from apps.notifications.services import athlete_audience, notify
     from .models import SeasonStanding
 
     labels = {'fire_rank': 'Fire Shark', 'wins_rank': 'Gladiador', 'elo_rank': 'Elo'}
@@ -104,7 +102,7 @@ def notify_results_validated(season):
             podium[standing.player.user_id] = places
 
     notifications = []
-    for u in User.objects.filter(profile='player', is_active=True):
+    for u in athlete_audience():
         places = podium.get(u.id)
         if places:
             text = f"{', '.join(places[:-1])} e {places[-1]}" if len(places) > 1 else places[0]

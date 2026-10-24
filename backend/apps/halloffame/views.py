@@ -5,7 +5,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import HallOfFameEntry, RegulationText
 from .serializers import HallOfFameSerializer, RegulationTextSerializer
-from apps.core.permissions import IsAdminOrModerator
+from apps.core.permissions import IsAdminUser
 
 
 class HallOfFameViewSet(viewsets.ModelViewSet):
@@ -20,14 +20,14 @@ class HallOfFameViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrModerator()]
+            return [IsAdminUser()]
         return [IsAuthenticated()]
 
 
 class RegulationTextViewSet(viewsets.ModelViewSet):
     """Endpoint para gerenciar o texto do regulamento.
     - GET: aberto (quem vai se cadastrar lê o regulamento antes de aceitar).
-    - POST/PUT/PATCH: apenas admin/moderador; sempre gravam no registro único (id=1).
+    - POST/PUT/PATCH: apenas admin; sempre gravam no registro único (id=1).
     - DELETE não é permitido.
     """
     queryset = RegulationText.objects.all()
@@ -36,7 +36,7 @@ class RegulationTextViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update']:
-            return [IsAdminOrModerator()]
+            return [IsAdminUser()]
         return [AllowAny()]
 
     def get_object(self):

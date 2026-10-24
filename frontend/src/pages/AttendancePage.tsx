@@ -14,6 +14,7 @@ import { invalidatePaymentQueries } from '@/lib/paymentQueries';
 
 import { attendanceService } from '@/services';
 import { cn, formatBRL } from '@/lib/utils';
+import { isAdmin } from '@/lib/roles';
 import type { GameDay } from '@/types';
 import { useAuth } from '@/store/AuthContext';
 import toast from 'react-hot-toast';
@@ -23,6 +24,7 @@ export function AttendancePage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const canEdit = user?.profile === 'admin' || user?.profile === 'moderator';
+  const admin = isAdmin(user); // caixa do circuito e excluir circuito: só o admin
   const todayStr = new Date().toLocaleDateString('en-CA');
 
   const [selectedGameDay, setSelectedGameDay] = useState<GameDay | null>(null);
@@ -59,7 +61,7 @@ export function AttendancePage() {
   const { data: finance } = useQuery({
     queryKey: ['gameday-finance', selectedGameDay?.id],
     queryFn: () => attendanceService.getFinance(selectedGameDay!.id),
-    enabled: !!selectedGameDay && canEdit,
+    enabled: !!selectedGameDay && admin,
   });
 
   // A auto-seleção foi removida para garantir que no mobile o usuário veja a lista de circuitos primeiro.
@@ -452,7 +454,7 @@ export function AttendancePage() {
                             <Edit2 size={12} />
                           </button>
                           
-                          {canEdit && (
+                          {admin && (
                             <button
                               onClick={() => {
                                 setConfirmDialog({

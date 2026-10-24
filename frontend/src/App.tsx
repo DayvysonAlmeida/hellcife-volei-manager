@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/store/ThemeContext';
 import { queryClient } from '@/lib/queryClient';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PendingApprovalGate } from '@/components/layout/PendingApprovalGate';
-import { AdminRoute, PlayerRoute, PublicRoute } from '@/routes/guards';
+import { AdminOnly, AdminRoute, PlayerRoute, PublicRoute } from '@/routes/guards';
 import { Toaster } from 'react-hot-toast';
 import { PageLoading } from '@/components/ui/Loading';
 
@@ -45,6 +45,7 @@ const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m 
 // Portal do Atleta
 const AthleteDashboardPage = lazy(() => import('@/pages/athlete/AthleteDashboardPage').then(m => ({ default: m.AthleteDashboardPage })));
 const MyProfilePage = lazy(() => import('@/pages/athlete/MyProfilePage').then(m => ({ default: m.MyProfilePage })));
+const TeamPage = lazy(() => import('@/pages/TeamPage').then(m => ({ default: m.TeamPage })));
 const EditMyProfilePage = lazy(() => import('@/pages/athlete/EditMyProfilePage').then(m => ({ default: m.EditMyProfilePage })));
 const AthleteCheckinPage = lazy(() => import('@/pages/athlete/AthleteCheckinPage').then(m => ({ default: m.AthleteCheckinPage })));
 const AthleteMatchesPage = lazy(() => import('@/pages/athlete/AthleteMatchesPage').then(m => ({ default: m.AthleteMatchesPage })));
@@ -153,12 +154,14 @@ function App() {
               <Route path="stars-system" element={<StarsSystemPage />} />
               <Route path="elo-system" element={<EloSystemPage />} />
               <Route path="seasons" element={<SeasonsPage />} />
-              <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
-              <Route path="plans" element={<AdminPlansPage />} />
-              <Route path="finance" element={<FinanceDashboardPage />} />
-              <Route path="finance/circuits" element={<CircuitFinancePage />} />
+              {/* Só o administrador: finanças, planos, regulamento e Equipe */}
+              <Route path="subscriptions" element={<AdminOnly><AdminSubscriptionsPage /></AdminOnly>} />
+              <Route path="plans" element={<AdminOnly><AdminPlansPage /></AdminOnly>} />
+              <Route path="finance" element={<AdminOnly><FinanceDashboardPage /></AdminOnly>} />
+              <Route path="finance/circuits" element={<AdminOnly><CircuitFinancePage /></AdminOnly>} />
               <Route path="regulation" element={<RegulationPage />} />
-              <Route path="regulation/edit" element={<RegulationAdminPage />} />
+              <Route path="regulation/edit" element={<AdminOnly><RegulationAdminPage /></AdminOnly>} />
+              <Route path="staff" element={<AdminOnly><TeamPage /></AdminOnly>} />
               <Route path="hall-of-fame" element={<HallOfFamePage />} />
               <Route path="notifications" element={<NotificationsPage />} />
             </Route>

@@ -1,10 +1,12 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Users, BarChart3, Trophy, Star, LogOut, Swords, CircleUser, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Bell, Activity, CreditCard, Award, Wallet, CalendarClock } from 'lucide-react';
+import { Home, Users, BarChart3, Trophy, Star, LogOut, Swords, CircleUser, TrendingUp, Shuffle, ScrollText, ChevronLeft, ChevronRight, ClipboardList, ShieldAlert, Volleyball, Crown, Bell, Activity, CreditCard, Award, Wallet, CalendarClock, UserCog, ArrowLeftRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/store/AuthContext';
+import { useMyAthlete } from '@/hooks/useMyAthlete';
 import { circuitFinanceService } from '@/services';
 import { cn } from '@/lib/utils';
+import { isAdmin, isStaff, PROFILE_LABELS } from '@/lib/roles';
 import { ONLINE_PAYMENTS } from '@/lib/features';
 import { useEffect, useState } from 'react';
 
@@ -59,6 +61,7 @@ const adminNavGroups = [
       { to: '/stars-system', icon: Star, label: 'Sistema de Estrelas' },
       { to: '/elo-system', icon: BarChart3, label: 'Sistema de Elo' },
       { to: '/seasons', icon: CalendarClock, label: 'Temporadas' },
+      { to: '/staff', icon: UserCog, label: 'Equipe' },
     ]
   },
   {
@@ -72,6 +75,8 @@ const adminNavGroups = [
 
 // Rotas que têm sub-rotas no menu: só ficam ativas na rota exata
 const EXACT_MATCH_ROUTES = ['/finance', '/athlete', '/attendance'];
+// Só o administrador vê no menu (o moderador cuida do dia a dia da quadra)
+const ADMIN_ONLY_ROUTES = ['/finance', '/finance/circuits', '/plans', '/subscriptions', '/staff'];
 
 const playerNavGroups = [
   {
@@ -118,15 +123,24 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const isPlayer = user?.profile === 'player';
-  const navGroups = isPlayer ? playerNavGroups : adminNavGroups;
-  const isStaff = user?.profile === 'admin' || user?.profile === 'moderator';
+  const { pathname } = useLocation();
+  const admin = isAdmin(user);
+  const staff = isStaff(user);
+  // Staff que também joga alterna entre o painel e o portal do atleta
+  const { data: myAthlete } = useMyAthlete();
+  const inAthletePortal = pathname.startsWith('/athlete');
+  const canSwitch = staff && (inAthletePortal || !!myAthlete);
+  const navGroups = !staff || inAthletePortal
+    ? playerNavGroups
+    : adminNavGroups
+        .map((group) => ({ ...group, items: group.items.filter((item) => admin || !ADMIN_ONLY_ROUTES.includes(item.to)) }))
+        .filter((group) => group.items.length > 0);
 
   // Pagamentos avisados esperando conferência: contador no item "Cobranças" (mesmo cache da tela de cobranças)
   const { data: claims } = useQuery({
     queryKey: ['circuit-finance', 'claims'],
     queryFn: circuitFinanceService.claims,
-    enabled: isStaff,
+    enabled: admin,
     refetchInterval: 60_000,
   });
   const badges: Record<string, { count: number; label: string }> = {
@@ -333,11 +347,24 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                   className="flex-1 min-w-0"
                 >
                   <p className="text-text-primary text-sm font-medium truncate">{user?.name}</p>
-                  <p className="text-text-muted text-xs capitalize">{user?.profile}</p>
+                  <p className="text-text-muted text-xs">{user ? PROFILE_LABELS[user.profile] : ''}</p>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
+          {canSwitch && (
+            <button
+              onClick={() => { navigate(inAthletePortal ? '/dashboard' : '/athlete'); onMobileClose(); }}
+              title={inAthletePortal ? 'Voltar ao painel' : 'Ver como atleta'}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-text-secondary hover:bg-blue-500/10 hover:text-blue-400 transition-all duration-200 w-full',
+                collapsed ? 'justify-center' : ''
+              )}
+            >
+              <ArrowLeftRight size={18} className="flex-shrink-0" />
+              {!collapsed && <span className="text-sm whitespace-nowrap">{inAthletePortal ? 'Voltar ao painel' : 'Ver como atleta'}</span>}
+            </button>
+          )}
           <button
             onClick={handleLogout}
             title="Sair"

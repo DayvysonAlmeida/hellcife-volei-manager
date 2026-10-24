@@ -16,6 +16,8 @@ interface PlayerCardProps {
   player: Player;
   idx: number;
   canEdit: boolean;
+  /** Botão de excluir (só o admin exclui atleta). Sem informar, segue o canEdit. */
+  canDelete?: boolean;
   onDelete: (player: Player) => void;
   winRank?: number; // 1, 2, 3 ou 4
   fireSharkRank?: number; // 1, 2, 3 ou 4
@@ -23,7 +25,7 @@ interface PlayerCardProps {
   linkable?: boolean;
 }
 
-export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDelete, winRank, fireSharkRank, linkable = true }: PlayerCardProps) {
+export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, canDelete = canEdit, onDelete, winRank, fireSharkRank, linkable = true }: PlayerCardProps) {
   const navigate = useNavigate();
 
   const isInactive = player.status === 'inactive' || player.status === 'suspended';
@@ -563,13 +565,13 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, onDel
           >
             <Edit size={14} className="sm:w-4 sm:h-4" />
           </button>
-          <button
+          {canDelete && <button
             onClick={(e) => { e.preventDefault(); onDelete(player); }}
             className="p-2 sm:p-2.5 rounded-full bg-red-600/95 text-white shadow-[0_4px_12px_rgba(0,0,0,0.8)] border border-red-500 hover:bg-red-500 pointer-events-auto hover:scale-110 transition-transform"
             title="Deletar Jogador"
           >
             <Trash2 size={14} className="sm:w-4 sm:h-4" />
-          </button>
+          </button>}
         </div>
       )}
     </motion.div>

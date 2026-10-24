@@ -73,9 +73,8 @@ class GlobalAnnouncement(models.Model):
 @receiver(post_save, sender=GlobalAnnouncement)
 def send_global_announcement(sender, instance, created, **kwargs):
     if created:
-        from apps.core.models import User
-        from .services import notify
-        users = User.objects.filter(profile='player', is_active=True)
+        from .services import athlete_audience, notify
+        users = athlete_audience()
         notify([
             Notification(
                 user=u,

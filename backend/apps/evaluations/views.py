@@ -7,7 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Evaluation, EvaluationHistory
 from .serializers import EvaluationSerializer, EvaluationHistorySerializer
-from apps.core.permissions import IsAdminOrModerator
+from apps.core.permissions import IsAdminOrModerator, is_staff_profile
 
 
 class EvaluationViewSet(viewsets.ModelViewSet):
@@ -19,6 +19,12 @@ class EvaluationViewSet(viewsets.ModelViewSet):
     search_fields = ['player__name', 'player__nickname']
     ordering_fields = ['date', 'overall', 'created_at']
     ordering = ['-date']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if is_staff_profile(self.request.user):
+            return qs
+        return qs.filter(player__user=self.request.user)  # o atleta só vê as próprias avaliações
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -40,14 +46,14 @@ class EvaluationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='by-player/(?P<player_id>[^/.]+)')
     def by_player(self, request, player_id=None):
-        evaluations = Evaluation.objects.filter(player_id=player_id).order_by('-date')
+        evaluations = self.get_queryset().filter(player_id=player_id).order_by('-date')
         serializer = self.get_serializer(evaluations, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='radar/(?P<player_id>[^/.]+)')
     def radar(self, request, player_id=None):
         """Retorna dados para gráfico radar do último overall de um jogador."""
-        eval_ = Evaluation.objects.filter(player_id=player_id).order_by('-date').first()
+        eval_ = self.get_queryset().filter(player_id=player_id).order_by('-date').first()
         if not eval_:
             return Response({'detail': 'Nenhuma avaliação encontrada.', 'skills': {}}, status=200)
         return Response({
