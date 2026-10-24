@@ -1,23 +1,23 @@
 import { Menu, Sun, Moon } from 'lucide-react';
-import { useAuth } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
 import { NotificationBell } from './NotificationBell';
+import { UserMenu } from './UserMenu';
 
 interface HeaderProps {
   onMenuToggle: () => void;
 }
 
 export function Header({ onMenuToggle }: HeaderProps) {
-  const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-sm border-b border-border">
-      <div className="flex items-center justify-between px-6 h-[57px]">
+      <div className="flex items-center justify-between px-3 sm:px-6 h-[57px]">
         {/* Left: Logo + Page title */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={onMenuToggle}
+            aria-label="Abrir menu"
             className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface transition-all md:hidden"
           >
             <Menu size={20} />
@@ -30,25 +30,18 @@ export function Header({ onMenuToggle }: HeaderProps) {
           </div>
         </div>
 
-        {/* Right: notifications + user */}
-        <div className="flex items-center gap-3">
+        {/* Right: tema, notificações e o menu da conta */}
+        <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface transition-all"
-            title="Alternar Tema"
+            title={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
+            aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
           <NotificationBell />
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-red-gradient flex items-center justify-center text-white text-xs font-bold">
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div className="hidden md:block text-right">
-              <p className="text-text-primary text-sm font-medium leading-tight">{user?.name}</p>
-              <p className="text-text-muted text-xs capitalize">{user?.profile}</p>
-            </div>
-          </div>
+          <UserMenu />
         </div>
       </div>
     </header>
