@@ -8,6 +8,7 @@ O Cloud Run não tem agendador, então a virada é "preguiçosa": na primeira ve
 é usado numa temporada nova, as anteriores são encerradas (resultado final salvo) e o Elo
 de todos é recalculado, o que faz todo mundo voltar para 500. Isso acontece uma vez só.
 """
+from contextvars import ContextVar
 from datetime import date
 
 from django.db import transaction
@@ -47,6 +48,10 @@ def get_season(number: int):
     return season
 
 
+# Temporada já resolvida neste pedido (o SeasonRequestCacheMiddleware abre e fecha). Fora de pedidos fica None.
+season_request_cache: ContextVar[dict | None] = ContextVar('season_request_cache', default=None)
+
+
 def ensure_current_season(today: date | None = None):
     """
     Devolve a temporada de hoje. Se houver temporada anterior ainda aberta, encerra
@@ -55,6 +60,10 @@ def ensure_current_season(today: date | None = None):
     from .models import Season
 
     today = today or timezone.localdate()
+    cached = season_request_cache.get()
+    if cached is not None and today in cached:
+        return cached[today]
+
     number = season_number_for(today)
     for n in range(number + 1):  # garante que nenhuma temporada fique sem registro
         get_season(n)
@@ -71,6 +80,8 @@ def ensure_current_season(today: date | None = None):
                 from .elo_service import recalculate_all
                 recalculate_all(current)
                 notify_season_started(current)
+    if cached is not None:
+        cached[today] = current
     return current
 
 

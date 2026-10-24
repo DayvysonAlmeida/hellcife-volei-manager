@@ -64,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.players.middleware.SeasonRequestCacheMiddleware',  # temporada atual: uma vez por pedido
 ]
 
 ROOT_URLCONF = 'config.urls'

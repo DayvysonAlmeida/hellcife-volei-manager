@@ -658,8 +658,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
         if not email:
             return Response({'detail': 'E-mail é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not password or len(password) < 6:
-            return Response({'detail': 'A senha deve ter pelo menos 6 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not password or len(password) < 8:  # mesma regra do cadastro e da troca de senha
+            return Response({'detail': 'A senha deve ter pelo menos 8 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
 
         from apps.core.models import User
         if User.objects.filter(email=email).exists():
@@ -713,8 +713,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Este atleta não possui acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         new_password = request.data.get('password', '').strip()
-        if not new_password or len(new_password) < 6:
-            return Response({'detail': 'A nova senha deve ter pelo menos 6 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not new_password or len(new_password) < 8:  # mesma regra do cadastro e da troca de senha
+            return Response({'detail': 'A nova senha deve ter pelo menos 8 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
 
         player.user.set_password(new_password)
         player.user.save()

@@ -474,7 +474,7 @@ export function PlayerDetailPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={accessPassword}
                     onChange={e => setAccessPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 pr-10 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-red focus:ring-1 focus:ring-red transition-all"
                   />
                   <button
@@ -505,7 +505,7 @@ export function PlayerDetailPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={accessPassword}
                     onChange={e => setAccessPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 pr-10 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-red focus:ring-1 focus:ring-red transition-all"
                   />
                   <button

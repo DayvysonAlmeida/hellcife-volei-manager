@@ -193,3 +193,35 @@ class ListPerformanceTests(SecurityTestCase):
 
         row = next(p for p in self.client.get('/api/players/', {'page_size': 50}).data['results'] if p['id'] == player.id)
         self.assertEqual((row['stats']['win_streak'], row['stats']['matches']), (2, 4))
+
+
+class StaffPasswordRuleTests(SecurityTestCase):
+    """Criar acesso e redefinir senha pela staff seguem a regra do app: pelo menos 8 caracteres."""
+
+    def test_staff_password_needs_eight_characters(self):
+        player = Player.objects.create(name='Bia', main_position='libero', gender='F')
+        self.client.force_authenticate(self.moderator)
+        url = f'/api/players/{player.id}/create-access/'
+        self.assertEqual(self.client.post(url, {'email': 'bia@x.com', 'password': '1234567'}, format='json').status_code, 400)
+        self.assertEqual(self.client.post(url, {'email': 'bia@x.com', 'password': '12345678'}, format='json').status_code, 201)
+        reset = f'/api/players/{player.id}/reset-password/'
+        self.assertEqual(self.client.post(reset, {'password': 'curta12'}, format='json').status_code, 400)
+
+
+class SeasonPerRequestTests(SecurityTestCase):
+    """A temporada atual é resolvida uma vez por pedido, não a cada tela que a usa."""
+
+    def test_dashboard_stats_resolves_the_season_once(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        self.client.force_authenticate(self.moderator)
+        self.client.get('/api/players/dashboard-stats/')  # primeira vez cria as temporadas que faltarem
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(self.client.get('/api/players/dashboard-stats/').status_code, 200)
+        season_queries = [q for q in ctx.captured_queries if 'players_season' in q['sql']]
+        self.assertLessEqual(len(season_queries), 4)
+
+    def test_outside_a_request_nothing_is_cached(self):
+        from apps.players.seasons import ensure_current_season, season_request_cache
+        self.assertIsNone(season_request_cache.get())
+        self.assertEqual(ensure_current_season().pk, ensure_current_season().pk)
