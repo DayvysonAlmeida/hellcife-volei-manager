@@ -59,6 +59,11 @@ export function LoginPage() {
         setError(err.response.data.detail);
         return;
       }
+      // Limite de tentativas: a senha pode estar certa, então não diz "incorretos"
+      if (err.response?.status === 429) {
+        setError(err.response.data?.detail || 'Muitas tentativas. Espere alguns minutos e tente de novo.');
+        return;
+      }
       setError('E-mail ou senha incorretos. Tente novamente.');
     }
   };

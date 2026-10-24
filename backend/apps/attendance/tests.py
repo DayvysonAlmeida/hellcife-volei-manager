@@ -1,11 +1,12 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.test import TestCase, override_settings
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.models import User
+from apps.core.testing import CacheIsolatedTestCase as TestCase  # limite de tentativas: cache limpo a cada teste
 from apps.players.models import Player
 from .models import Attendance, AttendancePayment, GameDay
 

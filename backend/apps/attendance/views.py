@@ -13,6 +13,7 @@ from .frequency import circuit_days, circuit_happened, frequency
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
 from apps.players.models import Player
 from apps.core.permissions import IsAdminOrModerator, IsAdminUser
+from apps.core.throttles import PublicCheckinPlayerThrottle, ScopedThrottle
 
 
 def _deny_unless_self(request, player_id):
@@ -111,6 +112,14 @@ class GameDayViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return GameDayListSerializer
         return GameDaySerializer
+
+    # Link do grupo (sem login): cada ação conta por atleta escolhido e, folgado, por IP
+    PUBLIC_WRITE_ACTIONS = ('public_checkin', 'cancel_checkin', 'claim_payment', 'public_add_guest')
+
+    def get_throttles(self):
+        if self.action in self.PUBLIC_WRITE_ACTIONS:
+            return [PublicCheckinPlayerThrottle(), ScopedThrottle('public-checkin-ip')]
+        return super().get_throttles()
 
     def get_permissions(self):
         from rest_framework.permissions import AllowAny

@@ -192,11 +192,20 @@ REST_FRAMEWORK = {
     # Classe customizada que respeita ?page_size= na query string (max 1000)
     'DEFAULT_PAGINATION_CLASS': 'apps.core.pagination.StandardPagination',
     'PAGE_SIZE': 20,
-    # Limite de tentativas só nas rotas abertas do cadastro (ScopedRateThrottle nas próprias views)
+    # Limite de tentativas nas rotas sensíveis (classes em apps/core/throttles.py, ligadas nas próprias views)
     'DEFAULT_THROTTLE_RATES': {
         'signup': '10/hour',
         'confirm-email': '30/hour',
+        'login-account': '10/hour',          # por e-mail: chutar senha de uma conta
+        'login-ip': '60/hour',               # segunda barreira, folgada
+        'password-reset-email': '3/hour',    # "Esqueci a senha": não lota a caixa de ninguém
+        'password-reset-ip': '20/hour',
+        'reset-password': '30/hour',
+        'change-password': '10/hour',        # por conta logada
+        'public-checkin-player': '20/hour',  # link do grupo: por atleta escolhido
+        'public-checkin-ip': '120/hour',
     },
+    'EXCEPTION_HANDLER': 'apps.core.exceptions.exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
@@ -219,6 +228,8 @@ CORS_ALLOW_CREDENTIALS = True
 
 # DRF Spectacular (OpenAPI)
 SPECTACULAR_SETTINGS = {
+    # Mapa da API (schema, Swagger, Redoc): aberto só em desenvolvimento; em produção só o admin
+    'SERVE_PERMISSIONS': ['apps.core.permissions.ApiDocsPermission'],
     'TITLE': 'HellLife Vôlei Manager API',
     'DESCRIPTION': 'API completa para gerenciamento de grupos de vôlei recreativo e competitivo.',
     'VERSION': '1.0.0',

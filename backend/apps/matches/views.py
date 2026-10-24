@@ -92,7 +92,8 @@ class MatchViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'destroy':
             return [IsAdminUser()]
-        if self.action in ['create', 'update', 'partial_update', 'add_result']:
+        # quick_create (chaveamento) cria a partida já com resultado: mexe no Elo e nos rankings
+        if self.action in ['create', 'update', 'partial_update', 'add_result', 'quick_create']:
             return [IsAdminOrModerator()]
         return [IsAuthenticated()]
 

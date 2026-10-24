@@ -6,6 +6,13 @@ def is_staff_profile(user):
     return getattr(user, 'profile', None) in ('admin', 'moderator')
 
 
+class ApiDocsPermission(BasePermission):
+    """Mapa da API: livre em desenvolvimento; em produção, só para o admin (não fica exposto na internet)."""
+    def has_permission(self, request, view):
+        from django.conf import settings
+        return settings.DEBUG or getattr(request.user, 'profile', None) == 'admin'
+
+
 class IsAdminUser(BasePermission):
     """Apenas administradores têm acesso."""
     def has_permission(self, request, view):

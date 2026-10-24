@@ -20,11 +20,15 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from .permissions import IsAdminUser, IsAdminOrModerator
+from .throttles import LoginAccountThrottle, PasswordResetEmailThrottle, ScopedThrottle
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [AllowAny]
+
+    def get_throttles(self):
+        return [LoginAccountThrottle(), ScopedThrottle('login-ip')]
 
 
 class MeView(generics.RetrieveAPIView):
@@ -41,6 +45,9 @@ class ChangePasswordView(generics.GenericAPIView):
     """Troca de senha de quem já está logado (Meu perfil): pede a senha atual."""
     permission_classes = [IsAuthenticated]
     serializer_class = ChangePasswordSerializer
+
+    def get_throttles(self):
+        return [ScopedThrottle('change-password')]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -113,6 +120,9 @@ class ForgotPasswordView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = ForgotPasswordSerializer
 
+    def get_throttles(self):
+        return [PasswordResetEmailThrottle(), ScopedThrottle('password-reset-ip')]
+
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -163,6 +173,9 @@ class ForgotPasswordView(generics.GenericAPIView):
 class ResetPasswordView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = ResetPasswordSerializer
+
+    def get_throttles(self):
+        return [ScopedThrottle('reset-password')]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
