@@ -3,8 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Count, Q, Subquery, OuterRef, FloatField, Case, When, IntegerField
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Q, Subquery, OuterRef, FloatField, Case, When, IntegerField, F, Prefetch, Window
+from django.db.models.functions import Coalesce, RowNumber
 from django.utils import timezone
 
 from .models import Player, StarHistory, Badge
@@ -40,6 +40,9 @@ def _undone_by(entry, show_author):
     if undo is None:
         return None
     return {'name': undo.given_by.name if show_author and undo.given_by else None, 'at': undo.created_at.isoformat()}
+
+
+STREAK_LOOKBACK = 30  # partidas recentes olhadas para a sequência de vitórias da lista
 
 
 class PlayerViewSet(viewsets.ModelViewSet):
@@ -79,7 +82,14 @@ class PlayerViewSet(viewsets.ModelViewSet):
             
             # Substituindo Window() por rank calculado via context, pois 
             # os filtros do Django quebram o OVER() particionando o rank pelas buscas.
-            qs = qs.prefetch_related('match_appearances__match_team__match')
+            # Sequência de vitórias: só as últimas partidas de cada atleta (antes vinham todas as da carreira)
+            recent = (
+                MatchPlayer.objects.filter(match_team__isnull=False)
+                .select_related('match_team__match')
+                .annotate(recent=Window(RowNumber(), partition_by=[F('player_id')], order_by=[F('match_team__match__date').desc(), F('id').desc()]))
+                .filter(recent__lte=STREAK_LOOKBACK)
+            )
+            qs = qs.prefetch_related(Prefetch('match_appearances', queryset=recent))
         else:
             # Para outras actions, prefetch para uso em PlayerDetailSerializer
             qs = qs.prefetch_related('evaluations', 'badges__badge')
@@ -708,6 +718,8 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
         player.user.set_password(new_password)
         player.user.save()
+        from apps.core.sessions import end_all_sessions
+        end_all_sessions(player.user)  # quem estava logado com a senha antiga sai
 
         return Response({
             'detail': 'Senha redefinida com sucesso!',

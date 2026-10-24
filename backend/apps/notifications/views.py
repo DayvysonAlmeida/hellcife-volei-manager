@@ -2,10 +2,12 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 import time
+from datetime import timedelta
 
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import UserRateThrottle
 from django.conf import settings
+from django.utils import timezone
 from apps.core.permissions import is_staff_profile
 from .models import Notification, GlobalAnnouncement, PushSubscription
 from .push import MAX_SUBSCRIPTIONS_PER_USER, device_label, key_status, push_enabled, send_test_push
@@ -15,13 +17,30 @@ class PushTestThrottle(UserRateThrottle):
     rate = '12/hour'  # teste de notificação: o bastante para ajustar o celular, sem virar spam
 
 
+LIST_LIMIT = 50   # o sininho busca a cada 30s: só as mais recentes
+KEEP_READ_DAYS = 90
+
+
+def _clean_old(user):
+    """Avisos já lidos com mais de 90 dias somem (feito quando o usuário lê, não a cada busca)."""
+    Notification.objects.filter(user=user, is_read=True, created_at__lt=timezone.now() - timedelta(days=KEEP_READ_DAYS)).delete()
+
+
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']  # criar e editar aviso é só pelo servidor
 
     def get_queryset(self):
         return Notification.objects.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        notifications = self.get_queryset().order_by('-created_at')[:LIST_LIMIT]
+        return Response(self.get_serializer(notifications, many=True).data)
+
+    def create(self, request, *args, **kwargs):
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(detail=True, methods=['post'])
     def read(self, request, pk=None):
@@ -34,6 +53,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def read_all(self, request):
         notifications = self.get_queryset().filter(is_read=False)
         notifications.update(is_read=True)
+        _clean_old(request.user)
         return Response({'status': 'all notifications marked as read'})
 
     @action(detail=False, methods=['post'])

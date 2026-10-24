@@ -38,6 +38,23 @@ SIGNUP_DETAIL = 'Cadastro recebido! Enviamos um link para o seu e-mail: clique n
 RESEND_DETAIL = 'Se houver um cadastro esperando confirmação com esse e-mail, enviamos um novo link.'
 
 
+# Começo do arquivo de cada formato de foto aceito. O tipo informado pelo celular não basta: um SVG
+# (que pode carregar código) chegaria dizendo ser "image/svg+xml".
+IMAGE_SIGNATURES = (bytes([0xFF, 0xD8, 0xFF]), bytes([0x89]) + b'PNG' + bytes([0x0D, 0x0A, 0x1A, 0x0A]), b'GIF87a', b'GIF89a')
+HEIF_BRANDS = (b'heic', b'heix', b'heif', b'hevc', b'mif1', b'msf1', b'avif')
+
+
+def is_photo(upload):
+    """JPEG, PNG, GIF, WebP ou HEIC/AVIF (fotos do iPhone e do Android), pelo conteúdo do arquivo."""
+    head = upload.read(16)
+    upload.seek(0)
+    return (
+        head.startswith(IMAGE_SIGNATURES)
+        or (head[:4] == b'RIFF' and head[8:12] == b'WEBP')
+        or (head[4:8] == b'ftyp' and head[8:12] in HEIF_BRANDS)
+    )
+
+
 def _frontend(path):
     return f"{settings.FRONTEND_URL.rstrip('/')}{path}"
 
@@ -107,8 +124,8 @@ class SignupSerializer(serializers.Serializer):
         return value.strip().lstrip('@')
 
     def validate_avatar(self, value):
-        if value and (not (value.content_type or '').startswith('image/') or value.size > MAX_AVATAR_BYTES):
-            raise serializers.ValidationError('A foto precisa ser uma imagem de até 5 MB.')
+        if value and (value.size > MAX_AVATAR_BYTES or not is_photo(value)):
+            raise serializers.ValidationError('A foto precisa ser uma imagem (JPG, PNG, WebP ou HEIC) de até 5 MB.')
         return value
 
     def validate_accept_terms(self, value):

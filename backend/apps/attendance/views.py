@@ -158,7 +158,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
                     new_attendances.append(Attendance(gameday=instance, player=p, present=False))
                     
             if new_attendances:
-                Attendance.objects.bulk_create(new_attendances)
+                # ignore_conflicts: outro pedido pode ter criado as mesmas linhas no mesmo instante
+                Attendance.objects.bulk_create(new_attendances, ignore_conflicts=True)
                 # Recarrega a instância usando o queryset para prefetch correto
                 instance = self.get_queryset().get(pk=instance.pk)
                 

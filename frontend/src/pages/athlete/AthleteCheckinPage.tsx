@@ -38,7 +38,7 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
   const { data: circuitDetail } = useQuery({
     queryKey: ['athlete-circuit-detail', circuit.id],
     queryFn: () => api.get(`/attendance/gamedays/${circuit.id}/checkin-info/`).then(r => r.data),
-    refetchInterval: 10000,
+    refetchInterval: 30000, // lista do circuito: a cada 30s (e só com a tela aberta)
   });
 
   const { data: sub } = useQuery({

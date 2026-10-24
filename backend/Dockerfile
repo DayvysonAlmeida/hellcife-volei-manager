@@ -30,4 +30,4 @@ RUN python manage.py collectstatic --noinput
 EXPOSE 8000
 
 # Comando para iniciar a aplicação: roda as migrações (com trava, para vários containers subindo juntos) e depois sobe o Gunicorn
-CMD python manage.py migrate_with_lock && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 4 --timeout 0
+CMD python manage.py migrate_with_lock && (python manage.py flushexpiredtokens || true) && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 4 --timeout 0

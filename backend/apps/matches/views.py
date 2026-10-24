@@ -56,7 +56,7 @@ def _create_match_players(match, match_team, team_data):
 
 class MatchViewSet(viewsets.ModelViewSet):
     queryset = Match.objects.all().select_related(
-        'created_by', 'team_generation'
+        'created_by', 'team_generation', 'gameday'
     ).prefetch_related(
         'match_teams__match_players__player'
     )

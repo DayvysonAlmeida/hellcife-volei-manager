@@ -296,8 +296,13 @@ function PasswordForm() {
     setSaving(true);
     setErrors({});
     try {
-      await api.post('/auth/change-password/', { old_password: current, new_password: next, new_password_confirm: confirm });
-      toast.success('Senha trocada!');
+      const { data } = await api.post<{ access?: string; refresh?: string }>('/auth/change-password/', { old_password: current, new_password: next, new_password_confirm: confirm });
+      // Os outros aparelhos saem; este recebe um login novo para continuar dentro
+      if (data.access && data.refresh) {
+        localStorage.setItem('access_token', data.access);
+        localStorage.setItem('refresh_token', data.refresh);
+      }
+      toast.success('Senha trocada! Os outros aparelhos vão precisar entrar de novo.');
       setCurrent(''); setNext(''); setConfirm('');
     } catch (err: any) {
       setErrors(apiErrors(err.response?.data, 'Não foi possível trocar a senha agora. Tente de novo.'));

@@ -20,6 +20,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from .permissions import IsAdminUser, IsAdminOrModerator
+from .sessions import end_all_sessions, fresh_tokens
 from .throttles import LoginAccountThrottle, PasswordResetEmailThrottle, ScopedThrottle
 
 
@@ -57,7 +58,9 @@ class ChangePasswordView(generics.GenericAPIView):
             return Response({'old_password': ['Senha atual incorreta.']}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(serializer.validated_data['new_password'])
         user.save(update_fields=['password'])
-        return Response({'detail': 'Senha alterada com sucesso.'})
+        # Os outros aparelhos saem; este recebe um login novo e continua dentro
+        end_all_sessions(user)
+        return Response({'detail': 'Senha alterada com sucesso.', **fresh_tokens(user)})
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -79,6 +82,8 @@ class UserViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         old_profile = serializer.instance.profile
         user = serializer.save()
+        if not user.is_active:
+            end_all_sessions(user)  # usuário desativado sai de todos os aparelhos
         if user.profile != old_profile:
             from apps.notifications.models import Notification
             from apps.notifications.services import notify
@@ -186,5 +191,6 @@ class ResetPasswordView(generics.GenericAPIView):
         
         user.set_password(serializer.validated_data['new_password'])
         user.save()
+        end_all_sessions(user)  # quem estava logado com a senha antiga sai
         
         return Response({'detail': 'Senha redefinida com sucesso!'})

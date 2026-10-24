@@ -90,3 +90,106 @@ class ApiDocsTests(SecurityTestCase):
     @override_settings(DEBUG=True)
     def test_development_keeps_it_open(self):
         self.assertEqual(self.client.get('/api/schema/').status_code, 200)
+
+
+class SessionTests(SecurityTestCase):
+    """Trocar ou redefinir a senha encerra as sessões dos outros aparelhos; este aparelho continua dentro."""
+
+    def login_tokens(self, email='mari@x.com', password='senha-forte-123'):
+        return self.client.post('/api/auth/login/', {'email': email, 'password': password}, format='json').data
+
+    def refresh(self, token):
+        return APIClient().post('/api/auth/refresh/', {'refresh': token}, format='json')
+
+    def test_change_password_ends_other_sessions_and_keeps_this_device(self):
+        other_device = self.login_tokens()['refresh']
+        self.client.force_authenticate(self.athlete)
+
+        response = self.client.post('/api/auth/change-password/', {
+            'old_password': 'senha-forte-123', 'new_password': 'nova-senha-456', 'new_password_confirm': 'nova-senha-456',
+        }, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.refresh(other_device).status_code, 401)
+        self.assertEqual(self.refresh(response.data['refresh']).status_code, 200)
+
+    def test_staff_password_reset_and_deactivation_end_sessions(self):
+        player = Player.objects.create(name='Mari', main_position='setter', gender='F', user=self.athlete)
+        token = self.login_tokens()['refresh']
+        self.client.force_authenticate(self.moderator)
+        self.client.post(f'/api/players/{player.id}/reset-password/', {'password': 'trocada-pela-staff'}, format='json')
+        self.assertEqual(self.refresh(token).status_code, 401)
+
+        token = self.login_tokens(password='trocada-pela-staff')['refresh']
+        self.client.force_authenticate(self.admin)
+        self.client.patch(f'/api/auth/users/{self.athlete.id}/', {'is_active': False}, format='json')
+        self.assertEqual(self.refresh(token).status_code, 401)
+
+
+class PhotoUploadTests(SecurityTestCase):
+    """A foto precisa ser imagem de verdade: o tipo que o celular informa não basta (SVG pode carregar código)."""
+
+    def test_svg_disguised_as_image_is_refused(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        Player.objects.create(name='Mari', main_position='setter', gender='F', user=self.athlete)
+        self.client.force_authenticate(self.athlete)
+        svg = SimpleUploadedFile('eu.svg', b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', content_type='image/svg+xml')
+
+        response = self.client.patch('/api/players/me/', {'avatar': svg}, format='multipart')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('avatar', response.data)
+
+
+class NotificationListTests(SecurityTestCase):
+    """O sininho busca só as 50 mais recentes; avisos lidos antigos são apagados; ninguém cria aviso pela API."""
+
+    def test_list_is_capped_and_old_read_ones_are_cleaned(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from apps.notifications.models import Notification
+        Notification.objects.bulk_create([Notification(user=self.athlete, title=f'Aviso {i}', message='.') for i in range(60)])
+        old = Notification.objects.create(user=self.athlete, title='Velho', message='.', is_read=True)
+        Notification.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=120))
+        self.client.force_authenticate(self.athlete)
+
+        self.assertEqual(len(self.client.get('/api/notifications/').data), 50)
+        self.client.post('/api/notifications/read_all/')
+        self.assertFalse(Notification.objects.filter(pk=old.pk).exists())
+        self.assertEqual(self.client.post('/api/notifications/', {'title': 'x', 'message': 'y'}, format='json').status_code, 405)
+
+
+class ListPerformanceTests(SecurityTestCase):
+    """Jogos: o número de consultas não cresce com a quantidade de partidas; a sequência de vitórias segue certa."""
+
+    def make_match(self, player, won, days_ago):
+        from datetime import timedelta
+        from apps.matches.models import Match, MatchPlayer, MatchTeam
+        gameday = GameDay.objects.create(date=date.today() - timedelta(days=days_ago))
+        match = Match.objects.create(date=gameday.date, modality=2, gameday=gameday)
+        team = MatchTeam.objects.create(match=match, team_name='A', winner=won)
+        MatchPlayer.objects.create(match=match, match_team=team, player=player)
+
+    def count_queries(self, url):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(self.client.get(url).status_code, 200)
+        return len(ctx.captured_queries)
+
+    def test_matches_list_does_not_query_once_per_match(self):
+        player = Player.objects.create(name='Bia', main_position='libero', gender='F')
+        self.client.force_authenticate(self.moderator)
+        self.make_match(player, True, 1)
+        few = self.count_queries('/api/matches/')
+        for days in range(2, 8):
+            self.make_match(player, True, days)
+        self.assertEqual(self.count_queries('/api/matches/'), few)
+
+    def test_win_streak_in_the_list_still_counts_the_latest_results(self):
+        player = Player.objects.create(name='Bia', main_position='libero', gender='F')
+        for days_ago, won in [(1, True), (2, True), (3, False), (4, True)]:
+            self.make_match(player, won, days_ago)
+        self.client.force_authenticate(self.moderator)
+
+        row = next(p for p in self.client.get('/api/players/', {'page_size': 50}).data['results'] if p['id'] == player.id)
+        self.assertEqual((row['stats']['win_streak'], row['stats']['matches']), (2, 4))

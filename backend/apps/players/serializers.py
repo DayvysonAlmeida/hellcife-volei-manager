@@ -256,3 +256,6 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
             'is_guest', 'guest_overall', 'legal_name',
         ]
         read_only_fields = ['id']
+
+    # Foto enviada pela staff passa pela mesma checagem do cadastro (imagem de verdade, até 5 MB)
+    validate_avatar = SignupSerializer.validate_avatar
