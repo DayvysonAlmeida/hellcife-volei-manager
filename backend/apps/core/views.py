@@ -25,15 +25,14 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     permission_classes = [AllowAny]
 
 
-class MeView(generics.RetrieveUpdateAPIView):
+class MeView(generics.RetrieveAPIView):
+    # Só leitura: editando aqui, qualquer um mudava o próprio "profile" para admin.
+    # O atleta edita os próprios dados pelo PATCH /players/me/, que só aceita campos liberados.
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
         return self.request.user
-
-    def put(self, request, *args, **kwargs):
-        return self.partial_update(request, *args, **kwargs)
 
     @action(detail=False, methods=['post'])
     def change_password(self, request):

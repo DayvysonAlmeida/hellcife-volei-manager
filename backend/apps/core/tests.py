@@ -31,3 +31,26 @@ class ForgotPasswordLogTests(TestCase):
     @override_settings(DEBUG=True)
     def test_development_terminal_shows_the_link(self):
         self.assertIn('reset-password?uid=', self.request_reset_with_smtp_down())
+
+
+class MeEndpointTests(TestCase):
+    """/auth/me/ só mostra o usuário: ninguém muda o próprio tipo de acesso por ali."""
+
+    def setUp(self):
+        self.user = User.objects.create_user('atleta@x.com', 'senha-forte-123', name='Atleta', profile='player')
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_shows_the_logged_user(self):
+        response = self.client.get('/api/auth/me/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['email'], 'atleta@x.com')
+
+    def test_athlete_cannot_make_itself_admin(self):
+        for method in (self.client.patch, self.client.put):
+            response = method('/api/auth/me/', {'profile': 'admin', 'is_active': True}, format='json')
+            self.assertEqual(response.status_code, 405)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.profile, 'player')
