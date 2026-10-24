@@ -214,12 +214,14 @@ class PlayerViewSet(viewsets.ModelViewSet):
         ]:
             if diff != 0:
                 history_to_create.append(StarHistory(
-                    player=player, category=cat, 
+                    player=player, category=cat, given_by=request.user,
                     action='add' if diff > 0 else 'remove', count=abs(diff)
                 ))
 
         if new_big_stars > prev_big_stars:
-            history_to_create.append(StarHistory(player=player, category='promotion', action='promote', count=new_big_stars - prev_big_stars))
+            history_to_create.append(StarHistory(
+                player=player, category='promotion', action='promote', count=new_big_stars - prev_big_stars, given_by=request.user,
+            ))
 
         if history_to_create:
             StarHistory.objects.bulk_create(history_to_create)
@@ -444,14 +446,18 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='stars-history')
     def stars_history(self, request):
-        qs = StarHistory.objects.select_related('player').order_by('-created_at')[:50]
+        qs = StarHistory.objects.select_related('player', 'given_by').order_by('-created_at')[:200]
+        show_author = is_staff_profile(request.user)  # quem lançou: só a staff vê
         data = []
         for h in qs:
             data.append({
+                'given_by_id': h.given_by_id if show_author else None,
+                'given_by_name': h.given_by.name if show_author and h.given_by else None,
+                'given_by_profile': h.given_by.profile if show_author and h.given_by else None,
                 'id': h.id,
                 'player_id': h.player_id,
                 'player_name': h.player.display_name,
-                'avatar_url': h.player.avatar_url,
+                'avatar_url': request.build_absolute_uri(h.player.avatar.url) if h.player.avatar else None,
                 'category': h.category,
                 'action': h.action,
                 'count': h.count,

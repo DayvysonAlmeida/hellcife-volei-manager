@@ -11,7 +11,7 @@ from apps.core.permissions import IsAdminOrModerator, is_staff_profile
 
 
 class EvaluationViewSet(viewsets.ModelViewSet):
-    queryset = Evaluation.objects.all().select_related('player', 'evaluator')
+    queryset = Evaluation.objects.all().select_related('player', 'evaluator').prefetch_related('history__changed_by')
     serializer_class = EvaluationSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -34,9 +34,10 @@ class EvaluationViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         # Salva histórico antes de atualizar
         old = self.get_object()
-        old_data = EvaluationSerializer(old).data
+        context = self.get_serializer_context()  # com o usuário: a cópia guarda também quem avaliou
+        old_data = EvaluationSerializer(old, context=context).data
         instance = serializer.save()
-        new_data = EvaluationSerializer(instance).data
+        new_data = EvaluationSerializer(instance, context=context).data
         EvaluationHistory.objects.create(
             evaluation=instance,
             changed_by=self.request.user,

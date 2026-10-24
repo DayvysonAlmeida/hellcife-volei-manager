@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { Player, PaginatedResponse } from '@/types';
+import type { Player, PaginatedResponse, StarHistoryEntry } from '@/types';
 
 export interface StarsPayload {
   mvp_stars: number;
@@ -38,5 +38,5 @@ export const playersService = {
     api.get(`/players/${id}/stats/`).then(r => r.data),
 
   getStarHistory: () =>
-    api.get('/players/stars-history/').then(r => r.data),
+    api.get<StarHistoryEntry[]>('/players/stars-history/').then(r => r.data),
 };

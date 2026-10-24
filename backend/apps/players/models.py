@@ -219,6 +219,11 @@ class StarHistory(models.Model):
     action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name='Ação')
     count = models.PositiveSmallIntegerField(default=1, verbose_name='Quantidade')
     created_at = models.DateTimeField(default=timezone.now, verbose_name='Data e Hora')
+    # Quem da staff deu ou tirou a estrela (vazio nos lançamentos de antes deste registro)
+    given_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='stars_given', verbose_name='Lançado por',
+    )
 
     class Meta:
         verbose_name = 'Histórico de Estrela'

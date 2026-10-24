@@ -207,12 +207,31 @@ export interface Evaluation extends EvaluationSkills {
   id: number;
   player: number;
   player_name: string;
-  evaluator?: number;
-  evaluator_name?: string;
+  /** Quem avaliou: só vem para a staff. */
+  evaluator?: number | null;
+  evaluator_name?: string | null;
+  evaluator_profile?: User['profile'] | null;
+  /** Última alteração depois de registrada (só para a staff). */
+  last_edit?: { by: string | null; at: string } | null;
   date: string;
   notes?: string;
   overall: number;
   created_at: string;
+}
+
+/** Linha do tempo do Sistema de Estrelas. given_by_*: quem lançou (só para a staff; vazio nos lançamentos antigos). */
+export interface StarHistoryEntry {
+  id: number;
+  player_id: number;
+  player_name: string;
+  avatar_url?: string | null;
+  category: 'mvp' | 'attack' | 'defense' | 'setter' | 'pass' | 'block' | 'promotion';
+  action: 'add' | 'remove' | 'promote';
+  count: number;
+  created_at: string;
+  given_by_id: number | null;
+  given_by_name: string | null;
+  given_by_profile: User['profile'] | null;
 }
 
 export interface EvaluationConfig {

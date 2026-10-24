@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Star, Search, Trophy, Zap, Shield, History, Crosshair, Activity, Lock, Plus, Minus } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/Avatar';
+import { AuthorChip } from '@/components/ui/AuthorChip';
 import { PositionBadge } from '@/components/ui/Badges';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { Pagination } from '@/components/ui/Pagination';
@@ -13,7 +14,7 @@ import type { StarsPayload } from '@/services/players';
 import { useAuth } from '@/store/AuthContext';
 import { useDebounce } from '@/lib/useDebounce';
 import toast from 'react-hot-toast';
-import type { Player } from '@/types';
+import type { Player, StarHistoryEntry } from '@/types';
 
 // Configuração das 6 categorias de estrelas (Prêmios)
 const STAR_CATEGORIES = [
@@ -278,9 +279,21 @@ function PlayerStarCard({
   );
 }
 
+const CATEGORY: Record<StarHistoryEntry['category'], { icon: string; label: string; color: string }> = {
+  promotion: { icon: '👑', label: 'Grande Estrela', color: 'text-yellow-500' },
+  mvp: { icon: '🏆', label: 'MVP', color: 'text-yellow-500' },
+  attack: { icon: '⚡', label: 'Ataque', color: 'text-red' },
+  defense: { icon: '🛡️', label: 'Defesa', color: 'text-blue-500' },
+  setter: { icon: '🎯', label: 'Levantador', color: 'text-orange-500' },
+  pass: { icon: '🏐', label: 'Passe', color: 'text-green-500' },
+  block: { icon: '🧱', label: 'Bloqueio', color: 'text-purple-500' },
+};
+const NO_AUTHOR = 'none';
+
 function StarHistoryTimeline() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [author, setAuthor] = useState('all');
 
   const { data: history, isLoading } = useQuery({
     queryKey: ['stars-history'],
@@ -288,25 +301,50 @@ function StarHistoryTimeline() {
     refetchInterval: 1000 * 60 * 5, // Atualiza a cada 5 mins
   });
 
+  // Quem lançou: uma opção por pessoa da staff que aparece no histórico
+  const authors = useMemo(() => {
+    const names = new Map<string, string>();
+    history?.forEach((h) => { if (h.given_by_id) names.set(String(h.given_by_id), h.given_by_name ?? ''); });
+    return [...names.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [history]);
+  const hasUnknown = !!history?.some((h) => !h.given_by_id);
+
+  const filtered = (history ?? []).filter((h) =>
+    author === 'all' || (author === NO_AUTHOR ? !h.given_by_id : String(h.given_by_id) === author));
   const startIndex = (page - 1) * pageSize;
-  const currentItems = history ? history.slice(startIndex, startIndex + pageSize) : [];
+  const currentItems = filtered.slice(startIndex, startIndex + pageSize);
 
   if (isLoading) return <div className="animate-pulse h-20 bg-surface rounded-xl mt-12 mb-8"></div>;
 
   return (
     <div className="mt-12 mb-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h2 className="font-display text-xl text-text-primary tracking-wider flex items-center gap-2">
-          <History size={20} className="text-yellow-500" />
-          LINHA DO TEMPO (HISTÓRICO DE PRÊMIOS)
-        </h2>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+        <div>
+          <h2 className="font-display text-xl text-text-primary tracking-wider flex items-center gap-2">
+            <History size={20} className="text-yellow-500" />
+            LINHA DO TEMPO (HISTÓRICO DE PRÊMIOS)
+          </h2>
+          <p className="text-xs text-text-muted mt-1">Cada estrela dada ou tirada fica registrada com o nome de quem lançou.</p>
+        </div>
         {history && history.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted uppercase tracking-widest font-bold">Mostrar:</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="stars-author" className="text-xs text-text-muted uppercase tracking-widest font-bold">Lançado por:</label>
             <select
+              id="stars-author"
+              value={author}
+              onChange={(e) => { setAuthor(e.target.value); setPage(1); }}
+              className="input py-1.5 px-3 h-auto text-sm max-w-[12rem] bg-surface border-border"
+            >
+              <option value="all">Todos</option>
+              {authors.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              {hasUnknown && <option value={NO_AUTHOR}>Sem registro de autor</option>}
+            </select>
+            <label htmlFor="stars-page-size" className="sr-only">Quantidade por página</label>
+            <select
+              id="stars-page-size"
               value={pageSize}
               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-              className="input py-1.5 px-3 h-auto text-sm w-24 bg-surface border-border"
+              className="input py-1.5 px-3 h-auto text-sm w-20 bg-surface border-border"
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
@@ -315,80 +353,63 @@ function StarHistoryTimeline() {
           </div>
         )}
       </div>
-      <div className="bg-surface border border-border rounded-2xl p-6">
-        {(!history || history.length === 0) ? (
+      <div className="bg-surface border border-border rounded-2xl p-4 sm:p-6">
+        {filtered.length === 0 ? (
           <div className="text-center py-8 text-text-muted">
             <Star className="mx-auto mb-3 text-text-muted/30" size={32} />
-            <p>Nenhum prêmio foi distribuído ainda.</p>
-            <p className="text-xs mt-1">O histórico aparecerá aqui automaticamente.</p>
+            <p>{history?.length ? 'Nenhum lançamento com esse filtro.' : 'Nenhum prêmio foi distribuído ainda.'}</p>
+            {!history?.length && <p className="text-xs mt-1">O histórico aparecerá aqui automaticamente.</p>}
           </div>
         ) : (
-          <div className="relative border-l-2 border-border/50 ml-4 space-y-6">
-          {currentItems.map((item: any) => {
-            let color = 'text-yellow-400';
-            let icon = '🌟';
-            let label = 'Prêmio';
-            
-            switch (item.category) {
-              case 'promotion':
-                icon = '👑'; label = 'Grande Estrela'; color = 'text-yellow-500';
-                break;
-              case 'mvp':
-                icon = '🏆'; label = 'MVP'; color = 'text-yellow-400';
-                break;
-              case 'attack':
-                icon = '⚡'; label = 'Ataque'; color = 'text-red';
-                break;
-              case 'defense':
-                icon = '🛡️'; label = 'Defesa'; color = 'text-blue';
-                break;
-              case 'setter':
-                icon = '🎯'; label = 'Levantador'; color = 'text-orange-500';
-                break;
-              case 'pass':
-                icon = '🏐'; label = 'Passe'; color = 'text-green-500';
-                break;
-              case 'block':
-                icon = '🧱'; label = 'Bloqueio'; color = 'text-purple-500';
-                break;
-            }
-
-            const actionText = item.action === 'add' ? 'Ganhou' : item.action === 'remove' ? 'Perdeu' : 'Conquistou';
+          <div className="relative border-l-2 border-border/50 ml-2 sm:ml-4 space-y-3">
+          {currentItems.map((item) => {
+            const { icon, label, color } = CATEGORY[item.category] ?? { icon: '🌟', label: 'Prêmio', color: 'text-yellow-500' };
+            const removed = item.action === 'remove';
+            const actionText = item.action === 'add' ? 'ganhou' : removed ? 'perdeu' : 'conquistou';
             const countText = item.count > 1 ? `${item.count}x ` : '';
 
             return (
-              <div key={item.id} className="relative pl-6 sm:pl-8">
+              <div key={item.id} className="relative pl-5 sm:pl-8">
                 {/* Marcador na linha */}
-                <div className={`absolute -left-[5px] top-1.5 w-2 h-2 rounded-full ${color.replace('text-', 'bg-')} ring-4 ring-surface`}></div>
-                
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 group">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={item.player_name} src={item.avatar_url} size="sm" />
-                    <div>
+                <div className={cn('absolute -left-[5px] top-4 w-2 h-2 rounded-full ring-4 ring-surface', removed ? 'bg-red' : color.replace('text-', 'bg-'))}></div>
+
+                <div className={cn(
+                  'flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 rounded-xl px-3 py-2.5 group',
+                  removed ? 'bg-red/[0.06] border border-red/25' : 'border border-transparent hover:bg-text-primary/[0.03]',
+                )}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={item.player_name} src={item.avatar_url ?? undefined} size="sm" className="shrink-0" />
+                    <div className="min-w-0 space-y-1">
                       <p className="text-sm text-text-primary">
-                        <Link to={`/players/${item.player_id}`} className="font-bold hover:text-yellow-400 transition-colors">
+                        <Link to={`/players/${item.player_id}`} className="font-bold hover:text-yellow-500 transition-colors">
                           {item.player_name}
                         </Link>{' '}
-                        <span className="text-text-muted">{actionText.toLowerCase()}</span>{' '}
-                        <span className={`font-bold ${color}`}>
+                        <span className={removed ? 'text-red font-bold' : 'text-text-muted'}>{actionText}</span>{' '}
+                        <span className={cn('font-bold', color)}>
                           {countText}{label} {icon}
                         </span>
                       </p>
+                      <AuthorChip
+                        label={removed ? 'Retirada por' : 'Lançado por'}
+                        name={item.given_by_name}
+                        profile={item.given_by_profile}
+                        missing="Lançado antes do registro de autor"
+                      />
                     </div>
                   </div>
-                  <div className="text-[10px] text-text-muted font-mono whitespace-nowrap opacity-70 group-hover:opacity-100 transition-opacity mt-1 sm:mt-0">
+                  <div className="text-[10px] text-text-muted font-mono whitespace-nowrap sm:text-right pl-11 sm:pl-0">
                     {formatDateTime(item.created_at)}
                   </div>
                 </div>
               </div>
             );
           })}
-          
+
           {/* Paginação */}
-          {history.length > pageSize && (
+          {filtered.length > pageSize && (
             <div className="mt-8 pt-4">
               <Pagination
-                count={history.length}
+                count={filtered.length}
                 page={page}
                 pageSize={pageSize}
                 onPageChange={setPage}
