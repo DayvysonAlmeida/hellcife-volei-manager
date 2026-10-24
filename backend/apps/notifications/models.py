@@ -48,6 +48,10 @@ class PushSubscription(models.Model):
     auth = models.CharField(max_length=100, verbose_name='Segredo de autenticação')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Criada em')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Atualizada em')
+    # Diagnóstico: qual aparelho é e como foi o último envio (a tela de Notificações mostra; a staff conta)
+    user_agent = models.CharField(max_length=300, blank=True, default='', verbose_name='Navegador do aparelho')
+    last_success_at = models.DateTimeField(null=True, blank=True, verbose_name='Último envio entregue')
+    last_error = models.CharField(max_length=200, blank=True, default='', verbose_name='Último erro de envio')
 
     class Meta:
         ordering = ['-updated_at']

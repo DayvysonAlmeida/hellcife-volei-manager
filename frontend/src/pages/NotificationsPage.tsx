@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
+import { PushDiagnostics } from '@/components/notifications/PushDiagnostics';
 
 type FilterType = 'all' | 'system' | 'prize' | 'circuit' | 'alert' | 'financial';
 
@@ -143,30 +144,8 @@ export function NotificationsPage() {
         </div>
       </motion.div>
 
-      {/* Como fazer a notificação aparecer na tela do celular */}
-      <details className="card p-4 text-sm">
-        <summary className="cursor-pointer font-bold text-text-primary">Notificação não aparece na tela do celular?</summary>
-        <div className="mt-3 space-y-3 text-xs text-text-muted leading-relaxed">
-          <div>
-            <p className="font-bold text-text-primary">Android</p>
-            <p>
-              Configurações → Apps → HellCife (ou Chrome) → Notificações. Ligue “Mostrar na tela” (ou “Pop-up”) e o som.
-              Se o celular economiza bateria, deixe o app sem restrição para os avisos não atrasarem.
-            </p>
-          </div>
-          <div>
-            <p className="font-bold text-text-primary">iPhone</p>
-            <p>
-              No Safari, toque em Compartilhar → “Adicionar à Tela de Início” e abra o app pelo ícone. Depois, em Ajustes →
-              Notificações → HellCife, ative as notificações e escolha Faixas “Persistente” para o aviso ficar na tela até você ver.
-            </p>
-          </div>
-          <p>
-            Quando o app perguntar, toque em “Ativar Notificações”. Se você recusou antes, libere as notificações do site nas
-            configurações do navegador.
-          </p>
-        </div>
-      </details>
+      {/* Notificações no celular: diagnóstico ao vivo e teste com a tela bloqueada */}
+      <PushDiagnostics isStaff={isAdmin} />
 
       {/* Form de Aviso Global (Apenas Admins) */}
       <AnimatePresence>

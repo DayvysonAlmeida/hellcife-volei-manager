@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeftRight, CircleUser, LogOut, Moon, Sun } from 'lucide-react';
+import { ArrowLeftRight, BellRing, CircleUser, LogOut, Moon, Sun } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
 import { useMyAthlete } from '@/hooks/useMyAthlete';
+import { usePushHealth } from '@/hooks/usePushHealth';
 import { isStaff, PROFILE_LABELS } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,8 @@ export function UserMenu() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { data: athlete } = useMyAthlete();
+  const push = usePushHealth();
+  const pushNeedsAttention = !push.loading && !push.ready;
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
@@ -51,7 +54,10 @@ export function UserMenu() {
     <div className="relative" ref={ref}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="menu" aria-label="Abrir menu da conta"
         className={cn('flex items-center gap-2 rounded-full md:rounded-xl md:pl-1 md:pr-2.5 md:py-1 transition-colors', open ? 'bg-surface' : 'hover:bg-surface')}>
-        {avatar('w-8 h-8 text-xs')}
+        <span className="relative shrink-0">
+          {avatar('w-8 h-8 text-xs')}
+          {pushNeedsAttention && <span aria-hidden className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-background" />}
+        </span>
         <span className="hidden md:block text-right">
           <span className="block text-text-primary text-sm font-medium leading-tight max-w-[10rem] truncate">{user.name}</span>
           <span className="block text-text-muted text-xs">{PROFILE_LABELS[user.profile]}</span>
@@ -80,6 +86,12 @@ export function UserMenu() {
             </div>
             <div className="h-px bg-border/60 my-1" />
 
+            {pushNeedsAttention && (
+              <button type="button" role="menuitem" className={cn(item, 'text-amber-600 dark:text-amber-400')}
+                onClick={() => go(`${inAthletePortal || !staff ? '/athlete' : ''}/notifications#celular`)}>
+                <BellRing size={17} className="shrink-0" /> Ativar notificações no celular
+              </button>
+            )}
             {athlete && (
               <button type="button" role="menuitem" className={item} onClick={() => go('/athlete/profile')}>
                 <CircleUser size={17} className="shrink-0" /> Meu perfil

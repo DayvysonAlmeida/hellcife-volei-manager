@@ -29,6 +29,20 @@ function sameKey(current: ArrayBuffer | null, expected: Uint8Array) {
   return bytes.every((b, i) => b === expected[i]);
 }
 
+/**
+ * O service worker do app (quem recebe o push com o app fechado). Sem ele, navigator.serviceWorker.ready
+ * nunca resolve: desiste depois de alguns segundos com uma explicação, em vez de travar o botão.
+ */
+function serviceWorkerReady(timeoutMs = 10000) {
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) => setTimeout(
+      () => reject(new Error('o serviço de notificações do app não carregou. Feche o app por completo e abra de novo.')),
+      timeoutMs,
+    )),
+  ]);
+}
+
 /** Chave pública do servidor; nula quando o push está desligado lá. */
 export async function getPushPublicKey() {
   const { data } = await api.get<{ public_key: string | null }>('/notifications/push/key/');
@@ -41,7 +55,7 @@ export async function getPushPublicKey() {
  */
 export async function subscribeThisDevice(publicKey: string) {
   const key = base64UrlToBytes(publicKey);
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await serviceWorkerReady();
   let subscription = await registration.pushManager.getSubscription();
 
   // A chave do servidor mudou: a inscrição antiga não recebe mais nada
@@ -86,4 +100,52 @@ export function closeSystemNotifications(ids: number[]) {
       if (ids.includes(n.data?.id)) n.close();
     }))
     .catch(() => {});
+}
+
+export interface LocalPushState {
+  supported: boolean;
+  iosOutsideApp: boolean;
+  permission: NotificationPermission | 'unsupported';
+  /** O service worker do app está ativo (sem ele não chega push com o app fechado). */
+  worker: boolean;
+  /** Endereço da inscrição deste aparelho (null: não inscrito). */
+  endpoint: string | null;
+}
+
+/** Como está o push neste aparelho: suporte, permissão e inscrição no navegador. */
+export async function localPushState(): Promise<LocalPushState> {
+  if (!pushSupported()) {
+    return { supported: false, iosOutsideApp: isIosOutsideApp(), permission: 'unsupported', worker: false, endpoint: null };
+  }
+  let endpoint: string | null = null;
+  let worker = false;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    worker = !!registration?.active;
+    endpoint = (await registration?.pushManager.getSubscription())?.endpoint ?? null;
+  } catch {
+    endpoint = null;
+  }
+  return { supported: true, iosOutsideApp: false, permission: Notification.permission, worker, endpoint };
+}
+
+/**
+ * Botão "Ativar notificações": pede a permissão (precisa do toque) e inscreve o aparelho.
+ * Lança um erro com a explicação quando não dá certo, para o diagnóstico mostrar.
+ */
+export async function enablePushHere() {
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    throw new Error(permission === 'denied'
+      ? 'As notificações estão bloqueadas para o app. Libere nas configurações do celular (veja o passo a passo abaixo).'
+      : 'Você não respondeu à pergunta de permissão. Toque em Ativar de novo.');
+  }
+  const publicKey = await getPushPublicKey().catch(() => null);
+  if (!publicKey) throw new Error('O servidor está com o push desligado. Avise a organização.');
+  try {
+    await subscribeThisDevice(publicKey);
+  } catch (err: any) {
+    const detail = err?.response?.data?.endpoint?.[0] || err?.response?.data?.error || err?.message;
+    throw new Error(`Não foi possível inscrever este aparelho${detail ? `: ${detail}` : '.'}`);
+  }
 }

@@ -1,11 +1,19 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+import time
+
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import UserRateThrottle
 from django.conf import settings
+from apps.core.permissions import is_staff_profile
 from .models import Notification, GlobalAnnouncement, PushSubscription
-from .push import MAX_SUBSCRIPTIONS_PER_USER, push_enabled
+from .push import MAX_SUBSCRIPTIONS_PER_USER, device_label, key_status, push_enabled, send_test_push
 from .serializers import NotificationSerializer, PushSubscriptionSerializer
+
+class PushTestThrottle(UserRateThrottle):
+    rate = '12/hour'  # teste de notificação: o bastante para ajustar o celular, sem virar spam
+
 
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
@@ -58,7 +66,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
         # O endpoint é do aparelho: se outra conta entrar nele, a inscrição passa para ela
         PushSubscription.objects.update_or_create(
             endpoint=data['endpoint'],
-            defaults={'user': request.user, 'p256dh': data['keys']['p256dh'], 'auth': data['keys']['auth']},
+            defaults={
+                'user': request.user, 'p256dh': data['keys']['p256dh'], 'auth': data['keys']['auth'],
+                'user_agent': request.META.get('HTTP_USER_AGENT', '')[:300],
+            },
         )
 
         # Fica só com os aparelhos usados mais recentemente
@@ -74,3 +85,44 @@ class NotificationViewSet(viewsets.ModelViewSet):
         if endpoint:
             PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'], url_path='push/status')
+    def push_status(self, request):
+        """Diagnóstico: o push está ligado e com chaves certas no servidor, e como estão os aparelhos desta conta."""
+        return Response({
+            'server': key_status(),
+            'devices': [
+                {
+                    'endpoint': sub.endpoint, 'device': device_label(sub.user_agent), 'created_at': sub.created_at,
+                    'last_success_at': sub.last_success_at, 'last_error': sub.last_error,
+                } for sub in request.user.push_subscriptions.all()
+            ],
+        })
+
+    @action(detail=False, methods=['post'], url_path='push/test', throttle_classes=[PushTestThrottle])
+    def push_test(self, request):
+        """
+        Manda uma notificação de teste aos aparelhos desta conta. Com "delay" (até 15s) o servidor espera antes,
+        para dar tempo de bloquear a tela do celular.
+        """
+        if key_status() != 'ok':
+            return Response({'detail': 'O push está desligado ou com as chaves erradas no servidor.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if not request.user.push_subscriptions.exists():
+            return Response({'detail': 'Nenhum aparelho inscrito. Ative as notificações neste aparelho primeiro.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            delay = max(0, min(15, int(request.data.get('delay', 0))))
+        except (TypeError, ValueError):
+            delay = 0
+        time.sleep(delay)
+        return Response({'results': send_test_push(request.user)})
+
+    @action(detail=False, methods=['get'], url_path='push/stats')
+    def push_stats(self, request):
+        """Para a staff: quantos atletas recebem as notificações no celular, e quem ainda não ativou."""
+        if not is_staff_profile(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        from .services import athlete_audience
+        audience = athlete_audience().select_related('player_profile').order_by('name')
+        with_push = set(PushSubscription.objects.filter(user__in=audience).values_list('user_id', flat=True))
+        without = [u.name for u in audience if u.id not in with_push]
+        return Response({'athletes': len(with_push) + len(without), 'with_push': len(with_push), 'without': without})
