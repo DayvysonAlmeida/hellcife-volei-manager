@@ -5,6 +5,7 @@ import { signupService } from '@/services/signup';
 import { regulationService } from '@/services';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
 import { cn } from '@/lib/utils';
+import { formatCpf, isValidCpf } from '@/lib/identity';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { authInput, authLabel, authMuted } from '@/components/auth/authStyles';
 import { GENDER_LABELS, GENDER_ORDER, type Gender, type Position } from '@/types';
@@ -21,6 +22,7 @@ const POSITIONS: { value: Position; label: string }[] = [
 interface Form {
   name: string;
   legal_name: string;
+  cpf: string;
   nickname: string;
   email: string;
   password: string;
@@ -37,7 +39,7 @@ interface Form {
 }
 
 const EMPTY: Form = {
-  name: '', legal_name: '', nickname: '', email: '', password: '', password_confirm: '', phone: '',
+  name: '', legal_name: '', cpf: '', nickname: '', email: '', password: '', password_confirm: '', phone: '',
   gender: '', main_position: '', secondary_position: '', age: '', height: '', instagram: '', accept_terms: false, website: '',
 };
 
@@ -96,6 +98,7 @@ export function SignupPage() {
   const validate = (): Errors => {
     const e: Errors = {};
     if (form.name.trim().length < 2) e.name = 'Informe como você quer ser chamado no app.';
+    if (!isValidCpf(form.cpf)) e.cpf = 'CPF inválido. Confira os números.';
     if (!/^\S+@\S+\.\S+$/.test(form.email)) e.email = 'Informe um e-mail válido.';
     if (form.password.length < 8) e.password = 'A senha precisa ter pelo menos 8 caracteres.';
     if (form.password !== form.password_confirm) e.password_confirm = 'As senhas não são iguais.';
@@ -187,6 +190,10 @@ export function SignupPage() {
                 </Field>
                 <Field id="signup-legal" label="Nome completo (civil)" error={errors.legal_name} hint="Opcional. Só a organização vê.">
                   <input id="signup-legal" className={authInput} value={form.legal_name} onChange={(e) => set('legal_name', e.target.value)} autoComplete="name" />
+                </Field>
+                <Field id="signup-cpf" label="CPF" required error={errors.cpf} hint="Só para evitar cadastro repetido. Fica guardado cifrado: ninguém vê o número.">
+                  <input id="signup-cpf" inputMode="numeric" className={authInput} value={form.cpf} placeholder="000.000.000-00"
+                    onChange={(e) => set('cpf', formatCpf(e.target.value))} autoComplete="off" />
                 </Field>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field id="signup-nickname" label="Apelido" error={errors.nickname} hint="Opcional.">
@@ -282,7 +289,8 @@ export function SignupPage() {
                     Li e aceito o{' '}
                     <button type="button" onClick={openRegulation} className="text-red font-semibold underline underline-offset-2">regulamento</button>
                     {' '}e autorizo o uso dos meus dados pelo Hellcife Vôlei para organizar os jogos (presença, times e rankings),
-                    inclusive o gênero informado, que serve só para equilibrar os times.
+                    inclusive o gênero informado, que serve só para equilibrar os times, e o CPF, guardado cifrado só para
+                    evitar cadastros repetidos.
                   </span>
                 </label>
                 {errors.accept_terms && <p className="text-red text-xs font-medium">{errors.accept_terms}</p>}

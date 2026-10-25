@@ -5,6 +5,9 @@ from .models import Player, Badge, PlayerBadge
 from .elo_service import get_elo_tier, get_elo_progress
 from .rankings import elo_calibration, season_match_count
 from .signup import SignupSerializer
+from .identity import (
+    CPF_TAKEN, CPF_UNAVAILABLE, PHONE_TAKEN, CpfUnavailable, canonical_phone, cpf_owner, masked_cpf, phone_owner, set_cpf, valid_cpf,
+)
 from apps.core.permissions import is_staff_profile
 
 
@@ -35,7 +38,9 @@ class EloCalibrationMixin:
 
 class PrivateFieldsMixin:
     """Telefone, observações da staff, Elo e a nota (overall): só a staff e o próprio atleta veem. Para os outros vêm vazios."""
-    PRIVATE_FIELDS = ('phone', 'notes', 'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration', 'latest_overall')
+    PRIVATE_FIELDS = (
+        'phone', 'notes', 'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration', 'latest_overall', 'cpf_masked', 'missing_data',
+    )
 
     def to_representation(self, obj):
         data = super().to_representation(obj)
@@ -155,6 +160,8 @@ class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializer
     elo_tier_data = serializers.SerializerMethodField()
     elo_calibration = serializers.SerializerMethodField()
     legal_name = serializers.SerializerMethodField()
+    cpf_masked = serializers.SerializerMethodField()
+    missing_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -173,6 +180,7 @@ class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializer
             'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'updated_at',
             'is_guest', 'invited_by', 'guest_overall', 'consecutive_absences', 'badges', 'legal_name',
+            'cpf_masked', 'missing_data',
             'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration',
         ]
 
@@ -195,6 +203,15 @@ class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializer
             return obj.avatar.url
         return None
 
+    def get_cpf_masked(self, obj):
+        return masked_cpf(obj.cpf_last2) if obj.cpf_hash else ''
+
+    def get_missing_data(self, obj):
+        """O que falta no cadastro (o app mostra o alerta "Atualize seus dados"). Convidado não precisa."""
+        if obj.is_guest:
+            return []
+        return [field for field, ok in (('cpf', bool(obj.cpf_hash)), ('phone', bool(obj.phone))) if not ok]
+
     def get_legal_name(self, obj):
         """Nome civil: só a staff e o próprio atleta veem (no app aparece o nome social)."""
         user = getattr(self.context.get('request'), 'user', None)
@@ -203,7 +220,37 @@ class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializer
         return None
 
 
-class MyProfileSerializer(serializers.ModelSerializer):
+class CpfFieldMixin:
+    """CPF digitado: confere os dígitos, se já tem dono e guarda só a impressão digital e os 2 últimos dígitos."""
+
+    def validate_cpf(self, value):
+        if not value:
+            return ''
+        digits = valid_cpf(value)
+        if not digits:
+            raise serializers.ValidationError('CPF inválido. Confira os números.')
+        try:
+            if cpf_owner(digits, exclude_id=getattr(self.instance, 'pk', None)):
+                raise serializers.ValidationError(CPF_TAKEN)
+        except CpfUnavailable:
+            raise serializers.ValidationError(CPF_UNAVAILABLE)
+        return digits
+
+    def validate_phone(self, value):
+        value = SignupSerializer.validate_phone(self, value) if self.check_phone_format else value
+        # Só vale ao trocar o número: quem já divide o WhatsApp com um cadastro antigo continua salvando o resto
+        unchanged = self.instance is not None and canonical_phone(value) == canonical_phone(self.instance.phone)
+        if value and self.unique_phone and not unchanged and phone_owner(value, exclude_id=getattr(self.instance, 'pk', None)):
+            raise serializers.ValidationError(PHONE_TAKEN)
+        return value
+
+    def pop_cpf(self, validated_data, player):
+        digits = validated_data.pop('cpf', '')
+        if digits:
+            set_cpf(player, digits)
+
+
+class MyProfileSerializer(CpfFieldMixin, serializers.ModelSerializer):
     """
     O que o atleta edita no próprio perfil. Campos fora desta lista são ignorados:
     e-mail, posições, camisa, status, plano, estrelas, Elo e avaliações ficam com a staff.
@@ -219,23 +266,33 @@ class MyProfileSerializer(serializers.ModelSerializer):
         max_digits=5, decimal_places=2, min_value=Decimal('30'), max_value=Decimal('250'), required=False, allow_null=True,
     )
     remove_avatar = serializers.BooleanField(required=False, write_only=True)
+    cpf = serializers.CharField(max_length=20, required=False, allow_blank=True, write_only=True)
+
+    check_phone_format = True
+    unique_phone = True  # o mesmo WhatsApp não fica em dois cadastros
 
     class Meta:
         model = Player
         fields = [
             'name', 'legal_name', 'nickname', 'gender', 'phone', 'instagram',
-            'age', 'height', 'weight', 'dominant_hand', 'avatar', 'remove_avatar',
+            'age', 'height', 'weight', 'dominant_hand', 'avatar', 'remove_avatar', 'cpf',
         ]
 
     # Mesmas regras do cadastro
     validate_name = SignupSerializer.validate_name
-    validate_phone = SignupSerializer.validate_phone
     validate_instagram = SignupSerializer.validate_instagram
     validate_avatar = SignupSerializer.validate_avatar
+
+    def validate_cpf(self, value):
+        # O atleta informa o CPF uma vez; para trocar depois, só a staff
+        if value and self.instance and self.instance.cpf_hash:
+            raise serializers.ValidationError('O seu CPF já está cadastrado. Para trocar, fale com a organização.')
+        return super().validate_cpf(value)
 
     def update(self, instance, validated_data):
         if validated_data.pop('remove_avatar', False) and not validated_data.get('avatar'):
             validated_data['avatar'] = None
+        self.pop_cpf(validated_data, instance)
         player = super().update(instance, validated_data)
         # O nome do login acompanha o nome social
         if player.user and player.user.name != player.name:
@@ -244,7 +301,12 @@ class MyProfileSerializer(serializers.ModelSerializer):
         return player
 
 
-class PlayerWriteSerializer(serializers.ModelSerializer):
+class PlayerWriteSerializer(CpfFieldMixin, serializers.ModelSerializer):
+    # A staff informa ou troca o CPF (o número não volta: fica só a impressão digital)
+    cpf = serializers.CharField(max_length=20, required=False, allow_blank=True, write_only=True)
+    check_phone_format = False
+    unique_phone = False  # a staff pode repetir o número de propósito (ex.: pai e filho no mesmo WhatsApp)
+
     class Meta:
         model = Player
         fields = [
@@ -253,9 +315,21 @@ class PlayerWriteSerializer(serializers.ModelSerializer):
             'phone', 'instagram', 'avatar', 'notes', 'status', 'user',
             'mini_stars', 'big_stars', 'mvp_stars', 'attack_stars', 'defense_stars',
             'setter_stars', 'pass_stars', 'block_stars',
-            'is_guest', 'guest_overall', 'legal_name',
+            'is_guest', 'guest_overall', 'legal_name', 'cpf',
         ]
         read_only_fields = ['id']
 
     # Foto enviada pela staff passa pela mesma checagem do cadastro (imagem de verdade, até 5 MB)
     validate_avatar = SignupSerializer.validate_avatar
+
+    def create(self, validated_data):
+        digits = validated_data.pop('cpf', '')
+        player = super().create(validated_data)
+        if digits:
+            set_cpf(player, digits)
+            player.save(update_fields=['cpf_hash', 'cpf_last2'])
+        return player
+
+    def update(self, instance, validated_data):
+        self.pop_cpf(validated_data, instance)
+        return super().update(instance, validated_data)

@@ -28,7 +28,7 @@ class SignupFlowTests(TestCase):
         data = {
             'name': 'Mari', 'legal_name': 'Mariana Souza', 'email': 'Mari@Exemplo.com', 'password': 'quadra-de-areia-9',
             'password_confirm': 'quadra-de-areia-9', 'phone': '(81) 99999-1234', 'gender': 'F',
-            'main_position': 'setter', 'accept_terms': True, **changes,
+            'main_position': 'setter', 'accept_terms': True, 'cpf': '529.982.247-25', **changes,
         }
         return self.client.post(f'{AUTH}/signup/', data, format='json')
 

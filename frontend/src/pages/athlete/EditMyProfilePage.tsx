@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/store/AuthContext';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { formatCpf, isValidCpf } from '@/lib/identity';
 import { GENDER_LABELS, GENDER_ORDER, HAND_LABELS, type DominantHand, type Gender, type Player } from '@/types';
 
 const card = 'rounded-[28px] border border-border/30 bg-surface/70 p-5';
@@ -94,6 +95,7 @@ function ProfileForm({ player }: { player: Player }) {
     weight: decimal(player.weight),
     dominant_hand: player.dominant_hand,
   });
+  const [cpf, setCpf] = useState('');  // informado uma vez; depois só a staff troca
   const [photo, setPhoto] = useState<File | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
   const [preview, setPreview] = useState<string | undefined>();
@@ -127,6 +129,7 @@ function ProfileForm({ player }: { player: Player }) {
     const e: Errors = {};
     if (form.name.trim().length < 2) e.name = 'Informe como você quer ser chamado no app.';
     if (form.phone.replace(/\D/g, '').length < 10) e.phone = 'Informe o WhatsApp com DDD.';
+    if (cpf && !isValidCpf(cpf)) e.cpf = 'CPF inválido. Confira os números.';
     return e;
   };
 
@@ -141,6 +144,7 @@ function ProfileForm({ player }: { player: Player }) {
       // Vazio apaga o valor opcional (a API entende "" como sem idade, sem altura…)
       data.append(key, key === 'height' || key === 'weight' ? value.replace(',', '.') : value);
     });
+    if (cpf) data.append('cpf', cpf);
     if (photo) data.append('avatar', photo);
     else if (removePhoto) data.append('remove_avatar', 'true');
 
@@ -194,6 +198,16 @@ function ProfileForm({ player }: { player: Player }) {
         <Field id="me-legal" title="Nome completo (civil)" error={errors.legal_name} hint="Opcional. Só você e a organização veem.">
           <input id="me-legal" className="input w-full" value={form.legal_name} onChange={(e) => set('legal_name', e.target.value)} maxLength={150} autoComplete="name" />
         </Field>
+        {player.cpf_masked ? (
+          <Field id="me-cpf" title="CPF" hint="Para trocar, fale com a organização.">
+            <input id="me-cpf" className="input w-full opacity-70" value={player.cpf_masked} readOnly />
+          </Field>
+        ) : (
+          <Field id="me-cpf" title="CPF" required error={errors.cpf} hint="Só para evitar cadastro repetido. Fica guardado cifrado: ninguém vê o número.">
+            <input id="me-cpf" inputMode="numeric" className="input w-full" value={cpf} placeholder="000.000.000-00" autoComplete="off"
+              onChange={(e) => { setCpf(formatCpf(e.target.value)); setErrors((er) => ({ ...er, cpf: undefined })); }} />
+          </Field>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field id="me-nickname" title="Apelido" error={errors.nickname} hint="Opcional.">
             <input id="me-nickname" className="input w-full" value={form.nickname} onChange={(e) => set('nickname', e.target.value)} maxLength={80} />

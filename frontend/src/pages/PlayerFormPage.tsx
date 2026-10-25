@@ -12,6 +12,7 @@ import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { isAdmin } from '@/lib/roles';
+import { formatCpf, isValidCpf } from '@/lib/identity';
 import { useAuth } from '@/store/AuthContext';
 import { GENDER_LABELS, GENDER_ORDER, POSITION_LABELS } from '@/types';
 
@@ -27,6 +28,8 @@ const schema = z.object({
   dominant_hand: z.enum(['right', 'left', 'both']),
   gender: z.enum(['F', 'M', 'NB', 'O', 'N']),
   phone: z.string().optional(),
+  // Vazio mantém o CPF atual; preenchido, troca (o número não volta do servidor, fica só cifrado)
+  cpf: z.string().optional().refine((v) => !v || isValidCpf(v), 'CPF inválido. Confira os números.'),
   instagram: z.string().optional(),
   avatar: z.any().optional(),
   notes: z.string().optional(),
@@ -245,6 +248,15 @@ export function PlayerFormPage() {
           </Field>
           <Field label="Instagram">
             <input {...register('instagram')} className="input w-full" placeholder="@usuario" />
+          </Field>
+          <Field label={player?.cpf_masked ? `CPF (atual: ${player.cpf_masked})` : 'CPF'} error={errors.cpf?.message}>
+            <input
+              {...register('cpf', { onChange: (e) => { e.target.value = formatCpf(e.target.value); } })}
+              inputMode="numeric"
+              className="input w-full"
+              placeholder={player?.cpf_masked ? 'Digite só se for trocar' : '000.000.000-00'}
+              autoComplete="off"
+            />
           </Field>
           <div className="sm:col-span-2">
             <Field label="Foto do Jogador (Avatar)" error={errors.avatar?.message as string}>

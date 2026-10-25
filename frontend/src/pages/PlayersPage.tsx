@@ -33,6 +33,7 @@ export function PlayersPage() {
   const [positionFilter, setPositionFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [guestFilter, setGuestFilter] = useState(''); // 'false' para oficiais, 'true' para convidados
+  const [incompleteFilter, setIncompleteFilter] = useState(''); // 'true': sem CPF ou sem WhatsApp
   const [ordering, setOrdering] = useState('name');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [page, setPage] = useState(1);
@@ -100,12 +101,13 @@ export function PlayersPage() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['players', debouncedSearch, positionFilter, statusFilter, guestFilter, ordering, page],
+    queryKey: ['players', debouncedSearch, positionFilter, statusFilter, guestFilter, incompleteFilter, ordering, page],
     queryFn: () => playersService.list({
       search: debouncedSearch || undefined,
       main_position: positionFilter || undefined,
       status: statusFilter || undefined,
       is_guest: guestFilter || undefined,
+      incomplete: incompleteFilter || undefined,
       ordering: ordering || undefined,
       page,
       page_size: PAGE_SIZE,
@@ -265,6 +267,17 @@ export function PlayersPage() {
               <option value="inactive">Inativos</option>
               <option value="injured">Lesionados</option>
               <option value="suspended">Suspensos</option>
+            </select>
+
+            {/* Quem está sem CPF ou sem WhatsApp: a staff completa (principalmente quem não tem conta no app) */}
+            <select
+              value={incompleteFilter}
+              onChange={handleFilterChange(setIncompleteFilter)}
+              className="input-glass h-10 text-xs sm:text-sm"
+              aria-label="Situação do cadastro"
+            >
+              <option value="">Todos os cadastros</option>
+              <option value="true">Dados incompletos</option>
             </select>
 
             {/* View Mode Mobile Only */}

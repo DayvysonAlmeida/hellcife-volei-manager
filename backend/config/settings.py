@@ -2,6 +2,7 @@
 Django settings for HellLife Vôlei Manager
 """
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
@@ -165,6 +166,11 @@ EXTRA_CREDIT_UNIT_PRICE = config('EXTRA_CREDIT_UNIT_PRICE', default='10.00')
 VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='').strip()
 VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY', default='').strip()
 VAPID_CLAIM_EMAIL = config('VAPID_CLAIM_EMAIL', default='').strip()
+
+# Chave secreta que cifra o CPF (apps/players/identity.py). Definida uma vez e nunca trocada.
+CPF_PEPPER = config('CPF_PEPPER', default='').strip()
+if not CPF_PEPPER and len(sys.argv) > 1 and sys.argv[1] == 'test':
+    CPF_PEPPER = 'chave-so-dos-testes'  # o test runner roda com DEBUG=False: sem isso o cadastro com CPF fica fechado
 
 # Email Backend
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

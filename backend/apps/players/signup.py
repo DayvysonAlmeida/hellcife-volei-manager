@@ -26,6 +26,10 @@ from apps.core.models import User
 from apps.core.permissions import IsAdminOrModerator
 from apps.notifications.models import Notification
 from apps.notifications.services import notify
+from .identity import (
+    CPF_TAKEN, CPF_UNAVAILABLE, PHONE_TAKEN, CpfUnavailable, canonical_email, cpf_owner,
+    phone_owner, plain_name, set_cpf, valid_cpf,
+)
 from .models import Player
 
 logger = logging.getLogger(__name__)
@@ -90,6 +94,7 @@ class SignupSerializer(serializers.Serializer):
     legal_name = serializers.CharField(max_length=150, required=False, allow_blank=True)  # só a staff vê
     nickname = serializers.CharField(max_length=80, required=False, allow_blank=True)
     email = serializers.EmailField()
+    cpf = serializers.CharField(max_length=20, write_only=True)  # obrigatório: uma pessoa, um cadastro
     password = serializers.CharField(min_length=8, max_length=128, write_only=True)
     password_confirm = serializers.CharField(write_only=True)
     phone = serializers.CharField(max_length=20)
@@ -113,6 +118,12 @@ class SignupSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         return value.strip().lower()
+
+    def validate_cpf(self, value):
+        digits = valid_cpf(value)
+        if not digits:
+            raise serializers.ValidationError('CPF inválido. Confira os números.')
+        return digits
 
     def validate_phone(self, value):
         digits = ''.join(c for c in value if c.isdigit())
@@ -159,7 +170,9 @@ class SignupView(_PublicView):
         if data.get('website'):
             return Response({'detail': SIGNUP_DETAIL}, status=status.HTTP_201_CREATED)  # robô: finge que deu certo
 
-        existing = User.objects.filter(email__iexact=data['email']).first()
+        # O mesmo endereço escrito de outro jeito (n.ome+1@gmail.com) conta como a mesma conta
+        existing = (User.objects.filter(email__iexact=data['email']).first()
+                    or User.objects.filter(email_canonical=canonical_email(data['email'])).first())
         if existing:
             if not existing.email_confirmed:
                 send_confirmation(existing)  # tentou de novo antes de confirmar: manda o link outra vez
@@ -171,11 +184,20 @@ class SignupView(_PublicView):
                 )
             return Response({'detail': SIGNUP_DETAIL}, status=status.HTTP_201_CREATED)
 
+        try:
+            if cpf_owner(data['cpf']):
+                return Response({'cpf': [CPF_TAKEN]}, status=status.HTTP_400_BAD_REQUEST)
+        except CpfUnavailable:
+            logger.error('CPF_PEPPER não definida: cadastro com CPF recusado.')
+            return Response({'detail': CPF_UNAVAILABLE}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if phone_owner(data['phone']):
+            return Response({'phone': [PHONE_TAKEN]}, status=status.HTTP_400_BAD_REQUEST)
+
         with transaction.atomic():
             user = User.objects.create_user(
                 email=data['email'], password=data['password'], name=data['name'], profile='player', email_confirmed=False,
             )
-            Player.objects.create(
+            player = Player(
                 user=user,
                 name=data['name'],
                 legal_name=data.get('legal_name', '').strip(),
@@ -191,6 +213,8 @@ class SignupView(_PublicView):
                 status='pending',
                 terms_accepted_at=timezone.now(),
             )
+            set_cpf(player, data['cpf'])
+            player.save()
         send_confirmation(user)
         return Response({'detail': SIGNUP_DETAIL}, status=status.HTTP_201_CREATED)
 
@@ -242,14 +266,33 @@ class PendingSignupSerializer(serializers.ModelSerializer):
     main_position_display = serializers.CharField(source='get_main_position_display', read_only=True)
     secondary_position_display = serializers.CharField(source='get_secondary_position_display', read_only=True)
     avatar_url = serializers.CharField(read_only=True)
+    duplicates = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
         fields = [
             'id', 'name', 'legal_name', 'nickname', 'email', 'email_confirmed', 'phone', 'instagram',
             'gender', 'gender_display', 'main_position', 'main_position_display', 'secondary_position',
-            'secondary_position_display', 'age', 'height', 'avatar_url', 'created_at',
+            'secondary_position_display', 'age', 'height', 'avatar_url', 'created_at', 'duplicates',
         ]
+
+    def get_duplicates(self, obj):
+        """Avisos para a staff antes de aprovar: mesmo WhatsApp, mesmo e-mail (escrito de outro jeito) ou nome igual."""
+        warnings = []
+        same_phone = phone_owner(obj.phone, exclude_id=obj.id) if obj.phone else None
+        if same_phone:
+            warnings.append(f'Mesmo WhatsApp que {same_phone.display_name}.')
+        if obj.user_id:
+            same_email = (User.objects.filter(email_canonical=obj.user.email_canonical).exclude(pk=obj.user_id)
+                          .select_related('player_profile').first())
+            if same_email:
+                warnings.append(f'Mesmo e-mail que a conta de {same_email.name}.')
+        names = {plain_name(obj.name), plain_name(obj.legal_name)} - {''}
+        similar = next((p for p in Player.objects.filter(is_guest=False).exclude(pk=obj.id).only('id', 'name', 'nickname', 'legal_name')
+                        if names & ({plain_name(p.name), plain_name(p.legal_name)} - {''})), None)
+        if similar:
+            warnings.append(f'Nome igual ao de {similar.display_name}.')
+        return warnings
 
 
 class PendingSignupViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -280,9 +323,13 @@ class PendingSignupViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
                           .filter(pk=target_id, user__isnull=True, is_guest=False).exclude(status='pending').first())
                 if not target:
                     return Response({'detail': 'Escolha um atleta que ainda não tem acesso ao app.'}, status=status.HTTP_400_BAD_REQUEST)
+                carried_cpf = (signup.cpf_hash, signup.cpf_last2) if signup.cpf_hash and not target.cpf_hash else None
                 signup.user = None
-                signup.save(update_fields=['user'])
+                signup.cpf_hash = None  # libera o CPF (campo único) para o atleta que fica
+                signup.save(update_fields=['user', 'cpf_hash'])
                 target.user = user
+                if carried_cpf:
+                    target.cpf_hash, target.cpf_last2 = carried_cpf
                 for field in ('legal_name', 'phone', 'instagram', 'age', 'height', 'avatar'):
                     if not getattr(target, field) and getattr(signup, field):
                         setattr(target, field, getattr(signup, field))

@@ -119,6 +119,10 @@ export interface Player {
   guest_overall?: number | null;
   /** Nome completo (civil): só vem para a staff e para o próprio atleta; no app aparece o nome social. */
   legal_name?: string | null;
+  /** CPF mascarado (***.***.***-12): só para a staff e o próprio atleta; vazio se não informado. */
+  cpf_masked?: string | null;
+  /** O que falta no cadastro (alerta "Atualize seus dados"): só para o próprio atleta e a staff. */
+  missing_data?: ('cpf' | 'phone')[] | null;
   consecutive_absences: number;
   badges?: PlayerBadge[];
   elo: number;

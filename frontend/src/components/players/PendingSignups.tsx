@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Link2, Loader2, MailWarning, UserPlus, X } from 'lucide-react';
+import { AlertTriangle, Check, Link2, Loader2, MailWarning, UserPlus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
@@ -66,6 +66,17 @@ function SignupCard({ signup, candidates }: { signup: PendingSignup; candidates:
           </p>
         </div>
       </div>
+
+      {/* Possível cadastro repetido: a staff confere antes de aprovar (ou liga ao atleta que já existe) */}
+      {signup.duplicates?.length > 0 && (
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-text-primary">
+          <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-px" />
+          <div>
+            <p className="font-bold">Pode ser cadastro repetido</p>
+            <ul className="text-text-secondary">{signup.duplicates.map((d) => <li key={d}>{d}</li>)}</ul>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-2">
         <button type="button" disabled={busy} onClick={() => approve.mutate(undefined)} className="btn-primary text-xs justify-center inline-flex items-center gap-1.5">

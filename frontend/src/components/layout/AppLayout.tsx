@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { MissingDataBanner } from './MissingDataBanner';
 import { cn } from '@/lib/utils';
 
 export function AppLayout() {
@@ -46,6 +47,7 @@ export function AppLayout() {
         {/* Page content */}
         <main className="flex-1 p-2 sm:p-4 md:p-6 flex flex-col">
           <div className="max-w-[1600px] mx-auto w-full flex-1 animate-fade-in">
+            <MissingDataBanner />
             <Outlet />
           </div>
           

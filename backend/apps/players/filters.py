@@ -1,5 +1,5 @@
 import django_filters
-from django.db.models import Subquery, OuterRef, FloatField
+from django.db.models import Q, Subquery, OuterRef, FloatField
 from django.db.models.functions import Coalesce
 from .models import Player
 from apps.evaluations.models import Evaluation
@@ -19,10 +19,17 @@ class PlayerFilter(django_filters.FilterSet):
     status = django_filters.MultipleChoiceFilter(choices=Player.STATUS_CHOICES)
     min_overall = django_filters.NumberFilter(method='filter_min_overall')
     max_overall = django_filters.NumberFilter(method='filter_max_overall')
+    # "Dados incompletos": sem CPF ou sem WhatsApp (a staff completa quem não tem conta no app)
+    incomplete = django_filters.BooleanFilter(method='filter_incomplete')
 
     class Meta:
         model = Player
         fields = ['main_position', 'status', 'dominant_hand', 'is_guest']
+
+    def filter_incomplete(self, queryset, name, value):
+        missing = Q(cpf_hash__isnull=True) | Q(phone__isnull=True) | Q(phone='')
+        queryset = queryset.filter(is_guest=False)
+        return queryset.filter(missing) if value else queryset.exclude(missing)
 
     def filter_min_overall(self, queryset, name, value):
         return queryset.annotate(

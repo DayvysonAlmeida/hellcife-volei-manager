@@ -21,6 +21,8 @@ export interface PendingSignup {
   height: string | null;
   avatar_url: string | null;
   created_at: string;
+  /** Avisos de possível cadastro repetido (mesmo WhatsApp, mesmo e-mail, nome igual). */
+  duplicates: string[];
 }
 
 /** Atleta sem acesso ao app, para ligar a conta de quem se cadastrou ("É o atleta X"). */

@@ -27,6 +27,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
 
     email = models.EmailField(unique=True, verbose_name='E-mail')
+    # E-mail sem "+apelido" e, no Gmail, sem pontos: o mesmo endereço escrito de outro jeito não cria outra conta
+    email_canonical = models.CharField(max_length=254, blank=True, default='', db_index=True, verbose_name='E-mail normalizado')
     name = models.CharField(max_length=150, verbose_name='Nome')
     profile = models.CharField(max_length=20, choices=PROFILE_CHOICES, default='player', verbose_name='Perfil')
     avatar_url = models.URLField(blank=True, null=True, verbose_name='URL do Avatar')
@@ -49,6 +51,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f'{self.name} ({self.email})'
+
+    def save(self, *args, **kwargs):
+        from apps.players.identity import canonical_email
+        self.email_canonical = canonical_email(self.email)
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'email' in update_fields:
+            kwargs['update_fields'] = {*update_fields, 'email_canonical'}
+        super().save(*args, **kwargs)
 
     @property
     def is_admin(self):

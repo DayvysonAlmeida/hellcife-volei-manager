@@ -45,6 +45,9 @@ class Player(models.Model):
         max_length=150, blank=True, default='', verbose_name='Nome completo (civil)',
         help_text='Opcional. Só a staff vê.',
     )
+    # CPF cifrado (impressão digital HMAC) e os 2 últimos dígitos para exibir: o número nunca fica aberto
+    cpf_hash = models.CharField(max_length=64, unique=True, null=True, blank=True, verbose_name='CPF (cifrado)')
+    cpf_last2 = models.CharField(max_length=2, blank=True, default='', verbose_name='CPF (2 últimos dígitos)')
     terms_accepted_at = models.DateTimeField(
         null=True, blank=True, verbose_name='Aceitou regulamento e uso dos dados em',
     )
