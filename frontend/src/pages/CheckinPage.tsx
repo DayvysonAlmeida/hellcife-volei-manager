@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import * as Dialog from '@radix-ui/react-dialog';
 import api from '@/lib/api';
 import { useAuth } from '@/store/AuthContext';
+import { isStaff } from '@/lib/roles';
 import { PageLoading } from '@/components/ui/Loading';
 import { cn, formatBRL } from '@/lib/utils';
 import { reservationTimeLeft } from '@/lib/reservation';
@@ -111,12 +112,15 @@ export function CheckinPage() {
   const { id } = useParams<{ id: string }>();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const staff = isStaff(user);
 
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<Tab>('confirm');
   const [group, setGroup] = useState<'members' | 'guests'>('members');
   const [selectedPlayer, setSelectedPlayer] = useState<PublicPlayer | null>(null);
+  // Quem não tem conta confirma pelo link informando os 5 últimos dígitos do próprio WhatsApp
+  const [phoneCheck, setPhoneCheck] = useState('');
   // Atleta com conta no app confirma pelo próprio login
   const [loginPrompt, setLoginPrompt] = useState<string | null>(null);
   const [reservation, setReservation] = useState<ReservationResult | null>(null);
@@ -136,9 +140,10 @@ export function CheckinPage() {
   };
 
   const checkinMutation = useMutation({
-    mutationFn: (playerId: number) =>
-      api.post(`/attendance/gamedays/${id}/public-checkin/`, { player_id: playerId }).then(r => r.data),
-    onSuccess: (res, playerId) => {
+    mutationFn: ({ playerId, phoneCheck }: { playerId: number; phoneCheck?: string }) =>
+      api.post(`/attendance/gamedays/${id}/public-checkin/`, { player_id: playerId, phone_check: phoneCheck }).then(r => r.data),
+    onSuccess: (res, { playerId }) => {
+      setSelectedPlayer(null);
       if (res.present) {
         toast.success('Presença confirmada! Bom jogo 🏐');
       } else if (res.is_reserved) {
@@ -217,7 +222,10 @@ export function CheckinPage() {
 
   const onPendingClick = (p: PublicPlayer) => {
     if (p.has_account && !isAuthenticated) setLoginPrompt(p.name);
-    else setSelectedPlayer(p);
+    else {
+      setPhoneCheck('');
+      setSelectedPlayer(p);
+    }
   };
 
   const title = gameday.location || gameday.description || 'Circuito';
@@ -242,6 +250,9 @@ export function CheckinPage() {
   ].filter(Boolean).join(' · ');
 
   const selectedMode = selectedPlayer ? modeFor(selectedPlayer) : 'confirm';
+  const needsDigits = !!selectedPlayer && !selectedPlayer.has_account && !selectedPlayer.is_guest && !staff;
+  // Convidado é confirmado no app por quem convidou (ou pela organização), não pelo link
+  const guestByInviter = !!selectedPlayer?.is_guest && !isAuthenticated;
   const modeNote: Record<CheckinMode, string> = {
     confirm: price > 0 ? `O valor de ${formatBRL(price)} é pago pelo PIX do grupo.` : 'Sua presença entra na lista na hora.',
     reserve: hold
@@ -440,7 +451,7 @@ export function CheckinPage() {
               <ul className="space-y-2">
                 {shownPending.map(player => {
                   const needsLogin = player.has_account && !isAuthenticated;
-                  const busy = checkinMutation.isPending && checkinMutation.variables === player.id;
+                  const busy = checkinMutation.isPending && checkinMutation.variables?.playerId === player.id;
                   return (
                     <li key={player.id}>
                       <button
@@ -590,18 +601,39 @@ export function CheckinPage() {
               {gameday.location && <DetailRow icon={<MapPin size={15} />}>{gameday.location}</DetailRow>}
               {price > 0 && <DetailRow icon={<Wallet size={15} />}>{formatBRL(price)} por pessoa</DetailRow>}
             </dl>
-            <Dialog.Description className="mt-3 text-sm text-text-secondary">{modeNote[selectedMode]}</Dialog.Description>
+            <Dialog.Description className="mt-3 text-sm text-text-secondary">
+              {guestByInviter ? 'Convidado é confirmado no app por quem convidou, ou pela organização.' : modeNote[selectedMode]}
+            </Dialog.Description>
+            {needsDigits && (
+              <div className="mt-4 space-y-1.5">
+                <label htmlFor="phone-check" className="block text-xs font-bold uppercase tracking-wider text-text-secondary">
+                  5 últimos dígitos do seu WhatsApp
+                </label>
+                <input
+                  id="phone-check"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={5}
+                  value={phoneCheck}
+                  onChange={(e) => setPhoneCheck(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                  placeholder="00000"
+                  className="input w-full text-center text-xl tracking-[0.5em] font-mono"
+                />
+                <p className="text-[11px] text-text-muted">É assim que o link confirma que é você, e ninguém coloca o seu nome na lista.</p>
+              </div>
+            )}
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Dialog.Close asChild>
                 <button type="button" className="btn-secondary px-4 py-2.5 text-sm">Cancelar</button>
               </Dialog.Close>
               <button
                 type="button"
+                disabled={guestByInviter || (needsDigits && phoneCheck.length !== 5) || checkinMutation.isPending}
                 onClick={() => {
-                  if (selectedPlayer) checkinMutation.mutate(selectedPlayer.id);
-                  setSelectedPlayer(null);
+                  // Fecha só quando der certo: errando os dígitos, a pessoa corrige ali mesmo
+                  if (selectedPlayer) checkinMutation.mutate({ playerId: selectedPlayer.id, phoneCheck: needsDigits ? phoneCheck : undefined });
                 }}
-                className="btn-primary px-4 py-2.5 text-sm"
+                className="btn-primary px-4 py-2.5 text-sm disabled:opacity-50"
               >
                 {MODE_LABEL[selectedMode]}
               </button>

@@ -31,13 +31,44 @@ def _deny_unless_self(request, player_id):
     return Response({'detail': 'Você só pode fazer isso na sua própria inscrição.'}, status=status.HTTP_403_FORBIDDEN)
 
 
-def _deny_if_linked_account(request, player_id):
+MAX_GUESTS_PER_CIRCUIT = 2  # por atleta; mais que isso, a moderação adiciona
+
+
+def _deny_if_not_verified(request, player_id):
     """
-    Atleta com conta no app confirma pelo próprio login (ou pela organização).
-    Quem não tem conta continua usando o link do grupo.
+    Link do grupo. Atleta com conta: só pelo próprio login (ou a staff).
+    Sem conta: quem confirma informa os 5 últimos dígitos do WhatsApp do atleta, para ninguém
+    colocar o nome de outro na lista. A staff não precisa; o convidado é confirmado por quem convidou.
     """
-    if Player.objects.filter(id=player_id, user__isnull=False).exists():
+    import hmac
+    from apps.players.identity import canonical_phone, only_digits
+
+    player = Player.objects.filter(id=player_id).select_related('invited_by_player').first()
+    if not player:
+        return None  # a própria view responde "não encontrado"
+    if player.user_id:
         return _deny_unless_self(request, player_id)
+    user = request.user
+    if user.is_authenticated and is_staff_profile(user):
+        return None
+    if player.is_guest:
+        inviter = player.invited_by_player
+        if user.is_authenticated and inviter and inviter.user_id == user.id:
+            return None
+        return Response({'detail': 'Convidado é confirmado no app por quem convidou, ou pela organização.', 'code': 'guest_by_inviter'},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    phone = canonical_phone(player.phone)
+    if len(phone) < 10:
+        return Response({'detail': 'Peça à organização para cadastrar o seu WhatsApp: é com ele que o link confirma que é você.',
+                         'code': 'phone_missing'}, status=status.HTTP_400_BAD_REQUEST)
+    typed = only_digits(request.data.get('phone_check'))
+    if len(typed) != 5:
+        return Response({'detail': 'Informe os 5 últimos dígitos do seu WhatsApp.', 'code': 'phone_check_required'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if not hmac.compare_digest(typed, phone[-5:]):
+        return Response({'detail': 'Os dígitos não conferem com o WhatsApp cadastrado.', 'code': 'phone_check_failed'},
+                        status=status.HTTP_403_FORBIDDEN)
     return None
 
 
@@ -646,7 +677,7 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if not player_id:
             return Response({'detail': 'ID do jogador não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
-        if denied := _deny_if_linked_account(request, player_id):
+        if denied := _deny_if_not_verified(request, player_id):
             return denied
 
         attendance, _ = Attendance.objects.get_or_create(
@@ -793,7 +824,8 @@ class GameDayViewSet(viewsets.ModelViewSet):
         
         if not player_id or not name:
             return Response({'detail': 'Jogador e Nome do convidado são obrigatórios.'}, status=status.HTTP_400_BAD_REQUEST)
-        denied = _deny_unless_self(request, player_id) if use_free_guest else _deny_if_linked_account(request, player_id)
+        # Convidar é só com login (o próprio atleta ou a staff): o convidado fica ligado a quem convidou
+        denied = _deny_unless_self(request, player_id)
         if denied:
             return denied
             
@@ -804,6 +836,11 @@ class GameDayViewSet(viewsets.ModelViewSet):
         existing_guest = Player.objects.filter(name=name, is_guest=True, attendances__gameday=gameday).first()
         if existing_guest:
             return Response({'detail': 'Um convidado com esse nome já está na lista deste dia.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        invited_here = Attendance.objects.filter(gameday=gameday, player__is_guest=True, player__invited_by_player=inviting_player).count()
+        if invited_here >= MAX_GUESTS_PER_CIRCUIT and not is_staff_profile(request.user):
+            return Response({'detail': f'Você já trouxe {MAX_GUESTS_PER_CIRCUIT} convidados neste circuito. Para mais, fale com a moderação.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         # Tratar uso da Cota Grátis
         from apps.subscriptions.models import SubscriptionCycle

@@ -409,6 +409,7 @@ function CircuitCheckinCard({ circuit, myPlayer }: { circuit: any, myPlayer: any
               </div>
 
               <div className="p-5 space-y-4">
+                <p className="text-[11px] text-white/50">Você pode trazer até 2 convidados por circuito. Para mais, fale com a moderação.</p>
                 <div>
                   <label className="block text-xs font-black text-white/60 uppercase tracking-widest mb-1.5 ml-1">Nome do Convidado</label>
                   <input 

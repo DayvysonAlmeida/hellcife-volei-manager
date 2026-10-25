@@ -13,8 +13,18 @@ from .models import Attendance, AttendancePayment, GameDay
 BASE = '/api/attendance/gamedays'
 
 
+_phones = iter(range(10_000_000, 99_999_999))
+
+
 def make_player(name, **kwargs):
+    # WhatsApp próprio: o link público confere os 5 últimos dígitos de quem não tem conta
+    kwargs.setdefault('phone', f'819{next(_phones)}')
     return Player.objects.create(name=name, main_position='setter', **kwargs)
+
+
+def link_data(player):
+    """O que o link do grupo manda para confirmar quem não tem conta: o atleta e os 5 últimos dígitos."""
+    return {'player_id': player.id, 'phone_check': player.phone[-5:]}
 
 
 class PricingTests(TestCase):
@@ -57,7 +67,7 @@ class CircuitApiTestCase(TestCase):
         client = APIClient()
         if player.user_id:
             client.force_authenticate(player.user)
-        return client.post(f'{BASE}/{gd.id}/public-checkin/', {'player_id': player.id}, format='json')
+        return client.post(f'{BASE}/{gd.id}/public-checkin/', link_data(player), format='json')
 
 
 class CheckinTests(CircuitApiTestCase):
@@ -304,7 +314,7 @@ class OwnershipTests(CircuitApiTestCase):
 
     def test_reserving_is_still_public_for_athletes_without_account(self):
         self.assertTrue(self.att(self.gd, self.p1).is_reserved)
-        response = self.client.post(f'{BASE}/{self.gd.id}/public-checkin/', {'player_id': self.p3.id}, format='json')
+        response = self.client.post(f'{BASE}/{self.gd.id}/public-checkin/', link_data(self.p3), format='json')
         self.assertEqual(response.status_code, 200)
         self.assertTrue(self.att(self.gd, self.p3).is_reserved)
 
@@ -637,13 +647,45 @@ class LinkedAccountCheckinTests(CircuitApiTestCase):
         self.client.force_authenticate(self.admin)
         self.assertEqual(self.post(self.p2).status_code, 200)
 
-    def test_athlete_without_account_still_uses_public_link(self):
-        self.assertEqual(self.post(self.p2).status_code, 200)
+    def test_athlete_without_account_uses_the_link_with_the_whatsapp_digits(self):
+        self.assertEqual(self.post(self.p2, phone_check=self.p2.phone[-5:]).status_code, 200)
         self.assertTrue(self.att(self.gd, self.p2).present)
 
-    def test_guest_invite_follows_the_same_rule(self):
-        self.assertEqual(self.post(self.p1, 'public-add-guest', name='Visitante').status_code, 401)
-        self.assertEqual(self.post(self.p2, 'public-add-guest', name='Amigo').status_code, 200)
+    def test_link_without_or_with_wrong_digits_does_not_check_in(self):
+        missing = self.post(self.p2)
+        wrong = self.post(self.p2, phone_check='00000')
+        self.assertEqual((missing.status_code, missing.data['code']), (400, 'phone_check_required'))
+        self.assertEqual((wrong.status_code, wrong.data['code']), (403, 'phone_check_failed'))
+        self.assertFalse(self.att(self.gd, self.p2).present)
+
+    def test_athlete_without_whatsapp_is_told_to_ask_the_staff(self):
+        no_phone = make_player('Sem Zap', phone='')
+        Attendance.objects.create(gameday=self.gd, player=no_phone)
+        response = self.post(no_phone, phone_check='12345')
+        self.assertEqual((response.status_code, response.data['code']), (400, 'phone_missing'))
+
+    def test_only_a_logged_athlete_invites_and_up_to_two_per_circuit(self):
+        self.assertEqual(self.post(self.p2, 'public-add-guest', name='Amigo').status_code, 401)  # sem login
+
+        self.client.force_authenticate(self.athlete_user)
+        for name in ('Amigo Um', 'Amigo Dois'):
+            self.assertEqual(self.post(self.p1, 'public-add-guest', name=name).status_code, 200)
+        third = self.post(self.p1, 'public-add-guest', name='Amigo Tres')
+        self.assertEqual(third.status_code, 400)
+        self.assertIn('fale com a moderação', third.data['detail'])
+
+        self.client.force_authenticate(self.admin)  # a staff não tem limite
+        self.assertEqual(self.post(self.p1, 'public-add-guest', name='Amigo Tres').status_code, 200)
+
+    def test_guest_is_confirmed_by_whoever_invited(self):
+        self.client.force_authenticate(self.athlete_user)
+        self.post(self.p1, 'public-add-guest', name='Visita')
+        guest = Player.objects.get(is_guest=True, invited_by_player=self.p1)
+        self.assertEqual(self.post(guest).status_code, 200)
+
+        self.client.force_authenticate(None)
+        anonymous = self.post(guest, phone_check='12345')
+        self.assertEqual((anonymous.status_code, anonymous.data['code']), (403, 'guest_by_inviter'))
 
     def test_checkin_info_tells_who_has_account(self):
         players = {p['id']: p for p in self.client.get(f'{BASE}/{self.gd.id}/checkin-info/').data['players']}
