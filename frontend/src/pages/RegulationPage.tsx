@@ -1,12 +1,14 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ScrollText, Edit3 } from 'lucide-react';
 import { regulationService } from '@/services';
 import { PageLoading, ErrorState } from '@/components/ui/Loading';
 import { useAuth } from '@/store/AuthContext';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
 import { isAdmin } from '@/lib/roles';
+import api from '@/lib/api';
 
 export function RegulationPage() {
   const { data, isLoading, error, refetch } = useQuery({
@@ -16,6 +18,12 @@ export function RegulationPage() {
   });
   const { user } = useAuth();
   const canEdit = isAdmin(user); // editar o regulamento: só o admin
+
+  // "Comece por aqui": abrir o regulamento marca o passo (só no portal do atleta)
+  const inAthletePortal = useLocation().pathname.startsWith('/athlete');
+  useEffect(() => {
+    if (inAthletePortal) api.post('/players/me/regulation-seen/').catch(() => {});
+  }, [inAthletePortal]);
 
   if (isLoading) return <PageLoading />;
   if (error) return <ErrorState onRetry={refetch} />;

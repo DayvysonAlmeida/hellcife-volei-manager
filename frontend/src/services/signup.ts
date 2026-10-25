@@ -23,6 +23,9 @@ export interface PendingSignup {
   created_at: string;
   /** Avisos de possível cadastro repetido (mesmo WhatsApp, mesmo e-mail, nome igual). */
   duplicates: string[];
+  /** Membro antigo (sem conta) que este cadastro parece ser: a aprovação já sugere ligar a ele. */
+  claims_player: number | null;
+  claims_player_name: string | null;
 }
 
 /** Atleta sem acesso ao app, para ligar a conta de quem se cadastrou ("É o atleta X"). */

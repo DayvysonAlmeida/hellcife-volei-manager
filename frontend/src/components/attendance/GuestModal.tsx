@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MakeMemberModal } from '@/components/players/MakeMemberModal';
 import { motion } from 'framer-motion';
 import { Users, X, Plus, Star, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -78,14 +79,8 @@ export function GuestModal({
     },
   });
 
-  const promotePlayerMutation = useMutation({
-    mutationFn: (id: number) => playersService.update(id, { is_guest: false }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['guests'] });
-      qc.invalidateQueries({ queryKey: ['players'] });
-      toast.success('Convidado promovido a atleta oficial!');
-    },
-  });
+  // Convidado → membro: passo a passo com convite e boas-vindas (MakeMemberModal)
+  const [promoting, setPromoting] = useState<Player | null>(null);
 
   // Corrige o nível do convidado (vale no próximo sorteio)
   const updateLevelMutation = useMutation({
@@ -111,6 +106,7 @@ export function GuestModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <MakeMemberModal guest={promoting} onClose={() => setPromoting(null)} />
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -319,15 +315,7 @@ export function GuestModal({
 
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => {
-                            setConfirmDialog({
-                              isOpen: true,
-                              title: 'Promover a Oficial',
-                              desc: `Deseja transformar ${guest.name} em um Atleta Oficial? Ele passará a aparecer nas estatísticas principais e ranking do Dashboard.`,
-                              onConfirm: () => promotePlayerMutation.mutate(guest.id),
-                            });
-                          }}
-                          disabled={promotePlayerMutation.isPending}
+                          onClick={() => setPromoting(guest)}
                           className="p-1.5 text-yellow-500 hover:bg-yellow-500/10 rounded-md transition-colors"
                           title="Promover a Oficial"
                         >

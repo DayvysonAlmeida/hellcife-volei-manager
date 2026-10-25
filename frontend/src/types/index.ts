@@ -123,6 +123,8 @@ export interface Player {
   cpf_masked?: string | null;
   /** O que falta no cadastro (alerta "Atualize seus dados"): só para o próprio atleta e a staff. */
   missing_data?: ('cpf' | 'phone')[] | null;
+  /** "Comece por aqui" do membro novo (só para o próprio atleta; null quando não aparece). */
+  onboarding?: { complete_data: boolean; notifications: boolean; regulation: boolean; first_checkin: boolean } | null;
   consecutive_absences: number;
   badges?: PlayerBadge[];
   elo: number;

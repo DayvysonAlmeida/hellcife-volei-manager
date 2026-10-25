@@ -1,6 +1,14 @@
 import api from '@/lib/api';
 import type { Player, PaginatedResponse, StarCategory, StarHistoryEntry, StarLaunchOption } from '@/types';
 
+export interface MakeMemberResult {
+  detail: string;
+  player_id: number;
+  invite_sent: boolean;
+  welcome_text: string;
+  whatsapp_url: string;
+}
+
 export interface StarsPayload {
   mvp_stars: number;
   attack_stars: number;
@@ -46,6 +54,10 @@ export const playersService = {
 
   launchStars: (gameday: number, items: { player: number; category: StarCategory; count: number }[]) =>
     api.post<{ detail: string; created: number }>('/players/stars/launch/', { gameday, items }).then(r => r.data),
+
+  /** Convidado vira membro (com convite por e-mail, se informado) e volta a mensagem de boas-vindas. */
+  makeMember: (id: number, data: { name: string; phone: string; gender: string; main_position: string; email?: string }) =>
+    api.post<MakeMemberResult>(`/players/${id}/make-member/`, data).then(r => r.data),
 
   undoStar: (historyId: number) =>
     api.post<{ detail: string }>(`/players/stars-history/${historyId}/undo/`).then(r => r.data),

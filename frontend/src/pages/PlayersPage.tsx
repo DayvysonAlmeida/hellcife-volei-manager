@@ -9,6 +9,7 @@ import { PositionBadge, StatusBadge } from '@/components/ui/Badges';
 import { EmptyState } from '@/components/ui/Loading';
 import { CardSkeleton } from '@/components/ui/skeletons/CardSkeleton';
 import { TableSkeleton } from '@/components/ui/skeletons/TableSkeleton';
+import { MakeMemberModal } from '@/components/players/MakeMemberModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { PlayerCard } from '@/components/players/PlayerCard';
@@ -67,14 +68,8 @@ export function PlayersPage() {
     }
   });
 
-  const promotePlayerMutation = useMutation({
-    mutationFn: (id: number) => playersService.update(id, { is_guest: false }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['guests'] });
-      qc.invalidateQueries({ queryKey: ['players'] });
-      toast.success('Convidado promovido a atleta oficial!');
-    }
-  });
+  // Convidado → membro: passo a passo com convite e boas-vindas (MakeMemberModal)
+  const [promoting, setPromoting] = useState<Player | null>(null);
 
   const createGuestMutation = useMutation({
     mutationFn: (data: any) => playersService.create(data),
@@ -141,6 +136,7 @@ export function PlayersPage() {
 
   return (
     <div className="space-y-6">
+      <MakeMemberModal guest={promoting} onClose={() => setPromoting(null)} />
       <ConfirmDialog 
         isOpen={confirmDialog.isOpen}
         onOpenChange={(isOpen) => setConfirmDialog(s => ({ ...s, isOpen }))}
@@ -582,15 +578,7 @@ export function PlayersPage() {
                       
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => {
-                            setConfirmDialog({
-                              isOpen: true,
-                              title: 'Promover a Oficial',
-                              desc: `Deseja transformar ${guest.name} em um Atleta Oficial? Ele passará a aparecer nas estatísticas principais e ranking do Dashboard.`,
-                              onConfirm: () => promotePlayerMutation.mutate(guest.id)
-                            });
-                          }}
-                          disabled={promotePlayerMutation.isPending}
+                          onClick={() => setPromoting(guest)}
                           className="p-1.5 text-yellow-500 hover:bg-yellow-500/10 rounded-md transition-colors flex flex-col items-center gap-1"
                           title="Promover a Oficial"
                         >

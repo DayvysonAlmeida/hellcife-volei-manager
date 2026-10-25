@@ -48,6 +48,14 @@ class Player(models.Model):
     # CPF cifrado (impressão digital HMAC) e os 2 últimos dígitos para exibir: o número nunca fica aberto
     cpf_hash = models.CharField(max_length=64, unique=True, null=True, blank=True, verbose_name='CPF (cifrado)')
     cpf_last2 = models.CharField(max_length=2, blank=True, default='', verbose_name='CPF (2 últimos dígitos)')
+    # Cadastro pelo app de quem já era membro (sem conta): a aprovação já sugere ligar a este atleta
+    claims_player = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='claimed_by', verbose_name='Pedido de acesso ao atleta',
+    )
+    # "Comece por aqui" do membro novo
+    regulation_seen_at = models.DateTimeField(null=True, blank=True, verbose_name='Leu o regulamento em')
+    onboarding_dismissed_at = models.DateTimeField(null=True, blank=True, verbose_name='Dispensou o "Comece por aqui" em')
     terms_accepted_at = models.DateTimeField(
         null=True, blank=True, verbose_name='Aceitou regulamento e uso dos dados em',
     )

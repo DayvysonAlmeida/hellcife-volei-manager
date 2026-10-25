@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Edit, Phone, Link as LinkIcon, Ruler, Weight, Calendar, Trophy, CalendarCheck, Swords, KeyRound, UserCog, Trash2, Copy, Loader2, Eye, EyeOff, RefreshCw, Share2, TrendingUp, Flame } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Link as LinkIcon, Ruler, Weight, Calendar, Trophy, CalendarCheck, Swords, KeyRound, UserCog, Trash2, Loader2, Eye, EyeOff, RefreshCw, Share2, TrendingUp, Flame } from 'lucide-react';
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { PlayerCard } from '@/components/players/PlayerCard';
 import { TrophyRoom } from '@/components/profile/TrophyRoom';
@@ -16,6 +16,7 @@ import { formatDate, cn } from '@/lib/utils';
 import { useAuth } from '@/store/AuthContext';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { WelcomeShare } from '@/components/players/WelcomeShare';
 
 export function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,7 +33,10 @@ export function PlayerDetailPage() {
   const [accessEmail, setAccessEmail] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [newCreds, setNewCreds] = useState<{ email: string; password: string; player_name: string } | null>(null);
+  const [manualPassword, setManualPassword] = useState(false);  // padrão: convite por e-mail (a pessoa cria a senha)
+  const [newCreds, setNewCreds] = useState<{
+    email: string; password: string | null; player_name: string; invite_sent: boolean; welcome_text: string; whatsapp_url: string;
+  } | null>(null);
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
 
   const { data: player, isLoading, error } = useQuery({
@@ -43,13 +47,13 @@ export function PlayerDetailPage() {
 
   // Access management mutations (admin only)
   const createAccessMutation = useMutation({
-    mutationFn: () => api.post(`/players/${playerId}/create-access/`, { email: accessEmail, password: accessPassword }).then(r => r.data),
+    mutationFn: () => api.post(`/players/${playerId}/create-access/`, { email: accessEmail, password: manualPassword ? accessPassword : '' }).then(r => r.data),
     onSuccess: (data) => {
       setNewCreds(data);
       setAccessEmail('');
       setAccessPassword('');
       qc.invalidateQueries({ queryKey: ['player', playerId] });
-      toast.success('Acesso criado com sucesso!');
+      toast.success(data.invite_sent ? 'Convite enviado!' : 'Acesso criado com sucesso!');
     },
     onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao criar acesso.'),
   });
@@ -421,35 +425,24 @@ export function PlayerDetailPage() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="mb-5 p-5 rounded-[24px] bg-green-500/5 border border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]"
+                className="mb-5 p-5 rounded-[24px] bg-green-500/5 border border-green-500/20 space-y-3"
               >
-                <p className="text-green-400 font-medium text-sm mb-3 flex items-center gap-2">
-                  <span>✅</span> Acesso pronto! Envie as credenciais:
-                </p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center justify-between bg-black/40 rounded-xl p-3 border border-white/5">
-                    <span className="text-text-muted text-xs uppercase tracking-wider">Usuário:</span>
-                    <span className="text-text-primary font-mono text-base">{newCreds.email}</span>
-                  </div>
-                  <div className="flex items-center justify-between bg-black/40 rounded-xl p-3 border border-white/5">
-                    <span className="text-text-muted text-xs uppercase tracking-wider">Senha:</span>
-                    <span className="text-text-primary font-mono text-base">{newCreds.password}</span>
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        `Seu acesso ao Hellcife Vôlei Manager está pronto! 🏐\nAcesse o app e faça login:\nUsuário: ${newCreds.email}\nSenha: ${newCreds.password}\nBem-vindo(a)! 💪`
-                      );
-                      toast.success('Mensagem copiada!');
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl text-sm font-medium transition-colors shadow-lg"
-                  >
-                    <Copy size={16} /> Copiar para WhatsApp
-                  </button>
-                  <button onClick={() => setNewCreds(null)} className="btn-ghost px-5 text-sm rounded-xl">Fechar</button>
-                </div>
+                {newCreds.invite_sent ? (
+                  <p className="text-green-500 font-medium text-sm">
+                    ✅ Convite enviado para <strong>{newCreds.email}</strong>: a pessoa cria a senha pelo link (vale 3 dias).
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-green-500 font-medium text-sm">✅ Acesso criado. Passe a senha para a pessoa por mensagem privada:</p>
+                    <div className="flex items-center justify-between bg-black/40 rounded-xl p-3 border border-white/5 text-sm">
+                      <span className="text-text-muted text-xs uppercase tracking-wider">Senha</span>
+                      <span className="text-text-primary font-mono">{newCreds.password}</span>
+                    </div>
+                  </>
+                )}
+                <p className="text-xs font-bold uppercase tracking-wider text-text-muted">Mensagem de boas-vindas</p>
+                <WelcomeShare text={newCreds.welcome_text} whatsappUrl={newCreds.whatsapp_url} />
+                <button onClick={() => setNewCreds(null)} className="btn-ghost w-full text-sm rounded-xl">Fechar</button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -467,7 +460,11 @@ export function PlayerDetailPage() {
                   className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-red focus:ring-1 focus:ring-red transition-all"
                 />
               </div>
-              <div>
+              <p className="text-xs text-text-muted">A pessoa recebe um convite por e-mail para criar a própria senha. A staff não precisa saber a senha.</p>
+              <button type="button" onClick={() => setManualPassword((v) => !v)} className="text-xs font-bold text-text-muted hover:text-text-primary underline underline-offset-2">
+                {manualPassword ? 'Usar convite por e-mail' : 'Definir a senha manualmente (sem e-mail de convite)'}
+              </button>
+              {manualPassword && <div>
                 <label className="block text-text-secondary text-xs font-medium mb-1.5 uppercase tracking-wider">Senha inicial</label>
                 <div className="relative">
                   <input
@@ -485,14 +482,14 @@ export function PlayerDetailPage() {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-              </div>
+              </div>}
               <button
                 onClick={() => createAccessMutation.mutate()}
-                disabled={createAccessMutation.isPending || !accessEmail || !accessPassword}
+                disabled={createAccessMutation.isPending || !accessEmail || (manualPassword && accessPassword.length < 8)}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-red hover:bg-red/80 disabled:opacity-50 disabled:hover:bg-red text-white rounded-xl text-sm font-medium transition-all shadow-[0_0_15px_rgba(239,68,68,0.2)]"
               >
                 {createAccessMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
-                Criar Acesso
+                {manualPassword ? 'Criar acesso com senha' : 'Enviar convite'}
               </button>
             </div>
           ) : (

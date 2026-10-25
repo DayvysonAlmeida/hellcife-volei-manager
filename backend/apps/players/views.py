@@ -641,6 +641,82 @@ class PlayerViewSet(viewsets.ModelViewSet):
         serializer = PlayerDetailSerializer(player, context={'request': request})
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'], url_path='make-member')
+    def make_member(self, request, pk=None):
+        """
+        Convidado vira membro: nome limpo (sem o "(Conv. de ...)"), WhatsApp, gênero e posição.
+        Com e-mail, cria o acesso e manda o convite para a pessoa criar a senha. Devolve a mensagem
+        de boas-vindas pronta para a staff mandar no WhatsApp.
+        """
+        if not is_staff_profile(request.user):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        import re
+        from django.db import transaction
+        from apps.core.models import User
+        from .identity import canonical_email, canonical_phone
+        from .welcome import send_welcome, welcome_text, whatsapp_url
+
+        player = self.get_object()
+        if not player.is_guest:
+            return Response({'detail': 'Este atleta já é membro.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        name = (request.data.get('name') or re.sub(r'\s*\(Conv\. de [^)]*\)\s*$', '', player.name)).strip()
+        phone = canonical_phone(request.data.get('phone') or player.phone)
+        gender = request.data.get('gender') or player.gender
+        position = request.data.get('main_position') or player.main_position
+        email = (request.data.get('email') or '').strip().lower()
+        errors = {}
+        if len(name) < 2:
+            errors['name'] = ['Informe o nome.']
+        if len(phone) < 10:
+            errors['phone'] = ['Informe o WhatsApp com DDD: é com ele que a pessoa confirma presença pelo link.']
+        if gender not in dict(Player.GENDER_CHOICES):
+            errors['gender'] = ['Escolha uma opção.']
+        if position not in dict(Player.POSITION_CHOICES):
+            errors['main_position'] = ['Escolha a posição.']
+        if email and (User.objects.filter(email__iexact=email).exists()
+                      or User.objects.filter(email_canonical=canonical_email(email)).exists()):
+            errors['email'] = ['Já existe uma conta com este e-mail.']
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            player.is_guest = False
+            player.name = name
+            player.phone = phone
+            player.gender = gender
+            player.main_position = position
+            player.status = 'active'
+            if email:
+                user = User(email=email, name=name, profile='player', email_confirmed=True)
+                user.set_unusable_password()  # a pessoa cria a senha pelo convite
+                user.save()
+                player.user = user
+            player.save()
+
+        if email:
+            send_welcome(player, invited=True)
+        text = welcome_text(player, invited=bool(email))
+        return Response({
+            'detail': f'{name} agora é membro!',
+            'player_id': player.id,
+            'invite_sent': bool(email),
+            'welcome_text': text,
+            'whatsapp_url': whatsapp_url(player, text),
+        })
+
+    @action(detail=False, methods=['post'], url_path='me/regulation-seen', permission_classes=[IsAuthenticated])
+    def regulation_seen(self, request):
+        """"Comece por aqui": o atleta abriu o regulamento."""
+        Player.objects.filter(user=request.user, regulation_seen_at__isnull=True).update(regulation_seen_at=timezone.now())
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'], url_path='me/dismiss-onboarding', permission_classes=[IsAuthenticated])
+    def dismiss_onboarding(self, request):
+        """"Comece por aqui": o atleta dispensou o cartão."""
+        Player.objects.filter(user=request.user).update(onboarding_dismissed_at=timezone.now())
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['post'], url_path='create-access')
     def create_access(self, request, pk=None):
         """Cria um usuário (profile=player) e vincula ao Player. Apenas admin/moderador."""
@@ -654,31 +730,39 @@ class PlayerViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Este atleta já possui um acesso vinculado.'}, status=status.HTTP_400_BAD_REQUEST)
 
         email = request.data.get('email', '').strip().lower()
-        password = request.data.get('password', '').strip()
+        password = request.data.get('password', '').strip()  # vazio: convite por e-mail (a pessoa cria a senha)
 
         if not email:
             return Response({'detail': 'E-mail é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not password or len(password) < 8:  # mesma regra do cadastro e da troca de senha
+        if password and len(password) < 8:  # mesma regra do cadastro e da troca de senha
             return Response({'detail': 'A senha deve ter pelo menos 8 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
 
         from apps.core.models import User
-        if User.objects.filter(email=email).exists():
+        from .identity import canonical_email
+        from .welcome import send_welcome, welcome_text, whatsapp_url
+        if User.objects.filter(email__iexact=email).exists() or User.objects.filter(email_canonical=canonical_email(email)).exists():
             return Response({'detail': 'Já existe um usuário com este e-mail.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.create_user(
-            email=email,
-            password=password,
-            name=player.display_name,
-            profile='player',
-        )
+        user = User(email=email, name=player.display_name, profile='player', email_confirmed=True)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save()
         player.user = user
         player.save(update_fields=['user'])
 
+        invited = not password
+        send_welcome(player, invited=invited)
+        text = welcome_text(player, invited=invited)
         return Response({
-            'detail': 'Acesso criado com sucesso!',
+            'detail': 'Convite enviado para o e-mail!' if invited else 'Acesso criado com sucesso!',
             'email': email,
-            'password': password,
+            'password': password or None,
+            'invite_sent': invited,
             'player_name': player.display_name,
+            'welcome_text': text,
+            'whatsapp_url': whatsapp_url(player, text),
         }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path='revoke-access')

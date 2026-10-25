@@ -15,7 +15,8 @@ function sortCandidates(candidates: SignupCandidate[], signup: PendingSignup) {
 
 function SignupCard({ signup, candidates }: { signup: PendingSignup; candidates: SignupCandidate[] }) {
   const qc = useQueryClient();
-  const [linkTo, setLinkTo] = useState('');
+  // Membro antigo sem conta pedindo acesso: o "É o atleta X" já vem marcado
+  const [linkTo, setLinkTo] = useState(signup.claims_player ? String(signup.claims_player) : '');
   const [confirmReject, setConfirmReject] = useState(false);
   const done = (message: string) => {
     toast.success(message);
@@ -66,6 +67,12 @@ function SignupCard({ signup, candidates }: { signup: PendingSignup; candidates:
           </p>
         </div>
       </div>
+
+      {signup.claims_player_name && (
+        <p className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-text-primary">
+          Parece ser <strong>{signup.claims_player_name}</strong>, que já é membro e ainda não tinha conta. Já deixamos marcado para ligar a conta a esse cadastro.
+        </p>
+      )}
 
       {/* Possível cadastro repetido: a staff confere antes de aprovar (ou liga ao atleta que já existe) */}
       {signup.duplicates?.length > 0 && (

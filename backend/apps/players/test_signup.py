@@ -117,7 +117,7 @@ class SignupFlowTests(TestCase):
         self.assertEqual(staff.post(f'/api/players/signups/{player.id}/approve/').status_code, 200)
         player.refresh_from_db()
         self.assertEqual((player.status, player.user.email_confirmed), ('active', True))
-        self.assertEqual(Notification.objects.get(user=player.user).title, 'Cadastro aprovado! 🏐')
+        self.assertEqual(Notification.objects.get(user=player.user).title, 'Bem-vindo(a) ao Hellcife Vôlei! 🏐')
         self.assertIn(player.id, [p.id for p in ranked_players()])
 
     def test_staff_links_the_account_to_an_existing_athlete(self):

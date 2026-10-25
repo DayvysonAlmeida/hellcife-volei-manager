@@ -13,6 +13,7 @@ import { RankingTabs } from '@/components/athlete/home/RankingTabs';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { DashboardStats, PlayerStats } from '@/types';
+import { OnboardingCard } from '@/components/athlete/home/OnboardingCard';
 
 const CATEGORY_MAP: Record<string, { label: string; color: string; icon: typeof Star }> = {
   mvp: { label: 'MVP', color: 'text-yellow-400 bg-yellow-500/10', icon: Crown },
@@ -103,6 +104,7 @@ export function AthleteDashboardPage() {
   return (
     <div className="space-y-6 pb-10 max-w-6xl mx-auto">
       <SeasonBadge season={dashboard?.season} to="/athlete/seasons" />
+      <OnboardingCard />
 
       {shareModal && <ShareAchievementModal isOpen onClose={() => setShareModal(null)} {...shareModal} />}
 

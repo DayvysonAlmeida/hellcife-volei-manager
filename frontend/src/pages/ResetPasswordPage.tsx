@@ -19,6 +19,7 @@ export function ResetPasswordPage() {
   const navigate = useNavigate();
   const uid = searchParams.get('uid');
   const token = searchParams.get('token');
+  const invite = searchParams.get('convite') === '1';  // convite de membro novo: "crie sua senha"
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -65,7 +66,9 @@ export function ResetPasswordPage() {
         <div className="text-center space-y-4">
           <AlertCircle size={44} className="text-red mx-auto" />
           <p className={`text-sm ${authMuted}`}>
-            Este link de troca de senha não vale mais: ele vence depois de um tempo e só pode ser usado uma vez. Peça outro, é rapidinho.
+            {invite
+              ? 'Este convite venceu (ele vale 3 dias). Peça um link novo com o seu e-mail: é rapidinho.'
+              : 'Este link de troca de senha não vale mais: ele vence depois de um tempo e só pode ser usado uma vez. Peça outro, é rapidinho.'}
           </p>
           <Link to="/forgot-password" className="btn-primary w-full justify-center">Pedir outro link</Link>
         </div>
@@ -74,7 +77,11 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <AuthShell title="Nova senha" subtitle={success ? undefined : 'Escolha a nova senha para entrar no app.'} footer={footer}>
+    <AuthShell
+      title={invite ? 'Crie sua senha' : 'Nova senha'}
+      subtitle={success ? undefined : invite ? 'Bem-vindo(a) ao Hellcife Vôlei! Escolha uma senha para entrar no app.' : 'Escolha a nova senha para entrar no app.'}
+      footer={footer}
+    >
       {success ? (
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center space-y-3">
           <div className="w-16 h-16 bg-green-500/15 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto border border-green-500/30">

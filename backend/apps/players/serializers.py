@@ -162,6 +162,7 @@ class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializer
     legal_name = serializers.SerializerMethodField()
     cpf_masked = serializers.SerializerMethodField()
     missing_data = serializers.SerializerMethodField()
+    onboarding = serializers.SerializerMethodField()
 
     class Meta:
         model = Player
@@ -180,7 +181,7 @@ class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializer
             'setter_stars', 'pass_stars', 'block_stars',
             'created_at', 'updated_at',
             'is_guest', 'invited_by', 'guest_overall', 'consecutive_absences', 'badges', 'legal_name',
-            'cpf_masked', 'missing_data',
+            'cpf_masked', 'missing_data', 'onboarding',
             'elo', 'elo_tier', 'elo_tier_data', 'elo_calibration',
         ]
 
@@ -202,6 +203,14 @@ class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializer
                 return request.build_absolute_uri(obj.avatar.url)
             return obj.avatar.url
         return None
+
+    def get_onboarding(self, obj):
+        """"Comece por aqui": só para o próprio atleta."""
+        user = getattr(self.context.get('request'), 'user', None)
+        if not obj.user_id or obj.user_id != getattr(user, 'id', None):
+            return None
+        from .welcome import onboarding
+        return onboarding(obj)
 
     def get_cpf_masked(self, obj):
         return masked_cpf(obj.cpf_last2) if obj.cpf_hash else ''

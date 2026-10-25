@@ -185,13 +185,17 @@ class SignupView(_PublicView):
             return Response({'detail': SIGNUP_DETAIL}, status=status.HTTP_201_CREATED)
 
         try:
-            if cpf_owner(data['cpf']):
-                return Response({'cpf': [CPF_TAKEN]}, status=status.HTTP_400_BAD_REQUEST)
+            cpf_match = cpf_owner(data['cpf'])
         except CpfUnavailable:
             logger.error('CPF_PEPPER não definida: cadastro com CPF recusado.')
             return Response({'detail': CPF_UNAVAILABLE}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        if phone_owner(data['phone']):
-            return Response({'phone': [PHONE_TAKEN]}, status=status.HTTP_400_BAD_REQUEST)
+        phone_match = phone_owner(data['phone'])
+        # CPF ou WhatsApp de quem já tem conta (ou já pediu): recusa. De membro antigo sem conta: é a própria
+        # pessoa pedindo acesso; o cadastro passa e a aprovação já sugere ligar a esse atleta.
+        for match, field, message in ((cpf_match, 'cpf', CPF_TAKEN), (phone_match, 'phone', PHONE_TAKEN)):
+            if match and (match.user_id or match.status == 'pending'):
+                return Response({field: [message]}, status=status.HTTP_400_BAD_REQUEST)
+        claim = cpf_match or phone_match
 
         with transaction.atomic():
             user = User.objects.create_user(
@@ -212,8 +216,10 @@ class SignupView(_PublicView):
                 avatar=data.get('avatar'),
                 status='pending',
                 terms_accepted_at=timezone.now(),
+                claims_player=claim,
             )
-            set_cpf(player, data['cpf'])
+            if not cpf_match:  # com o CPF já no atleta antigo, ele fica lá (o campo é único)
+                set_cpf(player, data['cpf'])
             player.save()
         send_confirmation(user)
         return Response({'detail': SIGNUP_DETAIL}, status=status.HTTP_201_CREATED)
@@ -267,6 +273,7 @@ class PendingSignupSerializer(serializers.ModelSerializer):
     secondary_position_display = serializers.CharField(source='get_secondary_position_display', read_only=True)
     avatar_url = serializers.CharField(read_only=True)
     duplicates = serializers.SerializerMethodField()
+    claims_player_name = serializers.CharField(source='claims_player.display_name', read_only=True, default=None)
 
     class Meta:
         model = Player
@@ -274,6 +281,7 @@ class PendingSignupSerializer(serializers.ModelSerializer):
             'id', 'name', 'legal_name', 'nickname', 'email', 'email_confirmed', 'phone', 'instagram',
             'gender', 'gender_display', 'main_position', 'main_position_display', 'secondary_position',
             'secondary_position_display', 'age', 'height', 'avatar_url', 'created_at', 'duplicates',
+            'claims_player', 'claims_player_name',
         ]
 
     def get_duplicates(self, obj):
@@ -346,15 +354,8 @@ class PendingSignupViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
                 user.email_confirmed = True
                 user.save(update_fields=['email_confirmed'])
 
-        notify([Notification(
-            user=user, title='Cadastro aprovado! 🏐', type='system', url='/athlete',
-            message='Bem-vindo ao Hellcife Vôlei! Seu cadastro foi aprovado e você já pode confirmar presença nos circuitos.',
-        )])
-        _send_email(
-            user, 'Hellcife Vôlei - Cadastro aprovado',
-            f'Olá, {player.display_name}!\n\nSeu cadastro no Hellcife Vôlei foi aprovado. Entre no app para confirmar '
-            f'presença nos circuitos:\n\n{_frontend("/login")}\n\nTe vemos na quadra!',
-        )
+        from .welcome import send_welcome
+        send_welcome(player)  # notificação e e-mail de boas-vindas com os primeiros passos
         return Response({'detail': f'{player.display_name} aprovado!', 'player_id': player.id})
 
     @action(detail=True, methods=['post'])
