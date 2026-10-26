@@ -55,7 +55,7 @@ O projeto é estruturado como um monorepo contendo ambas as aplicações:
 | **Backend (API)** | Google Cloud Run (container Docker) |
 | **Frontend** | Vercel |
 | **Banco de Dados** | Neon DB (PostgreSQL serverless) |
-| **Storage de Mídia** | Cloudinary |
+| **Storage de Mídia** | Cloudflare R2 |
 
 ## 🛠️ Como Executar Localmente
 
@@ -137,10 +137,11 @@ Configure as seguintes variáveis no console do Cloud Run (ou via `gcloud`):
 | `ALLOWED_HOSTS` | Domínios permitidos (ex: `localhost`) |
 | `CLOUDRUN_SERVICE_URL` | URL completa do serviço (ex: `https://seu-servico-xxxx.run.app`) |
 | `CORS_ALLOWED_ORIGINS` | Origem do frontend (ex: `https://seu-app.vercel.app`) |
-| `CLOUDINARY_CLOUD_NAME` | Nome do cloud Cloudinary |
-| `CLOUDINARY_API_KEY` | API Key do Cloudinary |
-| `CLOUDINARY_API_SECRET` | API Secret do Cloudinary |
-| `CLOUDINARY_URL` | URL completa do Cloudinary |
+| `R2_BUCKET_NAME` | Bucket do Cloudflare R2 com as fotos dos atletas |
+| `R2_ACCOUNT_ID` | ID da conta Cloudflare |
+| `R2_ACCESS_KEY_ID` | Access Key do token de API do R2 |
+| `R2_SECRET_ACCESS_KEY` | Secret Access Key do token de API do R2 |
+| `R2_PUBLIC_DOMAIN` | Domínio público do bucket, sem `https://` (ex: `pub-xxxx.r2.dev`) |
 | `ASAAS_API_KEY` | Chave da API do Asaas |
 | `ASAAS_API_URL` | URL base da API do Asaas (Sandbox ou Produção) |
 | `ASAAS_WEBHOOK_TOKEN` | Token para validação de webhooks do Asaas |

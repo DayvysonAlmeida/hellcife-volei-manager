@@ -412,7 +412,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, canDe
 
             {player.avatar_url ? (
               <>
-                {player.avatar_url.toLowerCase().includes('.png') || player.avatar_url.toLowerCase().includes('.webp') || (player.avatar_url.toLowerCase().includes('cloudinary') && !player.avatar_url.toLowerCase().includes('.jpg') && !player.avatar_url.toLowerCase().includes('.jpeg')) ? (
+                {player.avatar_url.toLowerCase().includes('.png') || player.avatar_url.toLowerCase().includes('.webp') ? (
                   <img
                     src={player.avatar_url}
                     alt={player.name}

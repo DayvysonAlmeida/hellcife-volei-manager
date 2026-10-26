@@ -80,6 +80,20 @@ class MyProfileTests(TestCase):
         response = self.client.patch(ME, {'remove_avatar': True}, format='json')
         self.assertIsNone(response.data['avatar_url'])
 
+    @override_settings(STORAGES=IN_MEMORY)
+    def test_photo_is_shrunk_to_webp_keeping_transparency(self):
+        import io
+        from PIL import Image
+        raw = io.BytesIO()
+        Image.new('RGBA', (3000, 2000), (255, 0, 0, 0)).save(raw, 'PNG')
+        photo = SimpleUploadedFile('recorte.png', raw.getvalue(), content_type='image/png')
+
+        self.assertEqual(self.client.patch(ME, {'avatar': photo}, format='multipart').status_code, 200)
+        self.player.refresh_from_db()
+        self.assertTrue(self.player.avatar.name.endswith('.webp'))
+        with Image.open(self.player.avatar) as saved:
+            self.assertEqual((saved.format, saved.size, saved.mode), ('WEBP', (1024, 683), 'RGBA'))
+
     def test_user_without_athlete_profile_gets_404(self):
         staff = User.objects.create_user('staff@x.com', 'senha-forte-123', name='Staff', profile='admin')
         self.client.force_authenticate(staff)

@@ -176,7 +176,7 @@ function loadAsset(src: string) {
 }
 
 /**
- * Avatares vêm de outra origem (Cloudinary). Pedimos com CORS para não "sujar" o canvas;
+ * Avatares vêm de outra origem (bucket de fotos no Cloudflare R2). Pedimos com CORS para não "sujar" o canvas;
  * o parâmetro extra evita que o Safari reaproveite a versão sem CORS que já está em cache
  * por causa das <img> da página. Se falhar, o card usa as iniciais.
  */

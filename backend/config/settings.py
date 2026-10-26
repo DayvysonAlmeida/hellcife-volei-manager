@@ -35,7 +35,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'cloudinary',
     # Third party
     'rest_framework',
     'rest_framework_simplejwt',
@@ -115,33 +114,40 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Cloudinary Config
-CLOUDINARY_CLOUD_NAME = config('CLOUDINARY_CLOUD_NAME', default='')
-CLOUDINARY_URL = config('CLOUDINARY_URL', default='')
+# Fotos dos atletas no Cloudflare R2 (padrão S3, download sem custo). Sem o bucket configurado (dev), ficam no disco.
+R2_BUCKET_NAME = config('R2_BUCKET_NAME', default='')
 
-if CLOUDINARY_CLOUD_NAME or CLOUDINARY_URL:
-    if CLOUDINARY_CLOUD_NAME:
-        CLOUDINARY_STORAGE = {
-            'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
-            'API_KEY': config('CLOUDINARY_API_KEY', default=''),
-            'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
-        }
-    DEFAULT_FILE_STORAGE_BACKEND = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+if R2_BUCKET_NAME:
+    from botocore.config import Config as BotoConfig
+    MEDIA_STORAGE = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': R2_BUCKET_NAME,
+            'endpoint_url': f"https://{config('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+            'access_key': config('R2_ACCESS_KEY_ID'),
+            'secret_key': config('R2_SECRET_ACCESS_KEY'),
+            'region_name': 'auto',
+            # Domínio público do bucket (ex.: pub-xxxx.r2.dev ou fotos.seudominio.com), sem https://
+            'custom_domain': config('R2_PUBLIC_DOMAIN'),
+            'querystring_auth': False,
+            'default_acl': None,  # o R2 não usa ACL: o acesso público é do bucket
+            'file_overwrite': False,  # nome novo a cada foto, então o navegador pode guardar a foto para sempre
+            'object_parameters': {'CacheControl': 'public, max-age=31536000, immutable'},
+            # O R2 não aceita os checksums que o boto3 manda por padrão desde a 1.36
+            'client_config': BotoConfig(
+                request_checksum_calculation='when_required', response_checksum_validation='when_required',
+            ),
+        },
+    }
 else:
-    DEFAULT_FILE_STORAGE_BACKEND = 'django.core.files.storage.FileSystemStorage'
+    MEDIA_STORAGE = {'BACKEND': 'django.core.files.storage.FileSystemStorage'}
 
 STORAGES = {
-    'default': {
-        'BACKEND': DEFAULT_FILE_STORAGE_BACKEND,
-    },
+    'default': MEDIA_STORAGE,
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
 }
-
-# Fix para o bug do django-cloudinary-storage que ainda busca a variável antiga
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
-DEFAULT_FILE_STORAGE = DEFAULT_FILE_STORAGE_BACKEND
 
 # Desabilita o erro estrito do Whitenoise caso algum CSS do Admin do Django tente referenciar imagens/arquivos que não existem
 WHITENOISE_MANIFEST_STRICT = False

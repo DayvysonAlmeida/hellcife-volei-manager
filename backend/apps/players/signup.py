@@ -6,15 +6,20 @@ Cadastro de novos integrantes pelo app.
 2. Clica no link do e-mail (vale 48h, uma vez só). A staff recebe o aviso "Novo cadastro".
 3. A staff aprova como atleta novo, vincula a um atleta que já existe sem acesso ao app, ou recusa.
 """
+import io
 import logging
 from decimal import Decimal
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core import signing
+from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
+from PIL import Image, ImageOps
+from pillow_heif import register_heif_opener
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -37,6 +42,7 @@ logger = logging.getLogger(__name__)
 CONFIRM_SALT = 'hellcife.signup.confirm-email'
 CONFIRM_MAX_AGE = 48 * 60 * 60
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
+AVATAR_MAX_SIDE = 1024  # cobre o card de conquista (círculo de 480 px) em telas de alta densidade
 # Mesma resposta exista ou não o e-mail: o cadastro não revela quem já tem conta
 SIGNUP_DETAIL = 'Cadastro recebido! Enviamos um link para o seu e-mail: clique nele para confirmar.'
 RESEND_DETAIL = 'Se houver um cadastro esperando confirmação com esse e-mail, enviamos um novo link.'
@@ -57,6 +63,26 @@ def is_photo(upload):
         or (head[:4] == b'RIFF' and head[8:12] == b'WEBP')
         or (head[4:8] == b'ftyp' and head[8:12] in HEIF_BRANDS)
     )
+
+
+register_heif_opener()
+
+
+def shrink_photo(upload):
+    """A foto vira WebP de até 1024 px (de ~1,5 MB para ~100 KB), na posição certa e mantendo o fundo transparente.
+
+    Devolve None se a imagem não abrir. Fotos de celular chegavam inteiras e eram baixadas a cada card.
+    """
+    try:
+        with Image.open(upload) as img:
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((AVATAR_MAX_SIDE, AVATAR_MAX_SIDE))
+            img = img.convert('RGBA' if img.has_transparency_data else 'RGB')
+            out = io.BytesIO()
+            img.save(out, 'WEBP', quality=82)
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+    return ContentFile(out.getvalue(), name=f'{Path(upload.name).stem}.webp')
 
 
 def _frontend(path):
@@ -135,9 +161,14 @@ class SignupSerializer(serializers.Serializer):
         return value.strip().lstrip('@')
 
     def validate_avatar(self, value):
-        if value and (value.size > MAX_AVATAR_BYTES or not is_photo(value)):
+        if not value:
+            return value
+        if value.size > MAX_AVATAR_BYTES or not is_photo(value):
             raise serializers.ValidationError('A foto precisa ser uma imagem (JPG, PNG, WebP ou HEIC) de até 5 MB.')
-        return value
+        photo = shrink_photo(value)
+        if photo is None:
+            raise serializers.ValidationError('Não conseguimos abrir essa foto. Tente outra imagem.')
+        return photo
 
     def validate_accept_terms(self, value):
         if not value:

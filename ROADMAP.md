@@ -1,5 +1,5 @@
 # 🏐 Hellcife Vôlei Manager — Roadmap 2026
-Última atualização: 17/10/2026 — Backend no Google Cloud Run, Frontend no Vercel, Banco de dados Neon (PostgreSQL), Storage de mídia Cloudinary.
+Última atualização: 17/10/2026 — Backend no Google Cloud Run, Frontend no Vercel, Banco de dados Neon (PostgreSQL), Storage de mídia Cloudflare R2.
 
 ## ✅ Feito Recentemente
 | Item | Descrição |

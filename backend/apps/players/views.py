@@ -457,15 +457,13 @@ class PlayerViewSet(viewsets.ModelViewSet):
         player_data = []
         for p in players:
             win_rate = (p.wins / p.total_matches * 100) if p.total_matches > 0 else 0
-            avatar_url = f"/media/{p.avatar}" if p.avatar else None
-
             player_data.append({
                 'id': p.id,
                 'name': p.name,
                 'nickname': p.nickname,
                 'main_position': p.main_position,
                 'main_position_display': p.get_main_position_display(),
-                'avatar_url': avatar_url,
+                'avatar_url': p.avatar_url,
                 'shirt_number': p.shirt_number,
                 'overall': round(p.annotated_overall, 2),
                 'stats': {
