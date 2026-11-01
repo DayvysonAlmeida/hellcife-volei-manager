@@ -170,6 +170,15 @@
            transition-all duration-200;
   }
 
+  /* Em components (não em utilities): o pl-9 da lupa e o px-3 de um campo menor valem por cima dele */
+  .input-glass {
+    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all;
+  }
+
+  select.input-glass option, select.input-glass optgroup {
+    @apply bg-surface text-text-primary;
+  }
+
   /* Badges de posição */
   .badge-libero { @apply text-xs font-bold px-2 py-0.5 rounded-full bg-cyan-900/50 text-cyan-400 border border-cyan-800; }
   .badge-setter { @apply text-xs font-bold px-2 py-0.5 rounded-full bg-purple-900/50 text-purple-400 border border-purple-800; }
@@ -242,14 +251,6 @@
   .border-neon-blue {
     border-color: rgba(28, 78, 158, 0.5);
     box-shadow: inset 0 0 20px rgba(28, 78, 158, 0.1);
-  }
-
-  .input-glass {
-    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-text-primary placeholder:text-text-muted focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all;
-  }
-
-  select.input-glass option, select.input-glass optgroup {
-    @apply bg-surface text-text-primary;
   }
 
   /* Animate delay utilities */
