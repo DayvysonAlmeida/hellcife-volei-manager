@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
 import { signupService, type PendingSignup, type SignupCandidate } from '@/services/signup';
+import { invalidateCircuitLists } from '@/lib/paymentQueries';
 
 /** Atletas sem acesso com alguma palavra do nome do cadastro aparecem primeiro na lista. */
 function sortCandidates(candidates: SignupCandidate[], signup: PendingSignup) {
@@ -23,6 +24,7 @@ function SignupCard({ signup, candidates }: { signup: PendingSignup; candidates:
     qc.invalidateQueries({ queryKey: ['pending-signups'] });
     qc.invalidateQueries({ queryKey: ['signup-candidates'] });
     qc.invalidateQueries({ queryKey: ['players'] });
+    invalidateCircuitLists(qc); // aprovado entra na lista dos circuitos abertos
   };
   const fail = (err: any) => toast.error(err.response?.data?.detail || 'Não foi possível concluir. Tente de novo.');
 

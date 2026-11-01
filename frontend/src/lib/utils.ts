@@ -80,6 +80,11 @@ export function getInitials(name: string): string {
     .toUpperCase();
 }
 
+/** Texto pronto para busca: sem acento e em minúsculas ("João" → "joao"). */
+export function normalizeSearch(text: string): string {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 export function getAvatarColor(name: string): string {
   const colors = [
     'from-red to-red-dark',

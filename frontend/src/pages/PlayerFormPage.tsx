@@ -12,6 +12,7 @@ import { PageLoading } from '@/components/ui/Loading';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { isAdmin } from '@/lib/roles';
+import { invalidateCircuitLists } from '@/lib/paymentQueries';
 import { formatCpf, isValidCpf } from '@/lib/identity';
 import { useAuth } from '@/store/AuthContext';
 import { GENDER_LABELS, GENDER_ORDER, POSITION_LABELS } from '@/types';
@@ -101,6 +102,7 @@ export function PlayerFormPage() {
       isEdit ? playersService.update(Number(id), data as any) : playersService.create(data as any),
     onSuccess: (savedPlayer) => {
       qc.invalidateQueries({ queryKey: ['players'] });
+      invalidateCircuitLists(qc); // atleta novo ou reativado entra na lista dos circuitos abertos
       toast.success(isEdit ? 'Atleta atualizado com sucesso!' : 'Atleta cadastrado com sucesso!');
       navigate(`/players/${savedPlayer.id}`);
     },

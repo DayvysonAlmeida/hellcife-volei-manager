@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Search, Plus, RefreshCw, Check, DollarSign, X, GripVertical, Clock, Zap, BadgeCheck } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { PositionBadge } from '@/components/ui/Badges';
-import { formatBRL } from '@/lib/utils';
+import { cn, formatBRL } from '@/lib/utils';
+import { POSITION_LABELS, type Position } from '@/types';
 
 function reservationDeadline(reservedUntil?: string | null) {
   if (!reservedUntil) return 'sem prazo';
@@ -10,6 +11,25 @@ function reservationDeadline(reservedUntil?: string | null) {
   if (d.getTime() <= Date.now()) return 'prazo vencido';
   return `até ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 }
+
+type StatusFilter = 'all' | 'confirmed' | 'reserved' | 'waitlist' | 'absent';
+type PaymentFilter = 'all' | 'paid' | 'claimed' | 'pending' | 'plan';
+type KindFilter = 'all' | 'member' | 'guest';
+
+function matchesPayment(att: any, payment: PaymentFilter) {
+  if (payment === 'all') return true;
+  // Pagamento só conta para quem tem vaga: confirmados e reservados
+  if (!att.present && !att.is_reserved) return false;
+  if (payment === 'plan') return !!att.used_credit;
+  if (payment === 'paid') return att.has_paid && !att.used_credit;
+  if (payment === 'claimed') return !att.has_paid && !!att.payment_claimed;
+  return !att.has_paid && !att.payment_claimed;
+}
+
+const selectClass = (active: boolean) => cn(
+  'py-1.5 pl-3 pr-2 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest bg-[#0a0a0a] border focus:outline-none transition-colors cursor-pointer',
+  active ? 'border-red text-white' : 'border-[#333] text-white/40 hover:border-white/20 hover:text-white'
+);
 import {
   DndContext,
   closestCenter,
@@ -120,16 +140,48 @@ export function AttendanceList({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const [filterMode, setFilterMode] = useState<'all' | 'confirmed' | 'pending'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
+  const [kindFilter, setKindFilter] = useState<KindFilter>('all');
+  const [positionFilter, setPositionFilter] = useState<Position | 'all'>('all');
 
-  const filteredPresent = presentAttendances.filter(att => {
-    if (filterMode === 'pending') return !att.has_paid;
-    return true;
-  });
+  // Circuito sem cobrança: o filtro de pagamento não se aplica
+  const payment = showPaymentControls ? paymentFilter : 'all';
+  const matches = (att: any) =>
+    matchesPayment(att, payment) &&
+    (kindFilter === 'all' || (kindFilter === 'guest') === !!att.player_is_guest) &&
+    (positionFilter === 'all' || att.player_position === positionFilter);
 
-  const showReserved = filterMode !== 'confirmed';
-  const showWaitlist = filterMode === 'all';
-  const showAbsent = filterMode === 'all';
+  const present = presentAttendances.filter(matches);
+  const reserved = reservedAttendances.filter(matches);
+  const waitlist = waitlistAttendances.filter(matches);
+  const absent = absentAttendances.filter(matches);
+
+  const show = (s: StatusFilter) => statusFilter === 'all' || statusFilter === s;
+  const visibleCount =
+    (show('confirmed') ? present.length : 0) + (show('reserved') ? reserved.length : 0) +
+    (show('waitlist') ? waitlist.length : 0) + (show('absent') ? absent.length : 0);
+
+  const hasAttributeFilters = payment !== 'all' || kindFilter !== 'all' || positionFilter !== 'all';
+  const hasFilters = hasAttributeFilters || statusFilter !== 'all' || !!searchTerm;
+  // Com a fila filtrada, reordenar mandaria só parte dela e jogaria esses atletas para o fim
+  const canReorder = showEditControls && !hasAttributeFilters && !searchTerm;
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setPaymentFilter('all');
+    setKindFilter('all');
+    setPositionFilter('all');
+    setSearchTerm('');
+  };
+
+  const statusChips: { value: StatusFilter; label: string; count: number; active: string; hidden?: boolean }[] = [
+    { value: 'all', label: 'Todos', count: present.length + reserved.length + waitlist.length + absent.length, active: 'bg-red text-white border-red shadow-lg shadow-red/20' },
+    { value: 'confirmed', label: 'Confirmados', count: present.length, active: 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/20' },
+    { value: 'reserved', label: 'Reservados', count: reserved.length, active: 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20', hidden: reservedAttendances.length === 0 && statusFilter !== 'reserved' },
+    { value: 'waitlist', label: 'Fila', count: waitlist.length, active: 'bg-yellow-500 text-black border-yellow-500 shadow-lg shadow-yellow-500/20', hidden: waitlistAttendances.length === 0 && statusFilter !== 'waitlist' },
+    { value: 'absent', label: 'Não confirmados', count: absent.length, active: 'bg-white/80 text-black border-white/80' },
+  ];
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -328,7 +380,7 @@ export function AttendanceList({
               />
               <input
                 type="text"
-                placeholder="Buscar atleta..."
+                placeholder="Buscar por nome, apelido ou camisa..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-[#0a0a0a] border border-[#2a2a2a] rounded-xl text-sm text-white placeholder-white/40 focus:outline-none focus:border-red focus:ring-1 focus:ring-red/50 transition-all shadow-inner"
@@ -386,39 +438,68 @@ export function AttendanceList({
           </div>
 
           {/* Fila Inferior: Filtros de Visualização */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <button
-              onClick={() => setFilterMode('all')}
-              className={`py-1.5 px-4 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors border ${
-                filterMode === 'all' 
-                  ? 'bg-red text-white border-red shadow-lg shadow-red/20' 
-                  : 'bg-transparent text-white/40 border-[#333] hover:border-white/20 hover:text-white'
-              }`}
-            >
-              Todos ({presentAttendances.length + reservedAttendances.length + waitlistAttendances.length + absentAttendances.length})
-            </button>
-            <button
-              onClick={() => setFilterMode('confirmed')}
-              className={`py-1.5 px-4 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors border ${
-                filterMode === 'confirmed' 
-                  ? 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-500/20' 
-                  : 'bg-transparent text-white/40 border-[#333] hover:border-white/20 hover:text-white'
-              }`}
-            >
-              Confirmados ({presentAttendances.length})
-            </button>
-            {showPaymentControls && (
-              <button
-                onClick={() => setFilterMode('pending')}
-                className={`py-1.5 px-4 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest whitespace-nowrap flex items-center gap-1.5 transition-colors border ${
-                  filterMode === 'pending' 
-                    ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20' 
-                    : 'bg-transparent text-white/40 border-[#333] hover:border-white/20 hover:text-white'
-                }`}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {statusChips.filter(chip => !chip.hidden).map(chip => (
+                <button
+                  key={chip.value}
+                  onClick={() => setStatusFilter(chip.value)}
+                  className={`py-1.5 px-4 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest whitespace-nowrap transition-colors border ${
+                    statusFilter === chip.value
+                      ? chip.active
+                      : 'bg-transparent text-white/40 border-[#333] hover:border-white/20 hover:text-white'
+                  }`}
+                >
+                  {chip.label} ({chip.count})
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {showPaymentControls && (
+                <select
+                  aria-label="Filtrar por pagamento"
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value as PaymentFilter)}
+                  className={selectClass(paymentFilter !== 'all')}
+                >
+                  <option value="all">Pagamento</option>
+                  <option value="paid">Pagos</option>
+                  <option value="claimed">Avisaram</option>
+                  <option value="pending">Pendentes</option>
+                  <option value="plan">Plano</option>
+                </select>
+              )}
+              <select
+                aria-label="Filtrar por tipo"
+                value={kindFilter}
+                onChange={(e) => setKindFilter(e.target.value as KindFilter)}
+                className={selectClass(kindFilter !== 'all')}
               >
-                Pendentes <DollarSign size={12} strokeWidth={3} />
-              </button>
-            )}
+                <option value="all">Tipo</option>
+                <option value="member">Membros</option>
+                <option value="guest">Convidados</option>
+              </select>
+              <select
+                aria-label="Filtrar por posição"
+                value={positionFilter}
+                onChange={(e) => setPositionFilter(e.target.value as Position | 'all')}
+                className={selectClass(positionFilter !== 'all')}
+              >
+                <option value="all">Posição</option>
+                {(Object.keys(POSITION_LABELS) as Position[]).map(p => (
+                  <option key={p} value={p}>{POSITION_LABELS[p]}</option>
+                ))}
+              </select>
+              {hasFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="py-1.5 px-3 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center gap-1 text-white/40 hover:text-red transition-colors"
+                >
+                  <X size={12} strokeWidth={3} /> Limpar filtros
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -426,38 +507,38 @@ export function AttendanceList({
       {/* Container Rolável para os Atletas */}
       <div className="max-h-[55vh] lg:max-h-[65vh] overflow-y-auto sm:pr-2 scrollbar-hide sm:custom-scrollbar sm:-mr-2 pb-10">
         {/* Seção Confirmados */}
-        {filteredPresent.length > 0 && (
+        {show('confirmed') && present.length > 0 && (
           <div className="mb-8">
             <h3 className="text-xs font-black text-green-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2 drop-shadow-md">
               <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
-              CONFIRMADOS • {filteredPresent.length}
+              CONFIRMADOS • {present.length}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {filteredPresent.map((att) => renderAttendanceCard(att))}
+              {present.map((att) => renderAttendanceCard(att))}
             </div>
           </div>
         )}
 
         {/* Seção Reservados (aguardando pagamento) */}
-        {showReserved && reservedAttendances.length > 0 && (
+        {show('reserved') && reserved.length > 0 && (
           <div className="mb-8">
             <h3 className="text-xs font-black text-orange-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2 drop-shadow-sm">
               <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-              RESERVADOS · AGUARDANDO PAGAMENTO • {reservedAttendances.length}
+              RESERVADOS · AGUARDANDO PAGAMENTO • {reserved.length}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {reservedAttendances.map((att) => renderAttendanceCard(att))}
+              {reserved.map((att) => renderAttendanceCard(att))}
             </div>
           </div>
         )}
 
         {/* Seção Fila de Espera */}
-        {showWaitlist && waitlistAttendances.length > 0 && (
+        {show('waitlist') && waitlist.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-black text-yellow-500 uppercase tracking-[0.2em] flex items-center gap-2 drop-shadow-sm">
                 <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                AGUARDANDO FILA • {waitlistAttendances.length}
+                AGUARDANDO FILA • {waitlist.length}
               </h3>
               {showEditControls && (
                 <button
@@ -470,10 +551,11 @@ export function AttendanceList({
               )}
             </div>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={waitlistAttendances.map(a => a.id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={waitlist.map(a => a.id)} strategy={verticalListSortingStrategy}>
                 <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {waitlistAttendances.map((att, idx) => (
-                    <SortableWaitlistCard key={att.id} att={att} idx={idx} renderCard={renderAttendanceCard} showEditControls={showEditControls} />
+                  {/* Posição real na fila, mesmo com a lista filtrada */}
+                  {waitlist.map((att) => (
+                    <SortableWaitlistCard key={att.id} att={att} idx={waitlistAttendances.indexOf(att)} renderCard={renderAttendanceCard} showEditControls={canReorder} />
                   ))}
                 </div>
               </SortableContext>
@@ -482,21 +564,23 @@ export function AttendanceList({
         )}
 
         {/* Seção Pendentes / Ausentes */}
-        {showAbsent && absentAttendances.length > 0 && (
+        {show('absent') && absent.length > 0 && (
           <div className="mb-8">
             <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] mb-4 flex items-center gap-2 drop-shadow-sm">
-              NÃO CONFIRMADOS • {absentAttendances.length}
+              NÃO CONFIRMADOS • {absent.length}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {absentAttendances.map((att) => renderAttendanceCard(att))}
+              {absent.map((att) => renderAttendanceCard(att))}
             </div>
           </div>
         )}
 
-        {presentAttendances.length === 0 && reservedAttendances.length === 0 && absentAttendances.length === 0 && waitlistAttendances.length === 0 && (
+        {visibleCount === 0 && (
           <p className="text-text-muted text-center py-8">
             {searchTerm
               ? `Nenhum jogador encontrado com "${searchTerm}".`
+              : hasFilters
+              ? 'Nenhum jogador com esses filtros.'
               : 'Nenhum jogador na lista.'}
           </p>
         )}

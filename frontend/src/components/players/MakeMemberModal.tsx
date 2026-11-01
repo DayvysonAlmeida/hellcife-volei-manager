@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, MailCheck, Star, X } from 'lucide-react';
 import { playersService, type MakeMemberResult } from '@/services/players';
 import { WelcomeShare } from './WelcomeShare';
+import { invalidateCircuitLists } from '@/lib/paymentQueries';
 import { GENDER_LABELS, GENDER_ORDER, POSITION_LABELS, type Gender, type Player, type Position } from '@/types';
 
 const label = 'block text-xs font-bold uppercase tracking-wider text-text-secondary mb-1';
@@ -63,6 +64,7 @@ function MakeMemberForm({ guest, onClose }: { guest: Player; onClose: () => void
       setDone(result);
       qc.invalidateQueries({ queryKey: ['players'] });
       qc.invalidateQueries({ queryKey: ['guests'] });
+      invalidateCircuitLists(qc); // virou membro: entra na lista dos circuitos abertos
     },
     onError: (err: any) => {
       const data = err.response?.data ?? {};

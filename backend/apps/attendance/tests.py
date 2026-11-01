@@ -356,6 +356,66 @@ class ListReservedCountTests(CircuitApiTestCase):
         self.assertEqual(row['total_reserved'], 1)
 
 
+class AttendanceNamesTests(CircuitApiTestCase):
+    """A busca da lista acha o atleta por apelido, nome social ou nome civil; o nome civil é só da staff."""
+
+    def setUp(self):
+        super().setUp()
+        Player.objects.filter(pk=self.p1.pk).update(nickname='Aninha', legal_name='Ana Maria Souza')
+        Player.objects.filter(pk=self.p2.pk).update(nickname='Bibi', legal_name='Beatriz Lima')
+        self.gd = self.make_gameday()
+
+    def serialize(self, player, user):
+        from types import SimpleNamespace
+        from .serializers import AttendanceSerializer
+        return AttendanceSerializer(self.att(self.gd, player), context={'request': SimpleNamespace(user=user)}).data
+
+    def test_staff_gets_every_name(self):
+        self.client.force_authenticate(self.admin)
+        rows = {a['player']: a for a in self.client.get(f'{BASE}/{self.gd.id}/').data['attendances']}
+        bia = rows[self.p2.id]
+        self.assertEqual(bia['player_name'], 'Bibi')
+        self.assertEqual(bia['player_social_name'], 'Bia')
+        self.assertEqual(bia['player_nickname'], 'Bibi')
+        self.assertEqual(bia['player_legal_name'], 'Beatriz Lima')
+        self.assertIsNone(rows[self.p3.id]['player_legal_name'])  # sem nome civil: vem vazio
+
+    def test_legal_name_hidden_from_other_athletes(self):
+        self.assertIsNone(self.serialize(self.p2, self.athlete_user)['player_legal_name'])
+        self.assertEqual(self.serialize(self.p2, self.athlete_user)['player_social_name'], 'Bia')
+        self.assertEqual(self.serialize(self.p1, self.athlete_user)['player_legal_name'], 'Ana Maria Souza')
+
+
+class NewAthleteSyncTests(CircuitApiTestCase):
+    """Membro ativo que chega depois do circuito criado entra na lista quando o circuito é aberto."""
+
+    def listed(self, gd):
+        self.client.force_authenticate(self.admin)
+        return {a['player'] for a in self.client.get(f'{BASE}/{gd.id}/').data['attendances']}
+
+    def test_new_member_joins_open_circuit(self):
+        gd = self.make_gameday()
+        novo = make_player('Duda')
+        self.assertIn(novo.id, self.listed(gd))
+
+    def test_approved_signup_joins_after_approval(self):
+        gd = self.make_gameday()
+        cadastro = make_player('Eva', status='pending')
+        self.assertNotIn(cadastro.id, self.listed(gd))
+        Player.objects.filter(pk=cadastro.pk).update(status='active')
+        self.assertIn(cadastro.id, self.listed(gd))
+
+    def test_guests_stay_out(self):
+        gd = self.make_gameday()
+        convidado = make_player('Fred', is_guest=True)
+        self.assertNotIn(convidado.id, self.listed(gd))
+
+    def test_closed_circuit_keeps_its_list(self):
+        gd = self.make_gameday(is_closed=True)
+        novo = make_player('Gabi')
+        self.assertNotIn(novo.id, self.listed(gd))
+
+
 class AbsenceSyncTests(TestCase):
     """Contagem de faltas consecutivas: Ponto de Reset do admin e falta justificada."""
 

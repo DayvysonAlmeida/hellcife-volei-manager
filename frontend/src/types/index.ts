@@ -340,6 +340,10 @@ export interface Attendance {
   gameday: number;
   player: number;
   player_name: string;
+  player_social_name?: string;
+  player_nickname?: string | null;
+  /** Nome civil: vem só para a staff e para o próprio atleta. */
+  player_legal_name?: string | null;
   credits_used?: number | string;
   used_priority?: boolean;
   used_credit?: boolean;

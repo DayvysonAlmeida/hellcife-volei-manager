@@ -13,11 +13,13 @@ import { PaymentConfirmModal, type PaymentTarget } from '@/components/attendance
 import { invalidatePaymentQueries } from '@/lib/paymentQueries';
 
 import { attendanceService } from '@/services';
-import { cn, formatBRL } from '@/lib/utils';
+import { cn, formatBRL, normalizeSearch } from '@/lib/utils';
 import { isAdmin } from '@/lib/roles';
 import type { GameDay } from '@/types';
 import { useAuth } from '@/store/AuthContext';
 import toast from 'react-hot-toast';
+
+const LIVE_REFRESH_MS = 30_000;
 
 export function AttendancePage() {
   const { user } = useAuth();
@@ -52,16 +54,24 @@ export function AttendancePage() {
     return [...names.values()];
   }, [gameDays]);
 
+  // Lista sempre do servidor: ao abrir, ao voltar para a aba e a cada 30s enquanto o circuito não for encerrado.
+  // É o servidor que põe os atletas novos na lista e mostra quem confirmou pelo link.
   const { data: gameDayDetail, isLoading: loadingDetail } = useQuery({
     queryKey: ['gameday', selectedGameDay?.id],
     queryFn: () => attendanceService.getGameDay(selectedGameDay!.id),
     enabled: !!selectedGameDay,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => (query.state.data?.is_closed ? false : LIVE_REFRESH_MS),
   });
 
   const { data: finance } = useQuery({
     queryKey: ['gameday-finance', selectedGameDay?.id],
     queryFn: () => attendanceService.getFinance(selectedGameDay!.id),
     enabled: !!selectedGameDay && admin,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: gameDayDetail && !gameDayDetail.is_closed ? LIVE_REFRESH_MS : false,
   });
 
   // A auto-seleção foi removida para garantir que no mobile o usuário veja a lista de circuitos primeiro.
@@ -80,11 +90,14 @@ export function AttendancePage() {
     if (!gameDayDetail) return { presentAttendances: [], reservedAttendances: [], absentAttendances: [], waitlistAttendances: [], totalPaid: 0, totalCreditUsers: 0, totalCreditsUsed: 0 };
     
     let filtered = gameDayDetail.attendances;
-    if (searchTerm) {
-      const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter(a => 
-        a.player_name.toLowerCase().includes(lower) || 
-        (a.player_invited_by && a.player_invited_by.toLowerCase().includes(lower))
+    const term = normalizeSearch(searchTerm.trim());
+    if (term) {
+      // Apelido, nome social, nome civil (só a staff recebe), quem convidou ou o número da camisa ("12" ou "#12")
+      const shirt = /^#?\d+$/.test(term) ? term.replace('#', '') : null;
+      filtered = filtered.filter(a =>
+        [a.player_name, a.player_social_name, a.player_nickname, a.player_legal_name, a.player_invited_by]
+          .some(text => text && normalizeSearch(text).includes(term)) ||
+        (shirt !== null && a.player_shirt != null && String(a.player_shirt) === shirt)
       );
     }
     
@@ -110,6 +123,9 @@ export function AttendancePage() {
     
     return { presentAttendances: present, reservedAttendances: reserved, absentAttendances: absent, waitlistAttendances: waitlist, totalPaid, totalCreditUsers, totalCreditsUsed };
   }, [gameDayDetail, searchTerm]);
+
+  // O modal de convidado precisa da lista inteira, sem a busca, para saber quem já está no circuito
+  const allAttendances = gameDayDetail?.attendances ?? [];
 
   const collected = Number(finance?.collected ?? 0);
   const courtCost = Number(finance?.court_cost ?? 0);
@@ -704,7 +720,7 @@ export function AttendancePage() {
                   onReorderWaitlist={(gdId, attIds) => {
                     attendanceService.reorderWaitlist(gdId, attIds).then(() => {
                       toast.success('Fila reordenada!');
-                      qc.invalidateQueries({ queryKey: ['gameday-detail'] });
+                      qc.invalidateQueries({ queryKey: ['gameday', gdId] });
                     }).catch(() => {
                       toast.error('Erro ao reordenar a fila.');
                     });
@@ -722,9 +738,9 @@ export function AttendancePage() {
         isOpen={showGuestModal}
         onClose={() => setShowGuestModal(false)}
         gameDayId={selectedGameDay?.id || 0}
-        presentAttendances={presentAttendances}
-        absentAttendances={absentAttendances}
-        waitlistAttendances={waitlistAttendances}
+        presentAttendances={allAttendances.filter(a => a.present)}
+        absentAttendances={allAttendances.filter(a => !a.present && !a.is_waitlist && !a.is_reserved)}
+        waitlistAttendances={allAttendances.filter(a => !a.present && a.is_waitlist)}
         setConfirmDialog={setConfirmDialog}
       />
     </div>

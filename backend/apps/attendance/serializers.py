@@ -1,10 +1,15 @@
 from rest_framework import serializers
 from .models import GameDay, Attendance, CourtCheckin
+from apps.core.permissions import is_staff_profile
 from apps.players.serializers import PlayerListSerializer
 
 
 class AttendanceSerializer(serializers.ModelSerializer):
     player_name = serializers.CharField(source='player.display_name', read_only=True)
+    # Nome social e apelido separados: a busca da lista acha o atleta por qualquer um dos dois
+    player_social_name = serializers.CharField(source='player.name', read_only=True)
+    player_nickname = serializers.CharField(source='player.nickname', read_only=True)
+    player_legal_name = serializers.SerializerMethodField()
     player_avatar = serializers.CharField(source='player.avatar_url', read_only=True)
     player_position = serializers.CharField(source='player.main_position', read_only=True)
     player_shirt = serializers.IntegerField(source='player.shirt_number', read_only=True)
@@ -20,9 +25,17 @@ class AttendanceSerializer(serializers.ModelSerializer):
         paid = [p for p in obj.payments.all() if p.status == 'paid']
         return max(paid, key=lambda p: p.created_at).method if paid else None
 
+    def get_player_legal_name(self, obj):
+        """Nome civil: só a staff e o próprio atleta veem."""
+        user = getattr(self.context.get('request'), 'user', None)
+        player = obj.player
+        if is_staff_profile(user) or (player.user_id and player.user_id == getattr(user, 'id', None)):
+            return player.legal_name or None
+        return None
+
     class Meta:
         model = Attendance
-        fields = ['id', 'gameday', 'player', 'player_name', 'player_avatar',
+        fields = ['id', 'gameday', 'player', 'player_name', 'player_social_name', 'player_nickname', 'player_legal_name', 'player_avatar',
                   'player_position', 'player_shirt', 'player_status', 'player_is_guest', 'player_invited_by', 'present', 'has_paid', 'payment_claimed', 'checked_at',
                   'was_no_show', 'is_justified', 'justification_text', 'is_waitlist', 'waitlist_joined_at',
                   'gameday_date', 'gameday_location', 'used_credit', 'credits_used', 'used_priority',
