@@ -120,3 +120,20 @@ class AtomicSaveTests(MatchApiTestCase):
         self.client.post(f'/api/matches/{match.id}/result/', {'teams': teams}, format='json')
         gone.refresh_from_db()
         self.assertEqual(gone.elo, 500)  # sem partidas, volta ao Elo inicial
+
+
+class MatchListGamedayTests(MatchApiTestCase):
+    """A lista de jogos traz o cabeçalho do circuito (data, horário, local, encerrado) em cada partida."""
+
+    def test_list_includes_circuit_header(self):
+        from datetime import time
+        from apps.attendance.models import GameDay
+        gd = GameDay.objects.create(date=date(2026, 10, 25), time=time(19, 0), location='Arena X', is_closed=True)
+        Match.objects.create(date=gd.date, modality=2, gameday=gd)
+        Match.objects.create(date=date(2026, 10, 26), modality=2)  # avulsa
+        rows = sorted(self.client.get('/api/matches/').data['results'], key=lambda r: r['date'])
+        circuit, loose = rows
+        self.assertEqual((circuit['gameday_date'], circuit['gameday_time'], circuit['gameday_location'], circuit['gameday_is_closed']),
+                         ('2026-10-25', '19:00:00', 'Arena X', True))
+        self.assertIsNone(loose['gameday'])
+        self.assertIsNone(loose.get('gameday_is_closed'))  # avulsa: o DRF nem manda os campos do circuito

@@ -65,11 +65,15 @@ class MatchListSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.name', read_only=True)
     gameday_location = serializers.CharField(source='gameday.location', read_only=True)
     gameday_date = serializers.DateField(source='gameday.date', read_only=True)
+    # Cabeçalho do circuito na lista de jogos (staff e atleta) sem buscar a lista de circuitos à parte
+    gameday_time = serializers.TimeField(source='gameday.time', read_only=True)
+    gameday_is_closed = serializers.BooleanField(source='gameday.is_closed', read_only=True)
 
     class Meta:
         model = Match
         fields = ['id', 'date', 'location', 'modality', 'modality_display',
-                  'gameday', 'gameday_location', 'gameday_date', 'notes', 'created_by_name', 'match_teams', 'created_at']
+                  'gameday', 'gameday_location', 'gameday_date', 'gameday_time', 'gameday_is_closed',
+                  'notes', 'created_by_name', 'match_teams', 'created_at']
 
 
 class MatchWriteSerializer(serializers.ModelSerializer):

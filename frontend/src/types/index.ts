@@ -615,6 +615,11 @@ export interface Match {
   modality: Modality;
   modality_display: string;
   gameday?: number;
+  /** Circuito da partida (vêm na lista de jogos; ausentes na partida avulsa) */
+  gameday_date?: string;
+  gameday_time?: string | null;
+  gameday_location?: string | null;
+  gameday_is_closed?: boolean;
   team_generation?: number;
   notes?: string;
   created_by?: number;
