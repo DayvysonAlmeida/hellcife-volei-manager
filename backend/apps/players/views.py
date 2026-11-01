@@ -47,9 +47,8 @@ STREAK_LOOKBACK = 30  # partidas recentes olhadas para a sequência de vitórias
 
 class PlayerViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_class = PlayerFilter
-    search_fields = ['name', 'nickname', 'shirt_number']
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = PlayerFilter  # inclui a busca (?search=): sem acento, camisa exata e WhatsApp para a staff
     ordering_fields = ['name', 'shirt_number', 'created_at', 'annotated_overall', 'main_position']
     ordering = ['name']
 

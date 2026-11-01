@@ -24,6 +24,8 @@ import { cn } from '@/lib/utils';
 import { isAdmin } from '@/lib/roles';
 
 const PAGE_SIZE = 24;
+// Filtros com altura fixa: sem o py-3 do input-glass, que cortava o texto embaixo
+const FILTER_CLASS = 'input-glass h-10 py-0 px-3 sm:px-4 text-xs sm:text-sm';
 
 export function PlayersPage() {
   const { user } = useAuth();
@@ -35,6 +37,8 @@ export function PlayersPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [guestFilter, setGuestFilter] = useState(''); // 'false' para oficiais, 'true' para convidados
   const [incompleteFilter, setIncompleteFilter] = useState(''); // 'true': sem CPF ou sem WhatsApp
+  const [genderFilter, setGenderFilter] = useState('');
+  const [accountFilter, setAccountFilter] = useState(''); // 'true': tem conta no app; 'false': ainda não
   const [ordering, setOrdering] = useState('name');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [page, setPage] = useState(1);
@@ -95,14 +99,23 @@ export function PlayersPage() {
     setPage(1);
   };
 
+  const hasFilters = !!(search || positionFilter || statusFilter || guestFilter || incompleteFilter || genderFilter || accountFilter);
+  const clearFilters = () => {
+    [setSearch, setPositionFilter, setStatusFilter, setGuestFilter, setIncompleteFilter, setGenderFilter, setAccountFilter]
+      .forEach((setter) => setter(''));
+    setPage(1);
+  };
+
   const { data, isLoading } = useQuery({
-    queryKey: ['players', debouncedSearch, positionFilter, statusFilter, guestFilter, incompleteFilter, ordering, page],
+    queryKey: ['players', debouncedSearch, positionFilter, statusFilter, guestFilter, incompleteFilter, genderFilter, accountFilter, ordering, page],
     queryFn: () => playersService.list({
       search: debouncedSearch || undefined,
       main_position: positionFilter || undefined,
       status: statusFilter || undefined,
       is_guest: guestFilter || undefined,
       incomplete: incompleteFilter || undefined,
+      gender: genderFilter || undefined,
+      has_account: accountFilter || undefined,
       ordering: ordering || undefined,
       page,
       page_size: PAGE_SIZE,
@@ -181,7 +194,7 @@ export function PlayersPage() {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
                 type="text"
-                placeholder="Buscar atleta pelo nome..."
+                placeholder={canEdit ? 'Buscar por nome, apelido, camisa ou WhatsApp...' : 'Buscar por nome, apelido ou camisa...'}
                 value={search}
                 onChange={handleSearchChange}
                 className="input-glass pl-9 h-10 w-full"
@@ -193,7 +206,7 @@ export function PlayersPage() {
                 onClick={() => setShowMobileFilters(!showMobileFilters)}
                 className="btn-secondary h-10 px-3 md:hidden flex items-center justify-center gap-2"
               >
-                <Filter size={16} className={showMobileFilters ? "text-red" : ""} />
+                <Filter size={16} className={showMobileFilters || hasFilters ? "text-red" : ""} />
               </button>
               
               <div className="hidden md:flex items-center gap-1 bg-surface rounded-lg p-1 border border-border h-10">
@@ -222,17 +235,19 @@ export function PlayersPage() {
             <select
               value={ordering}
               onChange={handleFilterChange(setOrdering)}
-              className="input-glass h-10 text-xs sm:text-sm"
+              className={FILTER_CLASS}
             >
               <option value="name">Ordem Alfabética</option>
               <option value="-annotated_overall">Maior Overall</option>
               <option value="main_position">Posição</option>
+              <option value="-created_at">Mais recentes</option>
+              <option value="shirt_number">Nº da camisa</option>
             </select>
 
             <select
               value={guestFilter}
               onChange={handleFilterChange(setGuestFilter)}
-              className="input-glass h-10 text-xs sm:text-sm"
+              className={FILTER_CLASS}
             >
               <option value="">Todos (Ofic. + Conv.)</option>
               <option value="false">Apenas Oficiais</option>
@@ -242,7 +257,7 @@ export function PlayersPage() {
             <select
               value={positionFilter}
               onChange={handleFilterChange(setPositionFilter)}
-              className="input-glass h-10 text-xs sm:text-sm"
+              className={FILTER_CLASS}
             >
               <option value="">Todas Posições</option>
               <option value="outside">Ponteiro</option>
@@ -256,7 +271,7 @@ export function PlayersPage() {
             <select
               value={statusFilter}
               onChange={handleFilterChange(setStatusFilter)}
-              className="input-glass h-10 text-xs sm:text-sm"
+              className={FILTER_CLASS}
             >
               <option value="">Todos Status</option>
               <option value="active">Ativos</option>
@@ -269,12 +284,43 @@ export function PlayersPage() {
             <select
               value={incompleteFilter}
               onChange={handleFilterChange(setIncompleteFilter)}
-              className="input-glass h-10 text-xs sm:text-sm"
+              className={FILTER_CLASS}
               aria-label="Situação do cadastro"
             >
               <option value="">Todos os cadastros</option>
               <option value="true">Dados incompletos</option>
             </select>
+
+            <select
+              value={genderFilter}
+              onChange={handleFilterChange(setGenderFilter)}
+              className={FILTER_CLASS}
+              aria-label="Gênero"
+            >
+              <option value="">Todos os gêneros</option>
+              {GENDER_ORDER.map((g) => <option key={g} value={g}>{GENDER_LABELS[g]}</option>)}
+            </select>
+
+            {/* Quem ainda não tem conta no app: a staff manda o convite */}
+            <select
+              value={accountFilter}
+              onChange={handleFilterChange(setAccountFilter)}
+              className={FILTER_CLASS}
+              aria-label="Acesso ao app"
+            >
+              <option value="">Conta no app</option>
+              <option value="true">Com conta no app</option>
+              <option value="false">Sem conta no app</option>
+            </select>
+
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                className={cn(FILTER_CLASS, 'flex items-center justify-center gap-1.5 text-text-muted hover:text-red')}
+              >
+                <X size={14} /> Limpar filtros
+              </button>
+            )}
 
             {/* View Mode Mobile Only */}
             <div className="flex md:hidden items-center justify-between col-span-2 mt-2 gap-2">
