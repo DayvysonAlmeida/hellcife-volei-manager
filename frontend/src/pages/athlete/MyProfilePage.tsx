@@ -9,6 +9,7 @@ import { TrophyRoom } from '@/components/profile/TrophyRoom';
 import { EloHistoryCard } from '@/components/elo/EloHistoryCard';
 import api from '@/lib/api';
 import { formatDate, cn } from '@/lib/utils';
+import { ABSENCE_LIMIT, ABSENCE_WARNING } from '@/lib/absences';
 import { SKILL_LABELS, type EvaluationSkills, type PlayerStats } from '@/types';
 
 // Nomes curtos no radar: os completos ("Condicionamento", "Posicionamento") ficavam cortados no celular
@@ -124,15 +125,15 @@ export function MyProfilePage() {
         </Link>
       </section>
 
-      {player.consecutive_absences >= 8 && (
+      {player.consecutive_absences >= ABSENCE_WARNING && (
         <div className="flex items-start gap-3 rounded-2xl border border-red/40 bg-red/10 p-4">
           <AlertTriangle size={20} className="text-red flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm font-bold text-text-primary">{player.consecutive_absences} faltas seguidas na quadra</p>
             <div className="mt-2 h-1.5 rounded-full bg-black/20 overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-600" style={{ width: `${Math.min((player.consecutive_absences / 10) * 100, 100)}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-600" style={{ width: `${Math.min((player.consecutive_absences / ABSENCE_LIMIT) * 100, 100)}%` }} />
             </div>
-            <p className="text-xs text-text-muted mt-1.5">Com 10 faltas seguidas sem check-in na quadra, o cadastro é inativado automaticamente.</p>
+            <p className="text-xs text-text-muted mt-1.5">Com {ABSENCE_LIMIT} faltas seguidas sem check-in na quadra, o cadastro é inativado automaticamente.</p>
           </div>
         </div>
       )}

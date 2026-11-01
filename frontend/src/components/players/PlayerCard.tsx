@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { POSITION_LABELS } from '@/types';
 import type { Player } from '@/types';
 import { getOverallColor } from '@/lib/utils';
+import { ABSENCE_WARNING } from '@/lib/absences';
 
 function CardWrapper({ linkTo, children }: { linkTo: string | null; children: ReactNode }) {
   if (!linkTo) return <div className="block w-full">{children}</div>;
@@ -29,7 +30,7 @@ export const PlayerCard = memo(function PlayerCard({ player, idx, canEdit, canDe
   const navigate = useNavigate();
 
   const isInactive = player.status === 'inactive' || player.status === 'suspended';
-  const hasAbsenceRisk = player.consecutive_absences >= 8 && player.status === 'active';
+  const hasAbsenceRisk = player.consecutive_absences >= ABSENCE_WARNING && player.status === 'active';
 
   // ── Elo Tier → Estilo LoL ──────────────────────────────────────────────────
   const eloTierStyles: Record<string, {

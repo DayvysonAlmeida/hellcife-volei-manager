@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Avatar } from "@/components/ui/Avatar";
 import { ChevronDown, ChevronUp, Calendar, MapPin, AlertTriangle, X } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { ABSENCE_LIMIT, ABSENCE_WARNING } from "@/lib/absences";
 import type { Attendance } from "@/types";
 
 export interface PlayerAbsenceRowProps {
@@ -18,8 +19,8 @@ export function PlayerAbsenceRow({ playerId, playerName, playerAvatar, absences,
   const [justifyingId, setJustifyingId] = useState<number | null>(null);
   const [justifyText, setJustifyText] = useState("");
 
-  const isAtRisk = consecutiveAbsences >= 8;
-  const isInactive = consecutiveAbsences >= 10;
+  const isAtRisk = consecutiveAbsences >= ABSENCE_WARNING;
+  const isInactive = consecutiveAbsences >= ABSENCE_LIMIT;
   const sortedAbsences = [...absences].sort((a, b) => b.gameday - a.gameday);
 
   return (

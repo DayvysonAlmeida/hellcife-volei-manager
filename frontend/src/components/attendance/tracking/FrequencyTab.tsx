@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { PlayerFrequencyRow } from "./PlayerFrequencyRow";
+import { ABSENCE_LIMIT, ABSENCE_WARNING } from "@/lib/absences";
 import type { Player } from "@/types";
 
 interface FrequencyTabProps {
@@ -28,18 +29,18 @@ export function FrequencyTab({ players, allTrackedPlayers, safePlayers }: Freque
             </p>
             <div className="flex items-center gap-4 mt-4">
               <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-orange-500 bg-orange-500/10 px-2.5 py-1 rounded-md border border-orange-500/20">
-                8 Ausências = Alerta
+                {ABSENCE_WARNING} Ausências = Alerta
               </span>
               <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red bg-red/10 px-2.5 py-1 rounded-md border border-red/20">
-                10 Ausências = Inativação
+                {ABSENCE_LIMIT} Ausências = Inativação
               </span>
             </div>
           </div>
           
           <div className="bg-surface p-4 rounded-xl border border-border min-w-[200px] text-center shadow-inner">
-            <p className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Jogadores em Risco (8+)</p>
+            <p className="text-[10px] text-text-muted font-black uppercase tracking-widest mb-1">Jogadores em Risco ({ABSENCE_WARNING}+)</p>
             <p className="text-4xl font-display text-orange-500">
-              {players.filter(p => p.consecutive_absences >= 8 && p.status === 'active').length}
+              {players.filter(p => p.consecutive_absences >= ABSENCE_WARNING && p.status === 'active').length}
             </p>
           </div>
         </div>

@@ -1,14 +1,15 @@
 import { Link } from "react-router-dom";
 import { Avatar } from "@/components/ui/Avatar";
 import type { Player } from "@/types";
+import { ABSENCE_LIMIT, ABSENCE_WARNING } from "@/lib/absences";
 
 export function PlayerFrequencyRow({ player }: { player: Player }) {
   const absences = player.consecutive_absences;
-  const isWarning = absences >= 8 && absences < 10;
-  const isDanger = absences >= 10;
+  const isWarning = absences >= ABSENCE_WARNING && absences < ABSENCE_LIMIT;
+  const isDanger = absences >= ABSENCE_LIMIT;
   
-  // Create an array of 10 blocks for the visual tracker
-  const blocks = Array.from({ length: 10 }, (_, i) => i + 1);
+  // Um bloco por falta, até a inativação
+  const blocks = Array.from({ length: ABSENCE_LIMIT }, (_, i) => i + 1);
 
   return (
     <div className={`flex flex-col md:flex-row md:items-center justify-between p-4 gap-4 transition-colors hover:bg-surface-highlight ${isDanger ? 'bg-red/5' : isWarning ? 'bg-orange-500/5' : ''}`}>
@@ -30,21 +31,21 @@ export function PlayerFrequencyRow({ player }: { player: Player }) {
       <div className="flex-1 flex flex-col items-start md:items-center justify-center max-w-md w-full">
         <div className="flex items-center justify-between w-full mb-1.5 px-1">
           <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
-            {isDanger ? 'Inativado (10+)' : isWarning ? 'Em Risco (8+)' : 'Contagem'}
+            {isDanger ? `Inativado (${ABSENCE_LIMIT}+)` : isWarning ? `Em Risco (${ABSENCE_WARNING}+)` : 'Contagem'}
           </span>
           <span className={`text-xs font-black ${isDanger ? 'text-red' : isWarning ? 'text-orange-500' : 'text-text-primary'}`}>
-            {absences} / 10
+            {absences} / {ABSENCE_LIMIT}
           </span>
         </div>
         
-        <div className="flex w-full h-2.5 gap-1">
+        <div className="flex w-full h-2.5 gap-0.5">
           {blocks.map(num => {
             const isFilled = num <= absences;
             let bgColor = "bg-surface-hover border-border/50";
             
             if (isFilled) {
-              if (num >= 10) bgColor = "bg-red border-red shadow-[0_0_8px_rgba(239,68,68,0.5)]";
-              else if (num >= 8) bgColor = "bg-orange-500 border-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]";
+              if (num >= ABSENCE_LIMIT) bgColor = "bg-red border-red shadow-[0_0_8px_rgba(239,68,68,0.5)]";
+              else if (num >= ABSENCE_WARNING) bgColor = "bg-orange-500 border-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]";
               else bgColor = "bg-primary border-primary/80";
             }
             

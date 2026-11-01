@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 from apps.core.models import User
 from apps.core.testing import CacheIsolatedTestCase as TestCase  # limite de tentativas: cache limpo a cada teste
 from apps.players.models import Player
+from .frequency import ABSENCE_INACTIVATION_LIMIT as LIMIT
 from .models import Attendance, AttendancePayment, GameDay
 
 BASE = '/api/attendance/gamedays'
@@ -625,7 +626,7 @@ class InactiveAndReactivationTests(CircuitApiTestCase):
         self.assertEqual(self.p1.status, 'active')
 
     def test_reactivation_by_court_survives_recalculation(self):
-        self.past_absences(12)
+        self.past_absences(LIMIT + 2)
         self.sync()
         self.assertEqual(self.p1.status, 'inactive')
         gd = self.make_gameday(date=date.today())  # circuito de hoje, ainda aberto
@@ -643,8 +644,8 @@ class InactiveAndReactivationTests(CircuitApiTestCase):
         self.assertEqual(self.p1.status, 'inactive')
 
     def test_old_streak_does_not_inactivate_who_came_back(self):
-        """Chegou a 10 faltas no passado, voltou a jogar e tem 2 faltas agora: continua ativo."""
-        for d in range(15, 1, -1):
+        """Chegou ao limite de faltas no passado, voltou a jogar e tem 2 faltas agora: continua ativo."""
+        for d in range(LIMIT + 6, 1, -1):
             gd = GameDay.objects.create(date=date.today() - timedelta(days=d), is_closed=True, is_published=True)
             self.CourtCheckin.objects.create(gameday=gd, player=self.witness)
             if d in (5, 4):
@@ -653,13 +654,19 @@ class InactiveAndReactivationTests(CircuitApiTestCase):
         self.assertEqual(self.p1.status, 'active')
         self.assertEqual(self.p1.consecutive_absences, 2)
 
-    def test_ten_current_absences_inactivate(self):
-        self.past_absences(10)
+    def test_limit_of_current_absences_inactivates(self):
+        self.past_absences(LIMIT)
         self.sync()
         self.assertEqual(self.p1.status, 'inactive')
 
+    def test_one_absence_below_limit_stays_active(self):
+        self.past_absences(LIMIT - 1)
+        self.sync()
+        self.assertEqual(self.p1.status, 'active')
+        self.assertEqual(self.p1.consecutive_absences, LIMIT - 1)
+
     def test_admin_reactivation_survives_recalculation(self):
-        self.past_absences(12)
+        self.past_absences(LIMIT + 2)
         self.sync()
         self.assertEqual(self.p1.status, 'inactive')
         self.client.force_authenticate(self.admin)

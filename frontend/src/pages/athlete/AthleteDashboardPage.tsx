@@ -12,6 +12,7 @@ import { NextCircuitCard } from '@/components/athlete/home/NextCircuitCard';
 import { RankingTabs } from '@/components/athlete/home/RankingTabs';
 import api from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { ABSENCE_LIMIT, ABSENCE_WARNING } from '@/lib/absences';
 import type { DashboardStats, PlayerStats } from '@/types';
 import { OnboardingCard } from '@/components/athlete/home/OnboardingCard';
 
@@ -182,12 +183,12 @@ export function AthleteDashboardPage() {
       </section>
 
       {/* ── Alertas ── */}
-      {player && player.consecutive_absences >= 8 && (
+      {player && player.consecutive_absences >= ABSENCE_WARNING && (
         <div className="flex items-start gap-3 rounded-2xl border border-red/40 bg-red/10 p-4">
           <AlertTriangle size={20} className="text-red flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-text-primary">{player.consecutive_absences} faltas seguidas na quadra</p>
-            <p className="text-xs text-text-muted mt-0.5">Com 10 faltas seguidas sem check-in na quadra, o cadastro é inativado automaticamente.</p>
+            <p className="text-xs text-text-muted mt-0.5">Com {ABSENCE_LIMIT} faltas seguidas sem check-in na quadra, o cadastro é inativado automaticamente.</p>
           </div>
         </div>
       )}

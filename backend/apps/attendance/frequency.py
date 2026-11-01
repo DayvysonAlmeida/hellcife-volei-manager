@@ -10,6 +10,9 @@ from django.utils import timezone
 
 from .models import Attendance, GameDay
 
+# Faltas seguidas que inativam o atleta (o app usa o mesmo número em frontend/src/lib/absences.ts)
+ABSENCE_INACTIVATION_LIMIT = 25
+
 
 def circuit_happened(gameday, today) -> bool:
     """Circuito que conta para faltas e presença. Espera court_checkins pré-carregado."""

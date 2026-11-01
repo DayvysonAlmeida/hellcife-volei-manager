@@ -9,7 +9,7 @@ from django.utils import timezone
 from .models import GameDay, Attendance, AttendancePayment, CourtCheckin
 from .payments import CircuitPaymentService
 from . import finance
-from .frequency import circuit_days, circuit_happened, frequency
+from .frequency import ABSENCE_INACTIVATION_LIMIT, circuit_days, circuit_happened, frequency
 from .serializers import GameDaySerializer, GameDayListSerializer, AttendanceSerializer, BulkAttendanceSerializer, CourtCheckinSerializer
 from apps.players.models import Player
 from apps.core.permissions import IsAdminOrModerator, IsAdminUser, is_staff_profile
@@ -1127,9 +1127,9 @@ def sync_absences_logic():
                 # Não foi na quadra (ou não se inscreveu ou deu no-show)
                 p.consecutive_absences += 1
 
-    # Inativa só por faltas seguidas atuais: quem chegou a 10 no passado e voltou a jogar continua ativo
+    # Inativa só por faltas seguidas atuais: quem chegou ao limite no passado e voltou a jogar continua ativo
     for p in players_qs:
-        if p.status == 'active' and p.consecutive_absences >= 10:
+        if p.status == 'active' and p.consecutive_absences >= ABSENCE_INACTIVATION_LIMIT:
             p.status = 'inactive'
 
     if attendances_to_update:

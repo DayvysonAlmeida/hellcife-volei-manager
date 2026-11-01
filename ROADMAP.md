@@ -59,7 +59,7 @@
 - [x] useEffect não usado em AttendancePage
 - [x] handleEditLimit não utilizado
 - [x] ALLOWED_HOSTS no Cloud Run
-- [x] Limite de 10 faltas: regra alinhada — backend inativa com >=10, alerta visual a partir de >=8 como aviso antecipado
+- [x] Limite de 25 faltas: regra alinhada — backend inativa com >=25, alerta visual a partir de >=20 como aviso antecipado (antes: 10 e 8)
 - [x] Otimizar queries no DashboardPage (validar N+1 queries no endpoint do dashboard)
 - [x] `perform_update` duplicado no `GameDayViewSet`: unificado; encerrar o circuito recalcula as faltas
 

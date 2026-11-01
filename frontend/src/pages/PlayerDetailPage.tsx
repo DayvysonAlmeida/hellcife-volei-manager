@@ -13,6 +13,7 @@ import { playersService } from '@/services/players';
 import { evaluationsService } from '@/services';
 import { SKILL_LABELS } from '@/types';
 import { formatDate, cn } from '@/lib/utils';
+import { ABSENCE_LIMIT, ABSENCE_WARNING } from '@/lib/absences';
 import { useAuth } from '@/store/AuthContext';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -223,16 +224,16 @@ export function PlayerDetailPage() {
       <TrophyRoom player={player} showEmptyHint />
 
       {/* ── Faltas Consecutivas ── */}
-      {player.consecutive_absences >= 8 && (
+      {player.consecutive_absences >= ABSENCE_WARNING && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className={cn("mt-2 flex items-start gap-3 p-4 rounded-[24px] border backdrop-blur-sm", 
-            player.consecutive_absences >= 8 ? "bg-red/20 border-red/40 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-[pulse_2s_ease-in-out_infinite]" : "bg-orange-500/10 border-orange-500/30 text-orange-200"
+            player.consecutive_absences >= ABSENCE_WARNING ? "bg-red/20 border-red/40 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-[pulse_2s_ease-in-out_infinite]" : "bg-orange-500/10 border-orange-500/30 text-orange-200"
           )}
         >
-          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", player.consecutive_absences >= 8 ? "bg-red/20" : "bg-orange-500/10")}>
-            <Flame size={20} className={player.consecutive_absences >= 8 ? "text-red" : "text-orange-400"} />
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0", player.consecutive_absences >= ABSENCE_WARNING ? "bg-red/20" : "bg-orange-500/10")}>
+            <Flame size={20} className={player.consecutive_absences >= ABSENCE_WARNING ? "text-red" : "text-orange-400"} />
           </div>
           <div className="flex-1">
             <p className="text-text-primary font-bold text-sm tracking-wide">
@@ -242,10 +243,10 @@ export function PlayerDetailPage() {
             <div className="mt-2 h-1.5 rounded-full bg-black/50 overflow-hidden border border-white/5">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-orange-400 to-red-600 transition-all duration-700 shadow-[0_0_8px_rgba(239,68,68,0.8)]"
-                style={{ width: `${Math.min((player.consecutive_absences / 10) * 100, 100)}%` }}
+                style={{ width: `${Math.min((player.consecutive_absences / ABSENCE_LIMIT) * 100, 100)}%` }}
               />
             </div>
-            <p className={cn("text-xs mt-1.5", player.consecutive_absences >= 8 ? "text-red-300 font-bold" : "text-text-muted")}>{player.consecutive_absences}/10 para inativação</p>
+            <p className={cn("text-xs mt-1.5", player.consecutive_absences >= ABSENCE_WARNING ? "text-red-300 font-bold" : "text-text-muted")}>{player.consecutive_absences}/{ABSENCE_LIMIT} para inativação</p>
           </div>
         </motion.div>
       )}
