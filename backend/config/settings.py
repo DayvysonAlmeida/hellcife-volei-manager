@@ -11,7 +11,9 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me')
-DEBUG = config('DEBUG', default=True, cast=bool)
+# O Cloud Run define K_SERVICE em todo container: lá, sem a variável DEBUG, o debug fica desligado.
+# Na máquina, no Docker dos testes e no CI o padrão continua True.
+DEBUG = config('DEBUG', default=not os.environ.get('K_SERVICE'), cast=bool)
 
 # Segurança: em produção a SECRET_KEY padrão (insegura) nunca pode ser usada
 if not DEBUG and SECRET_KEY == 'django-insecure-change-me':
@@ -94,6 +96,16 @@ DATABASES = {
         conn_max_age=600,
         conn_health_checks=True,
     )
+}
+
+# Cache no próprio banco: os limites de tentativas e o painel valem para todas as instâncias do Cloud Run
+# e não zeram quando o container hiberna. A tabela é criada pela migração core/0004_cache_table.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache',
+        'OPTIONS': {'MAX_ENTRIES': 10_000},
+    }
 }
 
 AUTH_PASSWORD_VALIDATORS = [

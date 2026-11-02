@@ -134,7 +134,7 @@ Configure as seguintes variáveis no console do Cloud Run (ou via `gcloud`):
 | Variável | Descrição |
 |---|---|
 | `SECRET_KEY` | Chave secreta do Django |
-| `DEBUG` | `False` em produção |
+| `DEBUG` | `False` em produção. Se faltar, o Cloud Run já assume `False` (fora dele o padrão é `True`) |
 | `DATABASE_URL` | Connection string do PostgreSQL (ex: Neon DB) |
 | `ALLOWED_HOSTS` | Domínios permitidos (ex: `localhost`) |
 | `CLOUDRUN_SERVICE_URL` | URL completa do serviço (ex: `https://seu-servico-xxxx.run.app`) |
