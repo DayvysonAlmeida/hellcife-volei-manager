@@ -179,6 +179,12 @@ gcloud run deploy hellcife-backend \
 
 > **Nota:** As migrações do banco de dados são executadas automaticamente na inicialização do container (`python manage.py migrate_with_lock`, no `CMD` do Dockerfile). O comando usa uma trava no PostgreSQL, então vários containers subindo juntos não aplicam a mesma migração ao mesmo tempo.
 
+### Verificação de saúde
+
+`GET /api/health/` responde `{"status": "ok", "revision": "..."}` sem login. O `revision` é a versão do Cloud Run que está no ar e mostra se o deploy novo já está atendendo. Esse modo não toca no banco: use-o em monitores externos (UptimeRobot, Cloud Monitoring).
+
+`GET /api/health/?db=1` também consulta o PostgreSQL e devolve `503` se o banco não responder. Use para conferir na mão: o Neon dorme sem uso e cobra pelo tempo acordado, e um monitor batendo nesse modo a cada poucos minutos o manteria acordado.
+
 ### Variáveis do Frontend (Vercel)
 
 | Variável | Descrição |
