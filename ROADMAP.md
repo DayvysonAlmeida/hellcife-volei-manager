@@ -47,7 +47,7 @@
 - [x] Atualizar README.md
 - [x] Remover arquivos obsoletos do Render (render.yaml, Procfile, build.sh)
 - [x] Criar .env.example com todas as variáveis necessárias (incluindo EXTRA_CREDIT_UNIT_PRICE)
-- [ ] Configurar CI/CD (GitHub Actions)
+- [x] Configurar CI (GitHub Actions); o deploy já é automático pela Vercel e pelo Cloud Build
 - [ ] Health Check endpoint (/api/health/) para o Cloud Run
 - [x] Remover/mover arquivos de debug da raiz (debug_absences.py, test_api.py, test_rank.py, test_stats_rank.py)
 

@@ -33,7 +33,7 @@ O sistema está dividido em vários módulos no backend que refletem as funciona
 - **PWA**: Vite PWA Plugin (instalável como aplicativo)
 
 ### Backend
-- **Framework**: Django 5.1 + Django REST Framework (DRF)
+- **Framework**: Django 5.2 LTS + Django REST Framework (DRF)
 - **Linguagem**: Python 3.11
 - **Banco de Dados**: SQLite (Desenvolvimento) / PostgreSQL via psycopg2 (Produção)
 - **Autenticação**: SimpleJWT (JSON Web Tokens)
@@ -104,6 +104,8 @@ docker compose -f backend/docker-compose.test.yml down   # desliga o banco de te
 ```
 
 O container usa o mesmo Python e o mesmo driver da produção, e o banco fica só em memória.
+
+O GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda os testes do backend em PostgreSQL e o lint e o build do frontend a cada push no `v2.0` e na `main`. Como a `main` publica sozinha em produção, só mescle nela com o CI verde.
 
 ### 2. Frontend (React/Vite)
 

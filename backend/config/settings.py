@@ -260,12 +260,3 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-# Monkey patch para corrigir erro do Django 5.1 no Python 3.14 (BaseContext.__copy__)
-from django.template.context import BaseContext
-def base_context_copy(self):
-    duplicate = type(self).__new__(type(self))
-    duplicate.__dict__.update(self.__dict__)
-    duplicate.dicts = self.dicts[:]
-    return duplicate
-BaseContext.__copy__ = base_context_copy
