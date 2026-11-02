@@ -253,7 +253,7 @@ export function AttendancePage() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['gameday', selectedGameDay?.id] });
       qc.invalidateQueries({ queryKey: ['gamedays'] });
-      toast.success(data.is_published ? 'Circuito publicado! Agora os atletas podem vê-lo.' : 'Circuito ocultado. Apenas admins podem vê-lo.');
+      toast.success(data.is_published ? 'Circuito publicado! Agora os atletas podem vê-lo.' : 'Circuito ocultado. Só a staff vê.');
     },
     onError: () => {
       toast.error('Erro ao alterar visibilidade.');
@@ -497,7 +497,8 @@ export function AttendancePage() {
                     onClick={() => {
                       const url = `${window.location.origin}/checkin/${gameDayDetail.id}`;
                       navigator.clipboard.writeText(url);
-                      toast.success('Link de check-in copiado!');
+                      if (gameDayDetail.is_published) toast.success('Link de check-in copiado!');
+                      else toast('Link copiado, mas o circuito está oculto: ele só abre depois de publicar.', { icon: '⚠️', duration: 6000 });
                     }}
                     className="text-[10px] bg-red/10 hover:bg-red/20 hover:shadow-[0_0_15px_rgba(217,4,41,0.2)] text-red border border-red/20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all font-black uppercase tracking-widest"
                   >

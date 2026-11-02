@@ -182,7 +182,7 @@ export function CheckinPage() {
         <div className="card p-8 text-center max-w-sm w-full">
           <CalendarCheck size={48} className="text-red mx-auto mb-4 opacity-50" />
           <h1 className="text-xl font-bold text-text-primary mb-2">Circuito não encontrado</h1>
-          <p className="text-text-muted">Verifique se o link está correto.</p>
+          <p className="text-text-muted">O link pode estar errado ou o circuito ainda não foi publicado. Confira o link ou fale com a organização.</p>
         </div>
       </div>
     );

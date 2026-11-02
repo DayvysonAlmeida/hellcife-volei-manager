@@ -417,6 +417,71 @@ class NewAthleteSyncTests(CircuitApiTestCase):
         self.assertNotIn(novo.id, self.listed(gd))
 
 
+class HiddenCircuitTests(CircuitApiTestCase):
+    """Circuito oculto só existe para a staff: atleta e link do grupo recebem 404 e ninguém se inscreve."""
+
+    def setUp(self):
+        super().setUp()
+        self.moderator = User.objects.create_user('mod@x.com', 'senha-forte-123', name='Mod', profile='moderator')
+        self.hidden = self.make_gameday(is_published=False)
+        self.published = self.make_gameday()
+
+    def client_for(self, user=None):
+        client = APIClient()
+        if user:
+            client.force_authenticate(user)
+        return client
+
+    def listed_ids(self, user, url=f'{BASE}/'):
+        response = self.client_for(user).get(url)
+        self.assertEqual(response.status_code, 200)
+        return {row['id'] for row in response.data['results']}
+
+    def test_athlete_list_skips_hidden_even_without_the_filter(self):
+        ids = self.listed_ids(self.athlete_user)
+        self.assertIn(self.published.id, ids)
+        self.assertNotIn(self.hidden.id, ids)
+
+    def test_athlete_and_group_link_get_404(self):
+        athlete = self.client_for(self.athlete_user)
+        self.assertEqual(athlete.get(f'{BASE}/{self.hidden.id}/').status_code, 404)
+        self.assertEqual(athlete.get(f'{BASE}/{self.hidden.id}/checkin-info/').status_code, 404)
+        self.assertEqual(self.client_for().get(f'{BASE}/{self.hidden.id}/checkin-info/').status_code, 404)
+        self.assertEqual(self.client_for().get(f'{BASE}/{self.published.id}/checkin-info/').status_code, 200)
+
+    def test_checkin_is_404_and_signs_nobody_up(self):
+        for player in (self.p1, self.p2):  # Ana logada no app, Bia pelo link do grupo
+            self.assertEqual(self.checkin(self.hidden, player).status_code, 404)
+            att = self.att(self.hidden, player)
+            self.assertFalse(att.present or att.is_waitlist or att.is_reserved)
+
+    def test_cancel_claim_and_guest_are_404(self):
+        athlete = self.client_for(self.athlete_user)
+        for action, extra in (('cancel-checkin', {}), ('claim-payment', {}), ('public-add-guest', {'name': 'Visitante'})):
+            response = athlete.post(f'{BASE}/{self.hidden.id}/{action}/', {'player_id': self.p1.id, **extra}, format='json')
+            self.assertEqual(response.status_code, 404, action)
+        self.assertFalse(Player.objects.filter(name='Visitante').exists())
+
+    def test_staff_still_sees_and_opens_it(self):
+        for user in (self.admin, self.moderator):
+            self.assertIn(self.hidden.id, self.listed_ids(user))
+            staff = self.client_for(user)
+            self.assertEqual(staff.get(f'{BASE}/{self.hidden.id}/').status_code, 200)
+            self.assertEqual(staff.get(f'{BASE}/{self.hidden.id}/checkin-info/').status_code, 200)
+
+    def test_publishing_opens_it_to_athletes(self):
+        GameDay.objects.filter(pk=self.hidden.pk).update(is_published=True)
+        self.assertIn(self.hidden.id, self.listed_ids(self.athlete_user))
+        self.assertEqual(self.checkin(self.hidden, self.p1).status_code, 200)
+
+    def test_athlete_records_skip_hidden_circuits(self):
+        response = self.client_for(self.athlete_user).get('/api/attendance/records/')
+        gamedays = {row['gameday'] for row in response.data['results']}
+        self.assertEqual(gamedays, {self.published.id})
+        staff_rows = self.client_for(self.admin).get(f'/api/attendance/records/?gameday={self.hidden.id}').data['results']
+        self.assertEqual(len(staff_rows), 3)
+
+
 class AbsenceSyncTests(TestCase):
     """Contagem de faltas consecutivas: Ponto de Reset do admin e falta justificada."""
 

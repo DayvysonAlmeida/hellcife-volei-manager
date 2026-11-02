@@ -115,6 +115,9 @@ class GameDayViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = GameDay.objects.all()
+        if not is_staff_profile(self.request.user):
+            # Circuito oculto só existe para a staff: atleta e link do grupo recebem 404 (lista, detalhe, inscrição e pagamento)
+            qs = qs.filter(is_published=True)
         if self.request.query_params.get('active_only') == 'true':
             # Tolerância para madrugadas: circuitos de ontem se ainda for antes das 06:00
             now = timezone.localtime()
@@ -1151,8 +1154,8 @@ class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
         qs = super().get_queryset()
         if is_staff_profile(self.request.user):
             return qs
-        # Pagamentos e justificativas de falta: o atleta só vê os próprios registros
-        return qs.filter(player__user=self.request.user)
+        # Pagamentos e justificativas de falta: o atleta só vê os próprios registros, e só de circuito publicado
+        return qs.filter(player__user=self.request.user, gameday__is_published=True)
 
     @action(detail=True, methods=['post'], url_path='justify')
     def justify(self, request, pk=None):
