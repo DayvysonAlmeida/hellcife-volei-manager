@@ -1,0 +1,78 @@
+# Testes a cada push no v2.0 e na main, e em PR para a main.
+# A main publica sozinha (Vercel + Cloud Run): só mescle nela depois de o CI ficar verde no v2.0.
+name: CI
+
+on:
+  push:
+    branches: [main, v2.0]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Push novo no mesmo branch cancela a rodada anterior
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (Python 3.11 + Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: hellcife
+          POSTGRES_PASSWORD: hellcife
+          POSTGRES_DB: hellcife
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hellcife"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://hellcife:hellcife@localhost:5432/hellcife
+      DEBUG: "True"  # sem isso o Django liga o redirecionamento para HTTPS e os testes recebem 301
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"  # o mesmo da produção (backend/Dockerfile)
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Dependências
+        run: pip install -r requirements.txt
+      - name: Migração esquecida
+        run: python manage.py makemigrations --check --dry-run
+      - name: Testes
+        run: python manage.py test apps --noinput
+
+  frontend:
+    name: Frontend (lint, tipos e build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Dependências
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Tipos e build
+        run: npm run build
