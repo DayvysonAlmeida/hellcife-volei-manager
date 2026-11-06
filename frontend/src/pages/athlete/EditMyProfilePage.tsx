@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Camera, Eye, EyeOff, KeyRound, Loader2, Lock, Trash2 } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, KeyRound, Loader2, Lock } from 'lucide-react';
 import { PageLoading } from '@/components/ui/Loading';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/store/AuthContext';
@@ -14,7 +14,6 @@ import { GENDER_LABELS, GENDER_ORDER, HAND_LABELS, type DominantHand, type Gende
 const card = 'rounded-[28px] border border-border/30 bg-surface/70 p-5';
 const sectionTitle = 'font-display text-lg text-text-primary tracking-wider';
 const label = 'block text-xs font-bold uppercase tracking-wider text-text-secondary';
-const MAX_PHOTO = 5 * 1024 * 1024;
 const MIN_PASSWORD = 8;
 
 type Errors = Record<string, string | undefined>;
@@ -96,33 +95,12 @@ function ProfileForm({ player }: { player: Player }) {
     dominant_hand: player.dominant_hand,
   });
   const [cpf, setCpf] = useState('');  // informado uma vez; depois só a staff troca
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [removePhoto, setRemovePhoto] = useState(false);
-  const [preview, setPreview] = useState<string | undefined>();
   const [errors, setErrors] = useState<Errors>({});
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!photo) return setPreview(undefined);
-    const url = URL.createObjectURL(photo);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((f) => ({ ...f, [key]: value }));
     setErrors((e) => ({ ...e, [key]: undefined }));
-  };
-
-  const pickPhoto = (file?: File) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/') || file.size > MAX_PHOTO) {
-      setErrors((e) => ({ ...e, avatar: 'A foto precisa ser uma imagem de até 5 MB.' }));
-      return;
-    }
-    setErrors((e) => ({ ...e, avatar: undefined }));
-    setPhoto(file);
-    setRemovePhoto(false);
   };
 
   const validate = (): Errors => {
@@ -145,8 +123,6 @@ function ProfileForm({ player }: { player: Player }) {
       data.append(key, key === 'height' || key === 'weight' ? value.replace(',', '.') : value);
     });
     if (cpf) data.append('cpf', cpf);
-    if (photo) data.append('avatar', photo);
-    else if (removePhoto) data.append('remove_avatar', 'true');
 
     setSaving(true);
     try {
@@ -163,30 +139,16 @@ function ProfileForm({ player }: { player: Player }) {
     }
   };
 
-  const shownPhoto = preview ?? (removePhoto ? undefined : player.avatar_url);
-
   return (
     <form onSubmit={submit} className="space-y-6" noValidate>
       {errors.detail && <p className="rounded-2xl border border-red/30 bg-red/10 p-3 text-sm font-medium text-red">{errors.detail}</p>}
 
+      {/* Por enquanto a foto fica com a staff, para os cards seguirem o mesmo padrão: o atleta só vê */}
       <section className={cn(card, 'flex flex-col sm:flex-row items-center gap-5')}>
-        <Avatar name={form.name || player.name} src={shownPhoto} size="xl" className="!w-24 !h-24 shrink-0 ring-2 ring-red/40" />
+        <Avatar name={form.name || player.name} src={player.avatar_url} size="xl" className="!w-24 !h-24 shrink-0 ring-2 ring-red/40" />
         <div className="flex flex-col items-center sm:items-start gap-2 min-w-0">
           <h2 className={sectionTitle}>FOTO</h2>
-          <p className="text-xs text-text-muted text-center sm:text-left">Aparece no seu player card. Imagem de até 5 MB.</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <label className="btn-secondary cursor-pointer inline-flex items-center gap-2 text-sm">
-              <Camera size={16} /> {shownPhoto ? 'Trocar foto' : 'Escolher foto'}
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => pickPhoto(e.target.files?.[0])} />
-            </label>
-            {shownPhoto && (
-              <button type="button" onClick={() => { setPhoto(null); setRemovePhoto(true); }}
-                className="btn-ghost inline-flex items-center gap-2 text-sm text-text-muted hover:text-red">
-                <Trash2 size={16} /> Remover
-              </button>
-            )}
-          </div>
-          {errors.avatar && <p className="text-red text-xs font-medium">{errors.avatar}</p>}
+          <p className="text-xs text-text-muted text-center sm:text-left">A foto do seu card é colocada pela organização.</p>
         </div>
       </section>
 

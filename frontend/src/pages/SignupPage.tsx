@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, Camera, CheckCircle2, Eye, EyeOff, Loader2, MailCheck, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2, MailCheck, X } from 'lucide-react';
 import { signupService } from '@/services/signup';
 import { regulationService } from '@/services';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
@@ -43,7 +43,7 @@ const EMPTY: Form = {
   gender: '', main_position: '', secondary_position: '', age: '', height: '', instagram: '', accept_terms: false, website: '',
 };
 
-type Errors = Partial<Record<keyof Form | 'avatar' | 'detail', string>>;
+type Errors = Partial<Record<keyof Form | 'detail', string>>;
 
 /** Primeira mensagem de cada campo que a API recusou. */
 function apiErrors(data: unknown): Errors {
@@ -73,7 +73,6 @@ function Field({ id, label, required, error, hint, children }: {
 /** Cadastro de novos integrantes: confirma o e-mail e espera a aprovação da organização. */
 export function SignupPage() {
   const [form, setForm] = useState<Form>(EMPTY);
-  const [avatar, setAvatar] = useState<File | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [sending, setSending] = useState(false);
@@ -105,7 +104,6 @@ export function SignupPage() {
     if (form.phone.replace(/\D/g, '').length < 10) e.phone = 'Informe o WhatsApp com DDD.';
     if (!form.gender) e.gender = 'Escolha uma opção.';
     if (!form.main_position) e.main_position = 'Escolha a sua posição.';
-    if (avatar && avatar.size > 5 * 1024 * 1024) e.avatar = 'A foto precisa ter até 5 MB.';
     if (!form.accept_terms) e.accept_terms = 'Para se cadastrar, aceite o regulamento e o uso dos seus dados.';
     return e;
   };
@@ -120,7 +118,6 @@ export function SignupPage() {
     Object.entries(form).forEach(([key, value]) => {
       if (value !== '' && value !== null) data.append(key, String(value));
     });
-    if (avatar) data.append('avatar', avatar);
 
     setSending(true);
     try {
@@ -267,19 +264,7 @@ export function SignupPage() {
                 <Field id="signup-instagram" label="Instagram" error={errors.instagram}>
                   <input id="signup-instagram" className={authInput} placeholder="@seuperfil" value={form.instagram} onChange={(e) => set('instagram', e.target.value)} />
                 </Field>
-                <Field id="signup-avatar" label="Foto" error={errors.avatar} hint="Imagem de até 5 MB.">
-                  <label htmlFor="signup-avatar" className={cn(authInput, 'flex items-center gap-2 cursor-pointer text-gray-500 dark:text-white/50')}>
-                    <Camera size={16} className="shrink-0" />
-                    <span className="truncate">{avatar ? avatar.name : 'Escolher foto'}</span>
-                    {avatar && (
-                      <button type="button" onClick={(e) => { e.preventDefault(); setAvatar(null); }} className="ml-auto" aria-label="Tirar foto">
-                        <X size={14} />
-                      </button>
-                    )}
-                  </label>
-                  <input id="signup-avatar" type="file" accept="image/*" className="sr-only"
-                    onChange={(e) => { setAvatar(e.target.files?.[0] ?? null); setErrors((er) => ({ ...er, avatar: undefined })); }} />
-                </Field>
+                {/* Sem foto no cadastro por enquanto: a staff coloca depois, no padrão do time */}
               </section>
 
               <div className="space-y-1">
