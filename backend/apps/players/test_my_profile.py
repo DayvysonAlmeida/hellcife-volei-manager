@@ -94,6 +94,22 @@ class MyProfileTests(TestCase):
         with Image.open(self.player.avatar) as saved:
             self.assertEqual((saved.format, saved.size, saved.mode), ('WEBP', (1024, 683), 'RGBA'))
 
+    @override_settings(STORAGES=IN_MEMORY)
+    def test_iphone_heic_photo_becomes_upright_webp(self):
+        # Foto do iPhone: HEIC deitado, com a orientação no EXIF (6 = girar 90°)
+        import io
+        from PIL import Image
+        raw = io.BytesIO()
+        exif = Image.Exif()
+        exif[0x0112] = 6
+        Image.new('RGB', (1600, 1200), (200, 30, 30)).save(raw, 'HEIF', exif=exif.tobytes())
+        photo = SimpleUploadedFile('IMG_0001.HEIC', raw.getvalue(), content_type='image/heic')
+
+        self.assertEqual(self.client.patch(ME, {'avatar': photo}, format='multipart').status_code, 200)
+        self.player.refresh_from_db()
+        with Image.open(self.player.avatar) as saved:
+            self.assertEqual((saved.format, saved.size, saved.mode), ('WEBP', (768, 1024), 'RGB'))
+
     def test_user_without_athlete_profile_gets_404(self):
         staff = User.objects.create_user('staff@x.com', 'senha-forte-123', name='Staff', profile='admin')
         self.client.force_authenticate(staff)
