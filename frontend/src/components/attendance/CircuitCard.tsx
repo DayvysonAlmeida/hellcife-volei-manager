@@ -24,6 +24,16 @@ function arenaTitleSize(title: string) {
   return fit ? fit[2] : 'text-xs sm:text-base';
 }
 
+const PRAINHA_ZONES: Record<string, string> = { S: 'ZONA SUL', N: 'ZONA NORTE', O: 'ZONA OESTE' };
+
+/** Prainha ZS, ZN ou ZO (também "Zona Sul" por extenso): a zona para mostrar embaixo do logo,
+ *  '' se o nome não diz a zona e null se não for o Prainha. */
+function prainhaZone(place: string): string | null {
+  if (!/prainha/i.test(place)) return null;
+  const zone = place.match(/\bzona\s+(sul|norte|oeste)\b/i) ?? place.match(/\bz\.?\s*([sno])\.?(?![a-z])/i);
+  return zone ? PRAINHA_ZONES[zone[1][0].toUpperCase()] : '';
+}
+
 export function CircuitCard({ gameDay, onClick, badge, tag }: CircuitCardProps) {
   const dateObj = new Date(gameDay.date);
   
@@ -71,8 +81,10 @@ export function CircuitCard({ gameDay, onClick, badge, tag }: CircuitCardProps) 
   const arenaName = gameDay.arena_name?.trim() || '';
   const arenaPrefix = arenaName.match(/^arena\s+(.+)$/i);
   const arenaTitle = arenaPrefix ? arenaPrefix[1] : arenaName;
-  // Circuitos antigos, sem nome da arena, continuam com o logo do Belo Gol pelo endereço
-  const isBeloGol = /belo\s*gol/i.test(arenaName || gameDay.location || '');
+  // Circuitos antigos, sem nome da arena, continuam com o logo do Belo Gol (ou do Prainha) pelo endereço
+  const place = arenaName || gameDay.location || '';
+  const isBeloGol = /belo\s*gol/i.test(place);
+  const prainha = prainhaZone(place);
 
   return (
     <div 
@@ -93,7 +105,15 @@ export function CircuitCard({ gameDay, onClick, badge, tag }: CircuitCardProps) 
         {tag && <div className="absolute top-1.5 left-1.5 z-30">{tag}</div>}
 
         <div className="relative z-20 w-full h-full flex items-center justify-center p-2">
-          {isBeloGol ? (
+          {prainha !== null ? (
+            <div className="flex flex-col items-center w-full">
+              <img src="/prainha.webp" alt="Prainha" draggable={false}
+                className="w-[88%] max-w-[160px] h-auto drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />
+              {prainha && (
+                <span className="text-[8px] sm:text-[9px] font-black tracking-[0.25em] text-white mt-1.5 drop-shadow-md">{prainha}</span>
+              )}
+            </div>
+          ) : isBeloGol ? (
             <div className="flex flex-col items-center">
               <span className="text-2xl sm:text-3xl font-black italic tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                 <span className="text-blue-400">belo</span>
