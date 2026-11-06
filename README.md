@@ -107,6 +107,8 @@ O container usa o mesmo Python e o mesmo driver da produção, e o banco fica s�
 
 O GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda os testes do backend em PostgreSQL e o lint e o build do frontend a cada push no `v2.0` e na `main`. Como a `main` publica sozinha em produção, só mescle nela com o CI verde.
 
+Toda segunda o Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml)) abre PRs para o `v2.0` atualizando as bibliotecas do backend e do frontend (as do GitHub Actions, uma vez por mês). O CI roda em cada um deles.
+
 ### 2. Frontend (React/Vite)
 
 Em um novo terminal, navegue até a pasta `frontend` e execute:

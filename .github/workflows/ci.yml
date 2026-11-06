@@ -1,4 +1,4 @@
-# Testes a cada push no v2.0 e na main, e em PR para a main.
+# Testes a cada push no v2.0 e na main, e em PR para os dois (inclusive os do Dependabot, que vão para o v2.0).
 # A main publica sozinha (Vercel + Cloud Run): só mescle nela depois de o CI ficar verde no v2.0.
 name: CI
 
@@ -6,7 +6,7 @@ on:
   push:
     branches: [main, v2.0]
   pull_request:
-    branches: [main]
+    branches: [main, v2.0]
   workflow_dispatch:
 
 # Push novo no mesmo branch cancela a rodada anterior

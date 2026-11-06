@@ -1,0 +1,46 @@
+# Dependabot: toda segunda abre PRs atualizando as bibliotecas, sempre para o v2.0 (a main publica sozinha).
+# Versões pequenas (minor e patch) vêm juntas num PR só por pasta; versão grande vem em PR separado.
+# O CI roda em cada PR: mescle no v2.0 com ele verde e depois siga o caminho de sempre até a main.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    target-branch: v2.0
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Recife
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      backend:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: v2.0
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: America/Recife
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      frontend:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: v2.0
+    schedule:
+      interval: monthly
+      timezone: America/Recife
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
