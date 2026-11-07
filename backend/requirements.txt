@@ -7,7 +7,7 @@ django-filter==25.2
 python-decouple==3.8
 
 # Produção
-gunicorn==23.0.0
+gunicorn==26.2.0
 dj-database-url==2.3.0
 psycopg2-binary==2.9.10
 whitenoise==6.9.0
