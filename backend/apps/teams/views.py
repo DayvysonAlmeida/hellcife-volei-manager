@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -19,10 +20,15 @@ from apps.players.models import Player
 
 
 MAX_BRACKET_STATE_BYTES = 200_000  # a fila de uma quadra cabe com folga
+# O "visto por último" de quem marca é gravado no máximo a cada 30 s (a tela só quer saber se marcou nos últimos 3 min)
+CONTROLLER_SEEN_EVERY = timedelta(seconds=30)
 
 
-def bracket_payload(bracket):
-    """Fila e placar no formato que a tela usa (vazio quando a quadra ainda não começou)."""
+def bracket_payload(bracket, with_state=True):
+    """
+    Fila e placar no formato que a tela usa (vazio quando a quadra ainda não começou).
+    Sem with_state, vai só a versão e quem está marcando: o celular já tem essa fila.
+    """
     if not bracket:
         return {'state': None, 'version': 0, 'controller': None, 'updated_at': None}
     controller = None
@@ -32,7 +38,8 @@ def bracket_payload(bracket):
             'name': bracket.controller_name,
             'seen_at': bracket.controller_seen_at,
         }
-    return {'state': bracket.state or None, 'version': bracket.version, 'controller': controller, 'updated_at': bracket.updated_at}
+    state = (bracket.state or None) if with_state else None
+    return {'state': state, 'version': bracket.version, 'controller': controller, 'updated_at': bracket.updated_at}
 
 
 class TeamGenerationViewSet(viewsets.ModelViewSet):
@@ -217,6 +224,7 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         """
         Fila e placar da quadra no servidor, para qualquer celular ver e continuar o jogo.
         GET devolve o jogo atual (vindo do celular que está marcando, renova o "visto por último").
+        Com ?version= igual à do servidor, a fila não vai de novo: só a versão e quem está marcando.
         PUT grava com a versão que o celular tinha; se outro celular gravou antes, responde 409 com a
         versão do servidor, que é a que vale. Quem grava passa a ser quem está marcando a quadra.
         """
@@ -225,11 +233,15 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         device = str(params.get('device') or '')[:64]
 
         if request.method == 'GET':
-            bracket = BracketState.objects.filter(generation=generation).first()
+            # Consultado a cada 3 s por cada celular: a fila (o campo grande) só é lida do banco se for enviada
+            bracket = BracketState.objects.filter(generation=generation).defer('state').first()
             if bracket and device and bracket.controller_device == device:
-                bracket.controller_seen_at = timezone.now()
-                bracket.save(update_fields=['controller_seen_at'])
-            return Response(bracket_payload(bracket))
+                now = timezone.now()
+                if not bracket.controller_seen_at or now - bracket.controller_seen_at >= CONTROLLER_SEEN_EVERY:
+                    bracket.controller_seen_at = now
+                    bracket.save(update_fields=['controller_seen_at'])
+            unchanged = bracket is not None and params.get('version') == str(bracket.version)
+            return Response(bracket_payload(bracket, with_state=not unchanged))
 
         if generation.is_locked:
             return Response({'detail': 'Esta pelada já foi encerrada.'}, status=status.HTTP_400_BAD_REQUEST)

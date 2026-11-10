@@ -166,8 +166,9 @@ export const teamsService = {
   },
 
   /** Fila e placar da quadra salvos no servidor (`device` identifica este celular). */
-  getBracket: (genId: number, device: string) =>
-    api.get<BracketServerState>(`/teams/${genId}/bracket/`, { params: { device } }).then(r => r.data),
+  /** Com a versão que o celular já tem, o servidor só manda a fila se ela mudou. */
+  getBracket: (genId: number, device: string, version?: number) =>
+    api.get<BracketServerState>(`/teams/${genId}/bracket/`, { params: { device, version } }).then(r => r.data),
 
   /** Grava a fila com a versão que este celular tinha; 409 quando outro celular gravou antes. */
   saveBracket: (genId: number, data: { state: unknown; version: number; device: string }) =>

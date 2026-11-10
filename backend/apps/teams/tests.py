@@ -1,6 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from apps.attendance.models import CourtCheckin, GameDay
@@ -548,3 +550,24 @@ class BracketSyncTests(MultiCourtBase):
         live = self.client.get(f'{BASE}/{self.court.id}/').data['live']
         self.assertEqual((live['match_number'], live['score_a'], live['score_b']), (3, 12, 9))
         self.assertEqual((live['team_a'], live['controller_name']), ('Time Vermelho', 'Admin'))
+
+    def test_poll_with_current_version_skips_the_queue(self):
+        self.put(self.STATE, 0)
+        with CaptureQueriesContext(connection) as ctx:
+            data = self.client.get(self.url, {'device': 'celular-b', 'version': 1}).data
+        self.assertEqual((data['state'], data['version'], data['controller']['device']), (None, 1, 'celular-a'))
+        self.assertFalse(any('"teams_bracketstate"."state"' in q['sql'] for q in ctx.captured_queries))
+        # Versão antiga, ou sem versão (ao abrir a quadra): vem a fila
+        self.assertEqual(self.client.get(self.url, {'device': 'celular-b', 'version': 0}).data['state']['scoreA'], 12)
+        self.assertEqual(self.client.get(self.url, {'device': 'celular-b'}).data['state']['scoreA'], 12)
+
+    def test_scorer_last_seen_is_saved_at_most_every_30s(self):
+        self.put(self.STATE, 0)
+        saved = BracketState.objects.get(generation=self.court).controller_seen_at
+        self.client.get(self.url, {'device': 'celular-a', 'version': 1})
+        self.assertEqual(BracketState.objects.get(generation=self.court).controller_seen_at, saved)  # acabou de marcar
+
+        old = saved - timedelta(seconds=31)
+        BracketState.objects.filter(generation=self.court).update(controller_seen_at=old)
+        self.client.get(self.url, {'device': 'celular-a', 'version': 1})
+        self.assertGreater(BracketState.objects.get(generation=self.court).controller_seen_at, old)

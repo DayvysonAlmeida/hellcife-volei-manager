@@ -136,24 +136,36 @@ export function useBracketSync<S extends object>({ generationId, enabled, state,
     timer.current = window.setTimeout(() => void flush(), 250);
   }, [state, loaded, device, flush]);
 
-  // Acompanha o servidor: outro celular marcando, conexão voltando
+  // Acompanha o servidor: outro celular marcando, conexão voltando.
+  // Com a aba escondida não consulta (um computador com o placar aberto em outra aba deixava o banco
+  // sempre ligado); ao voltar para a aba, consulta na hora.
   useEffect(() => {
     if (!enabled || !loaded) return;
-    const interval = window.setInterval(async () => {
+    const poll = async () => {
       if (pending.current) {
         void flush();
         return;
       }
+      if (document.visibilityState === 'hidden') return;
       try {
-        const server = await teamsService.getBracket(generationId, device);
+        // Manda a versão que já tem: sem mudança, a fila não vem de novo
+        const server = await teamsService.getBracket(generationId, device, version.current);
         setController(server.controller);
         if (server.version > version.current) adopt(server);
         setStatus((s) => (s === 'offline' ? 'saved' : s));
       } catch {
         setStatus('offline');
       }
-    }, POLL_MS);
-    return () => window.clearInterval(interval);
+    };
+    const interval = window.setInterval(() => void poll(), POLL_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void poll();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [enabled, loaded, generationId, device, adopt, flush, setController]);
 
   // Saindo da tela com algo por gravar: tenta gravar
