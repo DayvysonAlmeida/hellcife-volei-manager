@@ -151,14 +151,15 @@ export function TeamsPage() {
     enabled: canEdit,
     refetchInterval: 15000, // quem fez check-in aparece em "aguardando" sem precisar sincronizar
   });
-  const activeGenerations = useMemo(() => activeData?.results || [], [activeData]);
+  // O filtro aqui também vale para o servidor antigo, que ignora ?is_locked (na publicação, o app novo chega antes)
+  const activeGenerations = useMemo(() => (activeData?.results || []).filter((g) => !g.is_locked), [activeData]);
 
   const { data: historyData, isLoading: loadingHistory } = useQuery({
     queryKey: ['team-generations', 'history'],
     queryFn: () => teamsService.list({ is_locked: true }),
     enabled: canEdit && activeTab === 'historico',
   });
-  const history = useMemo(() => historyData?.results || [], [historyData]);
+  const history = useMemo(() => (historyData?.results || []).filter((g) => g.is_locked), [historyData]);
 
   // Peladas ativas agrupadas por circuito: com várias quadras abertas, o circuito vira um bloco com abas
   const activeGroups = useMemo(() => {
