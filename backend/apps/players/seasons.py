@@ -149,7 +149,7 @@ def finalize_season(season) -> None:
     calibrated = [p for p in participants if stats[p.id]['matches'] >= PLACEMENT_GAMES]
     by_elo = sorted(calibrated, key=lambda p: (-elo.get(p.id, 500.0), p.name.lower()))
     by_wins = sorted(participants, key=lambda p: (-stats[p.id]['wins'], -stats[p.id]['matches'], p.name.lower()))
-    fire = {p.id: (idx, p.fire_score) for idx, p in enumerate(fire_shark_ranking(season), start=1)}
+    fire = {p.id: (idx, p.fire_score) for idx, p in enumerate(fire_shark_ranking(season, stats=stats), start=1)}
     elo_rank = {p.id: idx for idx, p in enumerate(by_elo, start=1)}
     wins_rank = {p.id: idx for idx, p in enumerate(by_wins, start=1)}
 

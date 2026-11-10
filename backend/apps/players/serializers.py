@@ -129,6 +129,19 @@ class PlayerListSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializers.
         return None
 
 
+class PlayerPickSerializer(PlayerListSerializer):
+    """
+    Lista leve (?lite=1) das telas que só escolhem atletas: os dados do cadastro e a nota, sem estatísticas,
+    Elo e rankings da temporada (que exigem ler todas as partidas).
+    """
+
+    class Meta(PlayerListSerializer.Meta):
+        fields = [
+            f for f in PlayerListSerializer.Meta.fields
+            if f not in ('stats', 'elo_tier', 'elo_tier_data', 'elo_calibration')
+        ]
+
+
 class BadgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Badge

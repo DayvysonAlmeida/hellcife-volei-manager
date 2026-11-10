@@ -97,18 +97,22 @@ def elo_calibration(games: int) -> dict:
     }
 
 
-def fire_shark_ranking(season=None):
+def fire_shark_ranking(season=None, stats=None, days=None):
     """
     Fire Shark da temporada, do melhor para o pior: vitória 3, derrota 1 (partida sem vitória) e
     circuito 10 (dois circuitos no mesmo dia contam um). Entra quem jogou ou foi a um circuito na temporada.
     Desempate: mais vitórias, mais circuitos, maior aproveitamento e nome (ordem sempre estável).
+    stats (season_stats) e days (circuit_days da temporada): quando quem chama já calculou, não refaz a conta.
     """
     from apps.attendance.frequency import circuit_days
 
     season = _season(season)
-    stats = season_stats(season)
+    if stats is None:
+        stats = season_stats(season)
+    if days is None:
+        days = circuit_days(season.start_date, season.end_date)
     circuits = {}
-    for went, _ in circuit_days(season.start_date, season.end_date).values():
+    for went, _ in days.values():
         for player_id in went:
             circuits[player_id] = circuits.get(player_id, 0) + 1
     players = []
@@ -147,9 +151,9 @@ def fire_shark_entry(p) -> dict:
     }
 
 
-def fire_shark_positions(season=None) -> dict:
+def fire_shark_positions(season=None, stats=None) -> dict:
     """{player_id: posição} no Fire Shark da temporada."""
-    return {p.id: idx for idx, p in enumerate(fire_shark_ranking(season), start=1)}
+    return {p.id: idx for idx, p in enumerate(fire_shark_ranking(season, stats=stats), start=1)}
 
 
 def wins_ranking(season=None):
@@ -187,12 +191,12 @@ def elo_ranking(stats=None):
     return players
 
 
-def elo_top(limit=10) -> list:
+def elo_top(limit=10, stats=None) -> list:
     """Top do Elo para as telas, com a faixa vinda do servidor."""
     from .elo_service import get_elo_tier
 
     rows = []
-    for idx, p in enumerate(elo_ranking()[:limit], start=1):
+    for idx, p in enumerate(elo_ranking(stats)[:limit], start=1):
         tier = get_elo_tier(p.elo)
         rows.append({
             'id': p.id, 'position': idx, 'name': p.display_name, 'avatar_url': p.avatar_url,

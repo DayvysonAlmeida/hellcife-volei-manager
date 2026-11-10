@@ -83,7 +83,7 @@ function LaunchPanel({ active }: { active: boolean }) {
   // Atletas ativos e convidados: convidado presente no circuito também pode ganhar estrela
   const { data: playersData } = useQuery({
     queryKey: ['players', 'stars-launch'],
-    queryFn: () => playersService.list({ status: 'active', page_size: 500, include_guests: 'true' }),
+    queryFn: () => playersService.list({ status: 'active', page_size: 500, include_guests: 'true', lite: 1 }),
     staleTime: 1000 * 60 * 3,
   });
 
@@ -324,7 +324,7 @@ function Board() {
   // Busca todos os atletas ativos — sem paginação (lista auxiliar)
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['players', 'stars-system', debouncedSearch],
-    queryFn: () => playersService.list({ status: 'active', search: debouncedSearch || undefined, page_size: 500 }),
+    queryFn: () => playersService.list({ status: 'active', search: debouncedSearch || undefined, page_size: 500, lite: 1 }),
     staleTime: 1000 * 60 * 3,
   });
 

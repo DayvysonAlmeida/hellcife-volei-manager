@@ -158,6 +158,7 @@ export function EvaluationsPage() {
       status: 'active',
       page_size: 500,  // Lista auxiliar — busca todos os atletas ativos de uma vez
       include_guests: 'true', // Permitir avaliar convidados
+      lite: 1, // só escolhe o atleta: sem estatísticas, Elo e rankings
     }),
   });
 

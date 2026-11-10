@@ -10,7 +10,7 @@ from django.utils import timezone
 from .models import Player, StarHistory, Badge
 from .stars import FIELDS as STAR_FIELDS, after_stars_changed, apply_stars
 from .serializers import (
-    PlayerListSerializer, PlayerDetailSerializer, PlayerWriteSerializer,
+    PlayerListSerializer, PlayerDetailSerializer, PlayerPickSerializer, PlayerWriteSerializer,
     BadgeSerializer, MyProfileSerializer
 )
 from .filters import PlayerFilter
@@ -22,7 +22,7 @@ from .seasons import ensure_current_season
 from apps.core.permissions import IsAdminOrModerator, IsAdminUser, is_staff_profile
 from apps.evaluations.models import latest_overall_subquery
 from apps.matches.models import MatchPlayer
-from apps.attendance.frequency import circuit_days, frequency
+from apps.attendance.frequency import circuit_days, days_between, frequency
 
 
 def _undone_by(entry, show_author):
@@ -59,6 +59,10 @@ class PlayerViewSet(viewsets.ModelViewSet):
             if 'status' not in self.request.query_params:
                 qs = qs.exclude(status='pending')
 
+            if self._lite():
+                # Telas que só escolhem atletas: a nota vem pronta, sem as contas das partidas
+                return qs.annotate(annotated_overall=latest_overall_subquery())
+
             # Na listagem, anotar o overall mais recente via subquery para eliminar N+1.
             qs = qs.annotate(
                 annotated_overall=latest_overall_subquery(),
@@ -86,21 +90,31 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
         return qs
 
+    def _lite(self):
+        """
+        ?lite=1: lista leve para as telas que só escolhem atletas (Times, partida, frequência, estrelas,
+        avaliações, convidados). Sem estatísticas, Elo e rankings, que leem todas as partidas da temporada.
+        """
+        request = getattr(self, 'request', None)
+        return self.action == 'list' and request is not None and request.query_params.get('lite') in ('1', 'true')
+
     def get_serializer_class(self):
         if self.action == 'list':
-            return PlayerListSerializer
+            return PlayerPickSerializer if self._lite() else PlayerListSerializer
         if self.action in ['create', 'update', 'partial_update']:
             return PlayerWriteSerializer
         return PlayerDetailSerializer
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
-        if self.action == 'list':
+        if self.action == 'list' and not self._lite():
             # Calcula o rank global absoluto imune a paginação e filtros (DenseRank)
             context['global_win_ranks'] = wins_positions()
-            context['global_fire_sharks'] = fire_shark_positions()
-            # Partidas da temporada de todos de uma vez: decide quem ainda está em calibração no Elo
-            context['season_matches'] = {pid: s['matches'] for pid, s in season_stats().items()}
+            # Partidas da temporada de todos de uma vez (uma conta só, que o Fire Shark também usa):
+            # decide quem ainda está em calibração no Elo
+            stats = season_stats()
+            context['global_fire_sharks'] = fire_shark_positions(stats=stats)
+            context['season_matches'] = {pid: s['matches'] for pid, s in stats.items()}
         return context
 
     def get_permissions(self):
@@ -493,8 +507,10 @@ class PlayerViewSet(viewsets.ModelViewSet):
 
         # Presença: mesma regra das faltas (dias com circuito realizado, ida = check-in na quadra)
         season = ensure_current_season()
-        career_freq = frequency(player, circuit_days())
-        season_freq = frequency(player, circuit_days(season.start_date, season.end_date))
+        all_days = circuit_days()
+        season_days = days_between(all_days, season.start_date, season.end_date)  # sem consultar o banco de novo
+        career_freq = frequency(player, all_days)
+        season_freq = frequency(player, season_days)
 
         # Histórico de overall (1 query); no mesmo dia, a registrada por último fica por último (é a que vale)
         evaluations = player.evaluations.order_by('date', 'id').values('date', 'overall')
@@ -505,13 +521,15 @@ class PlayerViewSet(viewsets.ModelViewSet):
         player_overall = player.latest_overall or 0.0
         overall_rank = qs_players.filter(annotated_overall__gt=player_overall).count() + 1 if player_overall > 0 else None
 
+        # Números da temporada (os rankings são por temporada; os totais acima são da carreira).
+        # Calculados uma vez só: o Fire Shark usa os mesmos números e os mesmos dias de circuito.
+        st = season_stats(season)
+
         # Posição e pontos no Fire Shark (mesma regra de todas as telas; inativo/convidado não tem posição)
-        fire = fire_shark_ranking(season)
+        fire = fire_shark_ranking(season, stats=st, days=season_days)
         fire_me = next((p for p in fire if p.id == player.id), None)
         win_rank = fire.index(fire_me) + 1 if fire_me else None
 
-        # Números da temporada (os rankings são por temporada; os totais acima são da carreira)
-        st = season_stats(season)
         mine = st.get(player.id, {'matches': 0, 'wins': 0, 'balance': 0})
         season_block = {
             'number': season.number,

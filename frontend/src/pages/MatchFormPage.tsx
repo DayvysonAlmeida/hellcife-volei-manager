@@ -53,7 +53,7 @@ export function MatchFormPage() {
   // Queries
   const { data: playersData, isLoading: loadingPlayers } = useQuery({
     queryKey: ['players', { all: true, include_guests: true }],
-    queryFn: () => playersService.list({ page_size: 500, include_guests: true }),
+    queryFn: () => playersService.list({ page_size: 500, include_guests: true, lite: 1 }),
   });
 
   const { data: gamedaysData } = useQuery({

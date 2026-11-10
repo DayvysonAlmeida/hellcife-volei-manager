@@ -44,8 +44,8 @@ export function GuestModal({
 
   // Buscar convidados salvos
   const { data: guestsData, isLoading: loadingGuests } = useQuery({
-    queryKey: ['guests'],
-    queryFn: () => playersService.list({ is_guest: 'true', page_size: 100 }),
+    queryKey: ['guests', 'lite'], // lista leve: chave própria, para não aparecer na tela Atletas
+    queryFn: () => playersService.list({ is_guest: 'true', page_size: 100, lite: 1 }),
     enabled: isOpen,
   });
   const existingGuests = guestsData?.results || [];

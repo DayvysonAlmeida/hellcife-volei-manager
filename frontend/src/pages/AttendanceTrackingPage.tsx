@@ -21,7 +21,7 @@ export function AttendanceTrackingPage() {
 
   const { data: playersData, isLoading: isPlayersLoading, error: playersError } = useQuery({
     queryKey: ["players"],
-    queryFn: () => playersService.list({ page_size: 1000 }),
+    queryFn: () => playersService.list({ page_size: 1000, lite: 1 }),
   });
   const players = useMemo(() => playersData?.results || [], [playersData]);
 

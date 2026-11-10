@@ -36,7 +36,7 @@ export function TeamsPage() {
 
   const { data: allPlayersData } = useQuery({
     queryKey: ['all-players'],
-    queryFn: () => playersService.list({ is_active: true, page_size: 200 }),
+    queryFn: () => playersService.list({ is_active: true, page_size: 200, lite: 1 }), // só para escolher atletas
   });
   const allPlayers = allPlayersData?.results || [];
 

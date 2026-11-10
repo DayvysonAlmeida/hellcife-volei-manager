@@ -41,6 +41,11 @@ def circuit_days(start=None, end=None) -> dict:
     return days
 
 
+def days_between(days, start=None, end=None) -> dict:
+    """Recorte por período de um circuit_days() já calculado (mesmo filtro de datas, sem consultar o banco)."""
+    return {day: value for day, value in days.items() if (not start or day >= start) and (not end or day <= end)}
+
+
 def frequency(player, days) -> dict:
     """Presença do atleta nos dias com circuito desde o cadastro."""
     since = player.created_at.date()
