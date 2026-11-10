@@ -415,7 +415,7 @@ export function BracketPage() {
     mutationFn: () => teamsService.lock(generation!.id),
     onSuccess: (res) => {
       localStorage.removeItem(storageKey);
-      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      qc.invalidateQueries({ queryKey: ['team-generations'] });
       // Com várias quadras, só esta encerra; o circuito fecha quando a última terminar
       toast.success(res?.detail || 'Pelada encerrada e times trancados no histórico.');
       navigate('/teams');

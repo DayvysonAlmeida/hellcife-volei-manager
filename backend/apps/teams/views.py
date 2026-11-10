@@ -14,7 +14,7 @@ from .models import BracketState, TeamGeneration, Team, TeamPlayer, next_court, 
 from .serializers import TeamGenerationSerializer, TeamSerializer, GenerateTeamsInputSerializer
 from .algorithm import generate_teams
 from apps.core.permissions import IsAdminOrModerator
-from apps.evaluations.models import Evaluation
+from apps.evaluations.models import latest_overall_subquery
 from apps.players.models import Player
 
 
@@ -43,22 +43,25 @@ class TeamGenerationViewSet(viewsets.ModelViewSet):
         if self.action == 'bracket':
             # Consultado a cada poucos segundos por cada celular: busca leve, sem os times
             return TeamGeneration.objects.all()
-        # Prefetch otimizado: traz player + evaluations em poucos JOINs
-        qs = (
-            TeamGeneration.objects.all()
-            .select_related('created_by', 'gameday', 'bracket')  # bracket: placar ao vivo nas abas das quadras
-            .prefetch_related(
-                Prefetch(
-                    'teams__team_players__player',
-                    queryset=Player.objects.prefetch_related('evaluations')
-                ),
-                'removed_players',
+        qs = TeamGeneration.objects.select_related('created_by', 'gameday').prefetch_related(
+            # A nota de cada atleta vem pronta do banco (a avaliação que vale), sem carregar todas as avaliações
+            Prefetch('teams__team_players__player', queryset=Player.objects.annotate(annotated_overall=latest_overall_subquery())),
+            'removed_players',
+        )
+        # A tela Times atualiza só as quadras abertas (?is_locked=false) a cada 15 s; o histórico vem à parte
+        is_locked = self.request.query_params.get('is_locked')
+        if is_locked == 'true':
+            # Quadra encerrada não tem placar ao vivo nem quem aguarde: basta contar as quadras do circuito
+            qs = qs.filter(is_locked=True).prefetch_related('gameday__team_generations')
+        else:
+            if is_locked == 'false':
+                qs = qs.filter(is_locked=False)
+            qs = qs.select_related('bracket').prefetch_related(  # bracket: placar ao vivo nas abas das quadras
                 'gameday__court_checkins__player',  # para a lista de quem está aguardando
                 # quem já está nas outras quadras do circuito não está aguardando
                 'gameday__team_generations__teams__team_players',
                 'gameday__team_generations__removed_players',
             )
-        )
         gameday_id = self.request.query_params.get('gameday_id')
         if gameday_id:
             qs = qs.filter(gameday_id=gameday_id)

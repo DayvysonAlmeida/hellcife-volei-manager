@@ -111,7 +111,7 @@ export function TeamsPage() {
       });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      qc.invalidateQueries({ queryKey: ['team-generations'] });
       // O sorteio salvo aparece em "Pelada Ativa"; a prévia sai para não mostrar os mesmos times duas vezes
       setResult(null);
       setResultFor(null);
@@ -143,24 +143,32 @@ export function TeamsPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
-  // Hooks antes de qualquer return (regra do React); o histórico só é buscado por quem pode gerar times
-  const { data: historyData } = useQuery({
-    queryKey: ['team-generations-history'],
-    queryFn: () => teamsService.list(),
+  // Hooks antes de qualquer return (regra do React); os sorteios só são buscados por quem pode gerar times.
+  // Só as quadras abertas se atualizam sozinhas; o histórico é buscado ao abrir a aba, sem ficar atualizando.
+  const { data: activeData } = useQuery({
+    queryKey: ['team-generations', 'active'],
+    queryFn: () => teamsService.list({ is_locked: false }),
     enabled: canEdit,
     refetchInterval: 15000, // quem fez check-in aparece em "aguardando" sem precisar sincronizar
+  });
+  const activeGenerations = useMemo(() => activeData?.results || [], [activeData]);
+
+  const { data: historyData, isLoading: loadingHistory } = useQuery({
+    queryKey: ['team-generations', 'history'],
+    queryFn: () => teamsService.list({ is_locked: true }),
+    enabled: canEdit && activeTab === 'historico',
   });
   const history = useMemo(() => historyData?.results || [], [historyData]);
 
   // Peladas ativas agrupadas por circuito: com várias quadras abertas, o circuito vira um bloco com abas
   const activeGroups = useMemo(() => {
-    const groups = new Map<string, typeof history>();
-    history.filter((h) => !h.is_locked).forEach((gen) => {
+    const groups = new Map<string, typeof activeGenerations>();
+    activeGenerations.forEach((gen) => {
       const key = gen.gameday ? `gd-${gen.gameday}` : `gen-${gen.id}`;
       groups.set(key, [...(groups.get(key) || []), gen]);
     });
     return [...groups.values()].map((gens) => [...gens].sort((a, b) => (a.court || 1) - (b.court || 1)));
-  }, [history]);
+  }, [activeGenerations]);
 
   if (!canEdit) {
     return (
@@ -177,9 +185,9 @@ export function TeamsPage() {
   // Quantos entram num sorteio novo do circuito escolhido: todo mundo com check-in ou, se o circuito já tem
   // quadra sorteada, só quem está aguardando
   const selectedGameDay = gameDays.find((g) => g.id === selectedGameDayId);
-  const circuitDraws = history.filter((h) => h.gameday === selectedGameDayId);
+  const circuitDraws = activeGenerations.filter((h) => h.gameday === selectedGameDayId);
   const availablePlayers = circuitDraws.length > 0
-    ? (circuitDraws.find((h) => !h.is_locked)?.waiting_players?.length ?? 0)
+    ? (circuitDraws[0].waiting_players?.length ?? 0)
     : (selectedGameDay?.total_court_checkins ?? 0);
   const courtPlan = courtOptions(availablePlayers, modality);
   const suggestion = suggestedCourts(availablePlayers, modality);
@@ -191,7 +199,7 @@ export function TeamsPage() {
     }
 
     const target = { gamedayId: selectedGameDayId, modality, courts };
-    const alreadyGenerated = history.some(h => h.gameday === selectedGameDayId && !h.is_locked);
+    const alreadyGenerated = circuitDraws.length > 0;
 
     // Já existe sorteio ativo para esta pelada e ainda não há prévia nova dela
     if (alreadyGenerated && !preview) {
@@ -230,7 +238,7 @@ export function TeamsPage() {
       
       <SyncButton 
         onSync={() => {
-          qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+          qc.invalidateQueries({ queryKey: ['team-generations'] });
           qc.invalidateQueries({ queryKey: ['gamedays'] });
           qc.invalidateQueries({ queryKey: ['all-players'] });
           toast.success('Dados sincronizados!');
@@ -486,14 +494,18 @@ export function TeamsPage() {
       {activeTab === 'historico' && (
         <div className="space-y-6">
           {/* Past Generations */}
-          {history.filter(h => h.is_locked).length > 0 ? (
+          {loadingHistory ? (
+            <div className="relative bg-surface/30 backdrop-blur-md border border-white/5 rounded-2xl p-8 text-center text-text-muted shadow-lg">
+              Carregando histórico…
+            </div>
+          ) : history.length > 0 ? (
             <div>
               <h2 className="font-display text-2xl font-bold tracking-widest text-text-primary uppercase flex items-center gap-3 mb-6">
                 <History className="text-red" size={24} />
                 Histórico de Peladas Anteriores
               </h2>
               <div className="space-y-6">
-                {history.filter(h => h.is_locked).map(gen => (
+                {history.map(gen => (
                   <GenerationCard key={gen.id} gen={gen} gameDays={gameDays} allPlayers={allPlayers} canEdit={canEdit} onConfirmDialog={setConfirmDialog} />
                 ))}
               </div>

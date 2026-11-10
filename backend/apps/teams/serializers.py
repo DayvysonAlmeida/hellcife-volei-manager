@@ -58,6 +58,8 @@ class TeamGenerationSerializer(serializers.ModelSerializer):
 
     def get_live(self, obj):
         """Jogo em andamento na quadra (para acompanhar todas as quadras): placar e quem está marcando."""
+        if obj.is_locked:
+            return None  # quadra encerrada não tem jogo em andamento (e o histórico nem busca o placar)
         bracket = getattr(obj, 'bracket', None)  # sem fila salva ainda: None
         state = (bracket.state or {}) if bracket else {}
         if not state.get('isStarted'):

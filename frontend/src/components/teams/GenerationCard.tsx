@@ -26,7 +26,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const deleteGenMutation = useMutation({
     mutationFn: (id: number) => teamsService.delete(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      qc.invalidateQueries({ queryKey: ['team-generations'] });
       toast.success('Geração excluída!');
     },
   });
@@ -35,7 +35,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
     mutationFn: ({ genId, playerId, targetTeamId }: { genId: number, playerId: number, targetTeamId: number }) => 
        teamsService.movePlayer(genId, playerId, targetTeamId),
     onSuccess: (res) => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       qc.invalidateQueries({ queryKey: ['team-generations'] });
        toast.success(res?.detail || 'Jogador transferido com sucesso!');
     },
     onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao mover o jogador.'),
@@ -45,7 +45,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
     mutationFn: ({ genId, playerId }: { genId: number, playerId: number }) => 
        teamsService.removePlayer(genId, playerId),
     onSuccess: () => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       qc.invalidateQueries({ queryKey: ['team-generations'] });
        toast.success('Jogador saiu da pelada (presença na quadra mantida).');
     }
   });
@@ -54,7 +54,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
     mutationFn: ({ genId, playerId }: { genId: number, playerId: number }) =>
        teamsService.restorePlayer(genId, playerId),
     onSuccess: (res) => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       qc.invalidateQueries({ queryKey: ['team-generations'] });
        toast.success(res.detail || 'Jogador de volta!');
     },
     onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao trazer o jogador de volta.'),
@@ -63,7 +63,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const removeTeamMutation = useMutation({
     mutationFn: ({ genId, teamId }: { genId: number, teamId: number }) => teamsService.removeTeam(genId, teamId),
     onSuccess: () => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       qc.invalidateQueries({ queryKey: ['team-generations'] });
        toast.success('Time removido com sucesso!');
     }
   });
@@ -71,7 +71,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const autoAllocateMutation = useMutation({
     mutationFn: (genId: number) => teamsService.autoAllocate(genId),
     onSuccess: (res) => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       qc.invalidateQueries({ queryKey: ['team-generations'] });
        // Mostra quem entrou em qual time (ex.: "Ana, Bia → Time Azul")
        toast.success(res.detail || 'Jogadores alocados com sucesso!', { duration: 6000 });
     },
@@ -81,7 +81,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const shuffleMutation = useMutation({
     mutationFn: (genId: number) => teamsService.shuffle(genId),
     onSuccess: (res) => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       qc.invalidateQueries({ queryKey: ['team-generations'] });
        toast.success(res.detail || 'Times embaralhados com sucesso!');
     }
   });
@@ -91,7 +91,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const changeModalityMutation = useMutation({
     mutationFn: (modality: number) => teamsService.shuffle(gen.id, modality),
     onSuccess: (res) => {
-       qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+       qc.invalidateQueries({ queryKey: ['team-generations'] });
        setShowModality(false);
        toast.success(res.detail);
     },
@@ -118,7 +118,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const splitMutation = useMutation({
     mutationFn: (courts: number) => teamsService.splitCourts(gen.id, courts),
     onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      qc.invalidateQueries({ queryKey: ['team-generations'] });
       toast.success(res.detail);
     },
     onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao dividir em quadras.'),
@@ -127,7 +127,7 @@ export function GenerationCard({ gen, gameDays, allPlayers, canEdit, onConfirmDi
   const sendToCourtMutation = useMutation({
     mutationFn: ({ genId, playerId }: { genId: number; playerId: number }) => teamsService.autoAllocate(genId, [playerId]),
     onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      qc.invalidateQueries({ queryKey: ['team-generations'] });
       toast.success(res.detail);
     },
     onError: (err: any) => toast.error(err.response?.data?.detail || 'Erro ao mandar para a quadra.'),
@@ -552,7 +552,7 @@ function AddPlayerPanel({ gen, allPlayers, onDone }: { gen: any; allPlayers: any
   const addMutation = useMutation({
     mutationFn: () => teamsService.addPlayer(gen.id, player.id, teamId!),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['team-generations-history'] });
+      qc.invalidateQueries({ queryKey: ['team-generations'] });
       toast.success(`${player.display_name} entrou no ${team?.name}.`);
       onDone();
     },
