@@ -599,7 +599,10 @@ class GameDayViewSet(viewsets.ModelViewSet):
         from apps.players.filters import _latest_overall_subquery
         
         gameday = self.get_object()
-        active_players = Player.objects.filter(status='active').annotate(
+        # Só as colunas que a tela usa: o check-in atualiza a cada 30 s e antes trazia o cadastro inteiro
+        active_players = Player.objects.filter(status='active').only(
+            'id', 'name', 'nickname', 'main_position', 'is_guest', 'invited_by', 'user', 'avatar',
+        ).annotate(
             annotated_overall=_latest_overall_subquery()
         ).order_by('name')
         
