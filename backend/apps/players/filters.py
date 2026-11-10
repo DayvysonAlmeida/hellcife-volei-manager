@@ -1,23 +1,14 @@
 import re
 
 import django_filters
-from django.db.models import Q, Subquery, OuterRef, FloatField
+from django.db.models import Q
 from django.db.models.functions import Coalesce
 from .identity import canonical_phone, only_digits, plain_name
 from .models import Player
 from apps.core.permissions import is_staff_profile
-from apps.evaluations.models import Evaluation
+from apps.evaluations.models import latest_overall_subquery as _latest_overall_subquery  # noqa: F401 (usado no check-in)
 
 PHONE_LIKE = re.compile(r'^[\d\s()+\-.]+$')  # "(81) 99999-1234", "+55 81 9..."
-
-
-def _latest_overall_subquery():
-    return Subquery(
-        Evaluation.objects.filter(
-            player=OuterRef('pk')
-        ).order_by('-date', '-id').values('overall')[:1],
-        output_field=FloatField()
-    )
 
 
 class PlayerFilter(django_filters.FilterSet):

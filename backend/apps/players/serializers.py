@@ -9,6 +9,7 @@ from .identity import (
     CPF_TAKEN, CPF_UNAVAILABLE, PHONE_TAKEN, CpfUnavailable, canonical_phone, cpf_owner, masked_cpf, phone_owner, set_cpf, valid_cpf,
 )
 from apps.core.permissions import is_staff_profile
+from apps.evaluations.models import latest_evaluation
 
 
 class EloCalibrationMixin:
@@ -82,14 +83,10 @@ class PlayerListSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializers.
             return obj.annotated_overall if obj.annotated_overall else None
         # Fallback: usa evaluations já prefetchados se existirem
         if hasattr(obj, '_prefetched_objects_cache') and 'evaluations' in obj._prefetched_objects_cache:
-            evals = list(obj.evaluations.all())
-            if evals:
-                evals.sort(key=lambda e: e.date, reverse=True)
-                return evals[0].overall
-            return None
+            latest = latest_evaluation(obj.evaluations.all())
+            return latest.overall if latest else None
         # Último fallback: query individual
-        eval_ = obj.evaluations.order_by('-date').first()
-        return eval_.overall if eval_ else None
+        return obj.latest_overall
 
     def get_avatar_url(self, obj):
         if obj.avatar:
@@ -188,13 +185,9 @@ class PlayerDetailSerializer(PrivateFieldsMixin, EloCalibrationMixin, serializer
     def get_latest_overall(self, obj):
         """Usa evaluations prefetchados quando disponível."""
         if hasattr(obj, '_prefetched_objects_cache') and 'evaluations' in obj._prefetched_objects_cache:
-            evals = list(obj.evaluations.all())
-            if evals:
-                evals.sort(key=lambda e: e.date, reverse=True)
-                return evals[0].overall
-            return None
-        eval_ = obj.evaluations.order_by('-date').first()
-        return eval_.overall if eval_ else None
+            latest = latest_evaluation(obj.evaluations.all())
+            return latest.overall if latest else None
+        return obj.latest_overall
 
     def get_avatar_url(self, obj):
         if obj.avatar:

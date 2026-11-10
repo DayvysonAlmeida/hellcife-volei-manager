@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Count, Q, Subquery, OuterRef, FloatField, Case, When, IntegerField, F, Prefetch, Window
+from django.db.models import Count, Q, Case, When, IntegerField, F, Prefetch, Window
 from django.db.models.functions import Coalesce, RowNumber
 from django.utils import timezone
 
@@ -20,18 +20,9 @@ from .rankings import (
 )
 from .seasons import ensure_current_season
 from apps.core.permissions import IsAdminOrModerator, IsAdminUser, is_staff_profile
-from apps.evaluations.models import Evaluation
+from apps.evaluations.models import latest_overall_subquery
 from apps.matches.models import MatchPlayer
 from apps.attendance.frequency import circuit_days, frequency
-
-
-def latest_overall_subquery():
-    return Subquery(
-        Evaluation.objects.filter(
-            player=OuterRef('pk')
-        ).order_by('-date', '-id').values('overall')[:1],
-        output_field=FloatField()
-    )
 
 
 def _undone_by(entry, show_author):
@@ -505,16 +496,11 @@ class PlayerViewSet(viewsets.ModelViewSet):
         career_freq = frequency(player, circuit_days())
         season_freq = frequency(player, circuit_days(season.start_date, season.end_date))
 
-        # Histórico de overall (1 query)
-        evaluations = player.evaluations.order_by('date').values('date', 'overall')
+        # Histórico de overall (1 query); no mesmo dia, a registrada por último fica por último (é a que vale)
+        evaluations = player.evaluations.order_by('date', 'id').values('date', 'overall')
 
         # -- Cálculos de Rankings e Estrelas --
-        from django.db.models.functions import Coalesce
-        from django.db.models import Subquery, OuterRef
-        from apps.evaluations.models import Evaluation
-        from apps.players.models import StarHistory
-        latest_eval = Evaluation.objects.filter(player=OuterRef('pk')).order_by('-date', '-id').values('overall')[:1]
-        qs_players = ranked_players().annotate(annotated_overall=Coalesce(Subquery(latest_eval), 0.0))
+        qs_players = ranked_players().annotate(annotated_overall=Coalesce(latest_overall_subquery(), 0.0))
 
         player_overall = player.latest_overall or 0.0
         overall_rank = qs_players.filter(annotated_overall__gt=player_overall).count() + 1 if player_overall > 0 else None

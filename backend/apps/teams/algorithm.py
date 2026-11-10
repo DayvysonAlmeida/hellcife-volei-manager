@@ -14,6 +14,7 @@ from typing import List, Dict, Optional
 
 from apps.players.models import Player
 from apps.attendance.models import GameDay, Attendance, CourtCheckin
+from apps.evaluations.models import latest_overall_subquery
 
 # Faixas de normalização do Elo para escala 0–10 (mesmo range do overall)
 # Faixa típica do Elo por times (média 500); fora dela o valor é limitado
@@ -48,12 +49,10 @@ def get_players_with_overall(player_ids: Optional[List[int]] = None, gameday_id:
         players = Player.objects.filter(status='active')
 
     result = []
-    for p in players.prefetch_related('evaluations'):
-        # Ordena avaliações em Python para não bypassar o prefetch
-        evals = list(p.evaluations.all())
-        if evals:
-            evals.sort(key=lambda e: e.date, reverse=True)
-            overall = evals[0].overall
+    for p in players.annotate(annotated_overall=latest_overall_subquery()):
+        # A avaliação que vale (a mesma regra de todas as telas, inclusive no mesmo dia), vinda pronta do banco
+        if p.annotated_overall is not None:
+            overall = p.annotated_overall
         else:
             overall = float(p.guest_overall or 5)  # convidado: nível temporário escolhido ao convidar
 

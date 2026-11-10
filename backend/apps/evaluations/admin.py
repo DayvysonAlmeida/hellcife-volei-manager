@@ -9,7 +9,7 @@ class EvaluationAdmin(admin.ModelAdmin):
     list_filter = ['date']
     search_fields = ['player__name', 'player__nickname']
     autocomplete_fields = ['player']
-    ordering = ['-date']
+    ordering = ['-date', '-id']
     date_hierarchy = 'date'
     
     fieldsets = (

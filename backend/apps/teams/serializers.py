@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.evaluations.models import latest_evaluation
 from .models import TeamGeneration, Team, TeamPlayer
 
 
@@ -16,14 +17,13 @@ class TeamPlayerSerializer(serializers.ModelSerializer):
                   'player_overall', 'player_avatar', 'player_shirt', 'player_is_guest', 'order_in_team']
 
     def get_player_overall(self, obj):
-        """Usa evaluations prefetchados quando disponível para evitar N+1."""
+        """Nota do sorteio (a avaliação que vale ou, sem ela, o nível do convidado), sem consulta por atleta."""
         player = obj.player
+        if hasattr(player, 'annotated_overall'):
+            return player.annotated_overall if player.annotated_overall is not None else player.guest_overall
         if hasattr(player, '_prefetched_objects_cache') and 'evaluations' in player._prefetched_objects_cache:
-            evals = list(player.evaluations.all())
-            if evals:
-                evals.sort(key=lambda e: e.date, reverse=True)
-                return evals[0].overall
-            return player.guest_overall
+            latest = latest_evaluation(player.evaluations.all())
+            return latest.overall if latest else player.guest_overall
         return player.draw_overall
 
 

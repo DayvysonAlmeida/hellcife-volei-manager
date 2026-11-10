@@ -14,6 +14,15 @@ def calculate_overall(evaluation):
 
 SCORE_VALIDATOR = [MinValueValidator(0), MaxValueValidator(10)]
 
+# Avaliação que vale para o atleta: a de data mais recente e, no mesmo dia, a registrada por último.
+# Toda tela (Atletas, Avaliações, sorteio, Times) usa esta mesma regra.
+LATEST_FIRST = ('-date', '-id')
+
+
+def latest_evaluation(evaluations):
+    """A avaliação que vale numa lista já carregada (mesma regra de LATEST_FIRST); None se não houver."""
+    return max(evaluations, key=lambda e: (e.date, e.id), default=None)
+
 
 class Evaluation(models.Model):
     player = models.ForeignKey(
@@ -50,7 +59,7 @@ class Evaluation(models.Model):
     class Meta:
         verbose_name = 'Avaliação'
         verbose_name_plural = 'Avaliações'
-        ordering = ['-date']
+        ordering = list(LATEST_FIRST)
 
     def save(self, *args, **kwargs):
         self.overall = calculate_overall(self)
@@ -58,6 +67,14 @@ class Evaluation(models.Model):
 
     def __str__(self):
         return f'Avaliação de {self.player} em {self.date}'
+
+
+def latest_overall_subquery():
+    """Nota da avaliação que vale (LATEST_FIRST), para anotar numa consulta de atletas sem carregar as avaliações."""
+    return models.Subquery(
+        Evaluation.objects.filter(player=models.OuterRef('pk')).order_by(*LATEST_FIRST).values('overall')[:1],
+        output_field=models.FloatField(),
+    )
 
 
 class EvaluationHistory(models.Model):

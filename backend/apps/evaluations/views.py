@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Evaluation, EvaluationHistory
+from .models import LATEST_FIRST, Evaluation, EvaluationHistory
 from .serializers import EvaluationSerializer, EvaluationHistorySerializer
 from apps.core.permissions import IsAdminOrModerator, is_staff_profile
 
@@ -18,7 +18,7 @@ class EvaluationViewSet(viewsets.ModelViewSet):
     filterset_fields = ['player', 'evaluator']
     search_fields = ['player__name', 'player__nickname']
     ordering_fields = ['date', 'overall', 'created_at']
-    ordering = ['-date']
+    ordering = list(LATEST_FIRST)
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -47,14 +47,14 @@ class EvaluationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='by-player/(?P<player_id>[^/.]+)')
     def by_player(self, request, player_id=None):
-        evaluations = self.get_queryset().filter(player_id=player_id).order_by('-date')
+        evaluations = self.get_queryset().filter(player_id=player_id).order_by(*LATEST_FIRST)
         serializer = self.get_serializer(evaluations, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], url_path='radar/(?P<player_id>[^/.]+)')
     def radar(self, request, player_id=None):
         """Retorna dados para gráfico radar do último overall de um jogador."""
-        eval_ = self.get_queryset().filter(player_id=player_id).order_by('-date').first()
+        eval_ = self.get_queryset().filter(player_id=player_id).order_by(*LATEST_FIRST).first()
         if not eval_:
             return Response({'detail': 'Nenhuma avaliação encontrada.', 'skills': {}}, status=200)
         return Response({
