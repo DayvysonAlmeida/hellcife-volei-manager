@@ -160,7 +160,7 @@ class ForgotPasswordView(generics.GenericAPIView):
                 [user.email],
                 fail_silently=False,
             )
-            print(f"✅ E-mail enviado com sucesso para {user.email}")
+            print(f"✅ E-mail de recuperação enviado (usuário {user.pk})")  # o id, não o e-mail: o log não guarda dado pessoal
         except Exception as e:
             print(f"⚠️ ERRO AO ENVIAR O E-MAIL DE RECUPERAÇÃO (usuário {user.pk}): {e}")
             # O link troca a senha de quem pediu: só aparece no terminal em desenvolvimento.

@@ -218,6 +218,11 @@ REST_FRAMEWORK = {
     # Classe customizada que respeita ?page_size= na query string (max 1000)
     'DEFAULT_PAGINATION_CLASS': 'apps.core.pagination.StandardPagination',
     'PAGE_SIZE': 20,
+    # IP de quem chamou, para os limites por IP. O Cloud Run acrescenta no fim do X-Forwarded-For o IP que ele viu, e o
+    # que o próprio cliente manda nesse cabeçalho vem antes: com 1, o DRF usa só o último. Sem isso ele usava o cabeçalho
+    # inteiro, e quem inventava um X-Forwarded-For ganhava uma contagem nova a cada pedido.
+    # Com um balanceador de carga na frente do Cloud Run, ele acrescenta mais um IP: aí passa a 2.
+    'NUM_PROXIES': 1,
     # Limite de tentativas nas rotas sensíveis (classes em apps/core/throttles.py, ligadas nas próprias views)
     'DEFAULT_THROTTLE_RATES': {
         'signup': '10/hour',

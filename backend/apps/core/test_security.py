@@ -75,6 +75,49 @@ class RateLimitTests(SecurityTestCase):
         self.assertEqual(self.client.post(url, {'player_id': target.id}, format='json').status_code, 429)
         self.assertNotEqual(self.client.post(url, {'player_id': other.id}, format='json').status_code, 429)
 
+    def test_forged_forwarded_for_does_not_reset_the_ip_count(self):
+        # O Cloud Run acrescenta no fim do X-Forwarded-For o IP que ele viu; o que vem antes, o cliente inventa
+        def forgot(n, forwarded_for):
+            return self.client.post('/api/auth/forgot-password/', {'email': f'ninguem{n}@x.com'}, format='json',
+                                    HTTP_X_FORWARDED_FOR=forwarded_for)
+
+        for n in range(20):  # e-mails diferentes: só o limite por IP (20 por hora) conta
+            self.assertEqual(forgot(n, f'10.0.0.{n}, 203.0.113.7').status_code, 200)
+        self.assertEqual(forgot(20, '10.0.0.99, 203.0.113.7').status_code, 429)
+        self.assertEqual(forgot(21, '203.0.113.8').status_code, 200)  # outro IP de verdade tem a própria contagem
+
+
+class AdminLoginLimitTests(SecurityTestCase):
+    """O login do admin do Django tem o mesmo limite do login do app, e as tentativas dos dois somam."""
+
+    def setUp(self):
+        super().setUp()
+        User.objects.create_superuser('root@x.com', 'senha-forte-123', name='Root')
+
+    def admin_login(self, email, password='errada-123'):
+        return self.client.post('/admin/login/', {'username': email, 'password': password})
+
+    def test_right_password_gets_in(self):
+        self.assertEqual(self.admin_login('root@x.com', 'senha-forte-123').status_code, 302)  # vai para o painel
+
+    def test_admin_login_is_limited_per_account(self):
+        for _ in range(10):
+            self.assertEqual(self.admin_login('root@x.com').status_code, 200)  # o formulário volta com o erro
+        blocked = self.admin_login('root@x.com', 'senha-forte-123')
+        self.assertEqual(blocked.status_code, 429)
+        self.assertIn('Muitas tentativas', blocked.content.decode())
+        self.assertNotEqual(self.admin_login('admin@x.com', 'senha-forte-123').status_code, 429)  # outra conta segue
+
+    def test_attempts_add_up_with_the_app_login(self):
+        for _ in range(10):
+            self.client.post('/api/auth/login/', {'email': 'root@x.com', 'password': 'errada-123'}, format='json')
+        self.assertEqual(self.admin_login('root@x.com', 'senha-forte-123').status_code, 429)
+
+    def test_opening_the_page_does_not_count(self):
+        for _ in range(12):
+            self.assertEqual(self.client.get('/admin/login/').status_code, 200)
+        self.assertEqual(self.admin_login('root@x.com', 'senha-forte-123').status_code, 302)
+
 
 class ApiDocsTests(SecurityTestCase):
     """O mapa da API não fica aberto na internet em produção."""

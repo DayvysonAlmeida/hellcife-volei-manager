@@ -4,9 +4,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
+from apps.core.admin_login import limited_admin_login
 from apps.core.health import health
 
 urlpatterns = [
+    # Login do admin com limite de tentativas (o padrão do Django não tem): precisa vir antes do admin.site.urls
+    path('admin/login/', limited_admin_login),
     path('admin/', admin.site.urls),
     # Verificação de saúde: monitor externo e conferência de deploy (sem login)
     path('api/health/', health, name='health'),
